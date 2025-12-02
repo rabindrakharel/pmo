@@ -95,7 +95,7 @@
 │  │            "dtype": "uuid",                                        │      │
 │  │            "label": "Manager",                                     │      │
 │  │            "renderType": "entityInstanceId",                       │      │
-│  │            "lookupSource": "entityInstance",                       │      │
+│  │            "lookupSourceTable": "entityInstance",                  │      │
 │  │            "lookupEntity": "employee"                              │      │
 │  │          }                                                         │      │
 │  │        },                                                          │      │
@@ -104,7 +104,7 @@
 │  │            "dtype": "uuid",                                        │      │
 │  │            "label": "Manager",                                     │      │
 │  │            "inputType": "entityInstanceId",                        │      │
-│  │            "lookupSource": "entityInstance",                       │      │
+│  │            "lookupSourceTable": "entityInstance",                  │      │
 │  │            "lookupEntity": "employee"                              │      │
 │  │          }                                                         │      │
 │  │        }                                                           │      │

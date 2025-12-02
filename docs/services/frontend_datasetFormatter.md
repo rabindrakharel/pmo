@@ -89,15 +89,15 @@ interface ComponentMetadata {
   editType: Record<string, EditFieldMetadata>;
 }
 
-// ViewFieldMetadata - includes lookupEntity for references
+// ViewFieldMetadata - includes lookupEntity for references (v12.0.0)
 interface ViewFieldMetadata {
   dtype: string;
   label: string;
   renderType?: string;              // 'entityInstanceId', 'badge', 'currency', etc.
   component?: string;               // 'EntityInstanceName' or 'EntityInstanceNames'
-  lookupSource?: 'entityInstance' | 'datalabel';
+  lookupSourceTable?: 'entityInstance' | 'datalabel';  // v12.0.0: renamed from lookupSource
   lookupEntity?: string;            // Entity code (e.g., 'employee') - used by getEntityInstanceNameSync
-  datalabelKey?: string;            // Datalabel key (e.g., 'project_stage') - used by getDatalabelSync
+  lookupField?: string;             // v12.0.0: renamed from datalabelKey - used by getDatalabelSync
   behavior: { visible?: boolean; sortable?: boolean };
   style: Record<string, any>;
 }
@@ -109,13 +109,13 @@ interface FormattedRow<T> {
   styles: Record<string, string>;   // CSS classes (badges only)
 }
 
-// FieldMetadata for valueFormatters (v11.0.0)
+// FieldMetadata for valueFormatters (v12.0.0)
 interface FieldMetadata {
   renderType?: string;
   inputType?: string;
-  lookupSource?: 'entityInstance' | 'datalabel';
+  lookupSourceTable?: 'entityInstance' | 'datalabel';  // v12.0.0: renamed from lookupSource
   lookupEntity?: string;            // For entity reference resolution
-  datalabelKey?: string;            // For badge color lookup
+  lookupField?: string;             // v12.0.0: renamed from datalabelKey - For badge color lookup
   dtype?: string;
 }
 
@@ -283,14 +283,14 @@ const options = getDatalabelSync('project_stage');
 │                                                                              │
 │  viewType.dl__project_stage = {                                              │
 │    renderType: 'badge',                                                      │
-│    datalabelKey: 'project_stage'                                             │
+│    lookupField: 'dl__project_stage'   // v12.0.0: renamed from datalabelKey  │
 │  }                                                                           │
 │                       │                                                      │
 │                       ▼                                                      │
 │  formatBadge('planning', viewType.dl__project_stage)                         │
 │                       │                                                      │
 │                       ▼                                                      │
-│  getDatalabelSync('project_stage')   // From Dexie sync cache (v9.3.0)       │
+│  getDatalabelSync('dl__project_stage')  // v12.0.0: uses lookupField         │
 │    → [{ name: 'planning', label: 'Planning', color_code: 'blue' }]           │
 │                       │                                                      │
 │                       ▼                                                      │
@@ -415,10 +415,10 @@ switch (metadata.inputType) {
     const entityCodeMulti = metadata.lookupEntity;
     return <EntityInstanceNameMultiSelect entityCode={entityCodeMulti} />;
 
-  // Badge dropdown for datalabel fields (v8.3.2)
+  // Badge dropdown for datalabel fields (v12.0.0)
   case 'BadgeDropdownSelect':
     // Colored badge dropdown with portal rendering
-    const options = datalabelMetadataStore.getDatalabel(metadata.datalabelKey);
+    const options = getDatalabelSync(metadata.lookupField);  // v12.0.0: renamed from datalabelKey
     return <BadgeDropdownSelect options={options} value={value} onChange={onChange} />;
 
   default:
@@ -661,7 +661,7 @@ function extractEditType(metadata: ComponentMetadata | null): Record<string, Edi
   return metadata.editType;
 }
 
-// Check if field is entity reference (v11.0.0)
+// Check if field is entity reference (v12.0.0)
 function isEntityReferenceField(fieldMeta: FieldMetadata | undefined): boolean {
   if (!fieldMeta) return false;
   return (
@@ -672,7 +672,7 @@ function isEntityReferenceField(fieldMeta: FieldMetadata | undefined): boolean {
       (fieldMeta.component === 'EntityInstanceName' || fieldMeta.component === 'EntityInstanceNames')) ||
     fieldMeta.inputType === 'EntityInstanceNameSelect' ||
     fieldMeta.inputType === 'EntityInstanceNameMultiSelect' ||
-    fieldMeta.lookupSource === 'entityInstance'
+    fieldMeta.lookupSourceTable === 'entityInstance'  // v12.0.0: renamed from lookupSource
   );
 }
 
@@ -688,8 +688,8 @@ import { getEntityInstanceNameSync, getDatalabelSync } from '@/db/tanstack-index
 // Resolve entity name from cache
 const name = getEntityInstanceNameSync('employee', 'uuid-123');  // → 'James Miller' or null
 
-// Resolve datalabel options from cache
-const options = getDatalabelSync('project_stage');  // → [{ name, label, color_code }] or null
+// Resolve datalabel options from cache (v12.0.0: uses lookupField)
+const options = getDatalabelSync('dl__project_stage');  // → [{ name, label, color_code }] or null
 ```
 
 ---

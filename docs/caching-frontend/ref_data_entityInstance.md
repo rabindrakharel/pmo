@@ -351,7 +351,7 @@ fieldBusinessTypes:
 fieldBusinessTypes:
   entityInstance_Id:
     dtype: uuid
-    lookupSource: entityInstance
+    lookupSourceTable: entityInstance  # v12.0.0: renamed from lookupSource
     entityListOfInstancesTable:
       inputType: EntityInstanceNameSelect
       behavior: { editable: true, filterable: true, sortable: false }
@@ -392,7 +392,7 @@ async build_ref_data_entityInstance(
       "editType": {
         "manager__employee_id": {
           "inputType": "EntityInstanceNameSelect",
-          "lookupSource": "entityInstance",
+          "lookupSourceTable": "entityInstance",
           "lookupEntity": "employee"
         }
       }
@@ -508,7 +508,7 @@ export function formatReference(
 │                                                                              │
 │  metadata.editType.manager__employee_id:                                     │
 │  └── inputType: "EntityInstanceNameSelect"                                   │
-│  └── lookupSource: "entityInstance"                                          │
+│  └── lookupSourceTable: "entityInstance"    (v12.0.0)                        │
 │  └── lookupEntity: "employee"                                                │
 │                              │                                               │
 │                              ▼                                               │

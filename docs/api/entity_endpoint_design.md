@@ -265,7 +265,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
 │    metadata: {},  ← EMPTY by design               name: { renderType: 'text' },    │
 │                                                   dl__task_status: {               │
 │    total: 100,                                      renderType: 'badge',           │
-│    limit: 20,                                       datalabelKey: 'task_status'    │
+│    limit: 20,                                       lookupField: 'dl__task_status' │
 │    offset: 0                                      },                               │
 │  }                                                ...                              │
 │                                                 },                                  │

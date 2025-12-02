@@ -83,7 +83,7 @@
 │  │  ──────────────────────────        ─────────────────                    ││
 │  │  • YAML pattern matching           • Column name → dtype                 ││
 │  │  • Field-to-inputType mapping      • uuid, str, float, bool, etc.       ││
-│  │  • lookupSource detection          • Pattern-based detection             ││
+│  │  • lookupSourceTable detection     • Pattern-based detection             ││
 │  │                                                                          ││
 │  └─────────────────────────────────────────────────────────────────────────┘│
 │                                     │                                        │
@@ -220,15 +220,15 @@
 │  dl__project_stage     ──>  dl__*                  ──>  dtype: str          │
 │                                                         renderType: badge   │
 │                                                         inputType: select   │
-│                                                         lookupSource:datalabel
-│                                                         datalabelKey: dl__project_stage
+│                                                         lookupSourceTable: datalabel
+│                                                         lookupField: dl__project_stage
 │                                                                              │
 │  manager__employee_id  ──>  {label}__{entity}_id   ──>  dtype: uuid         │
 │                                                         renderType: component
 │                                                         component: EntityInstanceName
 │                                                         inputType: EntityInstanceNameSelect
 │                                                         lookupEntity: employee
-│                                                         lookupSource: entityInstance
+│                                                         lookupSourceTable: entityInstance
 │                                                                              │
 │  business_id           ──>  {entity}_id            ──>  dtype: uuid         │
 │                                                         renderType: component
@@ -319,7 +319,7 @@
 │    renderType: "component",         // v9.8.0: component-based rendering     │
 │    component: "EntityInstanceName", // v9.8.0: standardized component name   │
 │    lookupEntity: "employee",                                                 │
-│    lookupSource: "entityInstance"                                            │
+│    lookupSourceTable: "entityInstance"  // v12.0.0: renamed from lookupSource│
 │  }                                                                           │
 │                                                                              │
 │  stakeholder__employee_ids: {       // v9.8.0: Array reference               │
@@ -328,7 +328,7 @@
 │    renderType: "component",                                                  │
 │    component: "EntityInstanceNames", // Plural for arrays                    │
 │    lookupEntity: "employee",                                                 │
-│    lookupSource: "entityInstance"                                            │
+│    lookupSourceTable: "entityInstance"  // v12.0.0: renamed from lookupSource│
 │  }                                                                           │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -412,10 +412,10 @@ interface ViewTypeMetadata {
 
     // Entity reference fields
     lookupEntity?: string;            // Entity code for lookups (e.g., 'employee')
-    lookupSource?: 'entityInstance' | 'datalabel';
+    lookupSourceTable?: 'entityInstance' | 'datalabel';  // v12.0.0: renamed from lookupSource
 
-    // Datalabel fields
-    datalabelKey?: string;            // Key for datalabel lookup (e.g., 'dl__project_stage')
+    // Datalabel fields (v12.0.0: renamed from datalabelKey)
+    lookupField?: string;             // Field name for datalabel lookup (e.g., 'dl__project_stage')
 
     // Behavior configuration
     behavior: {
@@ -448,10 +448,10 @@ interface EditTypeMetadata {
 
     // Entity reference fields
     lookupEntity?: string;
-    lookupSource?: 'entityInstance' | 'datalabel';
+    lookupSourceTable?: 'entityInstance' | 'datalabel';  // v12.0.0: renamed from lookupSource
 
-    // Datalabel fields
-    datalabelKey?: string;
+    // Datalabel fields (v12.0.0: renamed from datalabelKey)
+    lookupField?: string;
 
     // Behavior configuration
     behavior: {
@@ -508,7 +508,7 @@ interface EditTypeMetadata {
           "dtype": "str",
           "label": "Project Stage",
           "renderType": "badge",
-          "datalabelKey": "dl__project_stage",
+          "lookupField": "dl__project_stage",
           "behavior": { "visible": true, "sortable": false, "filterable": true, "searchable": false }
         },
         "manager__employee_id": {
@@ -517,7 +517,7 @@ interface EditTypeMetadata {
           "renderType": "component",
           "component": "EntityInstanceName",
           "lookupEntity": "employee",
-          "lookupSource": "entityInstance",
+          "lookupSourceTable": "entityInstance",
           "behavior": { "visible": true, "sortable": false, "filterable": true, "searchable": false }
         },
         "start_date": {
@@ -567,15 +567,15 @@ interface EditTypeMetadata {
           "dtype": "str",
           "label": "Project Stage",
           "inputType": "select",
-          "lookupSource": "datalabel",
-          "datalabelKey": "dl__project_stage",
+          "lookupSourceTable": "datalabel",
+          "lookupField": "dl__project_stage",
           "behavior": { "editable": true }
         },
         "manager__employee_id": {
           "dtype": "uuid",
           "label": "Manager Employee Name",
           "inputType": "EntityInstanceNameSelect",
-          "lookupSource": "entityInstance",
+          "lookupSourceTable": "entityInstance",
           "lookupEntity": "employee",
           "behavior": { "editable": true }
         },
@@ -597,8 +597,8 @@ interface EditTypeMetadata {
 
 ### Field Type Mapping Matrix
 
-| Column Pattern | dtype | renderType | inputType | lookupSource | Example |
-|----------------|-------|------------|-----------|--------------|---------|
+| Column Pattern | dtype | renderType | inputType | lookupSourceTable | Example |
+|----------------|-------|------------|-----------|-------------------|---------|
 | `id` | uuid | text | - | - | Primary key |
 | `name` | str | text | text | - | Display name |
 | `code` | str | text | text | - | Business code |
@@ -803,7 +803,7 @@ patterns:
     dtype: str
     renderType: badge
     inputType: select
-    lookupSource: datalabel
+    lookupSourceTable: datalabel  # v12.0.0: renamed from lookupSource
 
   # Percentage
   - pattern: "*_pct"

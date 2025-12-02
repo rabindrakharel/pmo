@@ -254,7 +254,7 @@
 |----------|----------|---------|
 | **viewType** | `renderType` + `component` | Controls WHICH component renders (view mode) |
 | **editType** | `inputType` + `component` | Controls WHICH component renders (edit mode) |
-| **editType** | `lookupSource` + `datalabelKey` | Controls WHERE data comes from |
+| **editType** | `lookupSourceTable` + `lookupField` | Controls WHERE data comes from (v12.0.0) |
 
 ---
 
@@ -388,7 +388,7 @@ interface ComponentMetadata {
 │        renderType: viewMeta.renderType,                                      │
 │        component: viewMeta.component,                                        │
 │        inputType: editMeta?.inputType ?? 'text',                            │
-│        lookupSource: editMeta?.lookupSource,                                 │
+│        lookupSourceTable: editMeta?.lookupSourceTable,                                 │
 │        lookupEntity,  // For entity reference resolution                     │
 │      };                                                                      │
 │    });                                                                       │
@@ -416,7 +416,7 @@ interface ViewFieldMetadata {
     visible?: boolean;    // Show in form
   };
   style: Record<string, any>;
-  datalabelKey?: string;  // For badge fields
+  lookupField?: string;  // For badge/datalabel fields (v12.0.0)
   lookupEntity?: string;  // For entity reference fields
 }
 ```
@@ -437,8 +437,8 @@ interface EditFieldMetadata {
     max?: number;
     pattern?: string;
   };
-  lookupSource?: 'datalabel' | 'entityInstance';
-  datalabelKey?: string;    // For datalabel select fields
+  lookupSourceTable?: 'datalabel' | 'entityInstance';  // v12.0.0
+  lookupField?: string;    // For datalabel select fields (v12.0.0)
   lookupEntity?: string;    // For entity reference fields
 }
 ```
@@ -616,7 +616,7 @@ export const EntityInstanceFormContainer = React.memo(EntityInstanceFormContaine
   - Updated data flow documentation
 - v8.3.2 (2025-11-27): **Component-Driven Rendering Architecture**
   - viewType controls WHICH component renders (`renderType: 'component'` + `component`)
-  - editType controls WHERE data comes from (`lookupSource: 'datalabel'` + `datalabelKey`)
+  - editType controls WHERE data comes from (`lookupSourceTable: 'datalabel'` + `lookupField`)
 - v8.3.0 (2025-11-26): **ref_data_entityInstance Pattern**
   - Added `ref_data_entityInstance?: RefData` prop for entity reference resolution
   - Deprecated `_ID`/`_IDS` embedded object pattern

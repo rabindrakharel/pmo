@@ -161,7 +161,7 @@ interface ViewFieldMetadata {
     decimals?: number;    // Decimal places
   };
   lookupEntity?: string;  // For entity reference fields
-  datalabelKey?: string;  // For badge/select fields
+  lookupField?: string;   // v12.0.0: For badge/datalabel fields (renamed from datalabelKey)
 }
 ```
 
@@ -181,8 +181,8 @@ interface EditFieldMetadata {
     max?: number;
     pattern?: string;
   };
-  lookupSource?: 'datalabel' | 'entityInstance';
-  datalabelKey?: string;  // For select fields
+  lookupSourceTable?: 'datalabel' | 'entityInstance';  // v12.0.0: renamed from lookupSource
+  lookupField?: string;   // v12.0.0: For select fields (renamed from datalabelKey)
   lookupEntity?: string;  // For entity reference fields
 }
 ```

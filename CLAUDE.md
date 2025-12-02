@@ -432,25 +432,25 @@ fastify.get('/api/v1/project', async (request, reply) => {
           "label": "Manager",
           "renderType": "entityInstanceId",
           "lookupEntity": "employee",
-          "lookupSource": "entityInstance"
+          "lookupSourceTable": "entityInstance"
         },
         "dl__project_stage": {
           "dtype": "str",
           "label": "Project Stage",
           "renderType": "badge",
-          "datalabelKey": "project_stage"
+          "lookupField": "dl__project_stage"
         }
       },
       "editType": {
         "manager__employee_id": {
           "inputType": "entityInstanceId",
           "lookupEntity": "employee",
-          "lookupSource": "entityInstance"
+          "lookupSourceTable": "entityInstance"
         },
         "dl__project_stage": {
           "inputType": "BadgeDropdownSelect",
-          "lookupSource": "datalabel",
-          "datalabelKey": "project_stage"
+          "lookupSourceTable": "datalabel",
+          "lookupField": "dl__project_stage"
         }
       }
     }
@@ -829,7 +829,7 @@ Comprehensive page and component architecture documentation. Used by LLMs when i
 - v8.3.2 (2025-11-27): **Component-Driven Rendering + BadgeDropdownSelect**
   - Added `BadgeDropdownSelect` component for colored datalabel dropdowns
   - viewType controls WHICH component renders (`renderType: 'component'` + `component`)
-  - editType controls WHERE data comes from (`lookupSource: 'datalabel'` + `datalabelKey`)
+  - editType controls WHERE data comes from (`lookupSourceTable: 'datalabel'` + `lookupField`)
 - v8.3.0 (2025-11-26): **ref_data_entityInstance Pattern**
   - Added `ref_data_entityInstance` to API responses for O(1) entity reference resolution
   - Added `build_ref_data_entityInstance()` method to entity-infrastructure.service

@@ -233,20 +233,19 @@ case 'color_code':
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  1. LOGIN: Datalabels fetched once via GET /api/v1/datalabel/all            │
-│     └── Stored in datalabelMetadataStore (Zustand + localStorage)           │
+│     └── Stored in TanStack Query + Dexie (v12.0.0)                          │
 │     └── TTL: 1 hour                                                          │
 │                                                                              │
 │  2. API RESPONSE:                                                            │
-│     metadata.entityInstanceFormContainer.editType.dl__project_stage = {             │
-│       inputType: "component",                                                │
+│     metadata.entityInstanceFormContainer.editType.dl__project_stage = {     │
+│       inputType: "select",                                                   │
 │       component: "BadgeDropdownSelect",                                      │
-│       lookupSource: "datalabel",                                             │
-│       datalabelKey: "dl__project_stage"                                      │
+│       lookupSourceTable: "datalabel",                                        │
+│       lookupField: "dl__project_stage"                                       │
 │     }                                                                        │
 │                                                                              │
-│  3. COMPONENT MOUNT: Read from datalabel cache (SYNCHRONOUS)                │
-│     const cachedOptions = useDatalabelMetadataStore.getState()              │
-│       .getDatalabel('dl__project_stage');                                    │
+│  3. COMPONENT MOUNT: Read from TanStack sync cache (v12.0.0)                │
+│     const cachedOptions = getDatalabelSync('dl__project_stage');            │
 │     // Returns: [{id, name, color_code, sort_order, ...}]                    │
 │                                                                              │
 │  4. TRANSFORM: DatalabelOption[] → BadgeDropdownSelectOption[]              │
@@ -273,24 +272,26 @@ Backend metadata configures BadgeDropdownSelect via `edit-type-mapping.yaml`:
 # Standard datalabel fields (non-DAG)
 datalabel_standard:
   dtype: str
-  lookupSource: datalabel
+  lookupSourceTable: datalabel    # v12.0.0: renamed from lookupSource
   entityListOfInstancesTable:
     renderType: badge
     inputType: select  # Falls back to BadgeDropdownSelect when hasLabelsMetadata
     behavior: { editable: true, filterable: true }
   entityInstanceFormContainer:
     inputType: select  # Uses BadgeDropdownSelect for datalabel fields
+  # lookupField auto-set by backend-formatter.service.ts
 
 # DAG datalabels (stage/state/status with parent-child)
 datalabel_dag:
   dtype: str
-  lookupSource: datalabel
+  lookupSourceTable: datalabel    # v12.0.0: renamed from lookupSource
   entityListOfInstancesTable:
     renderType: component
     component: DAGVisualizer
   entityInstanceFormContainer:
-    inputType: component
+    inputType: select
     component: BadgeDropdownSelect  # Edit mode uses dropdown, not DAG
+  # lookupField auto-set by backend-formatter.service.ts
 ```
 
 ---

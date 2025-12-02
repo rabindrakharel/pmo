@@ -1,8 +1,12 @@
 # Datalabel System - End-to-End Data Flow
 
-**Version:** 8.6.0 | **Updated:** 2025-11-28
+**Version:** 12.0.0 | **Updated:** 2025-12-02
 
-> **Note:** As of v8.6.0, datalabel data is cached in RxDB (IndexedDB) along with all other metadata. Access via `useRxDatalabel()` hook or `getDatalabelSync()` for non-hook contexts.
+> **v12.0.0 Breaking Changes:**
+> - `lookupSource` → `lookupSourceTable`
+> - `datalabelKey` → `lookupField`
+> - Cache: TanStack Query + Dexie (replaced RxDB)
+> - Access: `useDatalabel()` hook or `getDatalabelSync()` for non-hook contexts
 
 ---
 
@@ -13,40 +17,48 @@
 | Metadata | Property | Purpose |
 |----------|----------|---------|
 | **viewType** | `renderType` + `component` | Controls WHICH component renders (view mode) |
+| **viewType** | `lookupField` | Field name for badge color lookup (v12.0.0) |
 | **editType** | `inputType` + `component` | Controls WHICH component renders (edit mode) |
-| **editType** | `lookupSource` + `datalabelKey` | Controls WHERE data comes from |
+| **editType** | `lookupSourceTable` + `lookupField` | Controls WHERE data comes from (v12.0.0) |
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  DATALABEL FIELD RENDERING ARCHITECTURE (v8.3.2)                             │
+│  DATALABEL FIELD RENDERING ARCHITECTURE (v12.0.0)                           │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  viewType.dl__project_stage:                                                 │
-│  ┌────────────────────────────────┐                                          │
-│  │ renderType: "component"        │──┐                                       │
-│  │ component: "DAGVisualizer"     │──┼──► viewVizContainer = "DAGVisualizer" │
-│  └────────────────────────────────┘  │                                       │
-│                                      │                                       │
-│                                      ▼                                       │
-│          EntityInstanceFormContainer_viz_container: {                                │
-│            view: "DAGVisualizer"   ◄── VIEW mode switch                     │
-│          }                                                                   │
-│                                      │                                       │
-│                                      ▼                                       │
-│          if (vizContainer?.view === 'DAGVisualizer') {                       │
-│            return <DAGVisualizer nodes={...} />                              │
-│          }                                                                   │
+│  ┌────────────────────────────────────────┐                                  │
+│  │ renderType: "badge"                    │──► Badge with color from cache  │
+│  │ lookupField: "dl__project_stage"       │──► Key for getDatalabelSync()   │
+│  └────────────────────────────────────────┘                                  │
+│                    │                                                         │
+│                    ▼                                                         │
+│  formatBadge() reads lookupField → getDatalabelSync(lookupField)            │
+│  → finds matching option → applies color_code style                          │
 │                                                                              │
 │  editType.dl__project_stage:                                                 │
-│  ┌────────────────────────────────┐                                          │
-│  │ inputType: "component"         │──┐                                       │
-│  │ component: "BadgeDropdownSelect"│──┼──► editVizContainer = "BadgeDropdownSelect"│
-│  │ lookupSource: "datalabel"      │──┼──► Filter for loading datalabel options│
-│  │ datalabelKey: "dl__project_stage"│──► Cache key for options               │
-│  └────────────────────────────────┘                                          │
+│  ┌────────────────────────────────────────┐                                  │
+│  │ inputType: "select"                    │──► Dropdown component           │
+│  │ component: "BadgeDropdownSelect"       │──► Colored badge dropdown       │
+│  │ lookupSourceTable: "datalabel"         │──► Load from datalabel cache    │
+│  │ lookupField: "dl__project_stage"       │──► Key for useDatalabel()       │
+│  └────────────────────────────────────────┘                                  │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Property Naming (v12.0.0)
+
+| Old Name (< v12.0.0) | New Name (v12.0.0+) | Location | Purpose |
+|----------------------|---------------------|----------|---------|
+| `lookupSource` | `lookupSourceTable` | editType | Where to load options: `'datalabel'` or `'entityInstance'` |
+| `datalabelKey` | `lookupField` | viewType + editType | Field name for lookup (e.g., `'dl__project_stage'`) |
+
+**Why both viewType and editType need `lookupField`:**
+- **viewType**: Badge color resolution via `getDatalabelSync(lookupField)`
+- **editType**: Dropdown options loading via `useDatalabel(lookupField)`
 
 ---
 
@@ -86,24 +98,36 @@ app.datalabel_project_stage
 ### YAML Configuration (view-type-mapping.yaml)
 
 ```yaml
-datalabel_dag:
+datalabel:
   dtype: str
-  entityInstanceFormContainer:
-    renderType: component          # ← Triggers component switch
-    component: DAGVisualizer       # ← WHICH component to render
-    style: { showHierarchy: true, interactive: false }
+  entityListOfInstancesTable:
+    renderType: badge
+    behavior: { visible: true, filterable: true, sortable: true }
+    style: { colorFromData: true }
+  # lookupField is auto-set by backend-formatter.service.ts
 ```
 
 ### YAML Configuration (edit-type-mapping.yaml)
 
 ```yaml
-datalabel_dag:
+datalabel:
   dtype: str
-  lookupSource: datalabel          # ← WHERE data comes from
-  entityInstanceFormContainer:
-    inputType: component
+  lookupSourceTable: datalabel           # ← v12.0.0: WHERE data comes from
+  entityListOfInstancesTable:
+    inputType: select
     component: BadgeDropdownSelect
-    behavior: { editable: true }
+    behavior: { editable: true, filterable: true }
+  # lookupField is auto-set by backend-formatter.service.ts
+```
+
+### Backend Auto-Population (backend-formatter.service.ts)
+
+```typescript
+// v12.0.0: Auto-set lookupField for datalabel fields
+if (edit.lookupSourceTable === 'datalabel') {
+  edit.lookupField = fieldName;  // e.g., "dl__project_stage"
+  view.lookupField = fieldName;  // Set on BOTH for badge color resolution
+}
 ```
 
 ---
@@ -116,24 +140,25 @@ datalabel_dag:
     "dl__project_stage": "Execution"
   },
   "metadata": {
-    "entityInstanceFormContainer": {
+    "entityListOfInstancesTable": {
       "viewType": {
         "dl__project_stage": {
           "dtype": "str",
           "label": "Project Stage",
-          "renderType": "component",
-          "component": "DAGVisualizer",
-          "behavior": { "visible": true }
+          "renderType": "badge",
+          "lookupField": "dl__project_stage",
+          "behavior": { "visible": true, "filterable": true },
+          "style": { "colorFromData": true }
         }
       },
       "editType": {
         "dl__project_stage": {
           "dtype": "str",
           "label": "Project Stage",
-          "inputType": "component",
+          "inputType": "select",
           "component": "BadgeDropdownSelect",
-          "lookupSource": "datalabel",
-          "datalabelKey": "dl__project_stage",
+          "lookupSourceTable": "datalabel",
+          "lookupField": "dl__project_stage",
           "behavior": { "editable": true }
         }
       }
@@ -144,26 +169,29 @@ datalabel_dag:
 
 ---
 
-## Phase 4: Login-Time Caching (v8.6.0 - RxDB)
+## Phase 4: Login-Time Caching (v12.0.0 - TanStack Query + Dexie)
 
 ```typescript
 // AuthContext.tsx - On successful login
-import { prefetchAllMetadata } from '@/db/rxdb';
+import { prefetchAllMetadata } from '@/db/tanstack-index';
 
-// Prefetch ALL metadata into RxDB (IndexedDB) + sync cache
+// Prefetch ALL metadata into TanStack Query + Dexie (IndexedDB)
 await prefetchAllMetadata();
 
 // This populates:
-// 1. RxDB metadata collection (persistent in IndexedDB)
-// 2. Sync cache (in-memory for non-hook access)
+// 1. TanStack Query cache (in-memory, auto-refetch)
+// 2. Dexie IndexedDB (persistent, survives browser restart)
+// 3. Sync cache (in-memory for non-hook access)
 
 // Access in components via hook:
-const { options } = useRxDatalabel('project_stage');
+const { options, isLoading } = useDatalabel('dl__project_stage');
 
 // Access in formatters/utilities via sync cache:
-const options = getDatalabelSync('project_stage');
+const options = getDatalabelSync('dl__project_stage');
 
-// Cache structure (same as before):
+// Cache structure:
+// TanStack Query key: ['datalabel', 'dl__project_stage']
+// Dexie table: 'datalabel' with key 'dl__project_stage'
 {
   "dl__project_stage": [
     { id: 1, name: "Initiation", parent_ids: [], color_code: "gray" },
@@ -175,87 +203,155 @@ const options = getDatalabelSync('project_stage');
 }
 ```
 
+### Data Flow Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  DATALABEL CACHING ARCHITECTURE (v12.0.0)                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  API Response:                          Frontend Cache:                      │
+│  ┌─────────────────────────────┐        ┌─────────────────────────────────┐ │
+│  │ GET /api/v1/datalabel/all   │        │  TanStack Query (in-memory)     │ │
+│  │                             │        │  ├── ['datalabel-all']          │ │
+│  │ { data: [                   │──────► │  └── auto-refetch on stale      │ │
+│  │   { name: "dl__project_stage",       │                                  │ │
+│  │     options: [...] },       │        │  Dexie IndexedDB (persistent)   │ │
+│  │   { name: "dl__task_status",│        │  ├── datalabel table            │ │
+│  │     options: [...] }        │        │  └── survives browser restart   │ │
+│  │ ] }                         │        │                                  │ │
+│  └─────────────────────────────┘        │  Sync Cache (in-memory)          │ │
+│                                         │  └── getDatalabelSync() access   │ │
+│  queryFn transforms array to record:    └─────────────────────────────────┘ │
+│  { "dl__project_stage": [...options] }                                       │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
 ---
 
 ## Phase 5: Frontend Rendering
 
-### EntityInstanceFormContainer Field Building (lines 155-191)
+### Badge Color Resolution (viewType)
+
+```typescript
+// valueFormatters.ts - formatBadge()
+export function formatBadge(
+  value: string | null | undefined,
+  key: string,
+  metadata?: ViewFieldMetadata
+): FormattedValue {
+  if (!value) return { display: '-', style: '' };
+
+  // v12.0.0: Use lookupField for datalabel color lookup
+  const lookupField = metadata?.lookupField;
+  if (lookupField) {
+    const options = getDatalabelSync(lookupField);
+    if (options) {
+      const option = options.find(opt => opt.name === value);
+      if (option?.color_code) {
+        return {
+          display: value,
+          style: `bg-${option.color_code}-100 text-${option.color_code}-800`
+        };
+      }
+    }
+  }
+
+  return { display: value, style: 'bg-gray-100 text-gray-800' };
+}
+```
+
+### Dropdown Options (editType)
+
+```typescript
+// EntityListOfInstancesTable.tsx - Column definition
+const datalabelColumns = columns.filter(
+  col => col.editMeta?.lookupSourceTable === 'datalabel'
+);
+
+// For each datalabel column, fetch options
+datalabelColumns.forEach(col => {
+  const lookupField = col.editMeta?.lookupField;
+  if (lookupField) {
+    const { options } = useDatalabel(lookupField);
+    // options = [{ id, name, color_code, ... }]
+  }
+});
+```
+
+### EntityInstanceFormContainer Field Building
 
 ```typescript
 const fields = useMemo(() => {
   return Object.entries(viewType).map(([fieldKey, viewMeta]) => {
     const editMeta = editType?.[fieldKey];
 
-    // viewType controls WHICH component renders
-    const viewVizContainer = (viewMeta.renderType === 'component' && viewMeta.component)
-      ? viewMeta.component    // "DAGVisualizer"
-      : undefined;
-
-    // editType controls WHERE data comes from
-    const lookupSource = editMeta?.lookupSource;     // "datalabel"
-    const datalabelKey = editMeta?.datalabelKey;     // "dl__project_stage"
+    // v12.0.0: Read lookupField from metadata
+    const lookupSourceTable = editMeta?.lookupSourceTable;  // "datalabel"
+    const lookupField = editMeta?.lookupField;              // "dl__project_stage"
 
     return {
       key: fieldKey,
-      lookupSource,
-      datalabelKey,
-      EntityInstanceFormContainer_viz_container: {
-        view: viewVizContainer,   // "DAGVisualizer"
-        edit: editVizContainer    // "BadgeDropdownSelect"
-      }
+      lookupSourceTable,
+      lookupField,
+      viewMeta,
+      editMeta,
     };
   });
 }, [metadata]);
 ```
 
-### Datalabel Loading (lines 232-272)
+### Datalabel Loading for Forms
 
 ```typescript
 const { labelsMetadata, dagNodes } = useMemo(() => {
-  // Filter: fields with lookupSource='datalabel' or datalabelKey
-  const fieldsNeedingSettings = fields.filter(
-    field => field.lookupSource === 'datalabel' || field.datalabelKey
+  // v12.0.0: Filter by lookupSourceTable instead of lookupSource
+  const fieldsNeedingDatalabels = fields.filter(
+    field => field.lookupSourceTable === 'datalabel'
   );
 
-  fieldsNeedingSettings.forEach((field) => {
-    // Use datalabelKey for cache lookup
-    const lookupKey = field.datalabelKey || field.key;
-    const cachedOptions = datalabelStore.getDatalabel(lookupKey);
+  fieldsNeedingDatalabels.forEach((field) => {
+    // v12.0.0: Use lookupField instead of datalabelKey
+    const lookupField = field.lookupField || field.key;
+    const cachedOptions = getDatalabelSync(lookupField);
 
-    // Load DAG nodes if view uses DAGVisualizer
-    if (vizContainer?.view === 'DAGVisualizer') {
-      dagNodesMap.set(field.key, transformToDAGNodes(cachedOptions));
+    if (cachedOptions) {
+      labelsMap.set(field.key, cachedOptions);
     }
   });
 }, [fields]);
 ```
 
-### View Mode Rendering (lines 346-374)
+### View Mode Rendering (Badge)
 
 ```typescript
-// VIEW MODE: DAGVisualizer
-if (vizContainer?.view === 'DAGVisualizer' && dagNodes.has(field.key)) {
-  const nodes = dagNodes.get(field.key)!;
-  const currentNode = nodes.find(n => n.node_name === value);
-
+// Using formatBadge with metadata containing lookupField
+if (viewMeta.renderType === 'badge') {
+  const formatted = formatBadge(value, field.key, viewMeta);
   return (
-    <DAGVisualizer
-      nodes={nodes}
-      currentNodeId={currentNode?.id}
-    />
+    <span className={formatted.style}>
+      {formatted.display}
+    </span>
   );
 }
 ```
 
-### Edit Mode Rendering (lines 627-654)
+### Edit Mode Rendering (BadgeDropdownSelect)
 
 ```typescript
-// EDIT MODE: BadgeDropdownSelect (via select case)
-if (hasLabelsMetadata && options.length > 0) {
+if (editMeta?.component === 'BadgeDropdownSelect') {
+  const lookupField = editMeta.lookupField;
+  const options = getDatalabelSync(lookupField) || [];
+
   return (
     <BadgeDropdownSelect
       value={value}
-      options={coloredOptions}
+      options={options.map(opt => ({
+        value: opt.name,
+        label: opt.name,
+        color: opt.color_code
+      }))}
       onChange={(v) => handleFieldChange(field.key, v)}
     />
   );
@@ -269,13 +365,43 @@ if (hasLabelsMetadata && options.length > 0) {
 | File | Purpose |
 |------|---------|
 | `apps/api/src/services/pattern-mapping.yaml` | Field pattern → fieldBusinessType |
-| `apps/api/src/services/view-type-mapping.yaml` | viewType metadata per component |
-| `apps/api/src/services/edit-type-mapping.yaml` | editType metadata per component |
-| `apps/api/src/services/backend-formatter.service.ts` | Generates API response metadata |
-| `apps/web/src/db/rxdb/hooks/useRxMetadata.ts` | RxDB datalabel hooks (v8.6.0) |
-| `apps/web/src/components/shared/entity/EntityInstanceFormContainer.tsx` | Field rendering |
-| `apps/web/src/components/workflow/DAGVisualizer.tsx` | DAG graph component |
-| `apps/web/src/components/shared/ui/BadgeDropdownSelect.tsx` | Colored dropdown |
+| `apps/api/src/services/view-type-mapping.yaml` | viewType metadata (renderType, lookupField) |
+| `apps/api/src/services/edit-type-mapping.yaml` | editType metadata (inputType, lookupSourceTable, lookupField) |
+| `apps/api/src/services/backend-formatter.service.ts` | Generates API response metadata, auto-sets lookupField |
+| `apps/web/src/db/cache/hooks/useDatalabel.ts` | TanStack Query hooks for datalabel access |
+| `apps/web/src/db/tanstack-index.ts` | Exports `getDatalabelSync()`, `prefetchAllMetadata()` |
+| `apps/web/src/lib/formatters/valueFormatters.ts` | `formatBadge()` uses lookupField for color |
+| `apps/web/src/lib/formatters/types.ts` | ViewFieldMetadata, EditFieldMetadata types |
+| `apps/web/src/components/shared/entity/EntityInstanceFormContainer.tsx` | Field rendering with datalabel support |
+| `apps/web/src/components/shared/ui/BadgeDropdownSelect.tsx` | Colored dropdown component |
+
+---
+
+## API Transform Pattern (v12.0.0)
+
+The API returns datalabels as an array, but the frontend cache stores them as a record:
+
+```typescript
+// useDatalabel.ts - useAllDatalabels()
+queryFn: async () => {
+  // API returns: { data: [{ name, options }, { name, options }, ...] }
+  const response = await apiClient.get('/api/v1/datalabel/all');
+
+  // Transform to record in queryFn (format-at-fetch boundary)
+  const allDatalabels: Record<string, DatalabelOption[]> = {};
+  for (const item of response.data?.data || []) {
+    allDatalabels[item.name] = item.options;
+  }
+
+  // Store per-key in TanStack Query + Dexie
+  for (const [key, options] of Object.entries(allDatalabels)) {
+    queryClient.setQueryData(['datalabel', key], options);
+    await dexieDb.datalabel.put({ key, options, updatedAt: Date.now() });
+  }
+
+  return allDatalabels;
+}
+```
 
 ---
 
@@ -283,11 +409,41 @@ if (hasLabelsMetadata && options.length > 0) {
 
 | Anti-Pattern | Correct Approach |
 |--------------|------------------|
-| Pattern detection in frontend | Use `viewType.renderType === 'component'` |
-| Checking field name for `dl__*` | Use `editType.lookupSource === 'datalabel'` |
-| Fetching datalabels per field | Use login-time cache from store |
-| Hardcoded component names | Read from `viewType.component` |
+| Pattern detection in frontend (checking `dl__*`) | Use `viewType.lookupField` or `editType.lookupSourceTable` |
+| Using old property names (`lookupSource`, `datalabelKey`) | Use v12.0.0 names: `lookupSourceTable`, `lookupField` |
+| Fetching datalabels per field | Use login-time cache via `getDatalabelSync()` or `useDatalabel()` |
+| Hardcoded component names | Read from `viewType.component` or `editType.component` |
+| Only setting `lookupField` on editType | Backend sets on BOTH viewType and editType for badge colors |
+| Transforming API response in component | Transform in `queryFn` at the fetch boundary |
 
 ---
 
-**Version:** 8.6.0 | **Updated:** 2025-11-28 | **Status:** Production Ready
+## Migration from v8.x to v12.0.0
+
+```typescript
+// Before (v8.x)
+const lookupSource = editMeta?.lookupSource;      // ❌ Old name
+const datalabelKey = editMeta?.datalabelKey;      // ❌ Old name
+const options = useRxDatalabel(datalabelKey);     // ❌ RxDB hook
+
+// After (v12.0.0)
+const lookupSourceTable = editMeta?.lookupSourceTable;  // ✅ New name
+const lookupField = editMeta?.lookupField;              // ✅ New name
+const { options } = useDatalabel(lookupField);          // ✅ TanStack Query hook
+
+// Sync access (for formatters)
+const options = getDatalabelSync(lookupField);          // ✅ Sync cache
+```
+
+---
+
+**Version:** 12.0.0 | **Updated:** 2025-12-02 | **Status:** Production Ready
+
+**Recent Updates:**
+- v12.0.0 (2025-12-02):
+  - Renamed `lookupSource` → `lookupSourceTable`
+  - Renamed `datalabelKey` → `lookupField`
+  - Backend auto-sets `lookupField` on BOTH viewType and editType
+  - Migrated from RxDB to TanStack Query + Dexie
+  - API response array-to-record transform in `queryFn`
+  - Updated all code examples and documentation

@@ -21,13 +21,13 @@ The Kanban system provides a standardized, settings-driven board view for any en
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
 │  │                    entityConfig.kanban                           │    │
-│  │  { groupByField: 'dl__task_stage', datalabelKey: 'task_stage' } │    │
+│  │  { groupByField: 'dl__task_stage', lookupField: 'dl__task_stage' } │  │
 │  └─────────────────────────────────────────────────────────────────┘    │
 │                              │                                          │
 │                              v                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                    Datalabel Store (Zustand)                     │    │
-│  │  datalabelMetadataStore.getDatalabel('task_stage')              │    │
+│  │                    TanStack Query + Dexie Cache (v12.0.0)        │    │
+│  │  getDatalabelSync('dl__task_stage')                             │    │
 │  │  → { options: [{ name, label, color_code, position }] }         │    │
 │  │  (Cached at login, 1-hour TTL)                                   │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
@@ -91,7 +91,7 @@ interface KanbanViewProps {
 interface EntityConfig {
   kanban?: {
     groupByField: string;      // Field to group by (e.g., 'dl__task_stage')
-    datalabelKey: string;      // Key in datalabelMetadataStore
+    lookupField: string;       // v12.0.0: Key for getDatalabelSync() (e.g., 'dl__task_stage')
     cardFields?: string[];     // Fields to show on card
   };
   supportedViews?: ('table' | 'kanban' | 'grid' | 'calendar')[];
@@ -109,16 +109,16 @@ Column Generation Flow
 Entity Config                Datalabel Store                  Kanban Columns
 ─────────────                ───────────────                  ──────────────
 
-kanban: {             →     datalabelMetadataStore     →     columns: [
-  datalabelKey:               .getDatalabel('task_stage')     { id: "backlog",
-  'task_stage',              ↓                                  title: "Backlog",
-  groupByField:              options: [                         color: "#6B7280",
-  'dl__task_stage'             { name: "backlog",               items: [...] },
-}                               label: "Backlog",              { id: "todo",
-                                color_code: "gray" },           title: "To Do",
-                              { name: "todo",                   color: "#3B82F6",
-                                label: "To Do",                 items: [...] }
-                                color_code: "blue" }          ]
+kanban: {             →     getDatalabelSync(lookupField) →  columns: [
+  lookupField:                                                  { id: "backlog",
+  'dl__task_stage',          ↓                                    title: "Backlog",
+  groupByField:              options: [                           color: "#6B7280",
+  'dl__task_stage'             { name: "backlog",                 items: [...] },
+}                               label: "Backlog",                { id: "todo",
+                                color_code: "gray" },             title: "To Do",
+                              { name: "todo",                     color: "#3B82F6",
+                                label: "To Do",                   items: [...] }
+                                color_code: "blue" }            ]
                             ]
 
 
@@ -166,7 +166,7 @@ To: "in_progress"      { dl__task_stage:          v
 ### KanbanView with Datalabel Store
 
 ```typescript
-import { useDatalabelMetadataStore } from '@/stores/datalabelMetadataStore';
+import { getDatalabelSync } from '@/db/tanstack-index';
 import { extractViewType } from '@/lib/formatters';
 import type { FormattedRow } from '@/lib/formatters';
 
@@ -177,13 +177,12 @@ export function KanbanView({
   onCardClick,
   onCardMove,
 }: KanbanViewProps) {
-  // Get datalabel from store (cached at login)
-  const getDatalabel = useDatalabelMetadataStore(state => state.getDatalabel);
-  const datalabelKey = config.kanban?.datalabelKey;
+  // v12.0.0: Use lookupField instead of datalabelKey
+  const lookupField = config.kanban?.lookupField;
   const groupByField = config.kanban?.groupByField;
 
-  // Get column definitions from datalabel store
-  const datalabelData = datalabelKey ? getDatalabel(datalabelKey) : null;
+  // v12.0.0: Get column definitions from TanStack sync cache
+  const datalabelData = lookupField ? getDatalabelSync(lookupField) : null;
   const stages = datalabelData?.options || [];
 
   // Get viewType for card field rendering
@@ -224,7 +223,7 @@ export function KanbanView({
 
   // Empty state
   if (stages.length === 0) {
-    return <div>No stages configured for {datalabelKey}</div>;
+    return <div>No stages configured for {lookupField}</div>;
   }
 
   return (
@@ -341,7 +340,7 @@ export const entityConfig = {
     supportedViews: ['table', 'kanban'],
     kanban: {
       groupByField: 'dl__task_stage',      // Field in entity data
-      datalabelKey: 'task_stage',          // Key in datalabelMetadataStore
+      lookupField: 'dl__task_stage',       // v12.0.0: Key for getDatalabelSync()
       cardFields: ['name', 'dl__task_priority', 'assigned__employee_id'],
     },
   },
@@ -351,7 +350,7 @@ export const entityConfig = {
     supportedViews: ['table', 'kanban', 'grid'],
     kanban: {
       groupByField: 'dl__project_stage',
-      datalabelKey: 'project_stage',
+      lookupField: 'dl__project_stage',    // v12.0.0: Key for getDatalabelSync()
       cardFields: ['name', 'budget_allocated_amt'],
     },
   },
@@ -384,11 +383,11 @@ export const entityConfig = {
 
 ### Entity to Kanban Support
 
-| Entity | groupByField | datalabelKey |
-|--------|--------------|--------------|
-| Task | `dl__task_stage` | `task_stage` |
-| Project | `dl__project_stage` | `project_stage` |
-| Opportunity | `dl__opportunity_stage` | `opportunity_stage` |
+| Entity | groupByField | lookupField (v12.0.0) |
+|--------|--------------|----------------------|
+| Task | `dl__task_stage` | `dl__task_stage` |
+| Project | `dl__project_stage` | `dl__project_stage` |
+| Opportunity | `dl__opportunity_stage` | `dl__opportunity_stage` |
 
 ---
 
@@ -402,9 +401,9 @@ View Kanban Flow
    │
 2. KanbanView mounts
    │
-3. Get columns from datalabelMetadataStore:
-   ├── datalabelKey from config.kanban
-   └── getDatalabel(datalabelKey) → stages array
+3. Get columns from TanStack sync cache (v12.0.0):
+   ├── lookupField from config.kanban
+   └── getDatalabelSync(lookupField) → stages array
    │
 4. Get viewType for card rendering:
    const viewType = extractViewType(metadata.entityListOfInstancesTable);
@@ -461,7 +460,7 @@ Settings Change Flow
 
 ### Design Principles (v8.2.0)
 
-1. **Datalabel Store** - Columns from `datalabelMetadataStore` (cached at login)
+1. **TanStack Sync Cache** - Columns from `getDatalabelSync()` (cached at login)
 2. **FormattedRow** - Cards use pre-formatted `display` and `styles`
 3. **extractViewType()** - Use helper for card field metadata
 4. **No Fallbacks** - Fail explicitly if settings missing
@@ -471,21 +470,28 @@ Settings Change Flow
 
 | Location | Value |
 |----------|-------|
-| Entity config `datalabelKey` | `task_stage` |
+| Entity config `lookupField` | `dl__task_stage` |
 | Entity config `groupByField` | `dl__task_stage` |
-| Datalabel store key | `task_stage` |
+| TanStack cache key | `dl__task_stage` |
 | Entity record field | `task.dl__task_stage` |
 
 ### Anti-Patterns
 
 | Anti-Pattern | Correct Approach |
 |--------------|------------------|
-| Hardcoded stage arrays | Use datalabelMetadataStore |
+| Hardcoded stage arrays | Use `getDatalabelSync()` |
 | Silent fallback columns | Explicit error display |
 | Fetching stages per render | Use cached store (1h TTL) |
 | Direct metadata access | Use `extractViewType(metadata)` |
 | Custom card formatting | Use `FormattedRow.display[key]` |
+| Using old `datalabelKey` | v12.0.0: Use `lookupField` |
 
 ---
 
-**Last Updated:** 2025-11-26 | **Version:** 8.2.0 | **Status:** Production Ready
+**Last Updated:** 2025-12-02 | **Version:** 12.0.0 | **Status:** Production Ready
+
+**Recent Updates:**
+- v12.0.0 (2025-12-02):
+  - Renamed `datalabelKey` → `lookupField` in entityConfig.kanban
+  - Migrated from Zustand store to TanStack Query sync cache (`getDatalabelSync()`)
+  - Updated all examples with v12.0.0 property names

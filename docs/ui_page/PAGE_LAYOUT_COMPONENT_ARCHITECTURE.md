@@ -93,7 +93,7 @@ This document describes the complete frontend architecture including:
 │  EntityInstanceNameLookup, EntityMultiSelect, DataLabelSelect,              │
 │  BadgeDropdownSelect                                                        │
 │                                                                              │
-│  Props: Uses editType.lookupSource, editType.datalabelKey                   │
+│  Props: Uses editType.lookupSourceTable, editType.lookupField (v12.0.0)     │
 │                                                                              │
 │  BASE LAYER (No Data Dependencies)                                          │
 │  ─────────────────────────────────                                          │
@@ -1063,7 +1063,7 @@ interface ViewFieldMetadata {
     decimals?: number;
   };
   lookupEntity?: string;  // For entity reference fields
-  datalabelKey?: string;  // For badge/select fields
+  lookupField?: string;   // v12.0.0: For badge/datalabel fields (renamed from datalabelKey)
 }
 
 interface EditFieldMetadata {
@@ -1072,8 +1072,8 @@ interface EditFieldMetadata {
   inputType: string;      // 'text', 'number', 'select', 'date', 'checkbox', etc.
   behavior: { editable?: boolean };
   validation: { required?: boolean; min?: number; max?: number };
-  lookupSource?: 'datalabel' | 'entityInstance';
-  datalabelKey?: string;
+  lookupSourceTable?: 'datalabel' | 'entityInstance';  // v12.0.0: renamed from lookupSource
+  lookupField?: string;   // v12.0.0: renamed from datalabelKey
   lookupEntity?: string;
 }
 
@@ -1619,8 +1619,8 @@ GET /api/v1/project?content=metadata
         "name": { "inputType": "text", "behavior": { "editable": true } },
         "dl__project_stage": {
           "inputType": "BadgeDropdownSelect",
-          "lookupSource": "datalabel",
-          "datalabelKey": "dl__project_stage"
+          "lookupSourceTable": "datalabel",
+          "lookupField": "dl__project_stage"
         }
       }
     }

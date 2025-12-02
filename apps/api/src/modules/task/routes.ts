@@ -471,7 +471,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       return response;
     } catch (error) {
-      fastify.log.error('Error fetching tasks:', error);
+      fastify.log.error({ err: error }, 'Error fetching tasks');
       console.error('Detailed task error:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
@@ -597,7 +597,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
         metadata: response.metadata,
       };
     } catch (error) {
-      fastify.log.error('Error fetching task:', error as any);
+      fastify.log.error({ err: error }, 'Error fetching task');
+      console.error('Detailed fetch task error:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -670,7 +671,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       return reply.status(201).send(filterUniversalColumns(result.entity, userPermissions));
     } catch (error) {
-      fastify.log.error('Error creating task:', error as any);
+      fastify.log.error({ err: error }, 'Error creating task');
+      console.error('Detailed create task error:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -777,7 +779,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       return filterUniversalColumns(updatedTask, userPermissions);
     } catch (error) {
-      fastify.log.error('Error updating task:', error as any);
+      fastify.log.error({ err: error }, 'Error updating task');
+      console.error('Detailed update task error:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -884,7 +887,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       return filterUniversalColumns(updatedTask, userPermissions);
     } catch (error) {
-      fastify.log.error('Error updating task:', error as any);
+      fastify.log.error({ err: error }, 'Error updating task (PUT)');
+      console.error('Detailed update task (PUT) error:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -975,7 +979,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
         task_status: String(updateResult[0].task_status),
         updated: String(updateResult[0].updated)};
     } catch (error) {
-      fastify.log.error('Error updating task status:', error);
+      fastify.log.error({ err: error }, 'Error updating task status');
+      console.error('Detailed update task status error:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -1059,7 +1064,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
         task_status: String(updateResult[0].task_status),
         updated: String(updateResult[0].updated)};
     } catch (error) {
-      fastify.log.error('Error updating task status:', error);
+      fastify.log.error({ err: error }, 'Error updating task status (PUT)');
+      console.error('Detailed update task status (PUT) error:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -1166,7 +1172,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
         columns,
         stats};
     } catch (error) {
-      fastify.log.error('Error fetching Kanban data:', error);
+      fastify.log.error({ err: error }, 'Error fetching Kanban data');
+      console.error('Detailed Kanban data error:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -1245,7 +1252,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
         task_id: taskId,
         notes: formattedNotes};
     } catch (error) {
-      fastify.log.error('Error fetching case notes:', error);
+      fastify.log.error({ err: error }, 'Error fetching case notes');
+      console.error('Detailed case notes error:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -1322,7 +1330,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
         author_name: String(authorName),
         created_at: String(noteResult[0].created)});
     } catch (error) {
-      fastify.log.error('Error adding case note:', error);
+      fastify.log.error({ err: error }, 'Error adding case note');
+      console.error('Detailed add case note error:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -1412,7 +1421,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
         task_id: taskId,
         activities: formattedActivities};
     } catch (error) {
-      fastify.log.error('Error fetching task activity:', error);
+      fastify.log.error({ err: error }, 'Error fetching task activity');
+      console.error('Detailed task activity error:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -1483,7 +1493,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
           email: a.email ? String(a.email) : undefined,
           linkage_id: String(a.linkage_id)}))});
     } catch (error) {
-      fastify.log.error('Error fetching task assignees:', error as any);
+      fastify.log.error({ err: error }, 'Error fetching task assignees');
+      console.error('Detailed task assignees error:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

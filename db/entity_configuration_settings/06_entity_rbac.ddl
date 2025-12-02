@@ -80,6 +80,15 @@ COMMENT ON COLUMN app.entity_rbac.granted_by__employee_id IS 'Employee who grant
 COMMENT ON COLUMN app.entity_rbac.expires_ts IS 'Optional expiration timestamp for temporary permissions (contractor access, time-limited delegation)';
 
 -- ============================================================================
+-- UNIQUE INDEX FOR UPSERT PATTERN
+-- ============================================================================
+-- Required for ON CONFLICT clause in entity-infrastructure.service.ts
+-- Ensures one permission record per (person, entity instance) combination
+-- Enables idempotent permission grants via INSERT...ON CONFLICT DO UPDATE
+CREATE UNIQUE INDEX IF NOT EXISTS idx_entity_rbac_unique_permission
+ON app.entity_rbac (person_code, person_id, entity_code, entity_instance_id);
+
+-- ============================================================================
 -- RBAC PERMISSION FUNCTIONS
 -- ============================================================================
 --

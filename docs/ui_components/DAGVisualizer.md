@@ -1,6 +1,6 @@
 # DAG Visualizer Component
 
-**Version:** 2.3.0 | **Library:** ReactFlow + dagre | **Location:** `apps/web/src/components/workflow/DAGVisualizer.tsx`
+**Version:** 12.0.0 | **Library:** ReactFlow + dagre | **Location:** `apps/web/src/components/workflow/DAGVisualizer.tsx`
 
 ---
 
@@ -12,7 +12,7 @@ The DAG (Directed Acyclic Graph) Visualizer provides workflow stage visualizatio
 - Pure presentation component (no API calls)
 - Format-at-read: transforms DAGNode[] → ReactFlow format in `useMemo`
 - Backend metadata drives rendering
-- Stages from datalabel store (cached at login)
+- Stages from datalabel store (cached at login via TanStack Query + Dexie)
 - Custom node component with handles for edge connections
 
 ---
@@ -23,7 +23,8 @@ The DAG (Directed Acyclic Graph) Visualizer provides workflow stage visualizatio
 |---------|---------|---------|
 | `@xyflow/react` | v12+ | ReactFlow - Interactive graph rendering, nodes, edges, handles |
 | `@dagrejs/dagre` | v1.1.8 | Automatic DAG layout algorithm (hierarchical positioning) |
-| `zustand` | v4+ | State management for datalabel cache |
+| `@tanstack/react-query` | v5+ | Cache management for datalabel data |
+| `dexie` | v4+ | IndexedDB persistence |
 | `tailwindcss` | v4 | Node styling (pill shapes, colors, borders) |
 
 ### Import Pattern
@@ -51,47 +52,58 @@ const Graph = dagre.graphlib.Graph;  // Extract Graph class
 
 ---
 
-## Architectural Truth (v8.3.2)
+## Architectural Truth (v12.0.0)
 
 **Metadata properties control DAGVisualizer:**
 
 | Metadata | Property | Purpose |
 |----------|----------|---------|
 | **viewType** | `renderType: 'component'` + `component: 'DAGVisualizer'` | Controls WHICH component renders (view mode) |
-| **editType** | `inputType: 'component'` + `component: 'BadgeDropdownSelect'` | Controls WHICH component renders (edit mode) |
-| **editType** | `lookupSource: 'datalabel'` + `datalabelKey` | Controls WHERE data comes from |
+| **viewType** | `lookupField` | Field name for stage data lookup (v12.0.0) |
+| **editType** | `inputType: 'select'` + `component: 'BadgeDropdownSelect'` | Controls WHICH component renders (edit mode) |
+| **editType** | `lookupSourceTable: 'datalabel'` + `lookupField` | Controls WHERE data comes from (v12.0.0) |
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  METADATA → COMPONENT RENDERING                                              │
+│  METADATA → COMPONENT RENDERING (v12.0.0)                                   │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  viewType.dl__project_stage:                                                 │
-│  ┌────────────────────────────────┐                                          │
-│  │ renderType: "component"        │──┐                                       │
-│  │ component: "DAGVisualizer"     │──┼──► viewVizContainer = "DAGVisualizer" │
-│  └────────────────────────────────┘  │                                       │
-│                                      │                                       │
-│                                      ▼                                       │
-│          EntityInstanceFormContainer_viz_container: {                                │
+│  ┌────────────────────────────────────────┐                                  │
+│  │ renderType: "component"                │──┐                               │
+│  │ component: "DAGVisualizer"             │──┼──► viewVizContainer           │
+│  │ lookupField: "dl__project_stage"       │──┼──► Key for getDatalabelSync() │
+│  └────────────────────────────────────────┘  │                               │
+│                                              │                               │
+│                                              ▼                               │
+│          EntityInstanceFormContainer_viz_container: {                        │
 │            view: "DAGVisualizer"   ◄── VIEW mode switch                     │
 │          }                                                                   │
-│                                      │                                       │
-│                                      ▼                                       │
+│                                              │                               │
+│                                              ▼                               │
 │          if (vizContainer?.view === 'DAGVisualizer') {                       │
 │            return <DAGVisualizer nodes={...} />                              │
 │          }                                                                   │
 │                                                                              │
 │  editType.dl__project_stage:                                                 │
-│  ┌────────────────────────────────┐                                          │
-│  │ inputType: "component"         │──┐                                       │
-│  │ component: "BadgeDropdownSelect"│──┼──► editVizContainer = "BadgeDropdownSelect"│
-│  │ lookupSource: "datalabel"      │──┼──► Filter for loading datalabel options│
-│  │ datalabelKey: "dl__project_stage"│──► Cache key for options               │
-│  └────────────────────────────────┘                                          │
+│  ┌────────────────────────────────────────┐                                  │
+│  │ inputType: "select"                    │──┐                               │
+│  │ component: "BadgeDropdownSelect"       │──┼──► editVizContainer           │
+│  │ lookupSourceTable: "datalabel"         │──┼──► Filter for loading options │
+│  │ lookupField: "dl__project_stage"       │──► Key for useDatalabel()        │
+│  └────────────────────────────────────────┘                                  │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Property Naming (v12.0.0)
+
+| Old Name (< v12.0.0) | New Name (v12.0.0+) | Location | Purpose |
+|----------------------|---------------------|----------|---------|
+| `lookupSource` | `lookupSourceTable` | editType | Where to load options: `'datalabel'` or `'entityInstance'` |
+| `datalabelKey` | `lookupField` | viewType + editType | Field name for lookup (e.g., `'dl__project_stage'`) |
 
 ---
 
@@ -128,26 +140,27 @@ interface DAGVisualizerProps {
 
 ---
 
-## Cache & Data Flow Pattern
+## Cache & Data Flow Pattern (v12.0.0)
 
-### Datalabel Cache (Zustand Store)
+### TanStack Query + Dexie Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  CACHE ARCHITECTURE                                                      │
+│  CACHE ARCHITECTURE (v12.0.0 - TanStack Query + Dexie)                   │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │  1. LOGIN: Datalabels fetched once via GET /api/v1/datalabel/all        │
-│     └── Stored in datalabelMetadataStore (Zustand + localStorage)       │
-│     └── TTL: 1 hour                                                      │
-│     └── Persisted across page reloads                                   │
+│     └── prefetchAllMetadata() called                                    │
+│     └── Stored in TanStack Query cache (in-memory)                      │
+│     └── Persisted to Dexie IndexedDB (survives browser restart)         │
+│     └── Sync cache populated for getDatalabelSync()                     │
 │                                                                          │
-│  2. COMPONENT MOUNT: EntityInstanceFormContainer reads from cache               │
-│     └── useDatalabelMetadataStore.getState().getDatalabel(key)          │
+│  2. COMPONENT MOUNT: EntityInstanceFormContainer reads from cache       │
+│     └── getDatalabelSync(lookupField)                                   │
 │     └── SYNCHRONOUS read (no API call)                                  │
 │     └── Returns: DatalabelOption[] with parent_ids                      │
 │                                                                          │
-│  3. TRANSFORMATION: EntityInstanceFormContainer transforms to DAGNode[]         │
+│  3. TRANSFORMATION: EntityInstanceFormContainer transforms to DAGNode[] │
 │     └── useMemo for memoization                                         │
 │     └── Stored in dagNodes Map<string, DAGNode[]>                       │
 │                                                                          │
@@ -158,22 +171,62 @@ interface DAGVisualizerProps {
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### React Query Integration
+### Data Flow Diagram
 
-DAGVisualizer does **NOT** use React Query directly. The data flow is:
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  LOGIN → CACHE → COMPONENT → VISUALIZER                                 │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  GET /api/v1/datalabel/all                                              │
+│       │                                                                  │
+│       ▼                                                                  │
+│  ┌─────────────────────────────┐                                        │
+│  │ TanStack Query Cache        │◄──── queryFn transforms array→record   │
+│  │ ['datalabel', key] = [...]  │                                        │
+│  └──────────────┬──────────────┘                                        │
+│                 │                                                        │
+│                 ▼                                                        │
+│  ┌─────────────────────────────┐                                        │
+│  │ Dexie IndexedDB             │◄──── Persistent storage                │
+│  │ datalabel table             │                                        │
+│  └──────────────┬──────────────┘                                        │
+│                 │                                                        │
+│                 ▼                                                        │
+│  ┌─────────────────────────────┐                                        │
+│  │ Sync Cache (in-memory)      │◄──── For getDatalabelSync()            │
+│  └──────────────┬──────────────┘                                        │
+│                 │                                                        │
+│                 ▼                                                        │
+│  EntityInstanceFormContainer                                             │
+│  └── getDatalabelSync(lookupField)                                      │
+│  └── transformToDAGNodes(options)                                       │
+│       │                                                                  │
+│       ▼                                                                  │
+│  ┌─────────────────────────────┐                                        │
+│  │ DAGVisualizer               │◄──── Pure presentation                 │
+│  │ nodes={transformedNodes}    │                                        │
+│  └─────────────────────────────┘                                        │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
 
-1. **Entity data** fetched via `useFormattedEntityInstance()` (React Query)
-2. **Datalabel options** read from Zustand store (pre-cached at login)
-3. **DAGVisualizer** receives transformed props from EntityInstanceFormContainer
+### Integration Code
 
 ```typescript
 // EntityInstanceFormContainer.tsx - useMemo for datalabel → DAGNode transformation
 const { labelsMetadata, dagNodes } = useMemo(() => {
   const dagNodesMap = new Map<string, DAGNode[]>();
 
-  fieldsNeedingSettings.forEach((field) => {
-    // Read from Zustand cache (synchronous)
-    const cachedOptions = useDatalabelMetadataStore.getState().getDatalabel(lookupKey);
+  // v12.0.0: Filter by lookupSourceTable
+  const fieldsNeedingDatalabels = fields.filter(
+    field => field.lookupSourceTable === 'datalabel'
+  );
+
+  fieldsNeedingDatalabels.forEach((field) => {
+    // v12.0.0: Use lookupField for cache lookup
+    const lookupField = field.lookupField || field.key;
+    const cachedOptions = getDatalabelSync(lookupField);
 
     if (cachedOptions && vizContainer?.view === 'DAGVisualizer') {
       const nodes = transformDatalabelToDAGNodes(cachedOptions);
@@ -350,6 +403,57 @@ if (vizContainer?.view === 'DAGVisualizer' && dagNodes.has(field.key)) {
 
 ---
 
+## API Response Example
+
+```json
+{
+  "data": {
+    "dl__project_stage": "Execution"
+  },
+  "metadata": {
+    "entityInstanceFormContainer": {
+      "viewType": {
+        "dl__project_stage": {
+          "dtype": "str",
+          "label": "Project Stage",
+          "renderType": "component",
+          "component": "DAGVisualizer",
+          "lookupField": "dl__project_stage",
+          "behavior": { "visible": true }
+        }
+      },
+      "editType": {
+        "dl__project_stage": {
+          "dtype": "str",
+          "label": "Project Stage",
+          "inputType": "select",
+          "component": "BadgeDropdownSelect",
+          "lookupSourceTable": "datalabel",
+          "lookupField": "dl__project_stage",
+          "behavior": { "editable": true }
+        }
+      }
+    }
+  }
+}
+```
+
+---
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `apps/web/src/components/workflow/DAGVisualizer.tsx` | DAG visualization component |
+| `apps/api/src/services/pattern-mapping.yaml` | `dl__*_stage` → `datalabel_dag` mapping |
+| `apps/api/src/services/view-type-mapping.yaml` | DAG view configuration |
+| `apps/api/src/services/edit-type-mapping.yaml` | Badge dropdown edit configuration |
+| `apps/web/src/db/cache/hooks/useDatalabel.ts` | TanStack Query datalabel hooks |
+| `apps/web/src/db/tanstack-index.ts` | `getDatalabelSync()` export |
+| `apps/web/src/components/shared/entity/EntityInstanceFormContainer.tsx` | DAG integration |
+
+---
+
 ## Anti-Patterns
 
 | Anti-Pattern | Correct Approach |
@@ -361,6 +465,7 @@ if (vizContainer?.view === 'DAGVisualizer' && dagNodes.has(field.key)) {
 | `import * as dagre` | Use `import dagre from '@dagrejs/dagre'` + `dagre.graphlib.Graph` |
 | Hardcoded stage positions | Use dagre auto-layout |
 | Animated edges for all states | Only animate active/traversed edges (or use solid vs dotted) |
+| Using old property names | Use `lookupSourceTable` and `lookupField` (v12.0.0) |
 
 ---
 
@@ -402,25 +507,61 @@ fitViewOptions={{
 }}
 ```
 
+### Datalabel Options Not Loading
+
+**Cause:** Using old property names or sync cache not populated.
+
+**Fix (v12.0.0):**
+```typescript
+// Ensure prefetchAllMetadata() called at login
+await prefetchAllMetadata();
+
+// Use correct property names
+const lookupField = editMeta?.lookupField;           // NOT datalabelKey
+const lookupSourceTable = editMeta?.lookupSourceTable; // NOT lookupSource
+
+// Access via sync cache
+const options = getDatalabelSync(lookupField);
+```
+
 ---
 
-**Last Updated:** 2025-11-27 | **Version:** 2.3.0 | **Status:** Production Ready
+## Migration from v8.x to v12.0.0
+
+```typescript
+// Before (v8.x)
+const lookupSource = editMeta?.lookupSource;      // ❌ Old name
+const datalabelKey = editMeta?.datalabelKey;      // ❌ Old name
+const options = useDatalabelMetadataStore
+  .getState()
+  .getDatalabel(datalabelKey);                    // ❌ Zustand store
+
+// After (v12.0.0)
+const lookupSourceTable = editMeta?.lookupSourceTable;  // ✅ New name
+const lookupField = editMeta?.lookupField;              // ✅ New name
+const options = getDatalabelSync(lookupField);          // ✅ TanStack sync cache
+
+// Or with hook
+const { options } = useDatalabel(lookupField);          // ✅ TanStack Query hook
+```
+
+---
+
+**Last Updated:** 2025-12-02 | **Version:** 12.0.0 | **Status:** Production Ready
 
 **Recent Updates:**
+- v12.0.0 (2025-12-02):
+  - Renamed `lookupSource` → `lookupSourceTable`
+  - Renamed `datalabelKey` → `lookupField`
+  - Migrated from Zustand to TanStack Query + Dexie
+  - Updated all code examples with v12.0.0 property names
+  - Added Migration section
+  - Added Troubleshooting for datalabel loading issues
 - v2.3.0 (2025-11-27):
   - Added `<Handle>` components to custom nodes for edge connections
   - Fixed dagre import: `dagre.graphlib.Graph` for ESM compatibility
   - Updated edge styling: dotted gray for pending, solid blue for traversed
   - Reduced node spacing: `nodesep: 20`, `ranksep: 40`
   - Changed edge type to `default` (bezier curves)
-  - Added comprehensive Libraries & Dependencies section
-  - Added Cache & Data Flow Pattern section
-  - Added Troubleshooting section
 - v2.2.0 (2025-11-27):
   - Added "Architectural Truth" section documenting viewType/editType separation
-  - viewType controls WHICH component renders (`renderType: 'component'` + `component`)
-  - editType controls WHERE data comes from (`lookupSource: 'datalabel'` + `datalabelKey`)
-- v2.1.0 (2025-11-27):
-  - Changed `renderType: 'dag'` → `renderType: 'component'` + `component: 'DAGVisualizer'`
-  - `EntityInstanceFormContainer_viz_container` now object `{ view?: string; edit?: string }`
-  - Edit mode uses `BadgeDropdownSelect` (inputType in YAML)

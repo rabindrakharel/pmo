@@ -701,15 +701,15 @@ const cacheKey = `entity:fields:${entityCode}`;
           "dtype": "str",
           "label": "Project Stage",
           "inputType": "select",
-          "lookupSource": "datalabel",
-          "datalabelKey": "dl__project_stage",
+          "lookupSourceTable": "datalabel",
+          "lookupField": "dl__project_stage",
           "behavior": { "editable": true }
         },
         "manager__employee_id": {
           "dtype": "uuid",
           "label": "Manager Employee Name",
           "inputType": "entityInstanceId",
-          "lookupSource": "entityInstance",
+          "lookupSourceTable": "entityInstance",
           "lookupEntity": "employee",
           "behavior": { "editable": true }
         }

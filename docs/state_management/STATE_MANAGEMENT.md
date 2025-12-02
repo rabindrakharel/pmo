@@ -749,7 +749,7 @@ App ready for use
 ### BadgeDropdownSelect (Status Fields)
 
 ```
-<BadgeDropdownSelect datalabelKey="project_stage" value={id} onChange={...} />
+<BadgeDropdownSelect lookupField="dl__project_stage" value={id} onChange={...} />  // v12.0.0
 ```
 
 **Cache Pattern:**

@@ -239,8 +239,8 @@ export interface ViewFieldMetadata {
   label: string;
   renderType?: string;
   lookupEntity?: string;
-  lookupSource?: string;
-  datalabelKey?: string;
+  lookupSourceTable?: string;  // v12.0.0: renamed from lookupSource
+  lookupField?: string;        // v12.0.0: renamed from datalabelKey
   behavior?: Record<string, boolean>;
   style?: Record<string, unknown>;
 }
@@ -250,8 +250,8 @@ export interface EditFieldMetadata {
   label: string;
   inputType?: string;
   lookupEntity?: string;
-  lookupSource?: string;
-  datalabelKey?: string;
+  lookupSourceTable?: string;  // v12.0.0: renamed from lookupSource
+  lookupField?: string;        // v12.0.0: renamed from datalabelKey
   behavior?: Record<string, boolean>;
   validation?: Record<string, unknown>;
 }
