@@ -129,7 +129,8 @@ export interface EntityListOfInstancesTableProps<T = any> {
   data: T[];
   metadata?: EntityMetadata | null;  // Backend metadata (REQUIRED for metadata-driven mode)
   datalabels?: any[];                // Datalabel options from API (for dropdowns and DAG viz)
-  ref_data_entityInstance?: RefData;                // v8.3.0: Entity reference lookup table { entity_code: { uuid: name } }
+  /** @deprecated v10.0.0: No longer used. Entity reference resolution now uses centralized entityInstanceNames sync store. */
+  ref_data_entityInstance?: RefData;
   columns?: Column<T>[];             // Legacy explicit columns (fallback only)
   loading?: boolean;
   pagination?: {
@@ -184,7 +185,7 @@ export function EntityListOfInstancesTable<T = any>({
   data,
   metadata,  // Backend metadata from API
   datalabels,  // Datalabel options from API response
-  ref_data_entityInstance,  // v8.3.0: Entity reference lookup table
+  ref_data_entityInstance: _ref_data_entityInstance,  // v10.0.0: DEPRECATED - no longer used
   columns: initialColumns,
   loading = false,
   pagination,
@@ -220,9 +221,10 @@ export function EntityListOfInstancesTable<T = any>({
   focusedRowId = null,
   onRowFocus
 }: EntityListOfInstancesTableProps<T>) {
-  // v8.3.0: useRefData hook for entity reference resolution (future use)
-  // Currently ref fields are hidden, but ref_data_entityInstance enables future display of resolved names
-  const { resolveFieldDisplay, hasRefData } = useRefData(ref_data_entityInstance);
+  // v10.0.0: useRefData hook no longer needed for view mode - formatDataset uses centralized sync store
+  // Edit mode components (EntityInstanceNameSelect) use useRefDataEntityInstanceOptions hook directly
+  // This can be removed in a future cleanup
+  const { resolveFieldDisplay, hasRefData } = useRefData(undefined);
 
   // ============================================================================
   // METADATA-DRIVEN COLUMN GENERATION (Pure Backend-Driven Architecture)
@@ -653,11 +655,14 @@ export function EntityListOfInstancesTable<T = any>({
   }, [columns, filterable, inlineEditable]);
 
   // Helper to get row key
+  // v9.5.1: Handle FormattedRow structure where id is inside record.raw
   const getRowKey = (record: T, index: number): string => {
     if (typeof rowKey === 'function') {
       return rowKey(record);
     }
-    return (record as any)[rowKey] || index.toString();
+    // Check for FormattedRow structure (has raw property)
+    const rawRecord = (record as any).raw || record;
+    return rawRecord[rowKey] || index.toString();
   };
 
   // Calculate filtered and sorted data BEFORE using it

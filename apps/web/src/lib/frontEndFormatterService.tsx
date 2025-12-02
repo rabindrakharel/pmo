@@ -434,7 +434,7 @@ export function renderEditModeFromMetadata(
       );
 
     // v9.8.0: EntityInstanceNameSelect - single entity reference (edit mode)
-    // Backend: inputType: EntityInstanceNameSelect
+    // Backend: inputType: EntityInstanceNameSelect (from edit-type-mapping.yaml)
     case 'EntityInstanceNameSelect': {
       const entityCode = metadata.lookupEntity;
 
@@ -469,8 +469,7 @@ export function renderEditModeFromMetadata(
     }
 
     // v9.4.0: EntityInstanceNameMultiSelect - multi-select entity reference (edit mode)
-    // Backend: inputType: EntityInstanceNameMultiSelect
-    // Used for _IDS fields (arrays of entity UUIDs like stakeholder__employee_ids)
+    // Backend: inputType: EntityInstanceNameMultiSelect (from edit-type-mapping.yaml)
     case 'EntityInstanceNameMultiSelect': {
       const entityCode = metadata.lookupEntity;
 

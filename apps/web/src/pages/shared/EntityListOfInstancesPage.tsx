@@ -21,7 +21,7 @@ import type { RowAction } from '../../components/shared/ui/EntityListOfInstances
 // DEBUG LOGGING - Cache & Data Flow Diagnostics
 // ============================================================================
 // Set to true to enable detailed cache debugging
-const DEBUG_CACHE = false;
+const DEBUG_CACHE = true;
 
 const debugCache = (message: string, data?: Record<string, unknown>) => {
   if (DEBUG_CACHE) {
@@ -117,9 +117,9 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     offset: (currentPage - 1) * 20000,
   }), [currentPage]);
 
+  // v10.0.0: refData removed from destructuring - using centralized entityInstanceNames sync store
   const {
     data: rawData,
-    refData,
     total: totalRecords,
     isLoading: dataLoading,
     isError,
@@ -149,10 +149,16 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   const loading = metadataLoading;
 
   // Format data on read (memoized) - formatting happens HERE, not in hook
+  // v10.0.0: refData no longer passed - formatDataset uses centralized entityInstanceNames sync store
   const formattedData = useMemo(() => {
     if (!rawData || rawData.length === 0) return [];
-    return formatDataset(rawData, metadata as ComponentMetadata | undefined, refData);
-  }, [rawData, metadata, refData]);
+    debugCache('🎨 formatDataset called', {
+      entityCode,
+      rowCount: rawData.length,
+      firstRowManagerId: (rawData[0] as any)?.manager__employee_id,
+    });
+    return formatDataset(rawData, metadata as ComponentMetadata | undefined);
+  }, [rawData, metadata, entityCode]);
 
   // ============================================================================
   // INLINE EDIT STATE MANAGEMENT
@@ -214,6 +220,9 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     deleteEntity,
   } = useOptimisticMutation(entityCode, {
     listQueryParams: queryParams,
+    // v9.5.2: Refetch on success to update ref_data_entityInstance with new entity names
+    // Without this, optimistic update shows raw UUID until page refresh
+    refetchOnSuccess: true,
     onSuccess: () => {
       debugCache('Optimistic mutation: Success', { entityCode });
     },
@@ -423,18 +432,16 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
         );
       }
 
-      // v8.0.0: Format at Read - Use formattedData for display, raw data for editing
-      // When editing: use localData (raw) for form inputs
-      // When viewing: use formattedData (pre-formatted via select transform)
-      const tableData = editingRow || isAddingRow
-        ? data  // Raw data for editing
-        : (formattedData.length > 0 ? formattedData : data);  // Formatted data for viewing
+      // v9.5.1: ALWAYS use formattedData for display
+      // The table internally extracts raw values for editing cells via FormattedRow.raw
+      // This fixes the bug where entire table showed UUIDs instead of names during edit mode
+      const tableData = formattedData.length > 0 ? formattedData : data;
 
+      // v10.0.0: ref_data_entityInstance removed - table uses centralized entityInstanceNames sync store
       return (
         <EntityListOfInstancesTable
           data={tableData}
           metadata={metadata}
-          ref_data_entityInstance={refData}
           loading={loading}
           pagination={pagination}
           onRowClick={handleRowClick}

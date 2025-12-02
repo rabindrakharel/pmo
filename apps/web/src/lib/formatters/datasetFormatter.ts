@@ -12,6 +12,11 @@
  * v8.3.2: Added ref_data_entityInstance support for entity reference resolution.
  * Reference fields (renderType: 'entityInstanceId') now resolve UUID to names.
  *
+ * v10.0.0: Entity reference resolution now uses centralized entityInstanceNames
+ * sync store instead of passed-in refData. The refData parameter is deprecated
+ * but kept for backward compatibility. API responses still populate the cache
+ * via upsertRefDataEntityInstance() and entityInstanceNamesStore.merge().
+ *
  * PERFORMANCE: Called once when data is fetched, not during scroll/render.
  */
 
@@ -39,17 +44,22 @@ import {
 /**
  * RefData type for entity instance name resolution (v8.3.2)
  * Structure: { entityCode: { uuid: name } }
+ *
+ * @deprecated v10.0.0: refData is no longer passed through component tree.
+ * Entity reference resolution now uses the centralized entityInstanceNames sync store.
+ * This type is kept for backward compatibility but the refData parameter is ignored.
  */
 export type RefData = Record<string, Record<string, string>>;
 
 /**
- * Reference render types that need refData for name resolution
+ * Reference render types that use centralized cache for name resolution
+ * v10.0.0: These types now read from entityInstanceNamesStore instead of refData
  */
 const REFERENCE_RENDER_TYPES = new Set([
   'reference',
   'entityInstanceId',
   'entityInstanceIds',  // v8.3.2: Array of entity references
-  'component',          // v9.4.0: Component-based rendering may need refData
+  'component',          // v9.4.0: Component-based rendering may use centralized cache
 ]);
 
 /**
@@ -63,7 +73,7 @@ const ENTITY_REFERENCE_COMPONENTS = new Set([
 
 /**
  * Formatter registry - maps renderType to formatter function
- * Note: formatReference requires refData for name resolution (v8.3.2)
+ * v10.0.0: formatReference now uses centralized entityInstanceNames sync store
  */
 const FORMATTERS: Record<string, (value: any, meta?: ViewFieldMetadata, refData?: RefData) => FormattedValue> = {
   // Currency
@@ -111,12 +121,18 @@ const FORMATTERS: Record<string, (value: any, meta?: ViewFieldMetadata, refData?
  *
  * v8.3.2: Added refData parameter for entity reference resolution
  * v9.4.0: Added component-based routing for renderType: 'component'
+ * v10.0.0: refData is now deprecated - uses centralized entityInstanceNames sync store
+ *
+ * @param value - The raw value to format
+ * @param key - The field key
+ * @param metadata - View field metadata from backend
+ * @param _refData - DEPRECATED: No longer used. Kept for backward compatibility.
  */
 export function formatValue(
   value: any,
   key: string,
   metadata: ViewFieldMetadata | undefined,
-  refData?: RefData
+  _refData?: RefData
 ): FormattedValue {
   const renderType = metadata?.renderType || 'text';
 
@@ -125,9 +141,9 @@ export function formatValue(
   if (renderType === 'component' && metadata?.component) {
     const componentName = metadata.component;
 
-    // Entity reference components use formatReference with refData
+    // Entity reference components use formatReference (reads from centralized cache)
     if (ENTITY_REFERENCE_COMPONENTS.has(componentName)) {
-      return formatReference(value, metadata, refData);
+      return formatReference(value, metadata);
     }
 
     // DAGVisualizer and MetadataTable are special view-only components
@@ -143,9 +159,9 @@ export function formatValue(
 
   const formatter = FORMATTERS[renderType] || formatText;
 
-  // Pass refData to formatters that need it (reference types)
+  // Reference types read from centralized entityInstanceNames sync store
   if (REFERENCE_RENDER_TYPES.has(renderType)) {
-    return formatter(value, metadata, refData);
+    return formatter(value, metadata);
   }
 
   return formatter(value, metadata);
@@ -156,11 +172,16 @@ export function formatValue(
  *
  * v8.2.0: Only accepts ComponentMetadata with { viewType, editType } structure
  * v8.3.2: Added refData parameter for entity reference resolution
+ * v10.0.0: refData is deprecated - uses centralized entityInstanceNames sync store
+ *
+ * @param row - The raw data row
+ * @param metadata - Component metadata with viewType and editType
+ * @param _refData - DEPRECATED: No longer used. Kept for backward compatibility.
  */
 export function formatRow<T extends Record<string, any>>(
   row: T,
   metadata: ComponentMetadata | null,
-  refData?: RefData
+  _refData?: RefData
 ): FormattedRow<T> {
   const display: Record<string, string> = {};
   const styles: Record<string, string> = {};
@@ -170,7 +191,7 @@ export function formatRow<T extends Record<string, any>>(
 
   for (const [key, value] of Object.entries(row)) {
     const fieldMeta = viewType?.[key];
-    const formatted = formatValue(value, key, fieldMeta, refData);
+    const formatted = formatValue(value, key, fieldMeta);
 
     display[key] = formatted.display;
     if (formatted.style) {
@@ -186,39 +207,47 @@ export function formatRow<T extends Record<string, any>>(
  *
  * v8.2.0: Only accepts ComponentMetadata with { viewType, editType } structure
  * v8.3.2: Added refData parameter for entity reference resolution
+ * v10.0.0: refData is deprecated - entity reference resolution uses centralized
+ *          entityInstanceNames sync store. API responses still populate the cache
+ *          via upsertRefDataEntityInstance() and entityInstanceNamesStore.merge().
  *
  * @param data - Raw data array from API
  * @param metadata - Component metadata with viewType and editType
- * @param refData - ref_data_entityInstance for entity name resolution (v8.3.2)
+ * @param _refData - DEPRECATED: No longer used. Kept for backward compatibility.
  * @returns Array of formatted rows with raw, display, and styles
  *
  * @example
- * const formattedData = formatDataset(response.data, response.metadata?.entityListOfInstancesTable, response.ref_data_entityInstance);
- * // metadata.entityListOfInstancesTable = { viewType: {...}, editType: {...} }
+ * // API response populates cache automatically
+ * const formattedData = formatDataset(response.data, response.metadata?.entityListOfInstancesTable);
  */
 export function formatDataset<T extends Record<string, any>>(
   data: T[],
   metadata: ComponentMetadata | null,
-  refData?: RefData
+  _refData?: RefData
 ): FormattedRow<T>[] {
   if (!data || data.length === 0) {
     return [];
   }
 
-  return data.map(row => formatRow(row, metadata, refData));
+  return data.map(row => formatRow(row, metadata));
 }
 
 /**
  * Re-format a single row after update (for optimistic updates)
  *
  * v8.3.2: Added refData parameter for entity reference resolution
+ * v10.0.0: refData is deprecated - uses centralized entityInstanceNames sync store
+ *
+ * @param row - The raw data row
+ * @param metadata - Component metadata with viewType and editType
+ * @param _refData - DEPRECATED: No longer used. Kept for backward compatibility.
  */
 export function reformatRow<T extends Record<string, any>>(
   row: T,
   metadata: ComponentMetadata | null,
-  refData?: RefData
+  _refData?: RefData
 ): FormattedRow<T> {
-  return formatRow(row, metadata, refData);
+  return formatRow(row, metadata);
 }
 
 /**

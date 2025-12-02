@@ -489,7 +489,7 @@ export async function clearAllFieldCache(): Promise<void> {
 // ============================================================================
 
 const METADATA_CACHE_PREFIX = 'api:metadata:';
-const METADATA_CACHE_TTL = 86400; // 24 hours in seconds
+const METADATA_CACHE_TTL = 3; // 3 seconds - short TTL for development
 
 /**
  * Get cached metadata response for an API endpoint

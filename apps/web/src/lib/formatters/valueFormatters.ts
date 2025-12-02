@@ -11,7 +11,8 @@
  */
 
 // v9.0.0: Use Dexie sync cache for non-hook datalabel access
-import { getDatalabelSync } from '../../db/tanstack-index';
+// v10.0.0: Use centralized entityInstanceNames store for entity reference resolution
+import { getDatalabelSync, getEntityInstanceNameSync } from '../../db/tanstack-index';
 import { formatLocalizedDate, formatRelativeTime as formatRelativeTimeUtil, parseDateSafe } from '../utils/dateUtils';
 import type { FieldMetadata, FormattedValue } from './types';
 
@@ -222,17 +223,21 @@ export function formatArray(value: any): FormattedValue {
 /**
  * Format reference/entity ID fields
  *
- * v8.3.2: Now resolves names from ref_data_entityInstance when available.
- * Falls back to truncated UUID if name not found.
+ * v10.0.0: Uses centralized entityInstanceNames sync store for name resolution.
+ * The cache is populated when API responses with ref_data_entityInstance arrive.
+ * Falls back to truncated UUID if name not found in cache.
  *
  * @param value - UUID or array of UUIDs
  * @param metadata - Field metadata with lookupEntity
- * @param refData - ref_data_entityInstance lookup table
+ * @param _refData - DEPRECATED: No longer used. Kept for backward compatibility.
  */
+// Debug flag for formatReference - set to true to trace name resolution issues
+const DEBUG_FORMAT_REFERENCE = true;
+
 export function formatReference(
   value: any,
   metadata?: FieldMetadata,
-  refData?: Record<string, Record<string, string>>
+  _refData?: Record<string, Record<string, string>>
 ): FormattedValue {
   if (value === null || value === undefined || value === '') {
     return { display: '—' };
@@ -246,8 +251,13 @@ export function formatReference(
     if (value.length === 0) return { display: '—' };
 
     const names = value.map(uuid => {
-      if (entityCode && refData?.[entityCode]?.[uuid]) {
-        return refData[entityCode][uuid];
+      // v10.0.0: Use centralized sync store
+      if (entityCode) {
+        const name = getEntityInstanceNameSync(entityCode, uuid);
+        if (DEBUG_FORMAT_REFERENCE && !name) {
+          console.warn(`[formatReference] MISS: entityCode=${entityCode}, uuid=${uuid.substring(0, 8)}...`);
+        }
+        if (name) return name;
       }
       return String(uuid).substring(0, 8) + '...';
     });
@@ -258,9 +268,19 @@ export function formatReference(
   // Single UUID
   const uuid = String(value);
 
-  // Try to resolve from refData
-  if (entityCode && refData?.[entityCode]?.[uuid]) {
-    return { display: refData[entityCode][uuid] };
+  // v10.0.0: Try to resolve from centralized sync store
+  if (entityCode) {
+    const name = getEntityInstanceNameSync(entityCode, uuid);
+    if (DEBUG_FORMAT_REFERENCE) {
+      if (name) {
+        // Only log misses, not hits (too noisy)
+      } else {
+        console.warn(`[formatReference] MISS: entityCode=${entityCode}, uuid=${uuid.substring(0, 8)}...`);
+      }
+    }
+    if (name) return { display: name };
+  } else if (DEBUG_FORMAT_REFERENCE) {
+    console.warn(`[formatReference] NO entityCode in metadata for uuid=${uuid.substring(0, 8)}...`);
   }
 
   // Fallback: truncated UUID

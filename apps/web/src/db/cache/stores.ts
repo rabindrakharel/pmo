@@ -169,7 +169,19 @@ class EntityInstanceNamesStore {
   }
 
   getName(entityCode: string, entityInstanceId: string): string | null {
-    return this.byType.get(entityCode)?.[entityInstanceId] ?? null;
+    const result = this.byType.get(entityCode)?.[entityInstanceId] ?? null;
+    // DEBUG: Trace name lookups to diagnose optimistic update issues
+    if (!result) {
+      const allCodes = Array.from(this.byType.keys());
+      const namesForCode = this.byType.get(entityCode);
+      console.warn(`[entityInstanceNamesStore.getName] MISS`, {
+        entityCode,
+        entityInstanceId: entityInstanceId.substring(0, 8) + '...',
+        allCodes,
+        namesCountForCode: namesForCode ? Object.keys(namesForCode).length : 0,
+      });
+    }
+    return result;
   }
 
   delete(entityCode: string, entityInstanceId: string): void {

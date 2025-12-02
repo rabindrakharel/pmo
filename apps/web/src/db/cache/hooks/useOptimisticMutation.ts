@@ -153,6 +153,8 @@ function updateAllListCaches<T extends { id: string }>(
         queryKey: JSON.stringify(query.queryKey),
         previousCount: previousData.data.length,
         updatedCount: updatedData.length,
+        hasRefData: !!previousData.refData,
+        refDataEntityCodes: previousData.refData ? Object.keys(previousData.refData) : [],
       });
     }
   }
