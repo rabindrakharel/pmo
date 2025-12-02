@@ -129,7 +129,7 @@ export interface EntityListOfInstancesTableProps<T = any> {
   data: T[];
   metadata?: EntityMetadata | null;  // Backend metadata (REQUIRED for metadata-driven mode)
   datalabels?: any[];                // Datalabel options from API (for dropdowns and DAG viz)
-  /** @deprecated v10.0.0: No longer used. Entity reference resolution now uses centralized entityInstanceNames sync store. */
+  /** @deprecated v11.0.0: No longer used. Entity reference resolution uses TanStack Query cache. */
   ref_data_entityInstance?: RefData;
   columns?: Column<T>[];             // Legacy explicit columns (fallback only)
   loading?: boolean;
@@ -185,7 +185,7 @@ export function EntityListOfInstancesTable<T = any>({
   data,
   metadata,  // Backend metadata from API
   datalabels,  // Datalabel options from API response
-  ref_data_entityInstance: _ref_data_entityInstance,  // v10.0.0: DEPRECATED - no longer used
+  ref_data_entityInstance: _ref_data_entityInstance,  // v11.0.0: DEPRECATED - no longer used
   columns: initialColumns,
   loading = false,
   pagination,
@@ -221,7 +221,7 @@ export function EntityListOfInstancesTable<T = any>({
   focusedRowId = null,
   onRowFocus
 }: EntityListOfInstancesTableProps<T>) {
-  // v10.0.0: useRefData hook no longer needed for view mode - formatDataset uses centralized sync store
+  // v11.0.0: useRefData hook no longer needed for view mode - formatDataset uses TanStack Query cache
   // Edit mode components (EntityInstanceNameSelect) use useRefDataEntityInstanceOptions hook directly
   // This can be removed in a future cleanup
   const { resolveFieldDisplay, hasRefData } = useRefData(undefined);
