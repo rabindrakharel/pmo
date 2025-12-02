@@ -6,10 +6,9 @@
 // ============================================================================
 
 import { useQuery } from '@tanstack/react-query';
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { QUERY_KEYS } from '../keys';
 import { SESSION_STORE_CONFIG } from '../constants';
-import { entityInstanceNamesStore } from '../stores';
 import {
   getEntityInstanceNamesForType,
   bulkSetEntityInstanceNames,
@@ -50,17 +49,10 @@ export function useEntityInstanceNames(entityCode: string): UseEntityInstanceNam
   const query = useQuery({
     queryKey: QUERY_KEYS.entityInstanceNames(entityCode),
     queryFn: async () => {
-      // First try sync store (populated from API responses)
-      const syncNames = entityInstanceNamesStore.getNames(entityCode);
-      if (Object.keys(syncNames).length > 0) {
-        return syncNames;
-      }
-
-      // Then try Dexie
+      // v11.0.0: TanStack Query cache is the source of truth
+      // First check Dexie for persisted data
       const dexieNames = await getEntityInstanceNamesForType(entityCode);
       if (Object.keys(dexieNames).length > 0) {
-        // Update sync store
-        entityInstanceNamesStore.merge(entityCode, dexieNames);
         return dexieNames;
       }
 
@@ -71,13 +63,6 @@ export function useEntityInstanceNames(entityCode: string): UseEntityInstanceNam
     gcTime: SESSION_STORE_CONFIG.gcTime,
     placeholderData: {},
   });
-
-  // Update sync store when data changes
-  useMemo(() => {
-    if (query.data && Object.keys(query.data).length > 0) {
-      entityInstanceNamesStore.merge(entityCode, query.data);
-    }
-  }, [entityCode, query.data]);
 
   const getName = useCallback(
     (entityInstanceId: string): string | undefined => {
@@ -108,9 +93,7 @@ export async function mergeEntityInstanceNames(
   const { queryClient } = await import('../client');
 
   for (const [entityCode, names] of Object.entries(data)) {
-    // Update sync store
-    entityInstanceNamesStore.merge(entityCode, names);
-
+    // v11.0.0: Only update TanStack Query cache and Dexie (no sync store)
     // Persist to Dexie
     await bulkSetEntityInstanceNames(entityCode, names);
 
@@ -140,15 +123,14 @@ export async function clearEntityInstanceNamesCache(
     '../../persistence/operations'
   );
 
+  // v11.0.0: Only clear TanStack Query cache and Dexie (no sync store)
   if (entityCode) {
     queryClient.removeQueries({
       queryKey: QUERY_KEYS.entityInstanceNames(entityCode),
     });
-    entityInstanceNamesStore.clearByCode(entityCode);
     await clearDexie(entityCode);
   } else {
     queryClient.removeQueries({ queryKey: ['entityInstanceNames'] });
-    entityInstanceNamesStore.clearAll();
     await clearDexie();
   }
 }

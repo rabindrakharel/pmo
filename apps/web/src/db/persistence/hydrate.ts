@@ -7,13 +7,13 @@
 import { queryClient } from '../cache/client';
 import { QUERY_KEYS } from '../cache/keys';
 import { HYDRATION_CONFIG, SESSION_STORE_CONFIG } from '../cache/constants';
-import {
-  globalSettingsStore,
-  datalabelStore,
-  entityCodesStore,
-  entityInstanceNamesStore,
-  entityInstanceMetadataStore,
-} from '../cache/stores';
+import type {
+  GlobalSettings,
+  DatalabelOption,
+  EntityCode,
+  EntityInstanceMetadata,
+} from '../cache/types';
+// v11.0.0: Removed sync store imports - TanStack Query cache is the single source of truth
 import { db } from './schema';
 
 // ============================================================================
@@ -47,7 +47,8 @@ export interface HydrationResult {
  * 1. Fresher than HYDRATION_CONFIG.maxAge (30 minutes)
  * 2. Valid (no corruption)
  *
- * Also populates sync stores for non-hook access.
+ * v11.0.0: Sync stores removed - TanStack Query cache is the single source of truth.
+ * Sync accessors (getDatalabelSync, etc.) read directly from queryClient.getQueryData().
  */
 export async function hydrateFromDexie(): Promise<HydrationResult> {
   const maxAge = HYDRATION_CONFIG.maxAge;
@@ -139,11 +140,8 @@ async function hydrateGlobalSettings(now: number, maxAge: number): Promise<numbe
   if (!record) return 0;
   if (now - record.syncedAt > maxAge) return 0;
 
-  // Set in TanStack Query cache
+  // v11.0.0: Set in TanStack Query cache only (sync accessors read from queryClient)
   queryClient.setQueryData(QUERY_KEYS.globalSettings(), record.settings);
-
-  // Set in sync store
-  globalSettingsStore.set(record.settings);
 
   return 1;
 }
@@ -155,12 +153,8 @@ async function hydrateDatalabels(now: number, maxAge: number): Promise<number> {
 
   let count = 0;
   for (const record of records) {
-    // Set in TanStack Query cache
+    // v11.0.0: Set in TanStack Query cache only (sync accessors read from queryClient)
     queryClient.setQueryData(QUERY_KEYS.datalabel(record.key), record.options);
-
-    // Set in sync store
-    datalabelStore.set(record.key, record.options);
-
     count++;
   }
 
@@ -172,11 +166,8 @@ async function hydrateEntityCodes(now: number, maxAge: number): Promise<number> 
   if (!record) return 0;
   if (now - record.syncedAt > maxAge) return 0;
 
-  // Set in TanStack Query cache
+  // v11.0.0: Set in TanStack Query cache only (sync accessors read from queryClient)
   queryClient.setQueryData(QUERY_KEYS.entityCodes(), record.codes);
-
-  // Set in sync store
-  entityCodesStore.set(record.codes);
 
   return record.codes.length;
 }
@@ -198,12 +189,8 @@ async function hydrateEntityInstanceNames(now: number, maxAge: number): Promise<
   // Hydrate each entity type
   let count = 0;
   for (const [entityCode, names] of byCode.entries()) {
-    // Set in TanStack Query cache
+    // v11.0.0: Set in TanStack Query cache only (sync accessors read from queryClient)
     queryClient.setQueryData(QUERY_KEYS.entityInstanceNames(entityCode), names);
-
-    // Set in sync store
-    entityInstanceNamesStore.set(entityCode, names);
-
     count += Object.keys(names).length;
   }
 
@@ -217,15 +204,11 @@ async function hydrateEntityInstanceMetadata(now: number, maxAge: number): Promi
 
   let count = 0;
   for (const record of records) {
-    // Set in TanStack Query cache
+    // v11.0.0: Set in TanStack Query cache only (sync accessors read from queryClient)
     queryClient.setQueryData(
       QUERY_KEYS.entityInstanceMetadata(record.entityCode),
       record.metadata
     );
-
-    // Set in sync store
-    entityInstanceMetadataStore.set(record.entityCode, record.metadata);
-
     count++;
   }
 
@@ -241,7 +224,7 @@ async function hydrateEntityInstanceMetadata(now: number, maxAge: number): Promi
  * Called by hooks after successful API response
  */
 export async function persistToGlobalSettings(
-  settings: typeof globalSettingsStore extends { get(): infer T } ? Exclude<T, null> : never
+  settings: GlobalSettings
 ): Promise<void> {
   await db.globalSettings.put({
     _id: 'settings',
@@ -252,7 +235,7 @@ export async function persistToGlobalSettings(
 
 export async function persistToDatalabel(
   key: string,
-  options: typeof datalabelStore extends { get(k: string): infer T } ? Exclude<T, undefined> : never
+  options: DatalabelOption[]
 ): Promise<void> {
   await db.datalabel.put({
     _id: key,
@@ -263,7 +246,7 @@ export async function persistToDatalabel(
 }
 
 export async function persistToEntityCodes(
-  codes: typeof entityCodesStore extends { getAll(): infer T } ? Exclude<T, null> : never
+  codes: EntityCode[]
 ): Promise<void> {
   await db.entityCodes.put({
     _id: 'all',
@@ -289,9 +272,7 @@ export async function persistToEntityInstanceNames(
 
 export async function persistToEntityInstanceMetadata(
   entityCode: string,
-  metadata: typeof entityInstanceMetadataStore extends { get(k: string): infer T }
-    ? Exclude<T, undefined>
-    : never
+  metadata: EntityInstanceMetadata
 ): Promise<void> {
   await db.entityInstanceMetadata.put({
     _id: entityCode,

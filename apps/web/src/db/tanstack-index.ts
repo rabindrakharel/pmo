@@ -12,16 +12,20 @@
 // Cache hooks - primary API
 export * from './cache/hooks';
 
-// Cache stores - sync access for formatters/utilities
+// v11.0.0: Sync Accessors - read from queryClient.getQueryData() (no separate stores)
 export {
-  globalSettingsStore,
-  datalabelStore,
-  entityCodesStore,
-  entityInstanceNamesStore,
-  entityLinksStore,
-  entityInstanceMetadataStore,
-  clearAllSyncStores,
-  getSyncStoreStats,
+  getGlobalSettingsSync,
+  getSettingSync,
+  getDatalabelSync,
+  getEntityCodesSync,
+  getEntityCodeSync,
+  getChildEntityCodesSync,
+  getEntityInstanceNameSync,
+  getEntityInstanceNamesForTypeSync,
+  getChildIdsSync,
+  getParentsSync,
+  getEntityInstanceMetadataSync,
+  getCacheStats,
 } from './cache/stores';
 
 // Cache constants
@@ -128,12 +132,11 @@ export const createDraftKey = (entityCode: string, entityId: string) => `draft:$
 
 // From old query/queryClient.ts
 export { queryClient as hydrateQueryCache } from './cache/client';
+// v11.0.0: Removed clearAllSyncStores - TanStack Query cache is the single source of truth
 export const clearAllCaches = async () => {
   const { clearAllExceptDrafts } = await import('./persistence/operations');
-  const { clearAllSyncStores } = await import('./cache/stores');
   const { queryClient } = await import('./cache/client');
   await clearAllExceptDrafts();
-  clearAllSyncStores();
   queryClient.clear();
 };
 
@@ -151,9 +154,10 @@ export const clearAllData = async () => {
   const { clearAllStores } = await import('./persistence/operations');
   await clearAllStores();
 };
+// v11.0.0: getCacheStats returns TanStack Query cache stats (no separate sync stores)
 export const getDatabaseStats = async () => {
-  const { getSyncStoreStats } = await import('./cache/stores');
-  return getSyncStoreStats();
+  const { getCacheStats } = await import('./cache/stores');
+  return getCacheStats();
 };
 
 // ============================================================================
@@ -199,9 +203,7 @@ export type EntityCodeData = EntityCodeDefinition & {
 
 // Legacy function aliases
 /** @deprecated Use getEntityCodesSync instead */
-export { getEntityCodesSync as getEntityCodesSync } from './cache/stores';
-/** @deprecated Use getEntityCodeSync instead */
-export { getEntityCodeSync as getEntityByCodeSync } from './cache/stores';
+// getEntityCodesSync already exported above
 
-// From normalized-cache - these are now in cache/stores
-export { entityCodesStore as getAllEntityCodesSync } from './cache/stores';
+/** @deprecated Use getEntityCodeSync instead */
+// getEntityCodeSync already exported above as getEntityByCodeSync (use getEntityCodeSync)

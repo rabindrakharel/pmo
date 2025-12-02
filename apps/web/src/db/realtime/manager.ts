@@ -7,13 +7,12 @@
 
 import { queryClient, invalidateEntityQueries } from '../cache/client';
 import { WEBSOCKET_CONFIG } from '../cache/constants';
-import { DEXIE_KEYS } from '../cache/keys';
-import { entityLinksStore } from '../cache/stores';
+import { DEXIE_KEYS, QUERY_KEYS } from '../cache/keys';
+// v11.0.0: Removed entityLinksStore - TanStack Query cache is the single source of truth
 import type {
   ConnectionStatus,
   InvalidatePayload,
   NormalizedInvalidatePayload,
-  EntityLink,
 } from '../cache/types';
 import { db } from '../persistence/schema';
 import { clearEntityInstanceData } from '../persistence/operations';
@@ -419,7 +418,6 @@ class WebSocketManager {
       entity_instance_id,
       child_entity_code,
       child_entity_instance_id,
-      relationship_type,
     } = payload;
 
     if (
@@ -438,25 +436,9 @@ class WebSocketManager {
       `${entity_code}:${entity_instance_id} -> ${child_entity_code}:${child_entity_instance_id}`
     );
 
-    if (action === 'INSERT') {
-      entityLinksStore.addLink(
-        entity_code,
-        entity_instance_id,
-        child_entity_code,
-        child_entity_instance_id,
-        relationship_type || 'contains'
-      );
-    } else if (action === 'DELETE') {
-      entityLinksStore.removeLink(
-        entity_code,
-        entity_instance_id,
-        child_entity_code,
-        child_entity_instance_id
-      );
-    }
-
-    // Also invalidate to ensure consistency with server
-    queryClient.invalidateQueries({ queryKey: ['entityLinks'] });
+    // v11.0.0: Invalidate TanStack Query cache directly (sync store removed)
+    // This will trigger a refetch of the entity links data
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.entityLinks() });
   }
 
   private async handleDelete(

@@ -38,8 +38,7 @@
 import { useQuery, useQueryClient, QueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import type { RefData } from '@/db/tanstack-index';
-// v10.0.1: Import sync store and Dexie persistence for unified hydration
-import { entityInstanceNamesStore } from '@/db/cache/stores';
+// v11.0.0: Dexie persistence only (no sync store)
 import { persistToEntityInstanceNames } from '@/db/persistence/hydrate';
 
 // ============================================================================
@@ -121,9 +120,7 @@ export function upsertRefDataEntityInstance(
       return merged;
     });
 
-    // v10.0.1: CRITICAL - Also update sync store for synchronous access
-    // This ensures formatReference() can resolve names without async lookup
-    entityInstanceNamesStore.merge(entityCode, lookups);
+    // v11.0.0: Sync store removed - TanStack Query cache is the single source of truth
 
     // Get updated cache
     const after = queryClient.getQueryData<EntityInstanceLookup>(queryKey);
@@ -234,13 +231,11 @@ export async function prefetchRefDataEntityInstances(
         return merged;
       });
 
-      // v10.0.1: CRITICAL - Also populate sync store and Dexie for unified cache
-      // This ensures formatReference() can resolve names synchronously
-      entityInstanceNamesStore.merge(entityCode, lookup);
+      // v11.0.0: Persist to Dexie (TanStack Query cache is the primary source)
       await persistToEntityInstanceNames(entityCode, lookup);
-      debugRefData(`✅ Sync store + Dexie populated for ${entityCode}`, {
+      debugRefData(`✅ TanStack Query + Dexie populated for ${entityCode}`, {
         entityCode,
-        syncStoreCount: Object.keys(lookup).length,
+        count: Object.keys(lookup).length,
       });
     } catch (error) {
       debugRefData(`❌ Failed to prefetch ${entityCode}`, { error: String(error) });

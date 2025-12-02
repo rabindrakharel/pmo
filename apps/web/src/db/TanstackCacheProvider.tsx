@@ -18,7 +18,7 @@ import {
 
 // Import from new unified cache structure
 import { queryClient } from './cache/client';
-import { clearAllSyncStores } from './cache/stores';
+// v11.0.0: Removed clearAllSyncStores - TanStack Query cache is the single source of truth
 import type { ConnectionStatus } from './cache/types';
 import {
   prefetchAllDatalabels,
@@ -123,16 +123,13 @@ export function TanstackCacheProvider({ children }: TanstackCacheProviderProps) 
   const clearCache = useCallback(async () => {
     wsManager.disconnect();
 
-    // Clear TanStack Query caches
+    // v11.0.0: Clear TanStack Query caches (sync stores removed)
     await clearDatalabelCache();
     await clearGlobalSettingsCache();
     await clearEntityCodesCache();
     await clearEntityLinksCache();
     await clearEntityInstanceNamesCache();
     await clearEntityInstanceDataCache();
-
-    // Clear sync stores
-    clearAllSyncStores();
 
     // Clear Dexie (except drafts)
     await clearAllExceptDrafts();

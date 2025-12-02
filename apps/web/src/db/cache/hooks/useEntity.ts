@@ -9,7 +9,6 @@ import { useEffect } from 'react';
 import { apiClient } from '@/lib/api';
 import { QUERY_KEYS } from '../keys';
 import { ONDEMAND_STORE_CONFIG } from '../constants';
-import { entityInstanceNamesStore } from '../stores';
 import type { EntityInstanceMetadata } from '../types';
 import {
   setEntityInstance,
@@ -85,6 +84,7 @@ export function useEntity<T = Record<string, unknown>>(
   options: UseEntityOptions = {}
 ): UseEntityResult<T> {
   const { enabled = true, staleTime, refetchOnMount = true } = options;
+  const queryClient = useQueryClient();
 
   const query = useQuery<EntityResponse<T>, Error>({
     queryKey: QUERY_KEYS.entityInstance(entityCode, entityId ?? ''),
@@ -101,8 +101,11 @@ export function useEntity<T = Record<string, unknown>>(
       const entityData = apiData.data || apiData;
       if (entityData.name) {
         await setEntityInstance(entityCode, entityId, entityData.name, entityData.code);
-        // Update sync store
-        entityInstanceNamesStore.set(entityCode, entityId, entityData.name);
+        // v11.0.0: Update TanStack Query cache directly
+        queryClient.setQueryData<Record<string, string>>(
+          QUERY_KEYS.entityInstanceNames(entityCode),
+          (old) => ({ ...(old || {}), [entityId]: entityData.name })
+        );
       }
 
       // Store entity instance names from ref_data_entityInstance
@@ -110,7 +113,11 @@ export function useEntity<T = Record<string, unknown>>(
         for (const [refEntityCode, names] of Object.entries(apiData.ref_data_entityInstance)) {
           for (const [id, name] of Object.entries(names as Record<string, string>)) {
             await setEntityInstance(refEntityCode, id, name);
-            entityInstanceNamesStore.set(refEntityCode, id, name);
+            // v11.0.0: Update TanStack Query cache directly
+            queryClient.setQueryData<Record<string, string>>(
+              QUERY_KEYS.entityInstanceNames(refEntityCode),
+              (old) => ({ ...(old || {}), [id]: name })
+            );
           }
         }
       }
@@ -207,7 +214,11 @@ export function useEntityMutation(entityCode: string): UseEntityMutationResult {
     // Update entity instance name if name changed
     if (updatedData.name) {
       await setEntityInstance(entityCode, entityId, updatedData.name, updatedData.code);
-      entityInstanceNamesStore.set(entityCode, entityId, updatedData.name);
+      // v11.0.0: Update TanStack Query cache directly
+      queryClient.setQueryData<Record<string, string>>(
+        QUERY_KEYS.entityInstanceNames(entityCode),
+        (old) => ({ ...(old || {}), [entityId]: updatedData.name })
+      );
     }
 
     // Update TanStack Query cache
@@ -232,7 +243,11 @@ export function useEntityMutation(entityCode: string): UseEntityMutationResult {
     // Cache the new entity instance name
     if (newEntity.name) {
       await setEntityInstance(entityCode, newEntity.id, newEntity.name, newEntity.code);
-      entityInstanceNamesStore.set(entityCode, newEntity.id, newEntity.name);
+      // v11.0.0: Update TanStack Query cache directly
+      queryClient.setQueryData<Record<string, string>>(
+        QUERY_KEYS.entityInstanceNames(entityCode),
+        (old) => ({ ...(old || {}), [newEntity.id]: newEntity.name })
+      );
     }
 
     // Invalidate list queries to include new entity
@@ -247,8 +262,15 @@ export function useEntityMutation(entityCode: string): UseEntityMutationResult {
   const deleteEntity = async (entityId: string): Promise<void> => {
     await apiClient.delete(`/api/v1/${entityCode}/${entityId}`);
 
-    // Remove entity instance name from sync store
-    entityInstanceNamesStore.delete(entityCode, entityId);
+    // v11.0.0: Remove entity instance name from TanStack Query cache
+    queryClient.setQueryData<Record<string, string>>(
+      QUERY_KEYS.entityInstanceNames(entityCode),
+      (old) => {
+        if (!old) return old;
+        const { [entityId]: _removed, ...rest } = old;
+        return rest;
+      }
+    );
 
     // Remove from TanStack Query cache
     queryClient.removeQueries({

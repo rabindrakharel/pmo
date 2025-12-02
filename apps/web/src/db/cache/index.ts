@@ -1,7 +1,8 @@
 // ============================================================================
 // Cache Layer - Public API
 // ============================================================================
-// TanStack Query based caching with sync stores for non-hook access
+// TanStack Query based caching with sync accessors for non-hook access
+// v11.0.0: Removed separate sync stores - accessors read from queryClient.getQueryData()
 // ============================================================================
 
 // Constants
@@ -76,21 +77,14 @@ export type {
 
 export { DEFAULT_CACHE_CONFIG } from './types';
 
-// Sync Stores (for non-hook access)
+// v11.0.0: Sync Accessors (for non-hook access)
+// These read directly from queryClient.getQueryData() - no separate sync stores
 export {
-  // Stores
-  globalSettingsStore,
-  datalabelStore,
-  entityCodesStore,
-  entityInstanceNamesStore,
-  entityLinksStore,
-  entityInstanceMetadataStore,
   // Global Settings
   getGlobalSettingsSync,
   getSettingSync,
   // Datalabels
   getDatalabelSync,
-  setDatalabelSync,
   // Entity Codes
   getEntityCodesSync,
   getEntityCodeSync,
@@ -103,7 +97,6 @@ export {
   getParentsSync,
   // Entity Instance Metadata
   getEntityInstanceMetadataSync,
-  // Management
-  clearAllSyncStores,
-  getSyncStoreStats,
+  // Cache Statistics (for debugging)
+  getCacheStats,
 } from './stores';

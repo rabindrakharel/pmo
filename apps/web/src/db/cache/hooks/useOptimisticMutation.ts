@@ -31,7 +31,6 @@ import { useMutation, useQueryClient, QueryClient } from '@tanstack/react-query'
 import { useCallback } from 'react';
 import { apiClient } from '@/lib/api';
 import { QUERY_KEYS } from '../keys';
-import { entityInstanceNamesStore } from '../stores';
 import {
   setEntityInstance,
   clearEntityInstanceData,
@@ -365,7 +364,11 @@ export function useOptimisticMutation<T extends { id: string } = { id: string } 
             name: typedData.name,
           });
           await setEntityInstance(entityCode, variables.entityId, typedData.name, typedData.code);
-          entityInstanceNamesStore.set(entityCode, variables.entityId, typedData.name);
+          // v11.0.0: Update TanStack Query cache directly
+          queryClient.setQueryData<Record<string, string>>(
+            QUERY_KEYS.entityInstanceNames(entityCode),
+            (old) => ({ ...(old || {}), [variables.entityId]: typedData.name! })
+          );
         }
 
         if (refetchOnSuccess) {
@@ -458,7 +461,11 @@ export function useOptimisticMutation<T extends { id: string } = { id: string } 
       const typedData = data as T & { name?: string; code?: string };
       if (typedData.name && typedData.id) {
         await setEntityInstance(entityCode, typedData.id, typedData.name, typedData.code);
-        entityInstanceNamesStore.set(entityCode, typedData.id, typedData.name);
+        // v11.0.0: Update TanStack Query cache directly
+        queryClient.setQueryData<Record<string, string>>(
+          QUERY_KEYS.entityInstanceNames(entityCode),
+          (old) => ({ ...(old || {}), [typedData.id!]: typedData.name! })
+        );
       }
 
       if (refetchOnSuccess) {
@@ -531,8 +538,15 @@ export function useOptimisticMutation<T extends { id: string } = { id: string } 
     },
 
     onSuccess: async (_data, entityId) => {
-      // Remove entity instance name from stores
-      entityInstanceNamesStore.delete(entityCode, entityId);
+      // v11.0.0: Remove entity instance name from TanStack Query cache
+      queryClient.setQueryData<Record<string, string>>(
+        QUERY_KEYS.entityInstanceNames(entityCode),
+        (old) => {
+          if (!old) return old;
+          const { [entityId]: _removed, ...rest } = old;
+          return rest;
+        }
+      );
 
       onSuccess?.({}, { entityId });
     },

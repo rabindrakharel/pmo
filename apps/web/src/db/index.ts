@@ -74,11 +74,10 @@ export {
   // Link manipulation
   addLinkToCache,
   removeLinkFromCache,
-  // Sync Access
+  // Sync Access (v11.0.0: read from queryClient.getQueryData())
   getGlobalSettingsSync,
   getSettingSync,
   getDatalabelSync,
-  setDatalabelSync,
   getEntityCodesSync,
   getEntityCodeSync,
   getChildEntityCodesSync,
@@ -144,16 +143,9 @@ export {
   parseLinkForwardKey,
 } from './cache/keys';
 
-// Stores
+// v11.0.0: Sync Accessors - read from queryClient.getQueryData() (no separate stores)
 export {
-  globalSettingsStore,
-  datalabelStore,
-  entityCodesStore,
-  entityInstanceNamesStore,
-  entityLinksStore,
-  entityInstanceMetadataStore,
-  clearAllSyncStores,
-  getSyncStoreStats,
+  getCacheStats,
 } from './cache/stores';
 
 // ============================================================================
