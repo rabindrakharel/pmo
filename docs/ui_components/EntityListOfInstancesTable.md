@@ -1,6 +1,6 @@
 # EntityListOfInstancesTable Component
 
-**Version:** 8.6.0 | **Location:** `apps/web/src/components/shared/ui/EntityListOfInstancesTable.tsx` | **Updated:** 2025-11-28
+**Version:** 11.1.0 | **Location:** `apps/web/src/components/shared/ui/EntityListOfInstancesTable.tsx` | **Updated:** 2025-12-02
 
 ---
 
@@ -8,9 +8,9 @@
 
 EntityListOfInstancesTable is a universal data table component with **virtualized rendering**, inline editing, sorting, filtering, and pagination. It uses the `{ viewType, editType }` metadata structure from the backend to determine column configuration and rendering.
 
-**Core Principle:** Backend metadata with `{ viewType, editType }` structure controls all columns, rendering, and edit behavior. Frontend is a pure renderer using `extractViewType()` and `extractEditType()` helpers.
+**Core Principle:** Backend metadata with `{ viewType, editType }` structure controls all columns, rendering, and edit behavior. Frontend is a pure renderer.
 
-**v8.6.0 Key Change:** All metadata (datalabels, entity codes) is now cached in RxDB alongside entity data. Access via `getDatalabelSync()` for badge colors. Draft state managed via `useRxDraft`.
+**v11.1.0 Key Change:** Both `EntityListOfInstancesTable` and `EntityInstanceFormContainer` now use the same **flat metadata format**: `{ viewType, editType }`. Entity reference fields resolved via `getEntityInstanceNameSync()` which reads directly from TanStack Query cache (no separate sync stores as of v11.0.0).
 
 ---
 
@@ -18,25 +18,26 @@ EntityListOfInstancesTable is a universal data table component with **virtualize
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                     ENTITY DATA TABLE ARCHITECTURE (v8.6.0)                   │
+│                     ENTITY DATA TABLE ARCHITECTURE (v11.1.0)                  │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                    Data Source (RxDB → IndexedDB)                    │    │
+│  │                    Data Source (TanStack Query + Dexie)              │    │
 │  │                                                                      │    │
-│  │  useRxEntityList('project') or useEntityInstanceList('project')     │    │
-│  │    ├── Instant from IndexedDB (if cached)                           │    │
-│  │    └── Background fetch if stale (>30s)                             │    │
+│  │  Two-Query Architecture:                                             │    │
+│  │  ├── QUERY 1: useEntityInstanceData('project') - data (5-min cache) │    │
+│  │  └── QUERY 2: useEntityInstanceMetadata('project') - (30-min cache) │    │
 │  │                                                                      │    │
-│  │  Returns: { data, refData, metadata, isLoading, isStale }           │    │
+│  │  Returns: { data, refData } + { viewType, editType }                │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 │                              │                                              │
 │                              v                                              │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                    EntityListOfInstancesTable                                   │    │
+│  │                    EntityListOfInstancesTable                        │    │
 │  │                                                                      │    │
-│  │  const viewType = extractViewType(metadata.entityListOfInstancesTable);        │    │
-│  │  const editType = extractEditType(metadata.entityListOfInstancesTable);        │    │
+│  │  // v11.1.0: Flat metadata format                                   │    │
+│  │  const viewType = metadata?.viewType ?? {};                         │    │
+│  │  const editType = metadata?.editType ?? {};                         │    │
 │  │                                                                      │    │
 │  │  ┌─────────────────────────────────────────────────────────────┐    │    │
 │  │  │  Header Row (Sticky)                                         │    │    │
@@ -74,7 +75,7 @@ EntityListOfInstancesTable is a universal data table component with **virtualize
 
 ---
 
-## Props Interface
+## Props Interface (v11.1.0)
 
 ```typescript
 import type { FormattedRow } from '@/lib/formatters';
@@ -83,7 +84,7 @@ export interface EntityListOfInstancesTableProps<T = any> {
   /** Entity records (FormattedRow[] or raw T[]) */
   data: T[];
 
-  /** Backend metadata with { entityListOfInstancesTable: { viewType, editType } } (REQUIRED) */
+  /** Backend metadata - FLAT format { viewType, editType } (v11.1.0) */
   metadata?: EntityMetadata | null;
 
   /** Reference data for entity lookups (from API response) */
@@ -123,17 +124,16 @@ export interface EntityListOfInstancesTableProps<T = any> {
   onSelectionChange?: (ids: string[]) => void;
 }
 
-// Metadata structure from API (v8.5.0)
+// v11.1.0: FLAT Metadata format (same as EntityInstanceFormContainer)
 interface EntityMetadata {
-  entityListOfInstancesTable: ComponentMetadata;
-  entityInstanceFormContainer?: ComponentMetadata;
+  viewType: Record<string, ViewFieldMetadata>;
+  editType: Record<string, EditFieldMetadata>;
   fields?: string[];  // Field ordering
 }
 
-interface ComponentMetadata {
-  viewType: Record<string, ViewFieldMetadata>;
-  editType: Record<string, EditFieldMetadata>;
-}
+// Note: Component also supports nested format for backward compatibility:
+// { entityListOfInstancesTable: { viewType, editType } }
+// But FLAT format is preferred
 ```
 
 ---
@@ -189,33 +189,55 @@ interface EditFieldMetadata {
 
 ---
 
-## Data Flow
+## Data Flow (v11.1.0)
 
 ### Column Generation
 
 ```
-Backend Metadata                     extractViewType()           Processed Columns
-────────────────                     ─────────────────           ─────────────────
+Backend Metadata                     v11.1.0 Flat Format         Processed Columns
+────────────────                     ───────────────────         ─────────────────
 
-metadata.entityListOfInstancesTable: {    →    viewType = extractViewType   →   columns: [
-  viewType: {                         (metadata.entityListOfInstancesTable)       {
-    budget_amt: {                                                        key: 'budget_amt',
-      dtype: 'float',                 // REQUIRED                        title: 'Budget',
-      label: 'Budget',                // Returns viewType or null        render: () =>
-      renderType: 'currency',         // Logs error if invalid             row.display[key]
-      behavior: { visible: true },                                      }
-      style: { align: 'right' }                                        ]
+metadata: {                     →    const viewType =       →   columns: [
+  viewType: {                        metadata?.viewType ?? {};     {
+    budget_amt: {                                                   key: 'budget_amt',
+      dtype: 'float',                // FLAT format                 title: 'Budget',
+      label: 'Budget',               // Direct access               render: () =>
+      renderType: 'currency',                                         row.display[key]
+      behavior: { visible: true },                                 }
+      style: { align: 'right' }                                   ]
     }
   },
   editType: { ... }
 }
 ```
 
+### Two-Query Architecture (v11.0.0)
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│  EntityListOfInstancesPage                                                      │
+│                                                                                 │
+│  QUERY 1: DATA (5-min cache)            QUERY 2: METADATA (30-min cache)       │
+│  ──────────────────────────              ───────────────────────────────        │
+│  useEntityInstanceData('project')        useEntityInstanceMetadata('project',  │
+│  └── Returns: { data, refData }            'entityListOfInstancesTable')       │
+│                                          └── Returns: { viewType, editType }   │
+│                                                                                 │
+│  Page constructs flat metadata:                                                 │
+│  ─────────────────────────────                                                  │
+│  const metadata = useMemo(() => ({                                              │
+│    viewType: metadataResult.viewType,                                           │
+│    editType: metadataResult.editType                                            │
+│  }), [metadataResult]);                                                         │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
 ### Format-at-Read Pattern
 
 ```
-RxDB (IndexedDB)         formatDataset()              Component Receives
-────────────────         ───────────────              ──────────────────
+TanStack Query Cache     formatDataset()              Component Receives
+────────────────────     ───────────────              ──────────────────
 
 { data: [          →     Uses viewType to format  →   FormattedRow[] = [
   { budget_amt:          each field                     {
@@ -224,6 +246,23 @@ RxDB (IndexedDB)         formatDataset()              Component Receives
                                                          styles: {}
                                                         }
                                                        ]
+```
+
+### Entity Reference Resolution (v11.0.0)
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│  formatDataset() calls formatValue() for each field                            │
+│                                                                                 │
+│  if (renderType === 'entityInstanceId' || component === 'EntityInstanceName') │
+│    └── formatReference(uuid, metadata)                                         │
+│          └── entityCode = metadata.lookupEntity                                │
+│          └── getEntityInstanceNameSync(entityCode, uuid)                       │
+│                └── queryClient.getQueryData(['entityInstanceNames', entityCode])│
+│                      └── returns: "James Miller"                               │
+│                                                                                 │
+│  v11.0.0: No separate sync stores - reads directly from TanStack Query cache   │
+└────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Cell Rendering
@@ -332,37 +371,48 @@ const columnStylesMap = useMemo(() => {
 
 ---
 
-## Usage Example (v8.5.0)
+## Usage Example (v11.1.0)
 
-### With RxDB Hooks
+### With Two-Query Architecture
 
 ```typescript
-import { useRxEntityList } from '@/db/rxdb/hooks/useRxEntity';
+import { useEntityInstanceData, useEntityInstanceMetadata } from '@/db/tanstack-index';
 import { EntityListOfInstancesTable } from '@/components/shared/ui/EntityListOfInstancesTable';
 import { formatDataset } from '@/lib/formatters';
 
 function ProjectListPage() {
+  // QUERY 1: Data (5-min cache)
   const {
-    data,           // Raw data from IndexedDB
-    refData,        // Reference lookups
-    metadata,       // Field metadata
-    isLoading,
-    isStale,        // True if data older than 30s
-    refetch,
-  } = useRxEntityList<Project>('project', { limit: 1000 });
+    data: rawData,
+    refData,
+    isLoading: dataLoading,
+  } = useEntityInstanceData('project', { limit: 1000 });
 
-  // Format data for display
+  // QUERY 2: Metadata (30-min cache)
+  const {
+    viewType,
+    editType,
+    isLoading: metadataLoading,
+  } = useEntityInstanceMetadata('project', 'entityListOfInstancesTable');
+
+  // v11.1.0: Flat metadata format - same as EntityInstanceFormContainer
+  const metadata = useMemo(() => {
+    if (!viewType || Object.keys(viewType).length === 0) return null;
+    return { viewType, editType };
+  }, [viewType, editType]);
+
+  // Format data for display (memoized)
   const formattedData = useMemo(() => {
-    if (!data.length) return [];
-    return formatDataset(data, metadata?.entityListOfInstancesTable);
-  }, [data, metadata]);
+    if (!rawData?.length || !metadata) return [];
+    return formatDataset(rawData, metadata);
+  }, [rawData, metadata]);
 
   return (
     <EntityListOfInstancesTable
       data={formattedData}
-      metadata={metadata}
+      metadata={metadata}  // v11.1.0: Flat format { viewType, editType }
       refData={refData}
-      loading={isLoading}
+      loading={dataLoading || metadataLoading}
       onRowClick={(record) => navigate(`/project/${record.raw.id}`)}
       onInlineEdit={async (id, key, value) => {
         await updateEntity(id, { [key]: value });
@@ -379,21 +429,23 @@ function ProjectListPage() {
 }
 ```
 
-### With Compatibility Hooks
+### With useFormattedEntityList Hook
 
 ```typescript
-import { useFormattedEntityList } from '@/lib/hooks/useEntityQuery';
+import { useFormattedEntityList } from '@/lib/hooks/useEntityFormatters';
 
 function ProjectListPage() {
-  // Uses RxDB internally, maintains React Query API
-  const { data: formattedData, metadata, isLoading } = useFormattedEntityList('project', {
-    limit: 1000,
-  });
+  // Combines both queries + formatting in single hook
+  const {
+    data: formattedData,
+    metadata,
+    isLoading
+  } = useFormattedEntityList('project', { limit: 1000 });
 
   return (
     <EntityListOfInstancesTable
       data={formattedData}
-      metadata={metadata}
+      metadata={metadata}  // Flat format { viewType, editType }
       loading={isLoading}
       // ... other props
     />
@@ -420,31 +472,34 @@ function ProjectListPage() {
 ## User Interaction Flow
 
 ```
-Table Load Flow (v8.5.0)
-────────────────────────
+Table Load Flow (v11.1.0 - Two-Query Architecture)
+───────────────────────────────────────────────────
 
 1. Page component mounts
    │
-2. useRxEntityList('project') queries IndexedDB
+2. useEntityInstanceData('project') + useEntityInstanceMetadata('project')
    │
-   ├── [Cache HIT] → Instant data, isLoading=false
-   │                  Check staleness, background refresh if >30s
+   ├── [TanStack Query Cache HIT] → Instant return
+   │     ├── Data: 5-min staleTime
+   │     └── Metadata: 30-min staleTime
    │
-   └── [Cache MISS] → ReplicationManager.fetchEntityList()
+   └── [Cache MISS] → API fetches
                       │
                       v
-3. API returns { data, ref_data_entityInstance, metadata }
+3. DATA API returns { data, ref_data_entityInstance }
+   METADATA API returns { viewType, editType }
    │
-4. ReplicationManager stores in RxDB (IndexedDB)
+4. TanStack Query caches both (ref_data_entityInstance populates cache)
    │
-5. RxDB reactive query emits → component re-renders
+5. Page constructs flat metadata: { viewType, editType }
    │
 6. formatDataset() transforms to FormattedRow[]
+   │     └── Entity references: getEntityInstanceNameSync() reads from TanStack Query
    │
-7. EntityListOfInstancesTable receives FormattedRow[] + metadata
+7. EntityListOfInstancesTable receives FormattedRow[] + flat metadata
    │
-8. const viewType = extractViewType(metadata.entityListOfInstancesTable)
-   const editType = extractEditType(metadata.entityListOfInstancesTable)
+8. const viewType = metadata?.viewType ?? {};
+   const editType = metadata?.editType ?? {};
    │
 9. Columns built from viewType (visible, sortable, label, etc.)
    │
@@ -466,35 +521,39 @@ Inline Edit Flow
    │
 5. User clicks away / Tab / Enter → onInlineEdit(rowId, key, value)
    │
-6. PATCH /api/v1/project/:id
+6. Optimistic update → TanStack Query cache updated immediately
    │
-7. RxDB upsert → Reactive query emits → UI updates
+7. PATCH /api/v1/project/:id → Server confirms
+   │
+8. Cache invalidation → Component re-renders with fresh data
 ```
 
 ---
 
 ## Critical Considerations
 
-### Design Principles (v8.5.0)
+### Design Principles (v11.1.0)
 
-1. **extractViewType()** - Always use helper to access viewType
-2. **extractEditType()** - Always use helper to access editType
+1. **Flat Metadata Format** - Component receives `{ viewType, editType }` directly (v11.1.0)
+2. **Two-Query Architecture** - Data (5-min cache) and metadata (30-min cache) fetched separately
 3. **FormattedRow** - View mode uses pre-formatted `display` and `styles`
 4. **Raw Values** - Edit mode uses `row.raw[key]` for original values
 5. **Backend Required** - Metadata must contain `{ viewType, editType }`
 6. **Virtualized** - Auto-activates for >50 rows
-7. **RxDB Cache** - Data persists in IndexedDB, survives page refresh
+7. **TanStack Query + Dexie** - Data persists in IndexedDB, survives page refresh
+8. **Single In-Memory Cache** - Entity names resolved via `getEntityInstanceNameSync()` from TanStack Query (v11.0.0)
 
 ### Anti-Patterns
 
 | Anti-Pattern | Correct Approach |
 |--------------|------------------|
-| Direct `metadata.viewType` access | Use `extractViewType(metadata.entityListOfInstancesTable)` |
-| Direct `metadata.editType` access | Use `extractEditType(metadata.entityListOfInstancesTable)` |
+| Using `extractViewType(metadata.entityListOfInstancesTable)` | v11.1.0: Use `metadata?.viewType` directly (flat format) |
+| Using nested metadata format | v11.1.0: Use flat `{ viewType, editType }` format |
 | Frontend pattern detection | Backend sends complete metadata |
 | Custom render per field | Use `row.display[key]` from FormattedRow |
 | Hardcoded columns | Use `viewType` from backend |
 | Fallback metadata generation | Backend MUST send metadata |
+| Creating separate sync stores | v11.0.0: TanStack Query cache is single source of truth |
 
 ---
 
@@ -502,16 +561,26 @@ Inline Edit Flow
 
 | Document | Purpose |
 |----------|---------|
-| `docs/ui_page/PAGE_ARCHITECTURE.md` | Page components and routing |
-| `docs/ui_page/Layout_Component_Architecture.md` | Component hierarchy |
-| `docs/state_management/STATE_MANAGEMENT.md` | RxDB + React Query + Zustand |
-| `docs/caching/RXDB_SYNC_ARCHITECTURE.md` | WebSocket sync + caching |
+| `docs/ui_page/PAGE_LAYOUT_COMPONENT_ARCHITECTURE.md` | Page components and routing |
+| `docs/caching-frontend/NORMALIZED_CACHE_ARCHITECTURE.md` | TanStack Query + Dexie cache architecture |
+| `docs/caching-frontend/ref_data_entityInstance.md` | Entity reference resolution pattern |
+| `docs/state_management/STATE_MANAGEMENT.md` | State architecture overview |
 
 ---
 
-**Version:** 8.5.0 | **Last Updated:** 2025-11-28 | **Status:** Production
+**Version:** 11.1.0 | **Last Updated:** 2025-12-02 | **Status:** Production
 
 **Recent Updates:**
+- v11.1.0 (2025-12-02): **Flat Metadata Format**
+  - Both `EntityListOfInstancesTable` and `EntityInstanceFormContainer` now use flat `{ viewType, editType }` format
+  - Component supports both flat and nested formats for backward compatibility
+  - Entity reference fields resolved via `getEntityInstanceNameSync()` reading from TanStack Query cache
+  - Updated data flow diagrams and code examples
+- v11.0.0 (2025-12-02): **Single In-Memory Cache**
+  - Removed RxDB references - now uses TanStack Query + Dexie
+  - Sync accessors read from `queryClient.getQueryData()` - no separate Map-based stores
+  - TanStack Query cache is single source of truth
+  - Two-query architecture: data (5-min cache) + metadata (30-min cache)
 - v8.5.0 (2025-11-28): RxDB offline-first data source, IndexedDB persistent storage
 - v8.4.0 (2025-11-27): WebSocket real-time updates via PubSub invalidation
 - v8.3.2 (2025-11-27): BadgeDropdownSelect for datalabel fields

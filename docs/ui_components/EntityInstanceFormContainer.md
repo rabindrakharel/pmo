@@ -1,18 +1,18 @@
 # EntityInstanceFormContainer Component
 
-**Version:** 9.7.0 | **Location:** `apps/web/src/components/shared/entity/EntityInstanceFormContainer.tsx`
+**Version:** 11.1.0 | **Location:** `apps/web/src/components/shared/entity/EntityInstanceFormContainer.tsx`
 
-> **Note:** As of v9.7.0, metadata and data are fetched separately (two-query architecture). This applies to both parent entity detail pages AND child entity tabs. The page fetches metadata via `useEntityInstanceMetadata()` and constructs the expected structure before passing to components.
+> **Note:** As of v11.1.0, both `EntityInstanceFormContainer` and `EntityListOfInstancesTable` use the same **flat metadata format**: `{ viewType, editType }`. This matches the pattern used by the list page. The component supports both flat and nested formats for backward compatibility, but flat format is the standard.
 
 ---
 
-## Architectural Truth (v9.7.0)
+## Architectural Truth (v11.1.0)
 
-**Two-Query Architecture for Detail Pages:**
+**Two-Query Architecture with Flat Metadata Format:**
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  EntitySpecificInstancePage (v9.7.0)                                         │
+│  EntitySpecificInstancePage (v11.1.0)                                        │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  QUERY 1: DATA                           QUERY 2: METADATA                   │
@@ -24,19 +24,21 @@
 │                                          └── Returns: { viewType, editType } │
 │                                          └── Cache: 30 min                   │
 │                                                                              │
-│  PAGE CONSTRUCTS:                                                            │
-│  ─────────────────                                                           │
-│  backendMetadata = {                                                         │
-│    entityInstanceFormContainer: {        ◄── Component expects THIS          │
-│      viewType: formViewType,                                                 │
-│      editType: formEditType                                                  │
-│    }                                                                         │
-│  }                                                                           │
-│                                                                              │
-│  formatMetadata = {                      ◄── formatRow expects THIS          │
+│  PAGE CONSTRUCTS (v11.1.0 - FLAT FORMAT):                                   │
+│  ─────────────────────────────────────────                                  │
+│  formMetadata = {                        ◄── SAME format as EntityListOfInstancesTable  │
 │    viewType: formViewType,                                                   │
 │    editType: formEditType                                                    │
 │  }                                                                           │
+│                                                                              │
+│  // Both formatRow AND component receive the SAME flat structure             │
+│  // v11.1.0: Component supports BOTH flat and nested for compatibility       │
+│                                                                              │
+│  CACHE ACCESS (v11.0.0):                                                     │
+│  ─────────────────────────                                                   │
+│  • Entity reference resolution: getEntityInstanceNameSync(entityCode, uuid)  │
+│  • Reads directly from queryClient.getQueryData()                            │
+│  • No separate sync stores - TanStack Query is single source of truth        │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -256,7 +258,7 @@
 
 ---
 
-## Props Interface (v9.6.0)
+## Props Interface (v11.1.0)
 
 ```typescript
 import type { FormattedRow } from '@/lib/formatters';
@@ -279,8 +281,8 @@ interface EntityInstanceFormContainerProps {
 
   /**
    * Backend-generated metadata (REQUIRED)
-   * MUST be wrapped: { entityInstanceFormContainer: { viewType, editType } }
-   * Component accesses: metadata?.entityInstanceFormContainer
+   * v11.1.0: Accepts FLAT format { viewType, editType } (preferred)
+   * Also supports nested format for backward compatibility
    */
   metadata?: EntityMetadata;
 
@@ -293,10 +295,22 @@ interface EntityInstanceFormContainerProps {
   // v11.0.0: ref_data_entityInstance removed - uses TanStack Query cache via getEntityInstanceNameSync()
 }
 
-// EntityMetadata structure the component expects
-interface EntityMetadata {
-  entityInstanceFormContainer: ComponentMetadata;  // ◄── REQUIRED wrapper key
+// v11.1.0: Component supports BOTH formats
+// PREFERRED: Flat format (same as EntityListOfInstancesTable)
+interface FlatMetadata {
+  viewType: Record<string, ViewFieldMetadata>;
+  editType: Record<string, EditFieldMetadata>;
 }
+
+// SUPPORTED: Nested format (backward compatible)
+interface NestedMetadata {
+  entityInstanceFormContainer: {
+    viewType: Record<string, ViewFieldMetadata>;
+    editType: Record<string, EditFieldMetadata>;
+  };
+}
+
+type EntityMetadata = FlatMetadata | NestedMetadata;
 
 // ComponentMetadata structure
 interface ComponentMetadata {
@@ -307,76 +321,81 @@ interface ComponentMetadata {
 
 ---
 
-## Data Flow (v9.6.0)
+## Data Flow (v11.1.0)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    DETAIL PAGE DATA FLOW (v9.6.0)                             │
+│                    DETAIL PAGE DATA FLOW (v11.1.0)                            │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  EntitySpecificInstancePage                                                  │
 │  ─────────────────────────────                                              │
 │                                                                              │
-│  // QUERY 1: Entity data                                                     │
+│  // QUERY 1: Entity data (5-min cache)                                       │
 │  const { data: rawData, refData } = useEntity(entityCode, id);              │
 │                                                                              │
 │  // QUERY 2: Form metadata (30-min cache)                                    │
 │  const { viewType: formViewType, editType: formEditType } =                 │
 │    useEntityInstanceMetadata(entityCode, 'entityInstanceFormContainer');    │
 │                                                                              │
-│  // Construct wrapped metadata for component                                 │
-│  const backendMetadata = useMemo(() => ({                                   │
-│    entityInstanceFormContainer: {                                            │
-│      viewType: formViewType,                                                 │
-│      editType: formEditType                                                  │
-│    }                                                                         │
-│  }), [formViewType, formEditType]);                                         │
-│                                                                              │
-│  // Construct flat metadata for formatRow                                    │
-│  const formatMetadata = useMemo(() => ({                                    │
+│  // v11.1.0: Use FLAT metadata format (same as EntityListOfInstancesTable)  │
+│  const formMetadata = useMemo(() => ({                                      │
 │    viewType: formViewType,                                                   │
 │    editType: formEditType                                                    │
 │  }), [formViewType, formEditType]);                                         │
 │                                                                              │
-│  // Format data on read                                                      │
+│  // Format data on read (formMetadata used for BOTH formatting AND component)│
 │  const formattedData = useMemo(() =>                                        │
-│    formatRow(rawData, formatMetadata, refData)                              │
-│  , [rawData, formatMetadata, refData]);                                     │
+│    formatRow(rawData, formMetadata, refData)                                │
+│  , [rawData, formMetadata, refData]);                                       │
 │                                                                              │
 │  return (                                                                     │
 │    <EntityInstanceFormContainer                                              │
 │      data={isEditing ? editedData : rawData}                                │
-│      metadata={backendMetadata}          ◄── Wrapped structure               │
+│      metadata={formMetadata}             ◄── FLAT format (v11.1.0)          │
 │      formattedData={formattedData}                                          │
-│      ref_data_entityInstance={refData}                                      │
 │      isEditing={isEditing}                                                  │
 │      onChange={handleChange}                                                 │
 │    />                                                                        │
 │  );                                                                          │
+│  // NOTE: ref_data_entityInstance no longer passed as prop                   │
+│  // Component uses getEntityInstanceNameSync() from TanStack Query cache     │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    EntityInstanceFormContainer                               │
+│                    EntityInstanceFormContainer (v11.1.0)                      │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  // Extract component-specific metadata                                      │
-│  const componentMetadata = metadata?.entityInstanceFormContainer;           │
+│  // v11.1.0: Support both flat and nested metadata formats                   │
+│  const componentMetadata = (metadata as any)?.viewType                       │
+│    ? metadata                                    // Flat format              │
+│    : (metadata as any)?.entityInstanceFormContainer;  // Nested format       │
 │                                                                              │
 │  // Generate fields from viewType                                            │
-│  const viewType = extractViewType(componentMetadata);                       │
-│  const editType = extractEditType(componentMetadata);                       │
+│  const viewType = componentMetadata?.viewType ?? {};                         │
+│  const editType = componentMetadata?.editType ?? {};                         │
 │                                                                              │
 │  const fields = Object.entries(viewType)                                    │
 │    .filter(([_, meta]) => meta.behavior?.visible !== false)                 │
-│    .map(([key, viewMeta]) => ({                                             │
-│      key,                                                                    │
-│      label: viewMeta.label,                                                  │
-│      renderType: viewMeta.renderType,                                        │
-│      inputType: editType?.[key]?.inputType ?? 'text',                       │
-│      lookupSource: editType?.[key]?.lookupSource,                           │
-│      // ... other field properties                                           │
-│    }));                                                                      │
+│    .map(([key, viewMeta]) => {                                              │
+│      const editMeta = editType[key];                                         │
+│      // v11.1.0: lookupEntity from viewMeta (view) or editMeta (edit)        │
+│      const lookupEntity = viewMeta?.lookupEntity || editMeta?.lookupEntity; │
+│      return {                                                                │
+│        key,                                                                  │
+│        label: viewMeta.label,                                                │
+│        renderType: viewMeta.renderType,                                      │
+│        component: viewMeta.component,                                        │
+│        inputType: editMeta?.inputType ?? 'text',                            │
+│        lookupSource: editMeta?.lookupSource,                                 │
+│        lookupEntity,  // For entity reference resolution                     │
+│      };                                                                      │
+│    });                                                                       │
+│                                                                              │
+│  // Entity reference resolution (v11.0.0):                                   │
+│  // Uses getEntityInstanceNameSync(entityCode, uuid) which reads from        │
+│  // queryClient.getQueryData() - no separate sync stores                     │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -472,7 +491,7 @@ const resolvedName = getEntityInstanceNameSync('employee', 'uuid-123'); // → '
 
 ---
 
-## Usage Example (v9.6.0)
+## Usage Example (v11.1.0)
 
 ```typescript
 import { useEntity, useEntityInstanceMetadata } from '@/db/tanstack-index';
@@ -490,16 +509,8 @@ function ProjectDetailPage({ projectId }) {
     isLoading: metadataLoading,
   } = useEntityInstanceMetadata('project', 'entityInstanceFormContainer');
 
-  // Construct wrapped metadata for component
-  const backendMetadata = useMemo(() => {
-    if (!formViewType || Object.keys(formViewType).length === 0) return null;
-    return {
-      entityInstanceFormContainer: { viewType: formViewType, editType: formEditType }
-    };
-  }, [formViewType, formEditType]);
-
-  // Construct flat metadata for formatRow
-  const formatMetadata = useMemo(() => {
+  // v11.1.0: Use FLAT metadata format - same for formatRow AND component
+  const formMetadata = useMemo(() => {
     if (!formViewType || Object.keys(formViewType).length === 0) return null;
     return { viewType: formViewType, editType: formEditType };
   }, [formViewType, formEditType]);
@@ -507,8 +518,8 @@ function ProjectDetailPage({ projectId }) {
   // Format data on read
   const formattedData = useMemo(() => {
     if (!rawData) return null;
-    return formatRow(rawData, formatMetadata, refData);
-  }, [rawData, formatMetadata, refData]);
+    return formatRow(rawData, formMetadata, refData);
+  }, [rawData, formMetadata, refData]);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState(rawData);
@@ -522,12 +533,13 @@ function ProjectDetailPage({ projectId }) {
   return (
     <EntityInstanceFormContainer
       data={isEditing ? editedData : rawData}
-      metadata={backendMetadata}
+      metadata={formMetadata}  // v11.1.0: Flat format { viewType, editType }
       formattedData={isEditing ? undefined : formattedData}
-      ref_data_entityInstance={refData}
       isEditing={isEditing}
       onChange={handleChange}
     />
+    // NOTE: ref_data_entityInstance no longer passed
+    // Entity names resolved via getEntityInstanceNameSync() from TanStack Query cache
   );
 }
 ```
@@ -536,24 +548,25 @@ function ProjectDetailPage({ projectId }) {
 
 ## Critical Considerations
 
-### Design Principles (v9.6.0)
+### Design Principles (v11.1.0)
 
 1. **Two-Query Architecture** - Metadata cached separately (30-min) from data (5-min)
-2. **Wrapped Metadata** - Component expects `{ entityInstanceFormContainer: { viewType, editType } }`
+2. **Flat Metadata Format** - Both components accept `{ viewType, editType }` (v11.1.0)
 3. **Format-at-Read** - Page formats data via `formatRow()` before passing to component
 4. **Backend Required** - Metadata must be fetched via `useEntityInstanceMetadata`
 5. **Datalabel Store** - Use `getDatalabelSync()` for dropdown options
+6. **Single In-Memory Cache** - Entity names resolved via `getEntityInstanceNameSync()` from TanStack Query (v11.0.0)
 
 ### Anti-Patterns
 
 | Anti-Pattern | Correct Approach |
 |--------------|------------------|
-| Passing flat `{ viewType, editType }` to component | Wrap as `{ entityInstanceFormContainer: { viewType, editType } }` |
+| Passing nested `{ entityInstanceFormContainer: { viewType, editType } }` | v11.1.0: Use flat `{ viewType, editType }` format |
 | Expecting metadata from `useEntity` response | Use separate `useEntityInstanceMetadata` hook |
-| Direct `metadata.viewType` access | Use `extractViewType(metadata?.entityInstanceFormContainer)` |
 | Frontend pattern detection (e.g., `_id` suffix) | Backend sends `lookupEntity` in metadata |
 | Hardcoded field list | Use `viewType` from backend |
-| Using `_ID`/`_IDS` embedded objects | Use `ref_data_entityInstance` lookup table |
+| Using `ref_data_entityInstance` prop | v11.0.0: Entity names resolved via `getEntityInstanceNameSync()` from TanStack Query cache |
+| Creating separate sync stores | v11.0.0: TanStack Query cache is single source of truth |
 
 ---
 
@@ -584,14 +597,22 @@ export const EntityInstanceFormContainer = React.memo(EntityInstanceFormContaine
 
 ---
 
-**Last Updated:** 2025-12-01 | **Version:** 9.6.0 | **Status:** Production Ready
+**Last Updated:** 2025-12-02 | **Version:** 11.1.0 | **Status:** Production Ready
 
 **Recent Updates:**
+- v11.1.0 (2025-12-02): **Flat Metadata Format**
+  - Both `EntityListOfInstancesTable` and `EntityInstanceFormContainer` now use flat `{ viewType, editType }` format
+  - Component supports both flat and nested formats for backward compatibility
+  - Entity reference fields resolved via `getEntityInstanceNameSync()` reading from TanStack Query cache
+  - `lookupEntity` extracted from viewMeta first, then editMeta
+  - Removed redundant `backendMetadata` vs `formatMetadata` - single `formMetadata` used for both
+- v11.0.0 (2025-12-02): **Single In-Memory Cache**
+  - Removed `ref_data_entityInstance` prop - entity names resolved via `getEntityInstanceNameSync()`
+  - Sync accessors read from `queryClient.getQueryData()` - no separate Map-based stores
+  - TanStack Query cache is single source of truth
 - v9.6.0 (2025-12-01): **Two-Query Architecture**
   - Metadata fetched separately via `useEntityInstanceMetadata(entityCode, 'entityInstanceFormContainer')`
-  - Page constructs wrapped metadata: `{ entityInstanceFormContainer: { viewType, editType } }`
-  - Page constructs flat metadata for `formatRow()`: `{ viewType, editType }`
-  - Fixed metadata structure mismatch between hook return and component expectation
+  - Page constructs metadata structures for component
   - Updated data flow documentation
 - v8.3.2 (2025-11-27): **Component-Driven Rendering Architecture**
   - viewType controls WHICH component renders (`renderType: 'component'` + `component`)

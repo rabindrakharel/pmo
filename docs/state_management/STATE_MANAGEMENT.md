@@ -1,6 +1,6 @@
 # State Management Architecture
 
-**Version:** 11.0.0 | **Updated:** 2025-12-02
+**Version:** 11.1.0 | **Updated:** 2025-12-02
 
 ---
 
@@ -8,13 +8,17 @@
 
 The PMO frontend uses **TanStack Query + Dexie** for state management. TanStack Query manages server state with automatic background refetching, while Dexie (IndexedDB) provides offline-first persistent storage.
 
+### v11.1.0 Key Changes
+
+**Flat Metadata Format:** Both `EntityListOfInstancesTable` and `EntityInstanceFormContainer` now use the same flat metadata format: `{ viewType, editType }`. This standardizes how metadata flows from hooks to components.
+
 ### v11.0.0 Key Change: Single In-Memory Cache
 
 **Removed redundant sync stores.** TanStack Query cache is now the single source of truth for all in-memory cache access. Sync accessors (`getDatalabelSync`, `getEntityInstanceNameSync`, etc.) now read directly from `queryClient.getQueryData()` instead of separate Map-based stores.
 
 ```
 +-------------------------------------------------------------------------+
-|               STATE MANAGEMENT (v11.0.0 - TanStack Query + Dexie)        |
+|               STATE MANAGEMENT (v11.1.0 - TanStack Query + Dexie)        |
 +-------------------------------------------------------------------------+
 |                                                                          |
 |   TanStack Query (In-Memory - SINGLE SOURCE OF TRUTH)                   |
@@ -322,11 +326,11 @@ apps/web/src/db/
 
 ---
 
-## Unified Cache Architecture (v11.0.0)
+## Unified Cache Architecture (v11.1.0)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                        v11.0.0 UNIFIED CACHE ARCHITECTURE                   │
+│                        v11.1.0 UNIFIED CACHE ARCHITECTURE                   │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
@@ -442,11 +446,11 @@ Tab 1                                 Tab 2
 
 ---
 
-## Data Flow (v11.0.0)
+## Data Flow (v11.1.0)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           DATA FLOW (v11.0.0)                               │
+│                           DATA FLOW (v11.1.0)                               │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  1. APP START                                                               │
@@ -618,25 +622,28 @@ App ready for use
 
 | Document | Purpose |
 |----------|---------|
-| `docs/caching/TANSTACK_DEXIE_SYNC_ARCHITECTURE.md` | WebSocket sync + PubSub architecture |
+| `docs/caching-frontend/NORMALIZED_CACHE_ARCHITECTURE.md` | TanStack Query + Dexie cache architecture |
+| `docs/caching-frontend/ref_data_entityInstance.md` | Entity reference resolution pattern |
+| `docs/ui_page/PAGE_LAYOUT_COMPONENT_ARCHITECTURE.md` | Page components and routing |
 | `docs/services/entity-infrastructure.service.md` | Entity CRUD patterns |
 | `CLAUDE.md` | Main codebase reference |
 
 ---
 
-**Version:** 11.0.0 | **Updated:** 2025-12-02 | **Status:** Production
+**Version:** 11.1.0 | **Updated:** 2025-12-02 | **Status:** Production
 
 ---
 
 ## Design Pattern Summary (Bullet Points)
 
-### Core Architecture (v11.0.0)
+### Core Architecture (v11.1.0)
 
 - **Single QueryClient**: One `QueryClient` instance from `db/cache/client.ts` shared across entire app
 - **TanStack Query**: In-memory server state cache with auto-refetch and stale-while-revalidate
 - **Dexie (IndexedDB)**: Persistent offline storage that survives browser restart
 - **WebSocket Sync**: Real-time cache invalidation via PubSub service (port 4001)
 - **Sync Accessors**: Read directly from `queryClient.getQueryData()` (no separate Map stores)
+- **Flat Metadata Format**: Both table and form components receive `{ viewType, editType }` directly
 
 ### Data Flow Pattern
 
@@ -646,7 +653,7 @@ App ready for use
 4. **API Response** → Store in TanStack → Persist to Dexie → Upsert ref_data
 5. **WebSocket INVALIDATE** → `invalidateQueries()` → Auto-refetch → Update Dexie
 
-### Cache Types & TTLs (v11.0.0)
+### Cache Types & TTLs (v11.1.0)
 
 | Cache | Query Key | Stale Time | GC Time | Persistence |
 |-------|-----------|------------|---------|-------------|
@@ -668,19 +675,21 @@ App ready for use
 /project, /employee, /task, etc.
 ```
 
-**Cache Pattern:**
-- **Query Key**: `['entity-list', entityCode, { limit, offset, filters }]`
-- **Data Source**: `useEntityList(entityCode, params)` or `useFormattedEntityList()`
-- **Cached Data**: Raw entity rows + metadata + ref_data_entityInstance
-- **Format**: Format-at-read via TanStack Query's `select` option
-- **Upsert**: API response `ref_data_entityInstance` merged into unified cache
+**Cache Pattern (v11.1.0 - Two-Query Architecture):**
+- **DATA Query Key**: `['entityInstanceData', entityCode, { limit, offset, filters }]`
+- **METADATA Query Key**: `['entityInstanceMetadata', entityCode, 'entityListOfInstancesTable']`
+- **Data Source**: `useEntityInstanceData(entityCode, params)` + `useEntityInstanceMetadata(entityCode, componentType)`
+- **Metadata Format**: Flat `{ viewType, editType }` passed to `EntityListOfInstancesTable`
+- **Format**: Format-at-read via `formatDataset(data, metadata)` in `useMemo`
+- **Upsert**: API response `ref_data_entityInstance` merged into TanStack Query cache
 
 **Flow:**
-1. Component mounts → `useEntityList('project', { limit: 50 })`
+1. Component mounts → `useEntityInstanceData('project', { limit: 50 })` + `useEntityInstanceMetadata('project', 'entityListOfInstancesTable')`
 2. TanStack checks cache → HIT (instant) or MISS (fetch)
-3. API response includes `ref_data_entityInstance`
-4. `upsertRefDataEntityInstance()` merges into `['ref_data_entityInstance', 'employee']`
-5. Table renders with UUID → Name resolution from cache
+3. Page constructs flat metadata: `{ viewType, editType }`
+4. API response `ref_data_entityInstance` merged via `queryClient.setQueryData(['entityInstanceNames', code], ...)`
+5. `formatDataset()` transforms to `FormattedRow[]`, entity references resolved via `getEntityInstanceNameSync()`
+6. Table receives flat metadata and FormattedRow[]
 
 ### EntitySpecificInstancePage (Detail View)
 
@@ -688,17 +697,19 @@ App ready for use
 /project/:id, /employee/:id, etc.
 ```
 
-**Cache Pattern:**
-- **Query Key**: `['entity', entityCode, entityId]`
-- **Data Source**: `useEntity(entityCode, entityId)`
-- **Cached Data**: Single entity record + metadata + ref_data
-- **Child Tabs**: Each tab uses `['entity-list', childCode, { parent_id }]`
+**Cache Pattern (v11.1.0 - Two-Query Architecture):**
+- **DATA Query Key**: `['entityInstance', entityCode, entityId]`
+- **METADATA Query Key**: `['entityInstanceMetadata', entityCode, 'entityInstanceFormContainer']`
+- **Data Source**: `useEntity(entityCode, entityId)` + `useEntityInstanceMetadata(entityCode, 'entityInstanceFormContainer')`
+- **Metadata Format**: Flat `{ viewType, editType }` passed to `EntityInstanceFormContainer`
+- **Child Tabs**: Each tab uses `['entityInstanceData', childCode, { parent_entity_code, parent_entity_instance_id }]`
 
 **Flow:**
-1. Component mounts → `useEntity('project', 'uuid-123')`
-2. Parallel fetch for child entity counts (tabs)
-3. Detail fields render with metadata-driven formatting
-4. Child tabs lazy-load on click
+1. Component mounts → `useEntity('project', 'uuid-123')` + `useEntityInstanceMetadata('project', 'entityInstanceFormContainer')`
+2. Page constructs flat metadata: `const formMetadata = { viewType: formViewType, editType: formEditType }`
+3. `formatRow(rawData, formMetadata, refData)` transforms for view mode
+4. `EntityInstanceFormContainer` receives flat metadata (same format as `EntityListOfInstancesTable`)
+5. Child tabs lazy-load on click with parent filtering params
 
 ### EntityCreatePage (Create Form)
 
@@ -784,7 +795,7 @@ Project detail page with Task, Employee, Artifact tabs
 1. Settings page loads → `useAllDatalabels()` fetches all
 2. User edits → Local state (not draft, immediate save expected)
 3. Save → API PATCH → `invalidateQueries(['datalabel', key])`
-4. Sync cache updated via `setDatalabelSync()`
+4. TanStack Query cache auto-updated via invalidation → refetch
 
 ---
 
@@ -842,23 +853,23 @@ const options = getDatalabelSync('project_stage');
 
 ---
 
-## Component → Cache Mapping (v11.0.0)
+## Component → Cache Mapping (v11.1.0)
 
-| Component | Cache Query Key | Hook |
-|-----------|-----------------|------|
-| `EntityListOfInstancesPage` | `['entityInstanceData', code, params]` | `useEntityInstanceData` |
-| `EntitySpecificInstancePage` | `['entityInstance', code, id]` | `useEntity` |
-| `EntityCreatePage` | Dexie `draft` table | `useDraft` |
-| `EntitySelect` | `['entityInstanceNames', code]` | `useRefDataEntityInstanceOptions` |
-| `BadgeDropdownSelect` | `['datalabel', key]` | `useDatalabel` |
-| `DynamicChildEntityTabs` | `['entityInstanceData', childCode, ...]` | `useEntityInstanceData` |
-| `SettingsDataTable` | `['datalabel', category]` | `useDatalabel` |
-| `EntityDetailView` | `['entityInstance', code, id]` | `useEntity` |
-| `EntityInstanceFormContainer` | `['entityInstance', code, id]` + draft | `useEntity` + `useDraft` |
+| Component | Cache Query Key | Hook | Metadata Format |
+|-----------|-----------------|------|-----------------|
+| `EntityListOfInstancesPage` | `['entityInstanceData', code, params]` + `['entityInstanceMetadata', code, 'entityListOfInstancesTable']` | `useEntityInstanceData` + `useEntityInstanceMetadata` | Flat `{ viewType, editType }` |
+| `EntitySpecificInstancePage` | `['entityInstance', code, id]` + `['entityInstanceMetadata', code, 'entityInstanceFormContainer']` | `useEntity` + `useEntityInstanceMetadata` | Flat `{ viewType, editType }` |
+| `EntityCreatePage` | Dexie `draft` table | `useDraft` | - |
+| `EntitySelect` | `['entityInstanceNames', code]` | `useRefDataEntityInstanceOptions` | - |
+| `BadgeDropdownSelect` | `['datalabel', key]` | `useDatalabel` | - |
+| `DynamicChildEntityTabs` | `['entityInstanceData', childCode, ...]` + `['entityInstanceMetadata', childCode, 'entityListOfInstancesTable']` | `useEntityInstanceData` + `useEntityInstanceMetadata` | Flat `{ viewType, editType }` |
+| `SettingsDataTable` | `['datalabel', category]` | `useDatalabel` | - |
+| `EntityDetailView` | `['entityInstance', code, id]` | `useEntity` | - |
+| `EntityInstanceFormContainer` | `['entityInstance', code, id]` + draft | `useEntity` + `useDraft` | Flat `{ viewType, editType }` |
 
 ---
 
-## Login Prefetch Sequence (v11.0.0)
+## Login Prefetch Sequence (v11.1.0)
 
 ```
 1. User logs in
@@ -880,12 +891,12 @@ const options = getDatalabelSync('project_stage');
    │
 6. Page renders with ALL CACHES POPULATED
    │
-   (v11.0.0: Single in-memory cache - TanStack Query only)
+   (v11.1.0: Single in-memory cache - TanStack Query only, flat metadata format)
 ```
 
 ---
 
-## Console Debugging (v11.0.0)
+## Console Debugging (v11.1.0)
 
 ```javascript
 // Check cache statistics

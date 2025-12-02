@@ -27,7 +27,7 @@ import {
   useOptimisticMutation,
   invalidateEntityQueries,
 } from '../../db/tanstack-index';
-import { formatRow, type ComponentMetadata } from '../../lib/formatters';
+import { formatRow } from '../../lib/formatters';
 import { useKeyboardShortcuts, useShortcutHints } from '../../lib/hooks/useKeyboardShortcuts';
 import { API_CONFIG } from '../../lib/config/api';
 import { EllipsisBounce, InlineSpinner } from '../../components/shared/ui/EllipsisBounce';
@@ -92,26 +92,18 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   } = useEntityInstanceMetadata(entityCode, 'entityInstanceFormContainer');
 
   // Construct metadata object from separate viewType/editType
-  // NOTE: EntityInstanceFormContainer expects { entityInstanceFormContainer: { viewType, editType } }
-  // formatRow expects { viewType, editType } directly
-  const backendMetadata = useMemo(() => {
+  // v11.1.0: Use flat { viewType, editType } format - same as EntityListOfInstancesTable
+  // Both components now support flat format for consistency
+  const formMetadata = useMemo(() => {
     if (!formViewType || Object.keys(formViewType).length === 0) return null;
-    return {
-      entityInstanceFormContainer: { viewType: formViewType, editType: formEditType }
-    } as unknown as ComponentMetadata;
-  }, [formViewType, formEditType]);
-
-  // For formatRow, we need the flat structure
-  const formatMetadata = useMemo(() => {
-    if (!formViewType || Object.keys(formViewType).length === 0) return null;
-    return { viewType: formViewType, editType: formEditType } as ComponentMetadata;
+    return { viewType: formViewType, editType: formEditType };
   }, [formViewType, formEditType]);
 
   // Format data on read (memoized) - formatting happens HERE, not in hook
   const formattedData = useMemo(() => {
     if (!rawData) return null;
-    return formatRow(rawData, formatMetadata, refData);
-  }, [rawData, formatMetadata, refData]);
+    return formatRow(rawData, formMetadata, refData);
+  }, [rawData, formMetadata, refData]);
 
   // Extract data for editing (raw) and display (formatted)
   const data = rawData || null;
@@ -1331,7 +1323,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
               {/* Metadata Block - EntityInstanceFormContainer */}
               <EntityInstanceFormContainer
                 config={config}
-                metadata={backendMetadata}  // v7.0.0: Backend metadata is required
+                metadata={formMetadata}  // v11.1.0: Flat { viewType, editType } - same as EntityListOfInstancesTable
                 data={isEditing ? editedData : data}
                 formattedData={isEditing ? undefined : formattedData}  // v7.0.0: Pre-formatted for view mode
                 isEditing={isEditing}

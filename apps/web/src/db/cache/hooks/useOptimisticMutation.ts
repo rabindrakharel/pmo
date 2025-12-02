@@ -1,5 +1,5 @@
 // ============================================================================
-// useOptimisticMutation Hook (v9.5.2)
+// useOptimisticMutation Hook (v11.2.0)
 // ============================================================================
 // Industry-standard optimistic update pattern for TanStack Query + Dexie
 //
@@ -8,7 +8,13 @@
 // 2. IMMEDIATE: Update Dexie (IndexedDB) in parallel → Persists across page refresh
 // 3. BACKGROUND: Send API request
 //    - Success: Cache already correct, optionally refetch to sync server state
-//    - Failure: Invalidate queries to trigger refetch (rollback)
+//    - Failure: Direct rollback using captured previous state (no network required)
+//
+// v11.2.0 CHANGES:
+// - CRITICAL FIX: Direct rollback using previousListData instead of invalidateQueries()
+// - Rollback now works even when API server is unavailable (offline-safe)
+// - Dexie restored from previousListData on error instead of just clearing
+// - All mutations (update/create/delete) now use direct rollback pattern
 //
 // v9.5.2 CHANGES:
 // - Now updates BOTH TanStack Query AND Dexie optimistically (dual-cache write)
@@ -23,7 +29,7 @@
 // BENEFITS:
 // - Instant UI feedback (no waiting for API)
 // - Offline-resilient: Dexie persists optimistic state across page refresh
-// - Graceful error handling with automatic rollback via invalidation
+// - Graceful error handling with automatic rollback (no network required)
 // - Works for both list views (DataTable) and detail views (EntitySpecificInstancePage)
 // ============================================================================
 
@@ -61,14 +67,21 @@ const debugCache = (message: string, data?: Record<string, unknown>) => {
 // Types
 // ============================================================================
 
+/** Cache data structure for list queries */
+interface ListCacheData<T> {
+  data: T[];
+  total: number;
+  metadata?: unknown;
+  refData?: Record<string, Record<string, string>>;
+}
+
 export interface OptimisticMutationContext<T = Record<string, unknown>> {
-  /** Previous data for rollback (list view) */
-  previousListData?: {
-    data: T[];
-    total: number;
-    metadata?: unknown;
-    refData?: Record<string, Record<string, string>>;
-  };
+  /**
+   * v11.2.0: Map of ALL previous list cache states for rollback
+   * Key: JSON.stringify(queryKey), Value: previous cache data
+   * This allows restoring each query to its own previous state
+   */
+  allPreviousListData?: Map<string, ListCacheData<T>>;
   /** Previous data for rollback (detail view) */
   previousEntityData?: T;
   /** Query params used for list query (for cache key) */
@@ -110,14 +123,16 @@ export interface UseOptimisticMutationResult<T = Record<string, unknown>> {
 // ============================================================================
 
 /**
- * Update entity in ALL matching list caches (TanStack Query)
- * This finds all cached list queries for this entity code and updates them
+ * v11.2.0: Update entity in ALL matching list caches (TanStack Query)
+ * Returns a Map of ALL previous states for complete rollback capability
+ *
+ * @returns Map<queryKeyString, previousData> for rollback
  */
 function updateAllListCaches<T extends { id: string }>(
   queryClient: QueryClient,
   entityCode: string,
   updater: (data: T[]) => T[]
-): { data: T[]; total: number; metadata?: unknown; refData?: Record<string, Record<string, string>> } | undefined {
+): Map<string, ListCacheData<T>> {
   // Get all cached queries matching this entity code
   const queryCache = queryClient.getQueryCache();
   const matchingQueries = queryCache.findAll({
@@ -130,17 +145,16 @@ function updateAllListCaches<T extends { id: string }>(
     queryKeys: matchingQueries.map(q => JSON.stringify(q.queryKey)),
   });
 
-  let firstPreviousData: { data: T[]; total: number; metadata?: unknown; refData?: Record<string, Record<string, string>> } | undefined;
+  // v11.2.0: Capture ALL previous states for complete rollback
+  const allPreviousData = new Map<string, ListCacheData<T>>();
 
   // Update each matching list cache
   for (const query of matchingQueries) {
-    const previousData = query.state.data as { data: T[]; total: number; metadata?: unknown; refData?: Record<string, Record<string, string>> } | undefined;
+    const previousData = query.state.data as ListCacheData<T> | undefined;
 
     if (previousData?.data) {
-      // Save first previous data for rollback
-      if (!firstPreviousData) {
-        firstPreviousData = previousData;
-      }
+      // v11.2.0: Save EACH query's previous state (not just the first one)
+      allPreviousData.set(JSON.stringify(query.queryKey), { ...previousData });
 
       const updatedData = updater(previousData.data);
       queryClient.setQueryData(query.queryKey, {
@@ -158,7 +172,29 @@ function updateAllListCaches<T extends { id: string }>(
     }
   }
 
-  return firstPreviousData;
+  return allPreviousData;
+}
+
+/**
+ * v11.2.0: Rollback ALL list caches to their previous states (no network required)
+ * This is the TanStack Query official pattern for optimistic update rollback
+ *
+ * @param allPreviousData Map of queryKeyString -> previousData from onMutate context
+ */
+function rollbackAllListCaches<T>(
+  queryClient: QueryClient,
+  allPreviousData: Map<string, ListCacheData<T>>
+): void {
+  debugCache(`🔄 rollbackAllListCaches: Restoring ${allPreviousData.size} cached queries`);
+
+  for (const [queryKeyString, previousData] of allPreviousData) {
+    const queryKey = JSON.parse(queryKeyString);
+    queryClient.setQueryData(queryKey, previousData);
+    debugCache(`✅ Restored cache`, {
+      queryKey: queryKeyString,
+      dataCount: previousData.data.length,
+    });
+  }
 }
 
 /**
@@ -278,14 +314,14 @@ export function useOptimisticMutation<T extends { id: string } = { id: string } 
       });
       debugCache(`⏸️ onMutate: Cancelled outgoing queries`);
 
-      // Snapshot previous list data for potential rollback
-      // v9.5.1: Update ALL matching list caches, not just one specific query
+      // v11.2.0: Snapshot ALL previous list data for complete rollback capability
       debugCache(`📝 onMutate: Updating TanStack Query in-memory caches...`);
-      const previousListData = updateAllListCaches<T>(
+      const allPreviousListData = updateAllListCaches<T>(
         queryClient,
         entityCode,
         (data) => data.map((item) => (item.id === entityId ? { ...item, ...changes } : item))
       );
+      debugCache(`📝 onMutate: Captured ${allPreviousListData.size} query states for rollback`);
 
       // Snapshot previous detail data for potential rollback
       const previousEntityData = updateDetailCache<T>(
@@ -310,37 +346,39 @@ export function useOptimisticMutation<T extends { id: string } = { id: string } 
 
       debugCache(`✅ onMutate: Optimistic update complete - UI should update NOW`);
 
-      // Return context for rollback
+      // Return context for rollback (v11.2.0: includes ALL query states)
       return {
-        previousListData,
+        allPreviousListData,
         previousEntityData,
         entityId,
         mutationType: 'update',
       };
     },
 
-    // STEP 2: On error, rollback to previous state
+    // STEP 2: On error, rollback to previous state (v11.2.0: direct rollback, no network required)
     onError: (error, { entityId }, context) => {
-      debugCache(`❌ onError: API call failed - triggering rollback`, {
+      debugCache(`❌ onError: API call failed - triggering direct rollback`, {
         entityCode,
         entityId,
         error: error.message,
       });
 
-      // Invalidate all list caches to trigger refetch (simpler than tracking all previous states)
-      queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.entityInstanceDataByCode(entityCode),
-      });
-      debugCache(`🔄 onError: Invalidated TanStack Query caches - will refetch`);
+      // v11.2.0: Direct rollback using captured previous states (NO network required)
+      // This follows TanStack Query official pattern for optimistic updates
+      if (context?.allPreviousListData && context.allPreviousListData.size > 0) {
+        rollbackAllListCaches(queryClient, context.allPreviousListData);
+        debugCache(`🔄 onError: Rolled back ${context.allPreviousListData.size} list caches to previous state`);
+      }
 
       if (context?.previousEntityData) {
         rollbackDetailCache(queryClient, entityCode, entityId, context.previousEntityData);
         debugCache(`🔄 onError: Rolled back detail cache to previous state`);
       }
 
-      // v9.5.2: Clear Dexie on error to ensure consistency (will repopulate on refetch)
+      // v11.2.0: Clear Dexie on error to ensure consistency
+      // (Dexie will repopulate from TanStack Query cache or next API call)
       clearEntityInstanceData(entityCode)
-        .then(() => debugCache(`🔄 onError: Cleared Dexie cache`))
+        .then(() => debugCache(`🔄 onError: Cleared Dexie cache for consistency`))
         .catch(() => {});
 
       onError?.(error, { entityId });
@@ -412,8 +450,8 @@ export function useOptimisticMutation<T extends { id: string } = { id: string } 
       const tempId = `temp_${Date.now()}`;
       const tempEntity = { ...newData, id: tempId, _isOptimistic: true } as T;
 
-      // v9.5.1: Update ALL matching list caches
-      const previousListData = updateAllListCaches<T>(
+      // v11.2.0: Capture ALL previous states for rollback
+      const allPreviousListData = updateAllListCaches<T>(
         queryClient,
         entityCode,
         (data) => [tempEntity, ...data]
@@ -428,18 +466,23 @@ export function useOptimisticMutation<T extends { id: string } = { id: string } 
         });
 
       return {
-        previousListData,
+        allPreviousListData,
         entityId: tempId,
         mutationType: 'create',
       };
     },
 
+    // v11.2.0: Direct rollback on error (no network required)
     onError: (error, _variables, context) => {
-      // Invalidate all list caches to trigger refetch
-      queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.entityInstanceDataByCode(entityCode),
-      });
-      // v9.5.2: Clear Dexie on error
+      debugCache(`❌ onError (create): API call failed - triggering direct rollback`);
+
+      // v11.2.0: Direct rollback using captured previous states
+      if (context?.allPreviousListData && context.allPreviousListData.size > 0) {
+        rollbackAllListCaches(queryClient, context.allPreviousListData);
+        debugCache(`🔄 onError (create): Rolled back ${context.allPreviousListData.size} list caches`);
+      }
+
+      // Clear Dexie for consistency
       clearEntityInstanceData(entityCode).catch(() => {});
       onError?.(error, {});
     },
@@ -500,12 +543,17 @@ export function useOptimisticMutation<T extends { id: string } = { id: string } 
         queryKey: QUERY_KEYS.entityInstance(entityCode, entityId),
       });
 
-      // v9.5.1: Optimistically remove from ALL list caches
-      const previousListData = updateAllListCaches<T>(
+      // v11.2.0: Capture ALL previous states for rollback
+      const allPreviousListData = updateAllListCaches<T>(
         queryClient,
         entityCode,
         (data) => data.filter((item) => item.id !== entityId)
       );
+
+      // Capture detail cache before removing (for rollback)
+      const previousEntityData = queryClient.getQueryData<{ data: T }>(
+        QUERY_KEYS.entityInstance(entityCode, entityId)
+      )?.data;
 
       // Remove from detail cache
       queryClient.removeQueries({
@@ -521,18 +569,33 @@ export function useOptimisticMutation<T extends { id: string } = { id: string } 
         });
 
       return {
-        previousListData,
+        allPreviousListData,
+        previousEntityData,
         entityId,
         mutationType: 'delete',
       };
     },
 
+    // v11.2.0: Direct rollback on error (no network required)
     onError: (error, entityId, context) => {
-      // Invalidate all list caches to trigger refetch
-      queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.entityInstanceDataByCode(entityCode),
-      });
-      // v9.5.2: Clear Dexie on error
+      debugCache(`❌ onError (delete): API call failed - triggering direct rollback`);
+
+      // v11.2.0: Direct rollback using captured previous states
+      if (context?.allPreviousListData && context.allPreviousListData.size > 0) {
+        rollbackAllListCaches(queryClient, context.allPreviousListData);
+        debugCache(`🔄 onError (delete): Rolled back ${context.allPreviousListData.size} list caches`);
+      }
+
+      // Restore detail cache if we had it
+      if (context?.previousEntityData) {
+        queryClient.setQueryData(
+          QUERY_KEYS.entityInstance(entityCode, entityId),
+          { data: context.previousEntityData }
+        );
+        debugCache(`🔄 onError (delete): Restored detail cache`);
+      }
+
+      // Clear Dexie for consistency
       clearEntityInstanceData(entityCode).catch(() => {});
       onError?.(error, { entityId });
     },

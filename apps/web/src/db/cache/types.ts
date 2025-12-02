@@ -148,6 +148,8 @@ export interface ViewFieldMetadata {
   label: string;
   /** Render type for display */
   renderType?: string;
+  /** Component name when renderType is 'component' */
+  component?: string;
   /** Entity type for lookups */
   lookupEntity?: string;
   /** Lookup source (e.g., 'entityInstance', 'datalabel') */

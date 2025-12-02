@@ -1,8 +1,8 @@
 # Page, Layout & Component Architecture
 
-> **Version:** 9.5.1 | PMO Enterprise Platform
+> **Version:** 11.2.0 | PMO Enterprise Platform
 > **Status:** Production Ready
-> **Updated:** 2025-12-01
+> **Updated:** 2025-12-02
 
 ## Executive Summary
 
@@ -11,16 +11,19 @@ This document describes the complete frontend architecture including:
 - **Provider Hierarchy** with 7 context providers managing application state
 - **Layout Component** with responsive sidebar and breadcrumb navigation
 - **Two-Query Data Flow** where metadata and data are fetched separately
-- **Optimistic Mutations** for instant UI feedback (v9.5.1)
+- **Optimistic Mutations** for instant UI feedback with offline-safe rollback (v11.2.0)
 - **Three-Layer Component Hierarchy** with backend-driven rendering
 - **Settings System** for runtime datalabel management
+- **v11.0.0 Unified Cache** - TanStack Query as single in-memory cache (no sync stores)
 
 **Core Principles:**
 - **Config-driven, not code-driven** - Entity behavior defined in `entityConfig.ts`
 - **Backend sends metadata** - `{ viewType, editType }` defines all field rendering
 - **Two-query architecture** - Metadata cached 30 min, data cached 5 min
 - **Format-at-read** - Raw data cached, transformation happens via `useMemo`
-- **Optimistic-first** - UI updates immediately, API syncs in background
+- **Optimistic-first** - UI updates immediately, API syncs in background, rollback on error
+- **Single in-memory cache** - TanStack Query cache is single source of truth (v11.0.0)
+- **Flat metadata format** - Both `EntityListOfInstancesTable` and `EntityInstanceFormContainer` receive `{ viewType, editType }` (v11.1.0)
 
 ---
 
@@ -49,7 +52,7 @@ This document describes the complete frontend architecture including:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    PAGE ARCHITECTURE (v9.4.0)                                │
+│                    PAGE ARCHITECTURE (v11.1.0)                               │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌───────────────────────────────────────────────────────────────────────┐  │
@@ -446,13 +449,13 @@ Metadata and data are fetched separately, enabling faster perceived load times (
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Complete Cache Store Architecture
+### Complete Cache Store Architecture (v11.0.0)
 
-All cached stores showing TanStack Query (memory), Dexie (IndexedDB), and API layers:
+All cached stores showing TanStack Query (memory), Dexie (IndexedDB), and API layers. **v11.0.0: Sync stores removed - TanStack Query cache is single in-memory source of truth.**
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                          COMPLETE CACHE STORE ARCHITECTURE (v9.4.0)                                  │
+│                          COMPLETE CACHE STORE ARCHITECTURE (v11.0.0)                                 │
 ├─────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                                      │
 │  ┌─────────────────────────────────────────────────────────────────────────────────────────────────┐│
@@ -857,7 +860,7 @@ EntitySpecificInstancePage
 └── UnifiedLinkageModal            // Entity relationships
 ```
 
-**Key Code Pattern (v9.7.0 - Two-Query Architecture with Child Entity Metadata):**
+**Key Code Pattern (v11.1.0 - Two-Query Architecture with Flat Metadata):**
 ```typescript
 // EntitySpecificInstancePage.tsx
 
@@ -881,17 +884,9 @@ const {
   isLoading: metadataLoading,
 } = useEntityInstanceMetadata(entityCode, 'entityInstanceFormContainer');
 
-// Construct wrapped metadata for EntityInstanceFormContainer
-// NOTE: Component expects { entityInstanceFormContainer: { viewType, editType } }
-const backendMetadata = useMemo(() => {
-  if (!formViewType || Object.keys(formViewType).length === 0) return null;
-  return {
-    entityInstanceFormContainer: { viewType: formViewType, editType: formEditType }
-  };
-}, [formViewType, formEditType]);
-
-// Construct flat metadata for formatRow
-const formatMetadata = useMemo(() => {
+// v11.1.0: Use flat { viewType, editType } format - same as EntityListOfInstancesTable
+// Both components now accept the same flat metadata structure
+const formMetadata = useMemo(() => {
   if (!formViewType || Object.keys(formViewType).length === 0) return null;
   return { viewType: formViewType, editType: formEditType };
 }, [formViewType, formEditType]);
@@ -899,8 +894,8 @@ const formatMetadata = useMemo(() => {
 // Format data on read (memoized)
 const formattedData = useMemo(() => {
   if (!rawData) return null;
-  return formatRow(rawData, formatMetadata, refData);
-}, [rawData, formatMetadata, refData]);
+  return formatRow(rawData, formMetadata, refData);
+}, [rawData, formMetadata, refData]);
 
 // ============================================================================
 // CHILD ENTITY DATA (5-min cache, enabled only when tab is selected)
@@ -1122,11 +1117,11 @@ interface FormattedRow<T = Record<string, any>> {
 
 ---
 
-## 8. Optimistic Mutations (v9.5.1)
+## 8. Optimistic Mutations (v11.2.0)
 
 ### Overview
 
-Optimistic mutations provide instant UI feedback by updating the cache immediately before the API call completes. If the API fails, the cache is rolled back automatically.
+Optimistic mutations provide instant UI feedback by updating the cache immediately before the API call completes. **v11.2.0 Critical Fix:** If the API fails (including when the server is down/offline), the cache is rolled back automatically using direct cache restoration - no network required.
 
 **File**: `apps/web/src/db/cache/hooks/useOptimisticMutation.ts`
 
@@ -1134,20 +1129,46 @@ Optimistic mutations provide instant UI feedback by updating the cache immediate
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                  OPTIMISTIC MUTATION FLOW (v9.5.1)              │
+│                  OPTIMISTIC MUTATION FLOW (v11.2.0)             │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  1. IMMEDIATE: Update ALL TanStack Query list caches            │
-│     └── UI updates instantly for all matching queries           │
+│  1. onMutate (BEFORE API CALL):                                 │
+│     ├── Cancel outgoing queries (prevent race conditions)       │
+│     ├── Capture ALL list cache states → Map<queryKey, data>     │
+│     ├── Capture detail cache state → previousEntityData         │
+│     ├── Apply optimistic update to ALL caches                   │
+│     └── Return context for rollback                             │
 │                                                                 │
-│  2. IMMEDIATE: Clear Dexie (IndexedDB)                          │
-│     └── Will repopulate on next fetch                           │
-│                                                                 │
-│  3. BACKGROUND: Send API request                                │
+│  2. API Call (BACKGROUND):                                      │
 │     ├── Success: Cache already correct, optionally refetch      │
-│     └── Failure: Invalidate queries to trigger refetch          │
+│     └── Error: Trigger rollback (step 3)                        │
+│                                                                 │
+│  3. onError (DIRECT ROLLBACK - NO NETWORK REQUIRED):            │
+│     ├── Restore ALL list caches from context.allPreviousData    │
+│     ├── Restore detail cache from context.previousEntityData    │
+│     ├── Clear Dexie (will repopulate from TanStack cache)       │
+│     └── Show error message to user                              │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
+```
+
+### v11.2.0 Key Change: Offline-Safe Rollback
+
+**Problem (v9.5.x):** When API server was down, `onError` used `invalidateQueries()` which triggers a refetch. The refetch fails (server down), leaving stale optimistic data in the UI.
+
+**Solution (v11.2.0):** Direct cache restoration using captured previous states. No network required for rollback.
+
+```typescript
+// ❌ BEFORE (v9.5.x) - Broken when offline
+onError: () => {
+  queryClient.invalidateQueries({ queryKey });  // Triggers refetch → fails offline
+}
+
+// ✅ AFTER (v11.2.0) - Works offline
+onError: (error, variables, context) => {
+  // Direct restore from captured state - no network needed
+  queryClient.setQueryData(queryKey, context.previousData);
+}
 ```
 
 ### Hook API
@@ -1168,37 +1189,55 @@ const {
 });
 ```
 
-### v9.5.1 Changes
+### Version Changes
 
-| Before (v9.5.0) | After (v9.5.1) |
-|-----------------|----------------|
-| Required exact `listQueryParams` match | Finds ALL matching caches by entity code |
-| Detail page edits didn't update list caches | Works from any page (list or detail) |
-| Complex rollback tracking all states | Simple invalidation triggers refetch |
+| Version | Before | After |
+|---------|--------|-------|
+| **v11.2.0** | `invalidateQueries()` on error (fails offline) | Direct `setQueryData()` rollback (works offline) |
+| **v9.5.1** | Required exact `listQueryParams` match | Finds ALL matching caches by entity code |
+| **v9.5.1** | Detail page edits didn't update list caches | Works from any page (list or detail) |
 
-### Key Implementation: `updateAllListCaches`
+### Key Implementation: `updateAllListCaches` + `rollbackAllListCaches`
 
 ```typescript
+// v11.2.0: Returns Map of ALL previous states for complete rollback
 function updateAllListCaches<T extends { id: string }>(
   queryClient: QueryClient,
   entityCode: string,
   updater: (data: T[]) => T[]
-) {
-  // Get all cached queries matching this entity code
+): Map<string, ListCacheData<T>> {
   const queryCache = queryClient.getQueryCache();
   const matchingQueries = queryCache.findAll({
     queryKey: QUERY_KEYS.entityInstanceDataByCode(entityCode),
   });
 
-  // Update each matching list cache
+  // v11.2.0: Capture ALL previous states for rollback
+  const allPreviousData = new Map<string, ListCacheData<T>>();
+
   for (const query of matchingQueries) {
     const previousData = query.state.data;
     if (previousData?.data) {
+      // Save EACH query's previous state
+      allPreviousData.set(JSON.stringify(query.queryKey), { ...previousData });
+      // Apply optimistic update
       queryClient.setQueryData(query.queryKey, {
         ...previousData,
         data: updater(previousData.data),
       });
     }
+  }
+
+  return allPreviousData;  // Return for rollback in onError
+}
+
+// v11.2.0: Direct rollback - no network required
+function rollbackAllListCaches<T>(
+  queryClient: QueryClient,
+  allPreviousData: Map<string, ListCacheData<T>>
+): void {
+  for (const [queryKeyString, previousData] of allPreviousData) {
+    const queryKey = JSON.parse(queryKeyString);
+    queryClient.setQueryData(queryKey, previousData);  // Direct restore
   }
 }
 ```
@@ -1248,7 +1287,7 @@ const handleSave = async () => {
 };
 ```
 
-### Mutation Flow Diagram
+### Mutation Flow Diagram (v11.2.0)
 
 ```
 User Action (Save/Delete/Create)
@@ -1257,10 +1296,11 @@ User Action (Save/Delete/Create)
 │ onMutate (BEFORE API CALL)                              │
 ├─────────────────────────────────────────────────────────┤
 │ 1. Cancel outgoing queries (prevent race conditions)    │
-│ 2. Update ALL TanStack Query list caches for entity     │
-│ 3. Update detail cache (if updating)                    │
-│ 4. Clear Dexie cache (will repopulate on next fetch)    │
-│ 5. Return context for potential rollback                │
+│ 2. Capture ALL list cache states → allPreviousListData  │
+│ 3. Capture detail cache state → previousEntityData      │
+│ 4. Apply optimistic update to ALL caches                │
+│ 5. Update Dexie cache (best effort)                     │
+│ 6. Return context with ALL captured states              │
 └─────────────────────────────────────────────────────────┘
               ↓
 ┌─────────────────────────────────────────────────────────┐
@@ -1271,15 +1311,32 @@ User Action (Save/Delete/Create)
               ↓
 ┌────────────────┴────────────────┐
 │                                 │
-↓ SUCCESS                         ↓ ERROR
-┌─────────────────┐   ┌───────────────────────────────────┐
-│ onSuccess       │   │ onError                           │
-│ Cache correct   │   │ Invalidate all list queries       │
-│ Discard draft   │   │ Rollback detail cache             │
-│ (Optional       │   │ Show error toast                  │
-│  refetch)       │   │ Refetch triggers automatically    │
-└─────────────────┘   └───────────────────────────────────┘
+↓ SUCCESS                         ↓ ERROR (v11.2.0 - OFFLINE SAFE)
+┌─────────────────┐   ┌───────────────────────────────────────────┐
+│ onSuccess       │   │ onError (DIRECT ROLLBACK - NO NETWORK)    │
+│ Cache correct   │   ├───────────────────────────────────────────┤
+│ Discard draft   │   │ 1. rollbackAllListCaches(allPreviousData) │
+│ (Optional       │   │    └── Restores each cache to prev state  │
+│  refetch)       │   │ 2. rollbackDetailCache(previousEntityData)│
+│                 │   │ 3. Clear Dexie (consistency)              │
+│                 │   │ 4. Show error message to user             │
+│                 │   │                                           │
+│                 │   │ ✅ Works even when API server is DOWN     │
+└─────────────────┘   └───────────────────────────────────────────┘
 ```
+
+### Why Direct Rollback? (v11.2.0)
+
+| Approach | Works Offline? | Problem |
+|----------|----------------|---------|
+| `invalidateQueries()` | ❌ No | Triggers refetch → fails when API down → stale data remains |
+| Direct `setQueryData()` | ✅ Yes | Restores from captured state → no network needed |
+
+**User Experience:**
+1. User edits a field → UI updates immediately (optimistic)
+2. API call fails (server down, network error, validation error)
+3. UI automatically reverts to previous value (v11.2.0 fix)
+4. Error toast shows "Cannot update the record..."
 
 ---
 
@@ -1749,13 +1806,16 @@ apps/web/src/
 
 ---
 
-**Version:** 9.7.0
-**Last Updated:** 2025-12-01
+**Version:** 11.2.0
+**Last Updated:** 2025-12-02
 **Status:** Production Ready
 
 **Version History:**
 | Version | Date | Changes |
 |---------|------|---------|
+| 11.2.0 | 2025-12-02 | **Offline-safe optimistic rollback**: Fixed critical bug where optimistic updates didn't revert when API server was down. `onError` now uses direct `setQueryData()` rollback from captured `allPreviousListData` Map instead of `invalidateQueries()`. Rollback works without network access. |
+| 11.1.0 | 2025-12-02 | **Flat metadata format**: Both `EntityListOfInstancesTable` and `EntityInstanceFormContainer` now receive flat `{ viewType, editType }` format. Components support both flat and nested formats for backward compatibility but flat is standard. Entity reference fields use `getEntityInstanceNameSync()` reading from TanStack Query cache. |
+| 11.0.0 | 2025-12-02 | **Removed sync stores**: TanStack Query cache is single in-memory source of truth. Sync accessors (`getDatalabelSync`, `getEntityInstanceNameSync`) now read from `queryClient.getQueryData()`. Removed redundant Map-based stores. |
 | 9.7.0 | 2025-12-01 | **Child entity tabs two-query architecture**: Child tabs use `useEntityInstanceMetadata()` for metadata (30-min cache) + `useEntityInstanceData()` with `parent_entity_code/parent_entity_instance_id` params for data (5-min cache). Backend filters via INNER JOIN. |
 | 9.6.0 | 2025-12-01 | **EntitySpecificInstancePage two-query architecture**: Metadata fetched separately via `useEntityInstanceMetadata`, wrapped for `EntityInstanceFormContainer` |
 | 9.5.1 | 2025-12-01 | **Optimistic mutations v2**: `updateAllListCaches` finds ALL matching caches by entity code (works from any page) |

@@ -113,11 +113,12 @@ function EntityInstanceFormContainerInner({
   // ============================================================================
   // METADATA-DRIVEN FIELD GENERATION
   // ============================================================================
-  // v8.2.0: Backend metadata is REQUIRED. Only { viewType, editType } structure supported.
+  // v11.1.0: Supports flat { viewType, editType } format (same as EntityListOfInstancesTable)
 
   const fields = useMemo(() => {
-    // v8.2.0: Backend MUST return: metadata.entityInstanceFormContainer = { viewType: {...}, editType: {...} }
-    const componentMetadata = metadata?.entityInstanceFormContainer;
+    // v11.1.0: Support both flat { viewType, editType } and nested { entityInstanceFormContainer: { viewType, editType } }
+    const componentMetadata = (metadata as any)?.viewType ? metadata
+      : (metadata as any)?.entityInstanceFormContainer;
 
     // Explicit config fields override (for special cases)
     if (config?.fields && config.fields.length > 0) {
@@ -146,7 +147,8 @@ function EntityInstanceFormContainerInner({
         const inputType = editMeta?.inputType ?? 'text';
         const editable = editMeta?.behavior?.editable ?? false;
         const lookupSource = editMeta?.lookupSource;
-        const lookupEntity = editMeta?.lookupEntity;
+        // v11.1.0: lookupEntity from viewMeta (for view mode) or editMeta (for edit mode)
+        const lookupEntity = (viewMeta as any)?.lookupEntity || editMeta?.lookupEntity;
         const datalabelKey = editMeta?.datalabelKey;
 
         // v8.3.2: Backend metadata is single source of truth for viz containers
