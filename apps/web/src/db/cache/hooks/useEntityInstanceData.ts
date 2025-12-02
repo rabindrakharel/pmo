@@ -373,6 +373,8 @@ export function useEntityInstanceMetadata(
 
   const query = useQuery<MetadataRecord>({
     queryKey: QUERY_KEYS.entityInstanceMetadata(entityCode, component),
+    // Don't fetch if entityCode is empty/undefined
+    enabled: Boolean(entityCode),
     queryFn: async () => {
       // Try Dexie cache first (per entity + component)
       const cached = await getEntityInstanceMetadata(entityCode, component);

@@ -20,7 +20,6 @@ export {
   prefetchAllDatalabels,
   clearDatalabelCache,
   getDatalabelSync,
-  setDatalabelSync,
 } from './useDatalabel';
 
 // Entity Codes

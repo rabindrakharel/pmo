@@ -157,6 +157,20 @@ export function clearQueryCache(): void {
 }
 
 /**
+ * Clear all caches (TanStack Query + Dexie IndexedDB)
+ * v11.0.0: Unified cache clearing for logout
+ * Clears TanStack Query in-memory cache and Dexie persistent storage (except drafts)
+ */
+export async function clearAllCaches(): Promise<void> {
+  // Import dynamically to avoid circular dependency
+  const { clearAllExceptDrafts } = await import('../persistence/operations');
+
+  // Clear both caches
+  queryClient.clear();         // TanStack Query in-memory cache
+  await clearAllExceptDrafts(); // Dexie IndexedDB (preserves drafts)
+}
+
+/**
  * Set data in query cache manually
  * Used for optimistic updates
  */

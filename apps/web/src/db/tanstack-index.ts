@@ -96,6 +96,7 @@ export {
   invalidateMetadataCache,
   clearAllMetadataCache,
   clearQueryCache,
+  clearAllCaches,
   setQueryData,
   getQueryData,
 } from './cache/client';
