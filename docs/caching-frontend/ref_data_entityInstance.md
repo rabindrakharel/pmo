@@ -2261,12 +2261,39 @@ renderEditModeFromMetadata(value, column.backendMetadata, onChange)
 | `component` + `BadgeDropdownSelect` | `datalabel` | `BadgeDropdownSelect` | `datalabelKey` |
 | `select` | `datalabel` | `BadgeDropdownSelect` | `datalabelKey` |
 
+### 17.6 Undefined Overwrite Bug (v9.4.3 Fix)
+
+A subtle JavaScript behavior caused metadata loss:
+
+```javascript
+// Bug: Explicit undefined OVERWRITES spread values
+const viewMeta = { lookupEntity: 'employee' };
+const lookupEntity = undefined;  // editMeta is stale/missing
+const enrichedMeta = { ...viewMeta, lookupEntity };
+
+console.log(enrichedMeta.lookupEntity);  // undefined, NOT 'employee'!
+```
+
+**Root Cause:** When `editMeta` was undefined or stale (due to Dexie cache), extracting `lookupEntity = editMeta?.lookupEntity` gave `undefined`. Then explicitly adding `lookupEntity` to the object literal **overwrote** the valid value from `viewMeta.lookupEntity`.
+
+**Fix:** Use nullish coalescing to fall back to `viewMeta`:
+
+```typescript
+// v9.4.3: Preserve viewMeta values when editMeta is undefined
+const lookupSource = editMeta?.lookupSource ?? viewMeta.lookupSource;
+const lookupEntity = editMeta?.lookupEntity ?? viewMeta.lookupEntity;
+const datalabelKey = editMeta?.datalabelKey ?? (viewMeta as any).datalabelKey;
+```
+
+**Why This Works:** Backend sets `lookupEntity` on BOTH `view` AND `edit` metadata (line 1014 in backend-formatter.service.ts). Even if `editMeta` is stale, `viewMeta.lookupEntity` provides the correct value.
+
 ---
 
 ## Changelog
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 12.3.0 | 2025-12-02 | **v9.4.3 Nullish Coalescing Fix**: Fixed edit mode still showing UUIDs. Root cause: explicitly adding `lookupEntity: undefined` to object literal was overwriting valid `viewMeta.lookupEntity` value. Now uses `??` to fall back to `viewMeta` when `editMeta` properties are undefined. Added Section 17.6 explaining the undefined overwrite bug. |
 | 12.2.0 | 2025-12-02 | **v9.4.2 enrichedMeta Fix**: Fixed edit mode showing UUIDs instead of names. Root cause: `lookupSource`, `lookupEntity`, `datalabelKey` were extracted from `editMeta` but not added to `enrichedMeta`, so `renderEditModeFromMetadata` received undefined values. Added Section 17: VIEW vs EDIT Mode architectural differences. |
 | 12.1.0 | 2025-12-02 | **v9.4.1 YAML-Frontend Alignment**: Frontend now correctly handles `renderType: 'component'` with `component: 'EntityInstanceName'/'EntityInstanceNames'` pattern from YAML. Both VIEW mode (`datasetFormatter.ts`) and EDIT mode (`frontEndFormatterService.tsx`) now route component-based metadata to appropriate formatters/components. |
 | 12.0.0 | 2025-12-01 | **v9.4.0 Strict Format-at-Read**: Unified cache population, EntityInstanceNameMultiSelect support, sync store fallback pattern, architecture critique |
