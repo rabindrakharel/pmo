@@ -47,8 +47,6 @@ import type { EntityMetadata } from '../../../lib/api';
 import { type FormattedRow, isFormattedData, extractViewType, extractEditType, isValidComponentMetadata } from '../../../lib/formatters';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
 import { EllipsisBounce, InlineSpinner } from './EllipsisBounce';
-// v8.3.0: RefData for entity reference resolution
-import { useRefData, type RefData } from '../../../lib/hooks/useRefData';
 // v8.3.2: Shared badge dropdown for datalabel fields (DRY principle)
 import { BadgeDropdownSelect } from './BadgeDropdownSelect';
 // v9.8.0: Reusable Chip component for filter chips
@@ -129,8 +127,6 @@ export interface EntityListOfInstancesTableProps<T = any> {
   data: T[];
   metadata?: EntityMetadata | null;  // Backend metadata (REQUIRED for metadata-driven mode)
   datalabels?: any[];                // Datalabel options from API (for dropdowns and DAG viz)
-  /** @deprecated v11.0.0: No longer used. Entity reference resolution uses TanStack Query cache. */
-  ref_data_entityInstance?: RefData;
   columns?: Column<T>[];             // Legacy explicit columns (fallback only)
   loading?: boolean;
   pagination?: {
@@ -185,7 +181,6 @@ export function EntityListOfInstancesTable<T = any>({
   data,
   metadata,  // Backend metadata from API
   datalabels,  // Datalabel options from API response
-  ref_data_entityInstance: _ref_data_entityInstance,  // v11.0.0: DEPRECATED - no longer used
   columns: initialColumns,
   loading = false,
   pagination,
@@ -221,11 +216,6 @@ export function EntityListOfInstancesTable<T = any>({
   focusedRowId = null,
   onRowFocus
 }: EntityListOfInstancesTableProps<T>) {
-  // v11.0.0: useRefData hook no longer needed for view mode - formatDataset uses TanStack Query cache
-  // Edit mode components (EntityInstanceNameSelect) use useRefDataEntityInstanceOptions hook directly
-  // This can be removed in a future cleanup
-  const { resolveFieldDisplay, hasRefData } = useRefData(undefined);
-
   // ============================================================================
   // METADATA-DRIVEN COLUMN GENERATION (Pure Backend-Driven Architecture)
   // ============================================================================
