@@ -25,10 +25,8 @@ import {
 import { colorCodeToTailwindClass } from '../../../lib/formatters/valueFormatters';
 import type { FormattedRow } from '../../../lib/formatters';
 import { extractViewType, extractEditType, isValidComponentMetadata } from '../../../lib/formatters';
-// v9.0.0: Use Dexie sync cache for datalabel options
-import { getDatalabelSync } from '../../../db/tanstack-index';
-// v8.3.0: RefData for entity reference resolution
-import { useRefData, type RefData } from '../../../lib/hooks/useRefData';
+// v11.0.0: Use TanStack Query cache for datalabel and entity name resolution
+import { getDatalabelSync, getEntityInstanceNameSync } from '../../../db/tanstack-index';
 
 import { MetadataTable } from './MetadataTable';
 import { QuoteItemsRenderer } from './QuoteItemsRenderer';
@@ -96,21 +94,6 @@ interface EntityInstanceFormContainerProps {
    * Eliminates redundant formatting during render
    */
   formattedData?: FormattedRow<Record<string, any>>;
-
-  /**
-   * v8.3.0: Reference data lookup table for entity reference resolution
-   * Used to resolve UUIDs to display names for *_id and *_ids fields
-   * Structure: { entity_code: { uuid: name } }
-   *
-   * @example
-   * <EntityInstanceFormContainer
-   *   data={project}
-   *   ref_data_entityInstance={{ employee: { "uuid-123": "James Miller" } }}
-   *   isEditing={false}
-   *   onChange={handleChange}
-   * />
-   */
-  ref_data_entityInstance?: RefData;
 }
 
 // Stable default values to prevent new array references on every render
@@ -125,11 +108,8 @@ function EntityInstanceFormContainerInner({
   mode = 'edit',
   metadata,                     // PRIORITY 1: Backend metadata
   datalabels = EMPTY_DATALABELS,  // ✅ Stable default reference
-  formattedData,                // v7.0.0: Pre-formatted data for instant rendering
-  ref_data_entityInstance                      // v8.3.0: Entity reference lookup table
+  formattedData                 // v7.0.0: Pre-formatted data for instant rendering
 }: EntityInstanceFormContainerProps) {
-  // v8.3.0: useRefData hook for entity reference resolution
-  const { resolveFieldDisplay, isRefField, getEntityCode } = useRefData(ref_data_entityInstance);
   // ============================================================================
   // METADATA-DRIVEN FIELD GENERATION
   // ============================================================================
@@ -478,7 +458,7 @@ function EntityInstanceFormContainerInner({
       // v9.8.0: EntityInstanceName - single entity reference (view mode)
       // Backend: renderType: component, component: EntityInstanceName
       if (vizContainer?.view === 'EntityInstanceName') {
-        // Use pre-formatted value from formatDataset which uses ref_data_entityInstance
+        // v11.0.0: Use pre-formatted value from formatDataset (uses TanStack Query cache)
         const displayValue = formattedData?.display?.[field.key] ?? value;
         return (
           <span className="text-dark-600 text-base tracking-tight">
@@ -493,9 +473,9 @@ function EntityInstanceFormContainerInner({
         const rawValues = Array.isArray(value) ? value : [];
         const entityCode = field.lookupEntity;
 
-        // Resolve UUIDs to names using ref_data_entityInstance
+        // v11.0.0: Resolve UUIDs to names using TanStack Query cache
         const items = rawValues.map((uuid: string) => {
-          const resolvedName = ref_data_entityInstance?.[entityCode || '']?.[uuid] || uuid.substring(0, 8) + '...';
+          const resolvedName = (entityCode ? getEntityInstanceNameSync(entityCode, uuid) : null) || uuid.substring(0, 8) + '...';
           return {
             id: uuid,
             label: resolvedName,
@@ -811,13 +791,13 @@ function EntityInstanceFormContainerInner({
 
         if (!entityCode) {
           console.warn(`[EDIT] Missing lookupEntity for field ${field.key}`);
-          const resolvedName = resolveFieldDisplay(
-            { lookupEntity: undefined } as any,
-            value
-          );
+          // v11.0.0: Show truncated UUID when entityCode is missing
+          const displayValue = value && typeof value === 'string' && value.length > 8
+            ? value.substring(0, 8) + '...'
+            : value;
           return (
             <span className="text-dark-600 text-base tracking-tight">
-              {resolvedName || value || '-'}
+              {displayValue || '-'}
             </span>
           );
         }
@@ -965,9 +945,6 @@ function arePropsEqual(
 
   // If datalabels change, must re-render
   if (prevProps.datalabels !== nextProps.datalabels) return false;
-
-  // v8.3.0: If ref_data_entityInstance changes, must re-render (entity reference resolution)
-  if (prevProps.ref_data_entityInstance !== nextProps.ref_data_entityInstance) return false;
 
   // For data: only re-render if KEYS change, not values
   // (values are handled by local state during editing)

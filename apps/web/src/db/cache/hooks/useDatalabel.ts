@@ -6,11 +6,10 @@
 // ============================================================================
 
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { apiClient } from '@/lib/api';
 import { QUERY_KEYS, DEXIE_KEYS } from '../keys';
 import { SESSION_STORE_CONFIG, STORE_STALE_TIMES } from '../constants';
-import { datalabelStore, setDatalabelSync } from '../stores';
 import type { DatalabelOption, UseDatalabelResult } from '../types';
 import {
   getDatalabel,
@@ -65,12 +64,7 @@ export function useDatalabel(key: string): UseDatalabelResult {
     placeholderData: [],
   });
 
-  // Update sync store when data changes
-  useEffect(() => {
-    if (query.data) {
-      setDatalabelSync(normalizedKey, query.data);
-    }
-  }, [normalizedKey, query.data]);
+  // v11.0.0: Removed sync store update - TanStack Query cache is the source of truth
 
   const getById = useCallback(
     (id: number): DatalabelOption | undefined => {
@@ -118,10 +112,9 @@ export function useAllDatalabels(): {
 
       const allDatalabels = response.data?.data || {};
 
-      // Persist each datalabel to Dexie and sync store
+      // v11.0.0: Persist each datalabel to Dexie (TanStack Query cache is auto-populated)
       for (const [key, options] of Object.entries(allDatalabels)) {
         await setDatalabel(key, options);
-        setDatalabelSync(key, options);
       }
 
       return allDatalabels;
@@ -156,11 +149,8 @@ export async function prefetchAllDatalabels(): Promise<number> {
 
     let count = 0;
     for (const [key, options] of Object.entries(allDatalabels)) {
-      // Set in query cache
+      // v11.0.0: Set in query cache and Dexie only (no sync store)
       queryClient.setQueryData(QUERY_KEYS.datalabel(key), options);
-
-      // Set in sync store
-      setDatalabelSync(key, options);
 
       // Persist to Dexie
       await setDatalabel(key, options);
@@ -186,14 +176,13 @@ export async function prefetchAllDatalabels(): Promise<number> {
 export async function clearDatalabelCache(key?: string): Promise<void> {
   const { queryClient } = await import('../client');
 
+  // v11.0.0: Only clear TanStack Query cache and Dexie (no sync store)
   if (key) {
     const normalizedKey = DEXIE_KEYS.datalabel(key);
     queryClient.removeQueries({ queryKey: QUERY_KEYS.datalabel(normalizedKey) });
-    datalabelStore.delete(normalizedKey);
     await clearDatalabel(normalizedKey);
   } else {
     queryClient.removeQueries({ queryKey: ['datalabel'] });
-    datalabelStore.clear();
     await clearDatalabel();
   }
 }
@@ -202,4 +191,4 @@ export async function clearDatalabelCache(key?: string): Promise<void> {
 // Sync Access (Re-export for convenience)
 // ============================================================================
 
-export { getDatalabelSync, setDatalabelSync } from '../stores';
+export { getDatalabelSync } from '../stores';

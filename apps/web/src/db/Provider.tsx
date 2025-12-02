@@ -16,7 +16,7 @@ import {
   type ReactNode,
 } from 'react';
 import { queryClient, clearQueryCache } from './cache/client';
-import { clearAllSyncStores } from './cache/stores';
+// v11.0.0: Removed clearAllSyncStores - TanStack Query cache is the single source of truth
 import { hydrateFromDexie, type HydrationResult } from './persistence/hydrate';
 import { clearAllExceptDrafts } from './persistence/operations';
 import { wsManager } from './realtime/manager';
@@ -170,10 +170,10 @@ export function CacheProvider({
   }, []);
 
   // Clear all caches (for logout)
+  // v11.0.0: Removed clearAllSyncStores - TanStack Query cache is the single source of truth
   const clearCache = useCallback(async () => {
     wsManager.disconnect();
     clearQueryCache();
-    clearAllSyncStores();
     await clearAllExceptDrafts();
     setIsMetadataLoaded(false);
     console.log('[CacheProvider] All caches cleared');
@@ -242,28 +242,3 @@ export function useHydrationResult(): HydrationResult | null {
   return useContext(CacheContext).hydrationResult;
 }
 
-// ============================================================================
-// Legacy Exports (for backward compatibility)
-// ============================================================================
-
-/** @deprecated Use CacheProvider instead */
-export const TanstackCacheProvider = CacheProvider;
-
-/** @deprecated Use connect from useCacheContext instead */
-export function connectWebSocket(token: string): void {
-  wsManager.connect(token);
-}
-
-/** @deprecated Use disconnect from useCacheContext instead */
-export function disconnectWebSocket(): void {
-  wsManager.disconnect();
-}
-
-/** @deprecated Use prefetch from useCacheContext instead */
-export async function prefetchAllMetadata(): Promise<void> {
-  await Promise.all([
-    prefetchGlobalSettings(),
-    prefetchAllDatalabels(),
-    prefetchEntityCodes(),
-  ]);
-}

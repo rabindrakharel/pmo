@@ -71,24 +71,8 @@ export type {
 } from '../../db/tanstack-index';
 
 // ============================================================================
-// RefData Resolution Hooks (metadata-based, no pattern matching)
-// ============================================================================
-export {
-  useRefData,
-  useMergedRefData,
-  useResolvedField,
-  useResolvedRow,
-  // Metadata-based detection utilities
-  isEntityReferenceField,
-  getEntityCodeFromMetadata,
-  isArrayReferenceField,
-  mergeRefData,
-} from './useRefData';
-
-export type { UseRefDataResult, FieldMetadata } from './useRefData';
-
-// ============================================================================
 // ref_data_entityInstance Cache (dropdown + view resolution)
+// v11.0.0: Legacy useRefData hook removed - use getEntityInstanceNameSync() instead
 // ============================================================================
 export {
   // React Hooks
@@ -100,8 +84,7 @@ export {
   getRefDataEntityInstance,
   resolveFromRefDataEntityInstance,
   prefetchRefDataEntityInstances,
-  // Query Keys
-  ref_data_entityInstanceKeys,
+  // v11.0.0: ref_data_entityInstanceKeys removed - uses unified ['entityInstanceNames', entityCode] key
 } from './useRefDataEntityInstance';
 
 export type {

@@ -117,7 +117,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     offset: (currentPage - 1) * 20000,
   }), [currentPage]);
 
-  // v10.0.0: refData removed from destructuring - using centralized entityInstanceNames sync store
+  // v11.0.0: refData removed - using TanStack Query cache via getEntityInstanceNameSync()
   const {
     data: rawData,
     total: totalRecords,
@@ -149,7 +149,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   const loading = metadataLoading;
 
   // Format data on read (memoized) - formatting happens HERE, not in hook
-  // v10.0.0: refData no longer passed - formatDataset uses centralized entityInstanceNames sync store
+  // v11.0.0: refData no longer passed - formatDataset uses TanStack Query cache
   const formattedData = useMemo(() => {
     if (!rawData || rawData.length === 0) return [];
     debugCache('🎨 formatDataset called', {
@@ -437,7 +437,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
       // This fixes the bug where entire table showed UUIDs instead of names during edit mode
       const tableData = formattedData.length > 0 ? formattedData : data;
 
-      // v10.0.0: ref_data_entityInstance removed - table uses centralized entityInstanceNames sync store
+      // v11.0.0: ref_data_entityInstance removed - table uses TanStack Query cache
       return (
         <EntityListOfInstancesTable
           data={tableData}

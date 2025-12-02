@@ -10,8 +10,7 @@
  * at fetch time, not render time.
  */
 
-// v9.0.0: Use Dexie sync cache for non-hook datalabel access
-// v10.0.0: Use centralized entityInstanceNames store for entity reference resolution
+// v11.0.0: Use TanStack Query cache via sync accessors (queryClient.getQueryData)
 import { getDatalabelSync, getEntityInstanceNameSync } from '../../db/tanstack-index';
 import { formatLocalizedDate, formatRelativeTime as formatRelativeTimeUtil, parseDateSafe } from '../utils/dateUtils';
 import type { FieldMetadata, FormattedValue } from './types';
@@ -223,21 +222,19 @@ export function formatArray(value: any): FormattedValue {
 /**
  * Format reference/entity ID fields
  *
- * v10.0.0: Uses centralized entityInstanceNames sync store for name resolution.
+ * v11.0.0: Uses TanStack Query cache via getEntityInstanceNameSync() for name resolution.
  * The cache is populated when API responses with ref_data_entityInstance arrive.
  * Falls back to truncated UUID if name not found in cache.
  *
  * @param value - UUID or array of UUIDs
  * @param metadata - Field metadata with lookupEntity
- * @param _refData - DEPRECATED: No longer used. Kept for backward compatibility.
  */
 // Debug flag for formatReference - set to true to trace name resolution issues
 const DEBUG_FORMAT_REFERENCE = false;
 
 export function formatReference(
   value: any,
-  metadata?: FieldMetadata,
-  _refData?: Record<string, Record<string, string>>
+  metadata?: FieldMetadata
 ): FormattedValue {
   if (value === null || value === undefined || value === '') {
     return { display: '—' };
@@ -251,7 +248,7 @@ export function formatReference(
     if (value.length === 0) return { display: '—' };
 
     const names = value.map(uuid => {
-      // v10.0.0: Use centralized sync store
+      // v11.0.0: Use TanStack Query cache
       if (entityCode) {
         const name = getEntityInstanceNameSync(entityCode, uuid);
         if (DEBUG_FORMAT_REFERENCE && !name) {
@@ -268,7 +265,7 @@ export function formatReference(
   // Single UUID
   const uuid = String(value);
 
-  // v10.0.0: Try to resolve from centralized sync store
+  // v11.0.0: Try to resolve from TanStack Query cache
   if (entityCode) {
     const name = getEntityInstanceNameSync(entityCode, uuid);
     if (DEBUG_FORMAT_REFERENCE) {

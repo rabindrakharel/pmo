@@ -6,13 +6,12 @@
 // ============================================================================
 
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { apiClient } from '@/lib/api';
 import { QUERY_KEYS } from '../keys';
 import { SESSION_STORE_CONFIG, STORE_STALE_TIMES } from '../constants';
-import { globalSettingsStore } from '../stores';
 import type { GlobalSettings, UseGlobalSettingsResult } from '../types';
-import { getGlobalSettings, setGlobalSettings } from '../../persistence/operations';
+import { getGlobalSettings } from '../../persistence/operations';
 import { persistToGlobalSettings } from '../../persistence/hydrate';
 
 // ============================================================================
@@ -72,12 +71,7 @@ export function useGlobalSettings(): UseGlobalSettingsResult {
     placeholderData: DEFAULT_SETTINGS,
   });
 
-  // Update sync store when data changes
-  useEffect(() => {
-    if (query.data) {
-      globalSettingsStore.set(query.data);
-    }
-  }, [query.data]);
+  // v11.0.0: Removed sync store update - TanStack Query cache is the source of truth
 
   const getSetting = useCallback(
     <K extends keyof GlobalSettings>(key: K): GlobalSettings[K] => {
@@ -110,12 +104,9 @@ export async function prefetchGlobalSettings(): Promise<void> {
     );
     const settings = response.data?.data || DEFAULT_SETTINGS;
 
-    // Set in query cache
+    // v11.0.0: Set in query cache and Dexie only (no sync store)
     const { queryClient } = await import('../client');
     queryClient.setQueryData(QUERY_KEYS.globalSettings(), settings);
-
-    // Set in sync store
-    globalSettingsStore.set(settings);
 
     // Persist to Dexie
     await persistToGlobalSettings(settings);
@@ -133,9 +124,9 @@ export async function prefetchGlobalSettings(): Promise<void> {
  * Called on logout
  */
 export async function clearGlobalSettingsCache(): Promise<void> {
+  // v11.0.0: Only clear TanStack Query cache and Dexie (no sync store)
   const { queryClient } = await import('../client');
   queryClient.removeQueries({ queryKey: QUERY_KEYS.globalSettings() });
-  globalSettingsStore.clear();
   const { clearGlobalSettings } = await import('../../persistence/operations');
   await clearGlobalSettings();
 }

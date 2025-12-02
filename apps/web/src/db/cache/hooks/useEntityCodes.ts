@@ -6,11 +6,10 @@
 // ============================================================================
 
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { apiClient } from '@/lib/api';
 import { QUERY_KEYS } from '../keys';
 import { SESSION_STORE_CONFIG, STORE_STALE_TIMES } from '../constants';
-import { entityCodesStore } from '../stores';
 import type { EntityCode, UseEntityCodesResult } from '../types';
 import {
   getEntityCodes,
@@ -70,12 +69,7 @@ export function useEntityCodes(options: { enabled?: boolean } = {}): UseEntityCo
     enabled,
   });
 
-  // Update sync store when data changes
-  useEffect(() => {
-    if (query.data) {
-      entityCodesStore.set(query.data);
-    }
-  }, [query.data]);
+  // v11.0.0: Removed sync store update - TanStack Query cache is the source of truth
 
   const getByCode = useCallback(
     (code: string): EntityCode | undefined => {
@@ -120,12 +114,9 @@ export async function prefetchEntityCodes(): Promise<number> {
     );
     const codes = response.data?.data || [];
 
-    // Set in query cache
+    // v11.0.0: Set in query cache and Dexie only (no sync store)
     const { queryClient } = await import('../client');
     queryClient.setQueryData(QUERY_KEYS.entityCodes(), codes);
-
-    // Set in sync store
-    entityCodesStore.set(codes);
 
     // Persist to Dexie
     await persistToEntityCodes(codes);
@@ -146,9 +137,9 @@ export async function prefetchEntityCodes(): Promise<number> {
  * Called on logout
  */
 export async function clearEntityCodesCache(): Promise<void> {
+  // v11.0.0: Only clear TanStack Query cache and Dexie (no sync store)
   const { queryClient } = await import('../client');
   queryClient.removeQueries({ queryKey: QUERY_KEYS.entityCodes() });
-  entityCodesStore.clear();
   await clearEntityCodes();
 }
 

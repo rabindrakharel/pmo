@@ -135,34 +135,3 @@ export const STORE_PERSIST_TTL = {
   entityInstanceData: ONDEMAND_STORE_CONFIG.persistMaxAge,
 } as const;
 
-// ============================================================================
-// Legacy Constant Aliases (for backward compatibility during migration)
-// ============================================================================
-// These map to the new constants for code that hasn't been migrated yet
-
-/** @deprecated Use SESSION_STORE_CONFIG.staleTime or STORE_STALE_TIMES instead */
-export const CACHE_STALE_TIME = ONDEMAND_STORE_CONFIG.staleTime;
-
-/** @deprecated Use ONDEMAND_STORE_CONFIG.staleTime instead */
-export const CACHE_STALE_TIME_LIST = ONDEMAND_STORE_CONFIG.staleTime;
-
-/** @deprecated Use STORE_STALE_TIMES.entityInstanceMetadata instead */
-export const CACHE_STALE_TIME_METADATA = STORE_STALE_TIMES.entityInstanceMetadata;
-
-/** @deprecated Use STORE_STALE_TIMES.datalabel instead */
-export const CACHE_STALE_TIME_DATALABEL = STORE_STALE_TIMES.datalabel;
-
-/** @deprecated Use STORE_STALE_TIMES.entityCodes instead */
-export const CACHE_STALE_TIME_ENTITY_CODES = STORE_STALE_TIMES.entityCodes;
-
-/** @deprecated Use STORE_STALE_TIMES.entityLinks instead */
-export const CACHE_STALE_TIME_ENTITY_LINKS = STORE_STALE_TIMES.entityLinks;
-
-/** @deprecated Use SESSION_STORE_CONFIG.gcTime or ONDEMAND_STORE_CONFIG.gcTime instead */
-export const CACHE_GC_TIME = ONDEMAND_STORE_CONFIG.gcTime;
-
-/** @deprecated Use HYDRATION_CONFIG.maxAge instead */
-export const DEXIE_HYDRATION_MAX_AGE = HYDRATION_CONFIG.maxAge;
-
-/** @deprecated Use SESSION_STORE_CONFIG.persistMaxAge instead */
-export const DEXIE_DATA_MAX_AGE = SESSION_STORE_CONFIG.persistMaxAge;

@@ -10,7 +10,6 @@ import { useEffect, useRef, useMemo } from 'react';
 import { apiClient } from '@/lib/api';
 import { QUERY_KEYS, createQueryHash } from '../keys';
 import { ONDEMAND_STORE_CONFIG, SESSION_STORE_CONFIG } from '../constants';
-import { entityInstanceNamesStore } from '../stores';
 // v9.4.0: Unified cache for edit mode entity reference resolution
 import { upsertRefDataEntityInstance } from '@/lib/hooks/useRefDataEntityInstance';
 import { queryClient } from '../client';
@@ -169,14 +168,11 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
 
         // Only return cached data if within TTL
         if (!isStale) {
-          // v10.0.1: CRITICAL - Hydrate sync store from Dexie cache
-          // This ensures formatReference() can resolve names synchronously
-          // even when data comes from Dexie cache (not fresh API fetch)
+          // v11.0.0: Upsert to TanStack Query cache for edit mode
+          // This ensures EntityInstanceNameSelect can resolve UUIDs to names
           if (cached.refData) {
-            for (const [refEntityCode, names] of Object.entries(cached.refData)) {
-              entityInstanceNamesStore.merge(refEntityCode, names);
-            }
-            debugCache(`✅ Sync store hydrated from Dexie cache`, {
+            upsertRefDataEntityInstance(queryClient, cached.refData);
+            debugCache(`✅ TanStack Query cache hydrated from Dexie cache`, {
               entityCodes: Object.keys(cached.refData),
               counts: Object.fromEntries(
                 Object.entries(cached.refData).map(([k, v]) => [k, Object.keys(v).length])
@@ -245,10 +241,8 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
       if (result.refData) {
         for (const [code, names] of Object.entries(result.refData)) {
           await persistToEntityInstanceNames(code, names);
-          // Update sync store
-          entityInstanceNamesStore.merge(code, names);
         }
-        // v9.4.0: CRITICAL - Upsert to TanStack Query cache for edit mode
+        // v11.0.0: Upsert to TanStack Query cache for edit mode
         // This ensures EntityInstanceNameSelect can resolve UUIDs to names
         // using the same ref_data_entityInstance data as view mode
         upsertRefDataEntityInstance(queryClient, result.refData);
@@ -520,9 +514,8 @@ export function useEntityInfiniteList<T = Record<string, unknown>>(
       if (apiData.ref_data_entityInstance) {
         for (const [refEntityCode, names] of Object.entries(apiData.ref_data_entityInstance)) {
           await persistToEntityInstanceNames(refEntityCode, names as Record<string, string>);
-          entityInstanceNamesStore.merge(refEntityCode, names as Record<string, string>);
         }
-        // v9.4.0: Upsert to TanStack Query cache for edit mode
+        // v11.0.0: Upsert to TanStack Query cache for edit mode
         upsertRefDataEntityInstance(queryClient, apiData.ref_data_entityInstance as Record<string, Record<string, string>>);
       }
 

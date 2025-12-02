@@ -379,3 +379,103 @@ If issues arise:
 4. **No race conditions**: No sync between two caches
 5. **Better DevTools**: React Query DevTools shows all cached data
 6. **HMR safe**: TanStack Query persists across HMR (module-level `queryClient`)
+
+---
+
+## Implementation Status
+
+**Implemented: 2025-12-02 | Version: v11.0.0**
+
+### Completed Changes
+
+#### Phase 1: stores.ts ✅
+- Removed all store classes (SyncStore, MapStore, EntityCodesStore, EntityInstanceNamesStore, EntityLinksStore)
+- Replaced with sync accessor functions that read directly from `queryClient.getQueryData()`
+- Added `getCacheStats()` for debugging
+
+#### Phase 2: Hooks ✅
+- `useEntityInstanceData.ts` - Removed `entityInstanceNamesStore.merge()` calls
+- `useEntity.ts` - Replaced `entityInstanceNamesStore.set()` with `queryClient.setQueryData()`
+- `useOptimisticMutation.ts` - Same changes as useEntity.ts
+- `useEntityInstanceNames.ts` - Removed all sync store references
+- `useDatalabel.ts` - Removed `datalabelStore` and `setDatalabelSync` references
+- `useGlobalSettings.ts` - Removed `globalSettingsStore` calls
+- `useEntityCodes.ts` - Removed `entityCodesStore` calls
+- `useEntityLinks.ts` - Major rewrite to store link data in TanStack Query cache directly
+
+#### Phase 3: Components ✅
+- `EntityInstanceNameSelect.tsx` - Uses `getEntityInstanceNameSync()` from stores
+- `EntityInstanceNameMultiSelect.tsx` - Uses `getEntityInstanceNameSync()` from stores
+
+#### Phase 4: Formatters ✅
+- No changes needed - uses updated sync accessors from stores.ts
+
+#### Phase 5: Hydration ✅
+- `hydrate.ts` - Removed sync store population, only sets data in TanStack Query cache
+- Fixed type annotations to use direct types instead of inferring from old stores
+
+#### Phase 6: Providers ✅
+- `TanstackCacheProvider.tsx` - Removed `clearAllSyncStores()` import and usage
+- `Provider.tsx` - Removed `clearAllSyncStores()` import and usage
+
+#### Phase 7: Exports ✅
+- `cache/index.ts` - Removed store instance exports, kept sync accessor functions
+- `tanstack-index.ts` - Same approach
+- `db/index.ts` - Removed store exports
+
+#### Phase 8: Realtime Manager ✅
+- `realtime/manager.ts` - Removed `entityLinksStore` usage, invalidates TanStack Query cache directly
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `apps/web/src/db/cache/stores.ts` | Complete rewrite - removed classes, added queryClient-based accessors |
+| `apps/web/src/db/cache/hooks/useEntityInstanceData.ts` | Removed sync store imports and calls |
+| `apps/web/src/db/cache/hooks/useEntity.ts` | Replaced store calls with queryClient.setQueryData() |
+| `apps/web/src/db/cache/hooks/useOptimisticMutation.ts` | Same as useEntity.ts |
+| `apps/web/src/db/cache/hooks/useEntityInstanceNames.ts` | Removed sync store calls |
+| `apps/web/src/db/cache/hooks/useDatalabel.ts` | Removed datalabelStore references |
+| `apps/web/src/db/cache/hooks/useGlobalSettings.ts` | Removed globalSettingsStore references |
+| `apps/web/src/db/cache/hooks/useEntityCodes.ts` | Removed entityCodesStore references |
+| `apps/web/src/db/cache/hooks/useEntityLinks.ts` | Major rewrite - stores links in TanStack Query cache |
+| `apps/web/src/components/shared/ui/EntityInstanceNameSelect.tsx` | Updated import to use getEntityInstanceNameSync |
+| `apps/web/src/components/shared/ui/EntityInstanceNameMultiSelect.tsx` | Updated import to use getEntityInstanceNameSync |
+| `apps/web/src/db/persistence/hydrate.ts` | Removed sync store population, fixed type annotations |
+| `apps/web/src/db/TanstackCacheProvider.tsx` | Removed clearAllSyncStores() |
+| `apps/web/src/db/Provider.tsx` | Removed clearAllSyncStores() |
+| `apps/web/src/db/cache/index.ts` | Updated exports |
+| `apps/web/src/db/tanstack-index.ts` | Updated exports |
+| `apps/web/src/db/index.ts` | Updated exports |
+| `apps/web/src/db/realtime/manager.ts` | Removed entityLinksStore usage |
+
+### Post-Migration Bug Fix (2025-12-02)
+
+**CRITICAL BUG FOUND**: Query key mismatch between write and read paths!
+
+- `useRefDataEntityInstance.ts` was writing to `['ref_data_entityInstance', entityCode]`
+- `getEntityInstanceNameSync()` in stores.ts was reading from `['entityInstanceNames', entityCode]`
+- **Result**: Data written to cache was never found when reading
+
+**Fix Applied**:
+- Updated all functions in `useRefDataEntityInstance.ts` to use unified key `['entityInstanceNames', entityCode]`
+- Removed deprecated `ref_data_entityInstanceKeys` constant
+- All read/write paths now consistently use `QUERY_KEYS.entityInstanceNames()`
+
+### Verification
+
+**Technical Verification (Code Review)** ✅
+- [x] TypeScript compilation passes (`tsc --noEmit`)
+- [x] Query keys aligned: write paths use same keys as read paths
+- [x] Datalabel flow: `useDatalabel.ts` uses `QUERY_KEYS.datalabel()` consistently
+- [x] Hydration flow: `hydrate.ts` uses `QUERY_KEYS.entityInstanceNames()` correctly
+- [x] Realtime invalidation: `manager.ts` uses `queryClient.invalidateQueries()` correctly
+- [x] No remaining sync store code (only comments documenting removal)
+
+**Runtime Testing** (requires manual testing)
+- [ ] Login flow - entity names resolve correctly
+- [ ] Project list - employee names show (not UUIDs)
+- [ ] Edit mode - dropdowns work
+- [ ] Optimistic updates - names persist after PATCH
+- [ ] Page refresh - data hydrates from Dexie → TanStack Query
+- [ ] Logout/login - caches clear and repopulate

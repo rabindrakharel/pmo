@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ChevronDown, Search, Check } from 'lucide-react';
 import { useRefDataEntityInstanceOptions } from '@/lib/hooks/useRefDataEntityInstance';
-// v9.4.0: Use sync store for immediate resolution of current value
-import { entityInstanceNamesStore } from '@/db/cache/stores';
+// v11.0.0: Use queryClient-based sync accessor for immediate resolution
+import { getEntityInstanceNameSync } from '@/db/cache/stores';
 import { InlineSpinner } from './EllipsisBounce';
 
 export interface EntityInstanceNameSelectProps {
@@ -65,10 +65,10 @@ export function EntityInstanceNameSelect({
   );
 
   // Get current selected option label
-  // v9.4.0: Use sync store for immediate resolution when options not yet loaded
+  // v11.0.0: Use TanStack Query cache accessor for immediate resolution when options not yet loaded
   const selectedOption = options.find(opt => opt.value === value);
-  const syncStoreName = value ? entityInstanceNamesStore.getName(entityCode, value) : null;
-  const displayLabel = selectedOption?.label || syncStoreName || currentLabel || '';
+  const cachedName = value ? getEntityInstanceNameSync(entityCode, value) : null;
+  const displayLabel = selectedOption?.label || cachedName || currentLabel || '';
 
   // Close dropdown when clicking outside
   useEffect(() => {

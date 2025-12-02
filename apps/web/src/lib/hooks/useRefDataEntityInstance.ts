@@ -38,8 +38,7 @@
 import { useQuery, useQueryClient, QueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import type { RefData } from '@/db/tanstack-index';
-// v10.0.1: Import sync store and Dexie persistence for unified hydration
-import { entityInstanceNamesStore } from '@/db/cache/stores';
+// v11.0.0: Dexie persistence only (no sync store)
 import { persistToEntityInstanceNames } from '@/db/persistence/hydrate';
 
 // ============================================================================
@@ -67,13 +66,13 @@ export interface EntityInstanceOption {
 }
 
 // ============================================================================
-// Query Keys - Uses ref_data_entityInstance naming
+// Query Keys
+// v11.0.0: Uses unified key ['entityInstanceNames', entityCode] for consistency
+// with getEntityInstanceNameSync() in stores.ts
 // ============================================================================
 
-export const ref_data_entityInstanceKeys = {
-  all: ['ref_data_entityInstance'] as const,
-  byEntity: (entityCode: string) => ['ref_data_entityInstance', entityCode] as const,
-};
+// NOTE: All functions now use inline key ['entityInstanceNames', entityCode]
+// to match QUERY_KEYS.entityInstanceNames(entityCode) from keys.ts
 
 // ============================================================================
 // Cache Configuration
@@ -109,7 +108,9 @@ export function upsertRefDataEntityInstance(
   for (const [entityCode, lookups] of Object.entries(refData)) {
     if (!lookups || typeof lookups !== 'object') continue;
 
-    const queryKey = ref_data_entityInstanceKeys.byEntity(entityCode);
+    // v11.0.0: Use QUERY_KEYS.entityInstanceNames for consistency with getEntityInstanceNameSync
+    // Both read and write paths now use the same key: ['entityInstanceNames', entityCode]
+    const queryKey = ['entityInstanceNames', entityCode] as const;
 
     // Get current cache to log before/after
     const before = queryClient.getQueryData<EntityInstanceLookup>(queryKey);
@@ -121,9 +122,7 @@ export function upsertRefDataEntityInstance(
       return merged;
     });
 
-    // v10.0.1: CRITICAL - Also update sync store for synchronous access
-    // This ensures formatReference() can resolve names without async lookup
-    entityInstanceNamesStore.merge(entityCode, lookups);
+    // v11.0.0: Sync store removed - TanStack Query cache is the single source of truth
 
     // Get updated cache
     const after = queryClient.getQueryData<EntityInstanceLookup>(queryKey);
@@ -140,6 +139,8 @@ export function upsertRefDataEntityInstance(
 /**
  * Get cached ref_data_entityInstance lookup for an entity type
  *
+ * v11.0.0: Uses unified key ['entityInstanceNames', entityCode] for consistency
+ *
  * @example
  * const employeeCache = getRefDataEntityInstance(queryClient, 'employee');
  * const name = employeeCache?.['uuid-123'];
@@ -148,8 +149,9 @@ export function getRefDataEntityInstance(
   queryClient: QueryClient,
   entityCode: string
 ): EntityInstanceLookup | undefined {
+  // v11.0.0: Use unified key for consistency with getEntityInstanceNameSync
   return queryClient.getQueryData<EntityInstanceLookup>(
-    ref_data_entityInstanceKeys.byEntity(entityCode)
+    ['entityInstanceNames', entityCode] as const
   );
 }
 
@@ -198,7 +200,8 @@ export async function prefetchRefDataEntityInstances(
 
   const promises = entityCodes.map(async (entityCode) => {
     try {
-      const queryKey = ref_data_entityInstanceKeys.byEntity(entityCode);
+      // v11.0.0: Use unified key for consistency with getEntityInstanceNameSync
+      const queryKey = ['entityInstanceNames', entityCode] as const;
       debugRefData(`📡 Starting prefetch for: ${entityCode}`, { queryKey });
 
       // Fetch directly and use setQueryData to ALWAYS set the complete data
@@ -234,13 +237,11 @@ export async function prefetchRefDataEntityInstances(
         return merged;
       });
 
-      // v10.0.1: CRITICAL - Also populate sync store and Dexie for unified cache
-      // This ensures formatReference() can resolve names synchronously
-      entityInstanceNamesStore.merge(entityCode, lookup);
+      // v11.0.0: Persist to Dexie (TanStack Query cache is the primary source)
       await persistToEntityInstanceNames(entityCode, lookup);
-      debugRefData(`✅ Sync store + Dexie populated for ${entityCode}`, {
+      debugRefData(`✅ TanStack Query + Dexie populated for ${entityCode}`, {
         entityCode,
-        syncStoreCount: Object.keys(lookup).length,
+        count: Object.keys(lookup).length,
       });
     } catch (error) {
       debugRefData(`❌ Failed to prefetch ${entityCode}`, { error: String(error) });
@@ -261,7 +262,8 @@ if (typeof window !== 'undefined') {
     console.log('%c[ref_data_entityInstance DEBUG] Inspecting cache...', 'color: #be4bdb; font-weight: bold');
     const entityCodes = ['employee', 'project', 'business', 'office', 'role', 'cust', 'task', 'worksite'];
     entityCodes.forEach((entityCode) => {
-      const queryKey = ref_data_entityInstanceKeys.byEntity(entityCode);
+      // v11.0.0: Use unified key for consistency
+      const queryKey = ['entityInstanceNames', entityCode] as const;
       console.log(`  Query key for ${entityCode}:`, queryKey);
     });
     console.log('To check cache, use React Query DevTools or call this in a component with useQueryClient()');
@@ -294,7 +296,8 @@ export function useRefDataEntityInstanceOptions(
   const queryClient = useQueryClient();
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
-  const queryKey = ref_data_entityInstanceKeys.byEntity(entityCode || '');
+  // v11.0.0: Use unified key for consistency with getEntityInstanceNameSync
+  const queryKey = ['entityInstanceNames', entityCode || ''] as const;
 
   const query = useQuery<EntityInstanceLookup>({
     queryKey,
