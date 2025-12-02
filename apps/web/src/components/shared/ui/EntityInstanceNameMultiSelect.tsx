@@ -53,20 +53,28 @@ export function EntityInstanceNameMultiSelect({
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Local state for immediate UI feedback (before parent re-renders from async Dexie update)
+  const [localValue, setLocalValue] = useState<string[]>(value);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Use unified ref_data_entityInstance cache
   const { options, isLoading } = useRefDataEntityInstanceOptions(entityCode);
 
+  // Sync local value with prop when prop changes (parent finally re-rendered)
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
   // Filter options based on search term
   const filteredOptions = options.filter(option =>
     option.label.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Get selected options with labels
+  // Get selected options with labels - use localValue for immediate UI
   // v11.0.0: Use TanStack Query cache accessor as fallback when options not yet loaded
-  const selectedOptions = value
+  const selectedOptions = localValue
     .map(uuid => {
       // First try TanStack Query options
       const fromOptions = options.find(opt => opt.value === uuid);
@@ -102,16 +110,24 @@ export function EntityInstanceNameMultiSelect({
 
   // Toggle selection
   const toggleOption = (uuid: string) => {
-    if (value.includes(uuid)) {
-      onChange(value.filter(v => v !== uuid));
+    let newValue: string[];
+    if (localValue.includes(uuid)) {
+      newValue = localValue.filter(v => v !== uuid);
     } else {
-      onChange([...value, uuid]);
+      newValue = [...localValue, uuid];
     }
+    // Update local state immediately for instant UI feedback
+    setLocalValue(newValue);
+    // Notify parent (may be async if using Dexie drafts)
+    onChange(newValue);
   };
 
   // Remove a selected item
   const removeItem = (uuid: string) => {
-    onChange(value.filter(v => v !== uuid));
+    const newValue = localValue.filter(v => v !== uuid);
+    // Update local state immediately
+    setLocalValue(newValue);
+    onChange(newValue);
   };
 
   // Chips to display (with overflow handling)
@@ -193,7 +209,7 @@ export function EntityInstanceNameMultiSelect({
               </div>
             ) : (
               filteredOptions.map(option => {
-                const isSelected = value.includes(option.value);
+                const isSelected = localValue.includes(option.value);
                 return (
                   <div
                     key={option.value}

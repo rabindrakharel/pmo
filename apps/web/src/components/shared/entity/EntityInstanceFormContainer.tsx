@@ -111,6 +111,17 @@ function EntityInstanceFormContainerInner({
   formattedData                 // v7.0.0: Pre-formatted data for instant rendering
 }: EntityInstanceFormContainerProps) {
   // ============================================================================
+  // LOCAL STATE FOR IMMEDIATE UI FEEDBACK
+  // ============================================================================
+  // When using Dexie drafts (async), the parent's data prop updates asynchronously.
+  // We maintain local state for immediate UI feedback, synced with prop changes.
+  const [localData, setLocalData] = useState<Record<string, any>>(data);
+
+  // Sync local data with prop when prop changes (parent finally re-rendered from Dexie)
+  useEffect(() => {
+    setLocalData(data);
+  }, [data]);
+  // ============================================================================
   // METADATA-DRIVEN FIELD GENERATION
   // ============================================================================
   // v11.1.0: Supports flat { viewType, editType } format (same as EntityListOfInstancesTable)
@@ -185,6 +196,9 @@ function EntityInstanceFormContainerInner({
   // Simple onChange handler - debouncing is handled by DebouncedInput/DebouncedTextarea
   // This is the industry-standard pattern: input components manage their own debouncing
   const handleFieldChange = React.useCallback((fieldKey: string, value: any) => {
+    // Update local state immediately for instant UI feedback
+    setLocalData(prev => ({ ...prev, [fieldKey]: value }));
+    // Notify parent (may be async if using Dexie drafts)
     onChange(fieldKey, value);
   }, [onChange]);
 
@@ -263,8 +277,9 @@ function EntityInstanceFormContainerInner({
   }, [fields]);  // ✅ Stable dependencies - DAG detection now metadata-driven
 
   // Render field based on configuration
+  // Use localData for immediate UI feedback when editing
   const renderField = (field: FieldDef) => {
-    const value = data[field.key];
+    const value = isEditing ? localData[field.key] : data[field.key];
 
     // Check if this field has datalabel options loaded
     const hasLabelsMetadata = labelsMetadata.has(field.key);
@@ -318,15 +333,18 @@ function EntityInstanceFormContainerInner({
         endFieldKey = 'actual_end_date';
       }
 
-      if (isStartDateField && endFieldKey && data[endFieldKey]) {
+      // Use localData for editing, data for view mode
+      const effectiveData = isEditing ? localData : data;
+
+      if (isStartDateField && endFieldKey && effectiveData[endFieldKey]) {
         // Skip rendering start_date individually if we have both dates
         // They will be rendered together in the end_date field
         return null;
       }
 
-      if (isEndDateField && startFieldKey && data[startFieldKey]) {
+      if (isEndDateField && startFieldKey && effectiveData[startFieldKey]) {
         // Render date range visualizer for both start and end dates
-        return <DateRangeVisualizer startDate={data[startFieldKey]} endDate={value} />;
+        return <DateRangeVisualizer startDate={effectiveData[startFieldKey]} endDate={value} />;
       }
 
       // Regular date field rendering
@@ -513,8 +531,8 @@ function EntityInstanceFormContainerInner({
         return (
           <DebouncedInput
             type={field.type}
-            value={data[field.key] ?? ''}
-            onChange={(value) => handleFieldChange(field.key, value)}
+            value={value ?? ''}
+            onChange={(v) => handleFieldChange(field.key, v)}
             debounceMs={300}
             className={`w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-base tracking-tight ${
               field.readonly ? 'cursor-not-allowed text-dark-600' : 'text-dark-600 placeholder:text-dark-600/60 hover:placeholder:text-dark-700/80'
@@ -528,8 +546,8 @@ function EntityInstanceFormContainerInner({
       case 'richtext':
         return (
           <DebouncedTextarea
-            value={data[field.key] ?? ''}
-            onChange={(value) => handleFieldChange(field.key, value)}
+            value={value ?? ''}
+            onChange={(v) => handleFieldChange(field.key, v)}
             rows={field.type === 'richtext' ? 6 : 4}
             className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 resize-none text-dark-600 placeholder:text-dark-600/60 hover:placeholder:text-dark-700/80 text-base tracking-tight leading-relaxed"
             placeholder={field.placeholder}
@@ -538,7 +556,7 @@ function EntityInstanceFormContainerInner({
           />
         );
       case 'array': {
-        const arrayValue = data[field.key];
+        const arrayValue = value;
         return (
           <DebouncedInput
             type="text"
@@ -868,12 +886,15 @@ function EntityInstanceFormContainerInner({
       <div className="p-6">
         <div className="space-y-0">
           {visibleFields.map((field, index) => {
+            // Use localData for editing, data for view mode
+            const effectiveData = isEditing ? localData : data;
+
             // Hide start_date fields if we have both start and end dates (they'll render together)
             const isStartDateField = field.key === 'start_date' || field.key === 'planned_start_date' || field.key === 'actual_start_date';
             const hasCorrespondingEndDate =
-              (field.key === 'start_date' && data.end_date) ||
-              (field.key === 'planned_start_date' && data.planned_end_date) ||
-              (field.key === 'actual_start_date' && data.actual_end_date);
+              (field.key === 'start_date' && effectiveData.end_date) ||
+              (field.key === 'planned_start_date' && effectiveData.planned_end_date) ||
+              (field.key === 'actual_start_date' && effectiveData.actual_end_date);
 
             if (isStartDateField && !isEditing && hasCorrespondingEndDate) {
               return null;
@@ -895,9 +916,9 @@ function EntityInstanceFormContainerInner({
                 <label className="text-2xs font-medium text-dark-700 pt-2 flex items-center gap-1.5 uppercase tracking-wide">
                   <span className="opacity-50 group-hover:opacity-100 transition-all duration-300 group-hover:text-dark-700">
                     {/* Show "Date Range" label when displaying both start and end dates together */}
-                    {field.key === 'end_date' && data.start_date && !isEditing ? 'Date Range' :
-                     field.key === 'planned_end_date' && data.planned_start_date && !isEditing ? 'Planned Date Range' :
-                     field.key === 'actual_end_date' && data.actual_start_date && !isEditing ? 'Actual Date Range' :
+                    {field.key === 'end_date' && effectiveData.start_date && !isEditing ? 'Date Range' :
+                     field.key === 'planned_end_date' && effectiveData.planned_start_date && !isEditing ? 'Planned Date Range' :
+                     field.key === 'actual_end_date' && effectiveData.actual_start_date && !isEditing ? 'Actual Date Range' :
                      field.label}
                   </span>
                   {field.required && mode === 'create' && (

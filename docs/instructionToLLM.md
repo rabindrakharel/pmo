@@ -43,6 +43,11 @@ Color	Meaning
 🔵 Cyan #74c0fc	Field change events
 
 
+ The issue or the problem that was communicated to you through PROMPT and what you found out and how you solved it and how it must be solved all together as a design pattern,
+  please put that together for both cases. We want to be consistent with our design pattern for entity list of instances table and entity instance form container. We want to
+  be consistent with our design pattern on both. Is there a industry, innovative, robust design pattern to solve this issue? Holistically and putting everything together,
+  regressively not breaking other features. We don't want to hardcode or create a band aid solution but a standard one.
+  Critic if the design pattern will break anything?  
 What's the industry standard robust engineered fix, not band aid solution?
 
 

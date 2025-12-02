@@ -52,12 +52,22 @@ export function EntityInstanceNameSelect({
   const [searchTerm, setSearchTerm] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
+  // Local state for immediate UI feedback (before parent re-renders from async Dexie update)
+  const [localValue, setLocalValue] = useState(value);
+  const [localLabel, setLocalLabel] = useState<string | null>(null);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const optionsRef = useRef<HTMLDivElement>(null);
 
   // Use unified ref_data_entityInstance cache
   const { options, isLoading } = useRefDataEntityInstanceOptions(entityCode);
+
+  // Sync local value with prop when prop changes (parent finally re-rendered)
+  useEffect(() => {
+    setLocalValue(value);
+    setLocalLabel(null); // Clear local label, use prop-based resolution
+  }, [value]);
 
   // Filter options based on search term
   const filteredOptions = options.filter(option =>
@@ -66,9 +76,10 @@ export function EntityInstanceNameSelect({
 
   // Get current selected option label
   // v11.0.0: Use TanStack Query cache accessor for immediate resolution when options not yet loaded
-  const selectedOption = options.find(opt => opt.value === value);
-  const cachedName = value ? getEntityInstanceNameSync(entityCode, value) : null;
-  const displayLabel = selectedOption?.label || cachedName || currentLabel || '';
+  // Use localValue for display (updates immediately on selection)
+  const selectedOption = options.find(opt => opt.value === localValue);
+  const cachedName = localValue ? getEntityInstanceNameSync(entityCode, localValue) : null;
+  const displayLabel = localLabel || selectedOption?.label || cachedName || currentLabel || '';
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -108,6 +119,10 @@ export function EntityInstanceNameSelect({
 
   // Handle option selection
   const selectOption = useCallback((optionValue: string, optionLabel: string) => {
+    // Update local state immediately for instant UI feedback
+    setLocalValue(optionValue);
+    setLocalLabel(optionLabel);
+    // Notify parent (may be async if using Dexie drafts)
     onChange(optionValue, optionLabel);
     setIsOpen(false);
     setSearchTerm('');
@@ -159,6 +174,9 @@ export function EntityInstanceNameSelect({
   // Handle clearing selection
   const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation();
+    // Update local state immediately
+    setLocalValue('');
+    setLocalLabel(null);
     onChange('', '');
   };
 
@@ -186,11 +204,11 @@ export function EntityInstanceNameSelect({
         aria-expanded={isOpen}
         aria-haspopup="listbox"
       >
-        <span className={`text-sm truncate ${value ? 'text-gray-900' : 'text-gray-500'}`}>
+        <span className={`text-sm truncate ${localValue ? 'text-gray-900' : 'text-gray-500'}`}>
           {displayLabel || placeholder || `Select ${entityCode}...`}
         </span>
         <div className="flex items-center gap-1 ml-2">
-          {value && !disabled && (
+          {localValue && !disabled && (
             <button
               type="button"
               onClick={handleClear}

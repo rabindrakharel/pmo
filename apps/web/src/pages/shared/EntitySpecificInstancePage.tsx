@@ -788,18 +788,20 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
       clearTimeout(updateTimeoutRef.current);
     }
 
-    // For immediate-feedback fields (select, checkbox, boolean, date), update immediately
-    const immediateInputTypes = ['select', 'checkbox', 'boolean', 'date', 'radio', 'toggle'];
-    const isImmediate = inputType && immediateInputTypes.includes(inputType);
+    // Only primitive text-entry fields need debouncing (user is typing)
+    // Components (PascalCase inputType like EntityInstanceNameSelect, BadgeDropdownSelect)
+    // and selection inputs (select, checkbox, date) update immediately
+    const debouncedInputTypes = ['text', 'textarea', 'number', 'currency'];
+    const isDebounced = inputType && debouncedInputTypes.includes(inputType);
 
-    if (isImmediate) {
-      // Update immediately for non-text fields
-      updateDraftField(fieldName, value);
-    } else {
+    if (isDebounced) {
       // Debounce text field updates (1 second)
       updateTimeoutRef.current = setTimeout(() => {
         updateDraftField(fieldName, value);
       }, 1000);
+    } else {
+      // Components and selection inputs update immediately
+      updateDraftField(fieldName, value);
     }
   }, [updateDraftField]);
 
