@@ -449,9 +449,30 @@ If issues arise:
 | `apps/web/src/db/index.ts` | Updated exports |
 | `apps/web/src/db/realtime/manager.ts` | Removed entityLinksStore usage |
 
+### Post-Migration Bug Fix (2025-12-02)
+
+**CRITICAL BUG FOUND**: Query key mismatch between write and read paths!
+
+- `useRefDataEntityInstance.ts` was writing to `['ref_data_entityInstance', entityCode]`
+- `getEntityInstanceNameSync()` in stores.ts was reading from `['entityInstanceNames', entityCode]`
+- **Result**: Data written to cache was never found when reading
+
+**Fix Applied**:
+- Updated all functions in `useRefDataEntityInstance.ts` to use unified key `['entityInstanceNames', entityCode]`
+- Removed deprecated `ref_data_entityInstanceKeys` constant
+- All read/write paths now consistently use `QUERY_KEYS.entityInstanceNames()`
+
 ### Verification
 
+**Technical Verification (Code Review)** ✅
 - [x] TypeScript compilation passes (`tsc --noEmit`)
+- [x] Query keys aligned: write paths use same keys as read paths
+- [x] Datalabel flow: `useDatalabel.ts` uses `QUERY_KEYS.datalabel()` consistently
+- [x] Hydration flow: `hydrate.ts` uses `QUERY_KEYS.entityInstanceNames()` correctly
+- [x] Realtime invalidation: `manager.ts` uses `queryClient.invalidateQueries()` correctly
+- [x] No remaining sync store code (only comments documenting removal)
+
+**Runtime Testing** (requires manual testing)
 - [ ] Login flow - entity names resolve correctly
 - [ ] Project list - employee names show (not UUIDs)
 - [ ] Edit mode - dropdowns work
