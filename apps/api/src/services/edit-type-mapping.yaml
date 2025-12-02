@@ -65,12 +65,19 @@
 #           "budget_allocated_amt": {
 #             "dtype": "float",
 #             "label": "Budget Allocated",
-#             "type": "number",                  ← inputType from this file
+#             "inputType": "number",             ← inputType from this file
 #             "behavior": { "editable": true },
 #             "style": { "symbol": "$", "decimals": 2 },
-#             "validation": { "min": 0 },
-#             "lookupSource": "datalabel",       ← For dropdown fields
-#             "datalabelKey": "dl__status"       ← For datalabel lookup
+#             "validation": { "min": 0 }
+#           },
+#           "dl__project_stage": {               ← Datalabel dropdown field
+#             "dtype": "str",
+#             "label": "Project Stage",
+#             "inputType": "select",
+#             "component": "BadgeDropdownSelect",
+#             "behavior": { "editable": true },
+#             "lookupSourceTable": "datalabel",  ← Where to load options
+#             "lookupField": "dl__project_stage" ← Datalabel key for lookup
 #           }
 #         }
 #       }
@@ -92,7 +99,7 @@
 #
 #   fieldBusinessType:
 #     dtype: <data_type>           # REQUIRED - Database/JS data type (ONLY root-level field)
-#     lookupSource: <source>       # For select fields: "datalabel" or "entityInstance"
+#     lookupSourceTable: <source>  # For select fields: "datalabel" or "entityInstance" (v12.0.0: renamed from lookupSource)
 #     inherit: <other_type>        # Optional - Inherit from another fieldBusinessType
 #
 #     # Component-specific definitions (REQUIRED for each supported component):
@@ -154,7 +161,7 @@
 #   - array[str]   : Array of strings
 #   - array[uuid]  : Array of UUIDs
 #
-# lookupSource - For select/dropdown fields (optional):
+# lookupSourceTable - For select/dropdown fields (optional):
 #   - datalabel      : Load options from datalabel settings table
 #   - entityInstance : Load options from entity instance lookup
 #
@@ -334,7 +341,7 @@
 # Select with lookup (Custom component):
 #   datalabel:
 #     dtype: str
-#     lookupSource: datalabel
+#     lookupSourceTable: datalabel
 #     entityListOfInstancesTable:
 #       inputType: select
 #       component: DatalabelSelect
@@ -706,7 +713,7 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   datalabel:
     dtype: str
-    lookupSource: datalabel
+    lookupSourceTable: datalabel
     entityListOfInstancesTable:
       inputType: select
       component: DataLabelSelect
@@ -730,7 +737,7 @@ fieldBusinessTypes:
   # v8.3.2: View mode shows DAGVisualizer, Edit mode uses BadgeDropdownSelect
   datalabel_dag:
     dtype: str
-    lookupSource: datalabel
+    lookupSourceTable: datalabel
     entityListOfInstancesTable:
       inputType: select
       component: DataLabelSelect
@@ -752,7 +759,7 @@ fieldBusinessTypes:
   # Edit mode: renders EntityInstanceNameSelect component (searchable dropdown)
   entityInstance_Id:
     dtype: uuid
-    lookupSource: entityInstance
+    lookupSourceTable: entityInstance
     entityListOfInstancesTable:
       inputType: EntityInstanceNameSelect
       behavior: { editable: true, filterable: true, sortable: false, visible: true }
@@ -767,7 +774,7 @@ fieldBusinessTypes:
   # Edit mode: renders EntityInstanceNameMultiSelect component (multi-select with chips)
   entityInstance_Ids:
     dtype: array[uuid]
-    lookupSource: entityInstance
+    lookupSourceTable: entityInstance
     entityListOfInstancesTable:
       inputType: EntityInstanceNameMultiSelect
       behavior: { editable: true, filterable: true, sortable: false, visible: true }

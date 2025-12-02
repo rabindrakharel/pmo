@@ -134,9 +134,10 @@ export interface ColumnDef {
   /**
    * v8.3.2: Backend metadata lookup configuration
    * Set from editType metadata (pattern-mapping.yaml detects dl__* fields)
+   * v12.0.0: Renamed lookupSource → lookupSourceTable, datalabelKey → lookupField
    */
-  lookupSource?: 'entityInstance' | 'datalabel';
-  datalabelKey?: string;
+  lookupSourceTable?: 'entityInstance' | 'datalabel';
+  lookupField?: string;
   /**
    * Static options for inline editing dropdowns
    * Use this when options are hardcoded (e.g., color_code field in settings tables)
@@ -167,10 +168,11 @@ export interface FieldDef {
   /**
    * v8.3.2: Backend metadata lookup configuration
    * Set from editType metadata when building FieldDef from backend response
+   * v12.0.0: Renamed lookupSource → lookupSourceTable, datalabelKey → lookupField
    */
-  lookupSource?: 'entityInstance' | 'datalabel';
+  lookupSourceTable?: 'entityInstance' | 'datalabel';
   lookupEntity?: string;
-  datalabelKey?: string;
+  lookupField?: string;
   editable?: boolean;
   /**
    * v8.3.2: EntityInstanceFormContainer visualization container (backend metadata driven)
@@ -1104,10 +1106,10 @@ export const entityConfigs: Record<string, EntityConfig> = {
  * This eliminates the need to manually specify render functions for settings fields
  *
  * BEFORE (Manual):
- * { key: 'project_stage', lookupSource: 'datalabel', render: renderSettingBadge('project_stage') }
+ * { key: 'project_stage', lookupSourceTable: 'datalabel', render: renderSettingBadge('project_stage') }
  *
  * AFTER (Automatic):
- * { key: 'project_stage', lookupSource: 'datalabel' }  // ← render added automatically!
+ * { key: 'project_stage', lookupSourceTable: 'datalabel' }  // ← render added automatically!
  */
 Object.keys(entityConfigs).forEach(entityKey => {
   const config = entityConfigs[entityKey];

@@ -99,9 +99,10 @@ export interface Column<T = any> {
   editType?: 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time' |
              'select' | 'multiselect' | 'checkbox' | 'textarea' | 'tags' |
              'jsonb' | 'datatable' | 'file' | 'dag-select';
-  lookupSource?: 'datalabel' | 'entityInstance';  // Backend lookup type
-  lookupEntity?: string;                           // Entity code for entityInstance lookup
-  datalabelKey?: string;                           // Datalabel key for datalabel lookup
+  // v12.0.0: Renamed lookupSource → lookupSourceTable, datalabelKey → lookupField
+  lookupSourceTable?: 'datalabel' | 'entityInstance';  // Backend lookup type
+  lookupEntity?: string;                               // Entity code for entityInstance lookup
+  lookupField?: string;                                // Field name for lookup (datalabel key or field name)
   /**
    * Static options for inline editing dropdowns
    * Use this when options are hardcoded (e.g., color_code field in settings tables)
@@ -264,13 +265,14 @@ export function EntityListOfInstancesTable<T = any>({
         const align = viewMeta.style?.align;
         const editable = editMeta?.behavior?.editable ?? false;
         const inputType = editMeta?.inputType ?? 'text';
-        const lookupSource = editMeta?.lookupSource;
+        // v12.0.0: Renamed lookupSource → lookupSourceTable, datalabelKey → lookupField
+        const lookupSourceTable = editMeta?.lookupSourceTable;
         const lookupEntity = editMeta?.lookupEntity;
-        const datalabelKey = editMeta?.datalabelKey;
+        const lookupField = editMeta?.lookupField || viewMeta?.lookupField;  // v12.0.0: Also check viewMeta
 
         // Inject key into metadata for downstream use
-        // v9.4.1: Include lookupSource, lookupEntity, datalabelKey for edit mode rendering
-        const enrichedMeta = { key: fieldKey, ...viewMeta, inputType, editable, lookupSource, lookupEntity, datalabelKey };
+        // v12.0.0: Include lookupSourceTable, lookupEntity, lookupField for edit mode rendering
+        const enrichedMeta = { key: fieldKey, ...viewMeta, inputType, editable, lookupSourceTable, lookupEntity, lookupField };
 
         return {
           key: fieldKey,
@@ -283,9 +285,9 @@ export function EntityListOfInstancesTable<T = any>({
           align,
           editable,
           editType: inputType,
-          lookupSource,
+          lookupSourceTable,
           lookupEntity,
-          datalabelKey,
+          lookupField,
           backendMetadata: enrichedMeta
         } as Column<T>;
       });
@@ -569,7 +571,7 @@ export function EntityListOfInstancesTable<T = any>({
   // BACKEND METADATA-DRIVEN OPTIONS LOADING
   // ============================================================================
   // Uses backend metadata to determine which columns need datalabel options
-  // Zero frontend pattern detection - backend tells us via lookupSource: 'datalabel'
+  // v12.0.0: Zero frontend pattern detection - backend tells us via lookupSourceTable: 'datalabel'
 
   // ✅ FIX: Use useMemo for derived state instead of useState+useEffect
   // Compute labels metadata from columns and datalabels
@@ -588,20 +590,20 @@ export function EntityListOfInstancesTable<T = any>({
     });
 
     // Find all columns that need dynamic settings using backend metadata
+    // v12.0.0: Check lookupSourceTable === 'datalabel' or has lookupField
     const columnsNeedingSettings = columns.filter(col => {
       const backendMeta = (col as any).backendMetadata as BackendFieldMetadata | undefined;
-      // Check backend metadata first (lookupSource === 'datalabel' or has datalabelKey)
-      return backendMeta?.lookupSource === 'datalabel' || backendMeta?.datalabelKey || col.lookupSource === 'datalabel' || col.datalabelKey;
+      return backendMeta?.lookupSourceTable === 'datalabel' || backendMeta?.lookupField || col.lookupSourceTable === 'datalabel' || col.lookupField;
     });
 
     // Use datalabels from datalabelMetadataStore (populated by API response)
     columnsNeedingSettings.forEach((col) => {
       const backendMeta = (col as any).backendMetadata as BackendFieldMetadata | undefined;
-      // Get datalabel key from backend metadata or column key
-      const datalabelKey = backendMeta?.datalabelKey || col.key;
+      // v12.0.0: Get lookupField from backend metadata or column key
+      const lookupField = backendMeta?.lookupField || col.lookupField || col.key;
 
       // Fetch from datalabelMetadataStore cache
-      const cachedOptions = getDatalabelSync(datalabelKey);
+      const cachedOptions = getDatalabelSync(lookupField);
 
       if (cachedOptions && cachedOptions.length > 0) {
         // Transform datalabel options to LabelMetadata format
@@ -628,10 +630,10 @@ export function EntityListOfInstancesTable<T = any>({
   // Preload colors for all settings columns (for filter dropdowns and inline edit)
   useEffect(() => {
     const preloadColors = async () => {
-      // Find all columns with datalabel lookup using backend metadata
+      // v12.0.0: Find all columns with datalabel lookup using backend metadata
       const settingsColumns = columns.filter(col => {
         const backendMeta = (col as any).backendMetadata as BackendFieldMetadata | undefined;
-        return backendMeta?.lookupSource === 'datalabel' || backendMeta?.datalabelKey || col.lookupSource === 'datalabel' || col.datalabelKey;
+        return backendMeta?.lookupSourceTable === 'datalabel' || backendMeta?.lookupField || col.lookupSourceTable === 'datalabel' || col.lookupField;
       });
 
       // Extract datalabels and preload colors
@@ -783,11 +785,13 @@ export function EntityListOfInstancesTable<T = any>({
     // Find column metadata to check if it's a datalabel field
     const column = columns.find(col => col.key === columnKey);
     const backendMeta = (column as any)?.backendMetadata as BackendFieldMetadata | undefined;
-    const isSettingsField = backendMeta?.lookupSource === 'datalabel' || backendMeta?.datalabelKey || column?.lookupSource === 'datalabel' || column?.datalabelKey || columnKey.startsWith('dl__');
+    // v12.0.0: Check lookupSourceTable and lookupField
+    const isSettingsField = backendMeta?.lookupSourceTable === 'datalabel' || backendMeta?.lookupField || column?.lookupSourceTable === 'datalabel' || column?.lookupField || columnKey.startsWith('dl__');
 
     // If it's a settings field, fetch options from datalabelMetadataStore cache
     if (isSettingsField) {
-      const datalabel = backendMeta?.settingsDatalabel || extractSettingsDatalabel(columnKey);
+      // v12.0.0: Use lookupField instead of settingsDatalabel
+      const datalabel = backendMeta?.lookupField || column?.lookupField || extractSettingsDatalabel(columnKey);
       const cachedOptions = getDatalabelSync(datalabel);
 
       if (cachedOptions && cachedOptions.length > 0) {
@@ -1523,12 +1527,14 @@ export function EntityListOfInstancesTable<T = any>({
                               // Check if this column has settings options loaded using backend metadata
                               const selectedColumn = columns.find(col => col.key === selectedFilterColumn);
                               const backendMeta = (selectedColumn as any)?.backendMetadata as BackendFieldMetadata | undefined;
-                              const isSettingsField = backendMeta?.lookupSource === 'datalabel' || backendMeta?.datalabelKey || selectedColumn?.lookupSource === 'datalabel' || selectedColumn?.datalabelKey;
+                              // v12.0.0: Check lookupSourceTable and lookupField
+                              const isSettingsField = backendMeta?.lookupSourceTable === 'datalabel' || backendMeta?.lookupField || selectedColumn?.lookupSourceTable === 'datalabel' || selectedColumn?.lookupField;
 
                               // If this is a settings field, look up the color from datalabelMetadataStore
                               let colorCode: string | undefined;
                               if (isSettingsField) {
-                                const datalabel = backendMeta?.settingsDatalabel || extractSettingsDatalabel(selectedFilterColumn);
+                                // v12.0.0: Use lookupField instead of settingsDatalabel
+                                const datalabel = backendMeta?.lookupField || selectedColumn?.lookupField || extractSettingsDatalabel(selectedFilterColumn);
                                 const options = getDatalabelSync(datalabel);
                                 const match = options?.find(opt => opt.name === option);
                                 colorCode = match?.color_code;
@@ -1673,12 +1679,14 @@ export function EntityListOfInstancesTable<T = any>({
                     // Check if this column is a settings field using backend metadata
                     const column = columns.find(col => col.key === columnKey);
                     const backendMeta = (column as any)?.backendMetadata as BackendFieldMetadata | undefined;
-                    const isSettingsField = backendMeta?.lookupSource === 'datalabel' || backendMeta?.datalabelKey || column?.lookupSource === 'datalabel' || column?.datalabelKey;
+                    // v12.0.0: Check lookupSourceTable and lookupField
+                    const isSettingsField = backendMeta?.lookupSourceTable === 'datalabel' || backendMeta?.lookupField || column?.lookupSourceTable === 'datalabel' || column?.lookupField;
 
                     // If this is a settings field, look up the color from centralized cache
                     let colorCode: string | undefined;
                     if (isSettingsField) {
-                      const datalabel = backendMeta?.settingsDatalabel || extractSettingsDatalabel(columnKey);
+                      // v12.0.0: Use lookupField instead of settingsDatalabel
+                      const datalabel = backendMeta?.lookupField || column?.lookupField || extractSettingsDatalabel(columnKey);
                       const options = getDatalabelSync(datalabel);
                       const match = options?.find(opt => opt.name === value);
                       colorCode = match?.color_code;

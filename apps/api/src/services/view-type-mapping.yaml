@@ -95,16 +95,24 @@
 #           "budget_allocated_amt": {
 #             "dtype": "float",
 #             "label": "Budget Allocated",
-#             "type": "currency",                ← renderType from this file
+#             "renderType": "currency",          ← renderType from this file
 #             "behavior": { "visible": true, "sortable": true },
 #             "style": { "symbol": "$", "decimals": 2 }
+#           },
+#           "dl__project_stage": {
+#             "dtype": "str",
+#             "label": "Project Stage",
+#             "renderType": "badge",
+#             "lookupField": "dl__project_stage", ← v12.0.0: For badge color lookup
+#             "behavior": { "visible": true, "filterable": true },
+#             "style": { "colorFromData": true }
 #           }
 #         },
 #         "editType": {                          ← All EDIT metadata here
 #           "budget_allocated_amt": {
 #             "dtype": "float",
 #             "label": "Budget Allocated",
-#             "type": "number",                  ← inputType from edit-type-mapping.yaml
+#             "inputType": "number",             ← inputType from edit-type-mapping.yaml
 #             "behavior": { "editable": true },
 #             "style": {},
 #             "validation": { "min": 0 }
@@ -964,7 +972,7 @@ fieldBusinessTypes:
 
   # Entity reference fields - single UUID reference to another entity
   # View mode: renders EntityInstanceName component (resolves UUID to name via ref_data_entityInstance)
-  # Edit mode: renders EntityInstanceNameSelect component with lookupSource: entityInstance
+  # Edit mode: renders EntityInstanceNameSelect component with lookupSourceTable: entityInstance
   entityInstance_Id:
     dtype: uuid
     entityListOfInstancesTable:
@@ -988,7 +996,7 @@ fieldBusinessTypes:
 
   # Entity reference fields - array of UUIDs referencing multiple entities
   # View mode: renders EntityInstanceNames component (resolves UUIDs to names, displays as chip list)
-  # Edit mode: renders EntityInstanceNameMultiSelect component with lookupSource: entityInstance
+  # Edit mode: renders EntityInstanceNameMultiSelect component with lookupSourceTable: entityInstance
   entityInstance_Ids:
     dtype: array[uuid]
     entityListOfInstancesTable:

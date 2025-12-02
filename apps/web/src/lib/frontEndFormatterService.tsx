@@ -120,9 +120,10 @@ export interface BackendFieldMetadata {
   filterable?: boolean;
 
   // Backend-driven field loading (matches backend property names)
-  lookupSource?: 'datalabel' | 'entityInstance';  // Backend lookup type
-  lookupEntity?: string;                           // Entity code for entityInstance lookup
-  datalabelKey?: string;                           // Datalabel key for datalabel lookup
+  // v12.0.0: Renamed lookupSource → lookupSourceTable, datalabelKey → lookupField
+  lookupSourceTable?: 'datalabel' | 'entityInstance';  // Backend lookup type
+  lookupEntity?: string;                               // Entity code for entityInstance lookup
+  lookupField?: string;                                // Field name for lookup (datalabel key or field name)
 
   // Badge colors (backend-provided)
   color?: string;  // Tailwind color classes from backend (e.g., 'bg-red-100 text-red-700')
@@ -569,8 +570,9 @@ export function renderEditModeFromMetadata(
         }
 
         case 'BadgeDropdownSelect': {
-          const datalabelKey = metadata.datalabelKey || metadata.key;
-          const datalabelOptions = getDatalabelSync(datalabelKey);
+          // v12.0.0: Use lookupField instead of datalabelKey
+          const lookupField = metadata.lookupField || metadata.key;
+          const datalabelOptions = getDatalabelSync(lookupField);
 
           if (datalabelOptions && datalabelOptions.length > 0) {
             const coloredOptions: BadgeDropdownSelectOption[] = datalabelOptions.map(opt => ({
@@ -632,12 +634,12 @@ export function renderEditModeFromMetadata(
     }
 
     case 'select': {
-      // Check if this is a datalabel field (lookupSource === 'datalabel' or has datalabelKey)
-      if (metadata.datalabelKey || metadata.lookupSource === 'datalabel') {
-        const datalabelKey = metadata.datalabelKey || metadata.key;
+      // v12.0.0: Check if this is a datalabel field (lookupSourceTable === 'datalabel' or has lookupField)
+      if (metadata.lookupField || metadata.lookupSourceTable === 'datalabel') {
+        const lookupField = metadata.lookupField || metadata.key;
 
         // v9.0.0: Load options from Dexie sync cache (cached at login via prefetchAllMetadata)
-        const datalabelOptions = getDatalabelSync(datalabelKey);
+        const datalabelOptions = getDatalabelSync(lookupField);
 
         if (datalabelOptions && datalabelOptions.length > 0) {
           // Convert datalabel options to BadgeDropdownSelect format with Tailwind color classes

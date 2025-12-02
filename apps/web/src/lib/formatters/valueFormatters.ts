@@ -73,6 +73,7 @@ export function formatCurrency(
 
 /**
  * Format badge/datalabel values with color lookup
+ * v12.0.0: Uses lookupField instead of datalabelKey
  */
 export function formatBadge(
   value: any,
@@ -85,9 +86,9 @@ export function formatBadge(
   const displayValue = String(value);
   let color = 'bg-gray-100 text-gray-600'; // Default
 
-  // v9.0.0: Look up color from Dexie sync cache (populated at login via prefetchAllDatalabels)
-  if (metadata?.datalabelKey) {
-    const options = getDatalabelSync(metadata.datalabelKey);
+  // v12.0.0: Look up color from Dexie sync cache using lookupField (renamed from datalabelKey)
+  if (metadata?.lookupField) {
+    const options = getDatalabelSync(metadata.lookupField);
     if (options) {
       const match = options.find(opt => opt.name === value);
       if (match?.color_code) {

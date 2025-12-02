@@ -136,9 +136,10 @@ export interface UIColumn extends BaseColumn {
 
   /**
    * v8.3.2: Backend metadata lookup configuration
+   * v12.0.0: Renamed lookupSource → lookupSourceTable, datalabelKey → lookupField
    */
-  lookupSource?: 'entityInstance' | 'datalabel';
-  datalabelKey?: string;
+  lookupSourceTable?: 'entityInstance' | 'datalabel';
+  lookupField?: string;
 
   /**
    * Searchable in global search

@@ -146,10 +146,11 @@ function EntityInstanceFormContainerInner({
         const label = viewMeta.label;
         const inputType = editMeta?.inputType ?? 'text';
         const editable = editMeta?.behavior?.editable ?? false;
-        const lookupSource = editMeta?.lookupSource;
+        // v12.0.0: Renamed lookupSource → lookupSourceTable, datalabelKey → lookupField
+        const lookupSourceTable = editMeta?.lookupSourceTable;
         // v11.1.0: lookupEntity from viewMeta (for view mode) or editMeta (for edit mode)
         const lookupEntity = (viewMeta as any)?.lookupEntity || editMeta?.lookupEntity;
-        const datalabelKey = editMeta?.datalabelKey;
+        const lookupField = editMeta?.lookupField;
 
         // v8.3.2: Backend metadata is single source of truth for viz containers
         // viewMeta.component for view mode, editMeta.component for edit mode
@@ -166,9 +167,9 @@ function EntityInstanceFormContainerInner({
           type: inputType,
           editable,
           visible: true,
-          lookupSource,
+          lookupSourceTable,
           lookupEntity,
-          datalabelKey,
+          lookupField,
           EntityInstanceFormContainer_viz_container: {
             view: viewVizContainer,
             edit: editVizContainer
@@ -218,16 +219,16 @@ function EntityInstanceFormContainerInner({
     }
 
     // Process all fields that need datalabel options from datalabelMetadataStore
-    // v8.3.2: Backend metadata drives this via lookupSource or datalabelKey
+    // v12.0.0: Backend metadata drives this via lookupSourceTable or lookupField
     const fieldsNeedingSettings = fields.filter(
-      field => field.lookupSource === 'datalabel' || field.datalabelKey
+      field => field.lookupSourceTable === 'datalabel' || field.lookupField
     );
 
     // v9.0.0: Use datalabels from Dexie sync cache (populated at login, NO API CALLS)
     fieldsNeedingSettings.forEach((field) => {
       // Fetch from Dexie sync cache
-      // v8.3.2: Use datalabelKey from backend metadata as primary key, fallback to field.key
-      const lookupKey = field.datalabelKey || field.key;
+      // v12.0.0: Use lookupField from backend metadata as primary key, fallback to field.key
+      const lookupKey = field.lookupField || field.key;
       const cachedOptions = getDatalabelSync(lookupKey);
 
       if (cachedOptions && cachedOptions.length > 0) {

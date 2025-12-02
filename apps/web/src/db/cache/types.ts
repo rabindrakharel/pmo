@@ -152,10 +152,10 @@ export interface ViewFieldMetadata {
   component?: string;
   /** Entity type for lookups */
   lookupEntity?: string;
-  /** Lookup source (e.g., 'entityInstance', 'datalabel') */
-  lookupSource?: string;
-  /** Datalabel key for badge fields */
-  datalabelKey?: string;
+  /** v12.0.0: Lookup source table (renamed from lookupSource) */
+  lookupSourceTable?: string;
+  /** v12.0.0: Field name for lookup (renamed from datalabelKey) */
+  lookupField?: string;
   /** Field behavior flags */
   behavior?: Record<string, boolean>;
   /** Style configuration */
@@ -171,10 +171,10 @@ export interface EditFieldMetadata {
   inputType?: string;
   /** Entity type for lookups */
   lookupEntity?: string;
-  /** Lookup source */
-  lookupSource?: string;
-  /** Datalabel key */
-  datalabelKey?: string;
+  /** v12.0.0: Lookup source table (renamed from lookupSource) */
+  lookupSourceTable?: string;
+  /** v12.0.0: Field name for lookup (renamed from datalabelKey) */
+  lookupField?: string;
   /** Field behavior flags */
   behavior?: Record<string, boolean>;
   /** Validation rules */

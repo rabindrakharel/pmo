@@ -48,8 +48,8 @@ export interface ViewFieldMetadata {
     [key: string]: any;             // Additional style properties
   };
   component?: string;               // Special component to use
-  // For datalabel fields
-  settingsDatalabel?: string;       // Datalabel key for lookup
+  // v12.0.0: For datalabel fields - renamed settingsDatalabel → lookupField
+  lookupField?: string;             // Field name for datalabel lookup (e.g., 'dl__project_stage')
   // v8.3.2: For entity reference fields - used with ref_data_entityInstance
   lookupEntity?: string;            // Entity code for name resolution
 }
@@ -91,9 +91,10 @@ export interface EditFieldMetadata {
     pattern?: string;               // Regex pattern
   };
   component?: string;               // Special component: 'DAGVisualizer', 'EntityInstanceName', 'EntityInstanceNames', etc.
-  lookupSource?: 'datalabel' | 'entityInstance';  // Where to load options
+  // v12.0.0: Renamed lookupSource → lookupSourceTable, datalabelKey → lookupField
+  lookupSourceTable?: 'datalabel' | 'entityInstance';  // Where to load options
   lookupEntity?: string;            // Entity code for entityInstance lookup
-  datalabelKey?: string;            // Datalabel key for datalabel lookup
+  lookupField?: string;             // Field name for lookup (datalabel key or field name)
 }
 
 // ============================================================================

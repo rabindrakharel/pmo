@@ -84,10 +84,10 @@ export interface BackendFieldMetadata {
   align: 'left' | 'right' | 'center';
   width: string;
   endpoint?: string;
-  lookupSource?: 'datalabel' | 'entityInstance';  // Backend lookup type
-  lookupEntity?: string;                           // Entity code for entityInstance lookup
-  datalabelKey?: string;                           // Datalabel key for datalabel lookup
-  settingsDatalabel?: string;
+  // v12.0.0: Renamed lookupSource → lookupSourceTable, datalabelKey → lookupField
+  lookupSourceTable?: 'datalabel' | 'entityInstance';  // Backend lookup type
+  lookupEntity?: string;                               // Entity code for entityInstance lookup
+  lookupField?: string;                                // Field name for lookup (datalabel key or field name)
   options?: Array<{ value: any; label: string; color?: string }>;
   validation?: Record<string, any>;
   help?: string;

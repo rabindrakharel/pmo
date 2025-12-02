@@ -89,18 +89,19 @@ export const COLOR_OPTIONS = [
  * Usage:
  * ```typescript
  * const columns = applySettingsBadgeRenderers([
- *   { key: 'project_stage', title: 'Stage', lookupSource: 'datalabel' }
+ *   { key: 'project_stage', title: 'Stage', lookupSourceTable: 'datalabel' }
  * ]);
  * // Automatically adds: render: createSettingBadgeRenderer('project_stage')
  * ```
  */
-export function applySettingsBadgeRenderers<T extends { key: string; lookupSource?: string; datalabelKey?: string; render?: any }>(
+// v12.0.0: Renamed lookupSource → lookupSourceTable, datalabelKey → lookupField
+export function applySettingsBadgeRenderers<T extends { key: string; lookupSourceTable?: string; lookupField?: string; render?: any }>(
   columns: T[]
 ): T[] {
   return columns.map(col => {
-    // If lookupSource is datalabel and no custom render function exists
-    if ((col.lookupSource === 'datalabel' || col.datalabelKey) && !col.render) {
-      const datalabel = col.datalabelKey || extractSettingsDatalabel(col.key);
+    // If lookupSourceTable is datalabel and no custom render function exists
+    if ((col.lookupSourceTable === 'datalabel' || col.lookupField) && !col.render) {
+      const datalabel = col.lookupField || extractSettingsDatalabel(col.key);
       return {
         ...col,
         render: createSettingBadgeRenderer(datalabel)

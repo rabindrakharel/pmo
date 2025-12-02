@@ -27,31 +27,64 @@
  *
  * {
  *   "data": [...],
- *   "fields": ["id", "name", "budget_allocated_amt", ...],
+ *   "fields": ["id", "name", "budget_allocated_amt", "dl__project_stage", "manager__employee_id", ...],
  *   "metadata": {
  *     "entityListOfInstancesTable": {
  *       "viewType": {
  *         "budget_allocated_amt": {
  *           "dtype": "float",
  *           "label": "Budget Allocated",
- *           "type": "currency",              // renderType from view-type-mapping.yaml
- *           "component": "CurrencyCell",     // Only when type is "component"
+ *           "renderType": "currency",
  *           "behavior": { "visible": true, "sortable": true, "filterable": true },
  *           "style": { "width": "140px", "align": "right", "symbol": "$", "decimals": 2 }
+ *         },
+ *         "dl__project_stage": {
+ *           "dtype": "str",
+ *           "label": "Project Stage",
+ *           "renderType": "badge",
+ *           "lookupField": "dl__project_stage",  // v12.0.0: For badge color lookup
+ *           "behavior": { "visible": true, "sortable": true, "filterable": true },
+ *           "style": { "colorFromData": true }
+ *         },
+ *         "manager__employee_id": {
+ *           "dtype": "uuid",
+ *           "label": "Manager",
+ *           "renderType": "entityInstanceId",
+ *           "lookupEntity": "employee",          // For ref_data_entityInstance name resolution
+ *           "behavior": { "visible": true, "sortable": true, "filterable": true },
+ *           "style": { "linkToEntity": true }
  *         }
  *       },
  *       "editType": {
  *         "budget_allocated_amt": {
  *           "dtype": "float",
  *           "label": "Budget Allocated",
- *           "type": "number",                // inputType from edit-type-mapping.yaml
- *           "component": "CurrencyInput",    // Only when type is "component" or "select"
+ *           "inputType": "currency",
  *           "behavior": { "editable": true },
  *           "style": { "symbol": "$", "decimals": 2 },
- *           "validation": { "min": 0 },
- *           "lookupSource": "datalabel",     // For dropdown fields
- *           "lookupEntity": "employee",      // For entity reference fields
- *           "datalabelKey": "dl__status"     // For datalabel fields
+ *           "validation": { "min": 0 }
+ *         },
+ *         "dl__project_stage": {
+ *           "dtype": "str",
+ *           "label": "Project Stage",
+ *           "inputType": "select",
+ *           "component": "BadgeDropdownSelect",
+ *           "lookupSourceTable": "datalabel",    // Load options from datalabel table
+ *           "lookupField": "dl__project_stage",  // Datalabel key for lookup
+ *           "behavior": { "editable": true },
+ *           "style": { "clearable": true },
+ *           "validation": {}
+ *         },
+ *         "manager__employee_id": {
+ *           "dtype": "uuid",
+ *           "label": "Manager",
+ *           "inputType": "select",
+ *           "component": "EntityInstanceSelect",
+ *           "lookupSourceTable": "entityInstance", // Load options from entity_instance table
+ *           "lookupEntity": "employee",            // Entity type to lookup
+ *           "behavior": { "editable": true },
+ *           "style": { "searchable": true, "clearable": true },
+ *           "validation": {}
  *         }
  *       }
  *     },
@@ -120,6 +153,8 @@ export interface ViewMetadata {
   component?: string;     // Component name when renderType is 'component'
   // Lookup source for entity reference fields (v8.3.2)
   lookupEntity?: string;  // Entity code for ref_data_entityInstance resolution
+  // v12.0.0: Added lookupField for datalabel badge color resolution
+  lookupField?: string;   // Field name for datalabel lookup (e.g., 'dl__project_stage')
   // Three categories matching YAML structure
   behavior: {
     visible?: boolean;
@@ -134,10 +169,10 @@ export interface ViewMetadata {
 export interface EditMetadata {
   inputType: string;      // 'text', 'number', 'select', 'date', 'checkbox', etc.
   component?: string;     // Component name when inputType is 'select' or 'component'
-  // Lookup source for dropdowns
-  lookupSource?: 'datalabel' | 'entityInstance';
-  lookupEntity?: string;  // Entity code when lookupSource is 'entityInstance'
-  datalabelKey?: string;  // Datalabel key when lookupSource is 'datalabel'
+  // Lookup source for dropdowns (v12.0.0: renamed from lookupSource)
+  lookupSourceTable?: 'datalabel' | 'entityInstance';
+  lookupEntity?: string;  // Entity code when lookupSourceTable is 'entityInstance'
+  lookupField?: string;   // Field name for lookup (v12.0.0: renamed from datalabelKey)
   // Three categories matching YAML structure
   behavior: {
     editable?: boolean;
@@ -194,11 +229,11 @@ export interface FieldMetadataBase {
 
   // For references / entity lookups
   loadFromEntity?: string;
-  // v8.3.2: Datalabels detected by pattern-mapping.yaml (dl__* pattern)
+  // v12.0.0: Datalabels detected by pattern-mapping.yaml (dl__* pattern)
   endpoint?: string;
   displayField?: string;
   valueField?: string;
-  datalabelKey?: string;
+  // v12.0.0: Removed datalabelKey - now uses lookupField
 
   // Component-specific visualization containers
   EntityInstanceFormContainer_viz_container?: 'DAGVisualizer' | 'MetadataTable' | string;
@@ -358,7 +393,7 @@ interface EditTypeMappingYaml {
     dtype: string;
     inherit?: string;
     editable?: boolean;
-    lookupSource?: 'datalabel' | 'entityInstance';  // Unified lookup source
+    lookupSourceTable?: 'datalabel' | 'entityInstance';  // v12.0.0: Renamed from lookupSource
     loadFromEntity?: boolean;  // For entity references only
     entityListOfInstancesTable?: Record<string, any>;
     entityInstanceFormContainer?: Record<string, any>;
@@ -776,9 +811,9 @@ function getEditMetadataFromYaml(
     edit.component = componentConfig.component;
   }
 
-  // Include lookupSource directly from YAML
-  if (resolved.lookupSource) {
-    edit.lookupSource = resolved.lookupSource;
+  // Include lookupSourceTable directly from YAML (v12.0.0: renamed from lookupSource)
+  if (resolved.lookupSourceTable) {
+    edit.lookupSourceTable = resolved.lookupSourceTable;
   }
 
   return {
@@ -942,8 +977,9 @@ function convertExplicitConfigToMetadata(
 
   // Handle lookup sources
   // v8.3.2: Datalabels auto-detected by pattern-mapping.yaml (dl__* pattern)
+  // v12.0.0: Renamed lookupSource → lookupSourceTable
   if (config.loadFromEntity) {
-    edit.lookupSource = 'entityInstance';
+    edit.lookupSourceTable = 'entityInstance';
     edit.lookupEntity = config.loadFromEntity;
   }
 
@@ -1004,10 +1040,11 @@ function generateFieldMetadataForComponent(
     };
 
     // Extract lookupEntity from field name for entity reference fields
-    // YAML provides lookupSource: entityInstance, we extract the specific entity from field name
+    // YAML provides lookupSourceTable: entityInstance, we extract the specific entity from field name
     // e.g., manager__employee_id → lookupEntity: "employee"
     // v8.3.2: Add lookupEntity to BOTH view and edit for ref_data_entityInstance resolution
-    if (edit.lookupSource === 'entityInstance') {
+    // v12.0.0: Renamed lookupSource → lookupSourceTable
+    if (edit.lookupSourceTable === 'entityInstance') {
       const entity = detectEntityFromFieldName(fieldName);
       if (entity) {
         edit.lookupEntity = entity;
@@ -1015,10 +1052,12 @@ function generateFieldMetadataForComponent(
       }
     }
 
-    // Extract datalabelKey from field name for datalabel fields
-    // YAML provides lookupSource: datalabel, we use field name as the key
-    if (edit.lookupSource === 'datalabel') {
-      edit.datalabelKey = fieldName;
+    // Extract lookupField from field name for datalabel fields
+    // YAML provides lookupSourceTable: datalabel, we use field name as the key
+    // v12.0.0: Renamed datalabelKey → lookupField, set on BOTH view and edit
+    if (edit.lookupSourceTable === 'datalabel') {
+      edit.lookupField = fieldName;
+      view.lookupField = fieldName;  // v12.0.0: Also set on view for badge color resolution
     }
 
     // Build final metadata with separated view and edit
@@ -1105,23 +1144,24 @@ export function generateMetadataForComponents(
 }
 
 /**
- * Extract datalabel keys from metadata
+ * Extract datalabel keys (lookupField values) from metadata
+ * v12.0.0: Renamed from extractDatalabelKeys, uses lookupSourceTable and lookupField
  */
 export function extractDatalabelKeys(metadata: EntityMetadata): string[] {
-  const datalabelKeys = new Set<string>();
+  const lookupFields = new Set<string>();
 
   for (const componentMetadata of Object.values(metadata)) {
     if (componentMetadata?.editType) {
       for (const fieldMeta of Object.values(componentMetadata.editType) as (EditMetadata & { dtype: string; label: string })[]) {
-        // Check new structure: lookupSource === 'datalabel' and datalabelKey
-        if (fieldMeta.lookupSource === 'datalabel' && fieldMeta.datalabelKey) {
-          datalabelKeys.add(fieldMeta.datalabelKey);
+        // v12.0.0: Check new structure: lookupSourceTable === 'datalabel' and lookupField
+        if (fieldMeta.lookupSourceTable === 'datalabel' && fieldMeta.lookupField) {
+          lookupFields.add(fieldMeta.lookupField);
         }
       }
     }
   }
 
-  return Array.from(datalabelKeys);
+  return Array.from(lookupFields);
 }
 
 /**

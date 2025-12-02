@@ -106,11 +106,16 @@ export function useAllDatalabels(): {
   const query = useQuery({
     queryKey: QUERY_KEYS.datalabelAll(),
     queryFn: async () => {
+      // v12.0.0: API returns array format, transform to record in queryFn
       const response = await apiClient.get<{
-        data: Record<string, DatalabelOption[]>;
+        data: Array<{ name: string; label: string; icon: string | null; options: DatalabelOption[] }>;
       }>('/api/v1/datalabel/all');
 
-      const allDatalabels = response.data?.data || {};
+      // Transform array to record: { "dl__project_stage": [...options] }
+      const allDatalabels: Record<string, DatalabelOption[]> = {};
+      for (const item of response.data?.data || []) {
+        allDatalabels[item.name] = item.options;
+      }
 
       // v11.0.0: Persist each datalabel to Dexie (TanStack Query cache is auto-populated)
       for (const [key, options] of Object.entries(allDatalabels)) {
@@ -140,11 +145,17 @@ export function useAllDatalabels(): {
  */
 export async function prefetchAllDatalabels(): Promise<number> {
   try {
+    // v12.0.0: API returns array format, transform to record
     const response = await apiClient.get<{
-      data: Record<string, DatalabelOption[]>;
+      data: Array<{ name: string; label: string; icon: string | null; options: DatalabelOption[] }>;
     }>('/api/v1/datalabel/all');
 
-    const allDatalabels = response.data?.data || {};
+    // Transform array to record: { "dl__project_stage": [...options] }
+    const allDatalabels: Record<string, DatalabelOption[]> = {};
+    for (const item of response.data?.data || []) {
+      allDatalabels[item.name] = item.options;
+    }
+
     const { queryClient } = await import('../client');
 
     let count = 0;
