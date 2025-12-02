@@ -268,6 +268,47 @@ export function getEntityInstanceNamesForTypeSync(
 }
 ```
 
+### 3.3 Access Patterns Summary (v11.0.0)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                   ACCESS PATTERNS (v11.0.0)                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  REACT HOOKS (async/reactive)                                        │   │
+│  │  ─────────────────────────────                                       │   │
+│  │  • useRefDataEntityInstanceOptions('employee')                       │   │
+│  │    → { options: [{value,label}], isLoading }                         │   │
+│  │                                                                      │   │
+│  │  • useRefDataEntityInstanceResolver()                                │   │
+│  │    → { resolveName(entityCode, uuid) }                               │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  SYNC ACCESSORS (formatters, utilities)                              │   │
+│  │  ──────────────────────────────────────                              │   │
+│  │  import { getEntityInstanceNameSync } from '@/db';                   │   │
+│  │                                                                      │   │
+│  │  // Read directly from queryClient.getQueryData()                    │   │
+│  │  const name = getEntityInstanceNameSync('employee', 'uuid-123');     │   │
+│  │  // → 'John Smith' or null                                           │   │
+│  │                                                                      │   │
+│  │  // formatReference() calls this internally:                         │   │
+│  │  // getEntityInstanceNameSync(metadata.lookupEntity, uuid)           │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  BOTH READ FROM SAME CACHE                                           │   │
+│  │  ─────────────────────────────                                       │   │
+│  │  queryClient.getQueryData(['entityInstanceNames', entityCode])       │   │
+│  │                                                                      │   │
+│  │  v11.0.0: No separate Map stores - single source of truth            │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
 ---
 
 ## 4. Backend Layers (1-5)

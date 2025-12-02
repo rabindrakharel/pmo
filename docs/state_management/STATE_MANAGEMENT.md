@@ -310,6 +310,8 @@ apps/web/src/db/
 +-- tanstack-index.ts                # Additional exports
 +-- cache/
 |   +-- client.ts                    # TanStack Query config
+|   +-- stores.ts                    # Sync accessors (getEntityInstanceNameSync, etc.)
+|   +-- keys.ts                      # Query key factories
 |   +-- hooks/                       # All data hooks
 +-- persistence/
 |   +-- schema.ts                    # Dexie schema
@@ -317,6 +319,79 @@ apps/web/src/db/
 +-- realtime/
     +-- manager.ts                   # WebSocket + cache invalidation
 ```
+
+---
+
+## Unified Cache Architecture (v11.0.0)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        v11.0.0 UNIFIED CACHE ARCHITECTURE                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │                         CacheProvider                                 │   │
+│  │  • Wraps QueryClientProvider (single source of truth)                │   │
+│  │  • Hydrates from IndexedDB on mount                                  │   │
+│  │  • Manages WebSocket connection                                      │   │
+│  │  • Context: { syncStatus, isHydrated, connect, disconnect, prefetch }│   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                    │                                        │
+│           ┌────────────────────────┼────────────────────────┐               │
+│           ▼                        ▼                        ▼               │
+│  ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐       │
+│  │  TanStack Query │     │   Dexie v4      │     │   WebSocket     │       │
+│  │  (In-Memory)    │◄───►│  (IndexedDB)    │     │  (Real-time)    │       │
+│  └─────────────────┘     └─────────────────┘     └─────────────────┘       │
+│         │                        │                        │                 │
+│         │ queryClient            │ Persistence            │ Invalidation    │
+│         │ .getQueryData()        │ Tables                 │ wsManager       │
+│         │ .setQueryData()        │                        │                 │
+│         ▼                        ▼                        ▼                 │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                     UNIFIED QUERY KEYS                               │   │
+│  ├─────────────────────────────────────────────────────────────────────┤   │
+│  │  ['globalSettings']                    → GlobalSettings              │   │
+│  │  ['datalabel', key]                    → DatalabelOption[]           │   │
+│  │  ['entityCodes']                       → EntityCode[]                │   │
+│  │  ['entityInstanceNames', entityCode]   → { uuid: name }              │   │
+│  │  ['entityInstanceData', code, id]      → EntityInstance              │   │
+│  │  ['entityInstanceMetadata', code]      → ViewType/EditType           │   │
+│  │  ['entityLinks', parentCode, parentId] → LinkForwardIndex            │   │
+│  │  ['draft', entityCode, entityId]       → Draft                       │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Sync Accessors (v11.0.0)
+
+Sync accessors provide **synchronous cache access** for formatters and utilities that can't use React hooks:
+
+```
+┌────────────────────────────────────────────────────────────┐
+│           TanStack Query Cache                              │
+│  queryClient.getQueryData(['entityInstanceNames', code])    │
+│                      │                                      │
+│         ┌───────────┴───────────┐                          │
+│         ▼                       ▼                          │
+│  useEntityInstanceNames()   getEntityInstanceNameSync()     │
+│  (React hook)               (sync wrapper function)         │
+│                                                             │
+│  SAME DATA - just different access patterns                 │
+└────────────────────────────────────────────────────────────┘
+```
+
+| Sync Accessor | Usage | Returns |
+|---------------|-------|---------|
+| `getEntityInstanceNameSync(code, uuid)` | Formatters resolving UUIDs to names | `string \| null` |
+| `getDatalabelSync(key)` | Badge colors, dropdown options | `DatalabelOption[] \| null` |
+| `getEntityCodesSync()` | Entity type metadata | `EntityCode[] \| null` |
+| `getGlobalSettingsSync()` | Currency, date formats | `GlobalSettings \| null` |
+
+**Key Point**: These are NOT separate stores. They just wrap `queryClient.getQueryData()`.
 
 ---
 
@@ -364,6 +439,75 @@ Tab 1                                 Tab 2
 - Any tab can fetch and update Dexie
 - TanStack Query cache is per-tab (in-memory)
 - Hydration from Dexie syncs state on startup
+
+---
+
+## Data Flow (v11.0.0)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           DATA FLOW (v11.0.0)                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  1. APP START                                                               │
+│     ─────────────                                                           │
+│     CacheProvider mounts                                                    │
+│         │                                                                   │
+│         ▼                                                                   │
+│     hydrateFromDexie() ─────► Load IndexedDB → TanStack Query cache         │
+│         │                                                                   │
+│         ▼                                                                   │
+│     isHydrated = true                                                       │
+│                                                                             │
+│  2. LOGIN                                                                   │
+│     ─────────                                                               │
+│     AuthContext.login() ────► context.prefetch()                            │
+│         │                         │                                         │
+│         │                         ├── prefetchGlobalSettings()              │
+│         │                         ├── prefetchAllDatalabels()               │
+│         │                         └── prefetchEntityCodes()                 │
+│         │                                                                   │
+│         └──────────────────► context.connect(token)                         │
+│                                   │                                         │
+│                                   └── wsManager.connect()                   │
+│                                                                             │
+│  3. ENTITY FETCH                                                            │
+│     ─────────────                                                           │
+│     useEntityInstanceData('project', { limit: 20 })                         │
+│         │                                                                   │
+│         ▼                                                                   │
+│     API Response: { data, ref_data_entityInstance, metadata }               │
+│         │                                                                   │
+│         ├── data → queryClient.setQueryData(['entityInstanceData',...])     │
+│         │                                                                   │
+│         ├── ref_data_entityInstance ──► upsertRefDataEntityInstance()       │
+│         │       │                                                           │
+│         │       └── queryClient.setQueryData(['entityInstanceNames',...])   │
+│         │                                                                   │
+│         └── metadata → queryClient.setQueryData(['entityInstanceMetadata']) │
+│                                                                             │
+│  4. RENDER                                                                  │
+│     ──────                                                                  │
+│     formatDataset(data, metadata)                                           │
+│         │                                                                   │
+│         ▼                                                                   │
+│     formatReference(uuid, { lookupEntity: 'employee' })                     │
+│         │                                                                   │
+│         ▼                                                                   │
+│     getEntityInstanceNameSync('employee', uuid) ────► 'John Smith'          │
+│                                                                             │
+│  5. WEBSOCKET INVALIDATION                                                  │
+│     ──────────────────────                                                  │
+│     wsManager receives { type: 'INVALIDATE', entity_code: 'project' }       │
+│         │                                                                   │
+│         ▼                                                                   │
+│     queryClient.invalidateQueries(['entityInstanceData', 'project'])        │
+│         │                                                                   │
+│         ▼                                                                   │
+│     TanStack Query auto-refetches → UI updates                              │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
