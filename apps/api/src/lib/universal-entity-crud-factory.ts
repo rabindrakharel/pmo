@@ -128,13 +128,6 @@ export const ENTITY_TABLE_MAP: Record<string, string> = {
   calendar: 'entity_person_calendar',
   event_person_calendar: 'entity_event_person_calendar',
 
-  // Legacy aliases (for backward compatibility with older API endpoints)
-  biz: 'business',
-  hr: 'office',
-  org: 'office',
-  client: 'cust',
-  position: 'position',
-
   // Special entities
   rbac: 'entity_rbac',
   message_schema: 'message_schema'
