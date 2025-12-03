@@ -277,9 +277,12 @@ import {
 // Universal Auto-Filter Builder
 import { buildAutoFilters } from '@/lib/universal-filter-builder.js';
 
-// Factory Functions
-import { createEntityDeleteEndpoint } from '@/lib/entity-delete-route-factory.js';
-import { createChildEntityEndpointsFromMetadata } from '@/lib/child-entity-route-factory.js';
+// Universal Entity CRUD Factory (consolidated)
+import {
+  createUniversalEntityRoutes,
+  createEntityDeleteEndpoint,
+  ENTITY_TABLE_MAP
+} from '@/lib/universal-entity-crud-factory.js';
 ```
 
 ### Module Constants (DRY Principle)

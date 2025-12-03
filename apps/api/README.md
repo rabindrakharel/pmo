@@ -62,7 +62,7 @@ apps/api/src/
 ├── lib/
 │   ├── config.ts               # Environment configuration
 │   ├── logger.ts               # Pino logger
-│   └── child-entity-route-factory.ts  # Universal child endpoint factory
+│   └── universal-entity-crud-factory.ts  # Consolidated CRUD factory
 ├── routes/
 │   └── config.ts               # Config endpoints
 └── modules/                    # 21 entity modules
@@ -217,41 +217,44 @@ fastify.get('/api/v1/project/:id', {
 });
 ```
 
-## Child Entity Pattern
+## Universal Entity CRUD Factory
 
-### Child Entity Route Factory (DRY Principle)
+### Consolidated Factory (DRY Principle)
 
-The `child-entity-route-factory.ts` module eliminates code duplication for child entity endpoints.
+The `universal-entity-crud-factory.ts` module provides configuration-driven endpoint generation for all entity routes.
 
-**Location:** `apps/api/src/lib/child-entity-route-factory.ts`
+**Location:** `apps/api/src/lib/universal-entity-crud-factory.ts`
 
 **Available Functions:**
 ```typescript
 import {
-  createChildEntityEndpoint,
-  createMinimalChildEntityEndpoint
-} from '../../lib/child-entity-route-factory.js';
+  createUniversalEntityRoutes,  // Generates LIST, GET, PATCH, PUT endpoints
+  createEntityDeleteEndpoint,    // Generates DELETE endpoint
+  ENTITY_TABLE_MAP               // Entity code to table name mapping
+} from '../../lib/universal-entity-crud-factory.js';
 
-// Create individual child entity endpoints:
-createChildEntityEndpoint(fastify, 'project', 'task', 'd_task');
-createMinimalChildEntityEndpoint(fastify, 'project', 'task', 'd_task');
+// Generate all CRUD endpoints for an entity:
+createUniversalEntityRoutes(fastify, {
+  entityCode: 'role',
+  searchFields: ['name', 'code', 'descr'],
+});
+
+// Add DELETE endpoint:
+createEntityDeleteEndpoint(fastify, 'role');
 ```
 
-**Current Implementation:**
+**Key Features:**
+- Hook system for customization (beforeList, afterList, beforeUpdate, afterUpdate)
+- Built-in RBAC filtering via Entity Infrastructure Service
+- Parent-child filtering via query params (?parent_entity_code=X&parent_entity_instance_id=Y)
+- Metadata-only mode with Redis caching
+- ref_data_entityInstance for O(1) entity reference resolution
 
-Projects currently use manual endpoint definitions for child entities:
+**Pattern Usage:**
+Child entities are queried using the query param pattern:
 ```typescript
-// project/routes.ts - Manual child entity endpoints
-fastify.get('/api/v1/project/:id/task', { ... });
-fastify.get('/api/v1/project/:id/wiki', { ... });
-fastify.get('/api/v1/project/:id/forms', { ... });
-fastify.get('/api/v1/project/:id/artifacts', { ... });
+GET /api/v1/task?parent_entity_code=project&parent_entity_instance_id={uuid}
 ```
-
-**Benefits:**
-- Centralized ENTITY_TABLE_MAP for consistent table name resolution
-- Standardized RBAC pattern available for adoption
-- Reusable factory functions for future refactoring
 
 ### Child Entity Query Pattern
 

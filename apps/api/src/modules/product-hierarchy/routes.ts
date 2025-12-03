@@ -8,7 +8,7 @@ import {
   getColumnsByMetadata,
   createPaginatedResponse
 } from '../../lib/universal-schema-metadata.js';
-import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+import { createEntityDeleteEndpoint } from '../../lib/universal-entity-crud-factory.js';
 import { getEntityInfrastructure, Permission } from '@/services/entity-infrastructure.service.js';
 
 // Product Hierarchy Schema (4-level: Division → Department → Class → Sub-Class)

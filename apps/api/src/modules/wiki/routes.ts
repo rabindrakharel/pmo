@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql, SQL } from 'drizzle-orm';
-import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+import { createEntityDeleteEndpoint } from '../../lib/universal-entity-crud-factory.js';
 // ✅ Centralized unified data gate - loosely coupled API
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
