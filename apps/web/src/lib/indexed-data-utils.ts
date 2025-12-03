@@ -48,7 +48,7 @@
 import type { BackendFieldMetadata } from './frontEndFormatterService';
 
 /**
- * Backend metadata structure (from backend-formatter.service.ts)
+ * Backend metadata structure (from entity-component-metadata.service.ts)
  */
 export interface EntityMetadata {
   entity: string;

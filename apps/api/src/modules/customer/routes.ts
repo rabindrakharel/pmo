@@ -7,13 +7,13 @@
  * CREATE endpoint remains custom due to entity-specific validation and auto-generation.
  *
  * ENDPOINTS:
- *   GET    /api/v1/cust              - List customers (FACTORY)
- *   GET    /api/v1/cust/:id          - Get single customer (FACTORY)
- *   POST   /api/v1/cust              - Create customer (CUSTOM - auto-generation)
- *   PATCH  /api/v1/cust/:id          - Update customer (FACTORY)
- *   PUT    /api/v1/cust/:id          - Update customer alias (FACTORY)
- *   DELETE /api/v1/cust/:id          - Delete customer (DELETE FACTORY)
- *   GET    /api/v1/cust/:id/{child}  - Child entities (CHILD FACTORY)
+ *   GET    /api/v1/customer              - List customers (FACTORY)
+ *   GET    /api/v1/customer/:id          - Get single customer (FACTORY)
+ *   POST   /api/v1/customer              - Create customer (CUSTOM - auto-generation)
+ *   PATCH  /api/v1/customer/:id          - Update customer (FACTORY)
+ *   PUT    /api/v1/customer/:id          - Update customer alias (FACTORY)
+ *   DELETE /api/v1/customer/:id          - Delete customer (DELETE FACTORY)
+ *   GET    /api/v1/customer/:id/{child}  - Child entities (CHILD FACTORY)
  *
  * ============================================================================
  */
@@ -29,7 +29,7 @@ import { transformRequestBody } from '../../lib/data-transformers.js';
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 
 // ✨ Universal Entity CRUD Factory - consolidated endpoint generation
-import { createUniversalEntityRoutes, createEntityDeleteEndpoint } from '../../lib/universal-entity-crud-factory.js';
+import { createUniversalEntityRoutes } from '../../lib/universal-entity-crud-factory.js';
 
 // Schema based on actual d_cust table structure from db/14_d_cust.ddl
 const CustSchema = Type.Object({
@@ -115,10 +115,10 @@ const CreateCustSchema = Type.Object({
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
-const ENTITY_CODE = 'cust';
+const ENTITY_CODE = 'customer';
 const TABLE_ALIAS = 'c';
 
-export async function custRoutes(fastify: FastifyInstance) {
+export async function customerRoutes(fastify: FastifyInstance) {
   // ✨ Initialize Entity Infrastructure Service
   const entityInfra = getEntityInfrastructure(db);
 
@@ -126,10 +126,10 @@ export async function custRoutes(fastify: FastifyInstance) {
   // UNIVERSAL CRUD ENDPOINTS (FACTORY)
   // ════════════════════════════════════════════════════════════════════════════
   // Creates:
-  // - GET /api/v1/cust         - List with RBAC, pagination, auto-filters, metadata
-  // - GET /api/v1/cust/:id     - Single entity with RBAC, ref_data_entityInstance
-  // - PATCH /api/v1/cust/:id   - Update with RBAC, registry sync
-  // - PUT /api/v1/cust/:id     - Update alias
+  // - GET /api/v1/customer         - List with RBAC, pagination, auto-filters, metadata
+  // - GET /api/v1/customer/:id     - Single entity with RBAC, ref_data_entityInstance
+  // - PATCH /api/v1/customer/:id   - Update with RBAC, registry sync
+  // - PUT /api/v1/customer/:id     - Update alias
   //
   // Features:
   // - content=metadata support for metadata-only responses
@@ -140,13 +140,13 @@ export async function custRoutes(fastify: FastifyInstance) {
 
   createUniversalEntityRoutes(fastify, {
     entityCode: ENTITY_CODE,
-    tableName: 'cust',
+    tableName: 'customer',
     tableAlias: 'e',
     searchFields: ['name', 'descr', 'cust_number', 'primary_contact_name', 'primary_email', 'code']
   });
 
   // Get customer hierarchy (parent and children)
-  fastify.get('/api/v1/cust/:id/hierarchy', {
+  fastify.get('/api/v1/customer/:id/hierarchy', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
@@ -187,7 +187,7 @@ export async function custRoutes(fastify: FastifyInstance) {
           c.primary_contact_name, c.primary_email, c.primary_phone,
           c.secondary_contact_name, c.secondary_email, c.secondary_phone,
           c.entities
-        FROM app.cust c
+        FROM app.customer c
         WHERE c.id = ${id}
       `);
 
@@ -221,7 +221,7 @@ export async function custRoutes(fastify: FastifyInstance) {
   });
 
   // Create customer
-  fastify.post('/api/v1/cust', {
+  fastify.post('/api/v1/customer', {
     preHandler: [fastify.authenticate],
     schema: {
       body: CreateCustSchema,
@@ -287,7 +287,7 @@ export async function custRoutes(fastify: FastifyInstance) {
 
       // Check for unique customer number
       const existingCust = await db.execute(sql`
-        SELECT id FROM app.cust
+        SELECT id FROM app.customer
         WHERE cust_number = ${data.cust_number}
         AND active_flag = true
       `);
@@ -297,7 +297,7 @@ export async function custRoutes(fastify: FastifyInstance) {
 
       // ✅ Route owns INSERT query
       const result = await db.execute(sql`
-        INSERT INTO app.cust (
+        INSERT INTO app.customer (
           code, name, "descr", cust_number, cust_type, cust_status,
           primary_address, city, province, postal_code, country, geo_coordinates,
           business_legal_name, business_type, gst_hst_number, business_number,
@@ -387,10 +387,5 @@ export async function custRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // DELETE ENDPOINT (FACTORY)
-  // ════════════════════════════════════════════════════════════════════════════
-
-  createEntityDeleteEndpoint(fastify, ENTITY_CODE);
-
+  // DELETE endpoint is automatically created by createUniversalEntityRoutes above
 }

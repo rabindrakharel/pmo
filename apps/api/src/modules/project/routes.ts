@@ -158,8 +158,8 @@ import { createEntityDeleteEndpoint } from '../../lib/universal-entity-crud-fact
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
-// ✨ Backend Formatter Service - component-aware metadata generation + Redis caching
-import { generateEntityResponse, getCachedMetadataResponse, cacheMetadataResponse } from '../../services/backend-formatter.service.js';
+// ✨ Entity Component Metadata Service - component-aware metadata generation + Redis caching
+import { generateEntityResponse, getCachedMetadataResponse, cacheMetadataResponse } from '../../services/entity-component-metadata.service.js';
 // ✨ Centralized Pagination Config
 import { PAGINATION_CONFIG, getEntityLimit } from '../../lib/pagination.js';
 // ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization

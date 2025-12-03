@@ -6,8 +6,8 @@ import { createEntityDeleteEndpoint } from '../../lib/universal-entity-crud-fact
 // ✅ Centralized unified data gate - loosely coupled API
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
-// ✨ Backend Formatter Service - component-aware metadata generation
-import { generateEntityResponse } from '../../services/backend-formatter.service.js';
+// ✨ Entity Component Metadata Service - component-aware metadata generation
+import { generateEntityResponse } from '../../services/entity-component-metadata.service.js';
 // ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
 // ✅ Entity Infrastructure Service - Centralized infrastructure management
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
@@ -207,7 +207,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
         metadata: row.metadata || {}
       }));
 
-      // ✨ Generate component-aware metadata using Backend Formatter Service
+      // ✨ Generate component-aware metadata using Entity Component Metadata Service
       const metadataResponse = await generateEntityResponse(ENTITY_CODE, parsedRows);
 
       // ✅ Explicitly return all fields (Fastify strips fields not in schema)
@@ -321,7 +321,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
         content: wiki.content || null
       };
 
-      // ✨ Generate component-aware metadata using Backend Formatter Service
+      // ✨ Generate component-aware metadata using Entity Component Metadata Service
       const response = await generateEntityResponse(ENTITY_CODE, [parsedWiki]);
 
       // ✅ Explicitly return all fields (Fastify strips fields not in schema)

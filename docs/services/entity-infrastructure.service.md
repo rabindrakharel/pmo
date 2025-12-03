@@ -2,9 +2,9 @@
 
 > Complete reference for transactional CRUD, RBAC enforcement, entity reference resolution, and infrastructure table management. Central service for all entity operations.
 
-**Version**: 5.0.0
+**Version**: 6.0.0
 **Location**: `apps/api/src/services/entity-infrastructure.service.ts`
-**Last Updated**: 2025-11-30
+**Last Updated**: 2025-12-03
 **Status**: Production Ready
 
 ---
@@ -16,11 +16,13 @@
 3. [Infrastructure Tables](#infrastructure-tables)
 4. [Transactional CRUD](#transactional-crud)
 5. [RBAC System](#rbac-system)
-6. [Entity Reference Resolution](#entity-reference-resolution)
-7. [Use Case Matrix](#use-case-matrix)
-8. [API Reference](#api-reference)
-9. [Integration Patterns](#integration-patterns)
-10. [Error Handling](#error-handling)
+6. [Entity Metadata Methods](#entity-metadata-methods)
+7. [Entity Reference Resolution](#entity-reference-resolution)
+8. [Redis Caching](#redis-caching)
+9. [Use Case Matrix](#use-case-matrix)
+10. [API Reference](#api-reference)
+11. [Integration Patterns](#integration-patterns)
+12. [Error Handling](#error-handling)
 
 ---
 
@@ -67,6 +69,13 @@
 │  │                                                                          ││
 │  └─────────────────────────────────────────────────────────────────────────┘│
 │                                     │                                        │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │                         REDIS CACHE (5 min TTL)                          ││
+│  │   Key: entity:metadata:{entity_code}   →   Entity object (JSON)          ││
+│  │   • Cache on read (active entities only)                                 ││
+│  │   • invalidate_entity_cache() / clear_all_entity_cache()                 ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                     │                                        │
 └─────────────────────────────────────│────────────────────────────────────────┘
                                       │
                                       ▼
@@ -93,6 +102,7 @@
 | **Soft Delete Primary** | Primary entity tables use `active_flag` for soft delete |
 | **No Foreign Keys** | All relationships via `entity_instance_link` (not FK constraints) |
 | **ref_data_entityInstance Pattern** | Entity references resolved via batch lookup, not per-row |
+| **Redis Caching** | Entity metadata cached with 5-min TTL for performance |
 
 ---
 
@@ -252,27 +262,32 @@
 │                                                                              │
 │  entity (type metadata)                                                      │
 │  ──────────────────────                                                      │
-│  ┌─────────────┬─────────────┬────────────────────────────────────────────┐ │
-│  │ Column      │ Type        │ Description                                │ │
-│  ├─────────────┼─────────────┼────────────────────────────────────────────┤ │
-│  │ id          │ UUID        │ Primary key                                │ │
-│  │ code        │ VARCHAR(50) │ Entity type code ('project', 'task')       │ │
-│  │ name        │ VARCHAR(255)│ Display name                               │ │
-│  │ icon        │ VARCHAR(50) │ UI icon name                               │ │
-│  │ child_entity_codes │ JSONB│ Allowed child types ["task","artifact"]    │ │
-│  │ active_flag │ BOOLEAN     │ Soft delete flag                           │ │
-│  └─────────────┴─────────────┴────────────────────────────────────────────┘ │
+│  ┌─────────────────────┬─────────────┬────────────────────────────────────┐ │
+│  │ Column              │ Type        │ Description                        │ │
+│  ├─────────────────────┼─────────────┼────────────────────────────────────┤ │
+│  │ code                │ VARCHAR(50) │ Primary key - entity type code     │ │
+│  │ name                │ VARCHAR(255)│ Entity name                        │ │
+│  │ ui_label            │ VARCHAR(255)│ Display label                      │ │
+│  │ ui_icon             │ VARCHAR(50) │ Lucide icon name                   │ │
+│  │ child_entity_codes  │ JSONB       │ Array of child types (string/obj)  │ │
+│  │ display_order       │ INT         │ Navigation order                   │ │
+│  │ active_flag         │ BOOLEAN     │ Soft delete flag                   │ │
+│  │ created_ts          │ TIMESTAMP   │ Created timestamp                  │ │
+│  │ updated_ts          │ TIMESTAMP   │ Updated timestamp                  │ │
+│  └─────────────────────┴─────────────┴────────────────────────────────────┘ │
 │                                                                              │
 │  entity_instance (registry)                           NO active_flag!       │
 │  ──────────────────────────                                                  │
 │  ┌─────────────────────────┬────────────┬────────────────────────────────┐  │
 │  │ Column                  │ Type       │ Description                    │  │
 │  ├─────────────────────────┼────────────┼────────────────────────────────┤  │
-│  │ id                      │ UUID       │ Primary key                    │  │
 │  │ entity_code             │ VARCHAR    │ Entity type code               │  │
 │  │ entity_instance_id      │ UUID       │ References primary table row   │  │
+│  │ order_id                │ SERIAL     │ Auto-increment order           │  │
 │  │ entity_instance_name    │ VARCHAR    │ Cached display name            │  │
-│  │ instance_code           │ VARCHAR    │ Cached business code           │  │
+│  │ code                    │ VARCHAR    │ Cached business code           │  │
+│  │ created_ts              │ TIMESTAMP  │ Created timestamp              │  │
+│  │ updated_ts              │ TIMESTAMP  │ Updated timestamp              │  │
 │  └─────────────────────────┴────────────┴────────────────────────────────┘  │
 │                                                                              │
 │  entity_instance_link (relationships)                 NO active_flag!       │
@@ -286,6 +301,8 @@
 │  │ child_entity_code           │ VARCHAR    │ Child entity type          │  │
 │  │ child_entity_instance_id    │ UUID       │ Child entity UUID          │  │
 │  │ relationship_type           │ VARCHAR    │ 'contains', 'references'   │  │
+│  │ created_ts                  │ TIMESTAMP  │ Created timestamp          │  │
+│  │ updated_ts                  │ TIMESTAMP  │ Updated timestamp          │  │
 │  └─────────────────────────────┴────────────┴────────────────────────────┘  │
 │                                                                              │
 │  entity_rbac (permissions)                            NO active_flag!       │
@@ -299,6 +316,9 @@
 │  │ entity_code             │ VARCHAR    │ Entity type code               │  │
 │  │ entity_instance_id      │ UUID       │ Specific entity or ALL_ENTITIES_ID│
 │  │ permission              │ INTEGER    │ 0-7 permission level           │  │
+│  │ expires_ts              │ TIMESTAMP  │ Optional expiration            │  │
+│  │ created_ts              │ TIMESTAMP  │ Created timestamp              │  │
+│  │ updated_ts              │ TIMESTAMP  │ Updated timestamp              │  │
 │  └─────────────────────────┴────────────┴────────────────────────────────┘  │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -432,6 +452,8 @@ async delete_entity(params: {
 
 ## RBAC System
 
+> **For comprehensive RBAC documentation including request flows, logical flows, and design patterns, see [`docs/rbac/RBAC_INFRASTRUCTURE.md`](../rbac/RBAC_INFRASTRUCTURE.md)**
+
 ### Permission Levels
 
 ```
@@ -523,26 +545,6 @@ async delete_entity(params: {
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### RBAC WHERE Condition
-
-```typescript
-// Generate SQL WHERE clause for list queries
-const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
-  userId,           // User UUID
-  'project',        // Entity type code
-  Permission.VIEW,  // Required permission level
-  'e'               // Table alias
-);
-
-// Use in query
-const projects = await db.execute(sql`
-  SELECT e.* FROM app.project e
-  WHERE ${rbacCondition}
-    AND e.active_flag = true
-  ORDER BY e.created_ts DESC
-`);
-```
-
 ### Special Constants
 
 | Constant | Value | Purpose |
@@ -559,6 +561,54 @@ const projects = await db.execute(sql`
 
 ---
 
+## Entity Metadata Methods
+
+### get_entity()
+
+Get entity type metadata from the `entity` table with Redis caching.
+
+```typescript
+async get_entity(
+  entity_code: string,
+  include_inactive?: boolean  // Default: false
+): Promise<Entity | null>
+```
+
+**Caching:**
+- Cached in Redis with key `entity:metadata:{entity_code}`
+- TTL: 5 minutes (300 seconds)
+- Only active entities are cached
+
+**Example:**
+```typescript
+const projectMeta = await entityInfra.get_entity('project');
+// Returns: { code, name, ui_label, ui_icon, child_entity_codes, display_order, active_flag, ... }
+```
+
+### get_all_entity()
+
+Get all entity types.
+
+```typescript
+async get_all_entity(include_inactive?: boolean): Promise<Entity[]>
+```
+
+### get_parent_entity_codes()
+
+Find all entity types that have the specified entity as a child.
+
+```typescript
+async get_parent_entity_codes(child_entity_code: string): Promise<string[]>
+```
+
+**Example:**
+```typescript
+const parents = await entityInfra.get_parent_entity_codes('task');
+// Returns: ['project', 'worksite'] - entities that can have 'task' as a child
+```
+
+---
+
 ## Entity Reference Resolution
 
 ### build_ref_data_entityInstance()
@@ -566,91 +616,131 @@ const projects = await db.execute(sql`
 Generates a lookup table for resolving entity reference UUIDs to display names. Used in API responses for O(1) frontend lookups.
 
 ```typescript
-/**
- * Build ref_data_entityInstance lookup table for entity references
- *
- * Scans rows for *_id and *_ids fields, batch resolves from entity_instance.
- *
- * @param rows - Data rows to scan for entity reference UUIDs
- * @returns { [entityCode]: { [uuid]: displayName } }
- */
 async build_ref_data_entityInstance(
   rows: Record<string, any>[]
 ): Promise<Record<string, Record<string, string>>>
 ```
 
-### Resolution Flow
+**Pattern Detection:**
+- `{label}__{entity}_id` → e.g., `manager__employee_id`
+- `{label}__{entity}_ids` → e.g., `stakeholder__employee_ids`
+- `{entity}_id` → e.g., `business_id`
+- `{entity}_ids` → e.g., `tag_ids`
+
+**Example:**
+```typescript
+// Input rows:
+const rows = [
+  { id: "p1", manager__employee_id: "uuid-james", business_id: "uuid-biz" },
+  { id: "p2", manager__employee_id: "uuid-sarah", business_id: "uuid-biz" }
+];
+
+const ref_data = await entityInfra.build_ref_data_entityInstance(rows);
+
+// Output:
+// {
+//   "employee": { "uuid-james": "James Miller", "uuid-sarah": "Sarah Chen" },
+//   "business": { "uuid-biz": "Huron Home Services" }
+// }
+```
+
+### getEntityInstanceNames()
+
+Get entity instance names by entity code and IDs (with optional RBAC filtering).
+
+```typescript
+async getEntityInstanceNames(
+  entityCode: string,
+  entityIds: string[],
+  userId?: string  // Optional - if provided, filters by VIEW permission
+): Promise<Record<string, string>>
+```
+
+**Example:**
+```typescript
+const names = await entityInfra.getEntityInstanceNames('employee', ['uuid-1', 'uuid-2']);
+// Returns: { "uuid-1": "James Miller", "uuid-2": "Sarah Johnson" }
+```
+
+### getAllEntityInstanceNames()
+
+Get ALL entity instance names for an entity type (with RBAC filtering).
+
+```typescript
+async getAllEntityInstanceNames(
+  entityCode: string,
+  userId: string,
+  limit?: number  // Default: 1000
+): Promise<Record<string, string>>
+```
+
+### getEntityInstances()
+
+Get ALL entity instances grouped by entity_code (with RBAC filtering).
+
+```typescript
+async getEntityInstances(
+  userId: string,
+  limit?: number  // Default: 1000
+): Promise<Record<string, Record<string, string>>>
+```
+
+---
+
+## Redis Caching
+
+### Cache Configuration
+
+| Setting | Value | Description |
+|---------|-------|-------------|
+| CACHE_TTL | 300 seconds (5 min) | Time-to-live for cached metadata |
+| CACHE_PREFIX | `entity:metadata:` | Redis key prefix |
+
+### Cache Operations
+
+```typescript
+// Invalidate single entity cache
+await entityInfra.invalidate_entity_cache('project');
+
+// Clear all entity metadata cache
+await entityInfra.clear_all_entity_cache();
+```
+
+### Cache Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    build_ref_data_entityInstance() FLOW                      │
+│                         REDIS CACHE FLOW                                     │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  Input: [                                                                    │
-│    { id: "p1", manager__employee_id: "uuid-james", business_id: "uuid-biz" }│
-│    { id: "p2", manager__employee_id: "uuid-sarah", business_id: "uuid-biz" }│
-│  ]                                                                           │
-│                                                                              │
-│  Step 1: Scan for *_id / *_ids fields                                       │
-│  ─────────────────────────────────────                                       │
-│  • manager__employee_id → entity: employee, UUIDs: [uuid-james, uuid-sarah] │
-│  • business_id → entity: business, UUIDs: [uuid-biz]                        │
-│                                                                              │
-│  Step 2: Batch query entity_instance                                        │
-│  ─────────────────────────────────────                                       │
-│  SELECT entity_code, entity_instance_id, entity_instance_name               │
-│  FROM app.entity_instance                                                    │
-│  WHERE (entity_code, entity_instance_id) IN (                               │
-│    ('employee', 'uuid-james'),                                              │
-│    ('employee', 'uuid-sarah'),                                              │
-│    ('business', 'uuid-biz')                                                 │
-│  )                                                                           │
-│                                                                              │
-│  Step 3: Build lookup table                                                  │
-│  ─────────────────────────────                                               │
-│  Output: {                                                                   │
-│    "employee": {                                                            │
-│      "uuid-james": "James Miller",                                          │
-│      "uuid-sarah": "Sarah Chen"                                             │
-│    },                                                                        │
-│    "business": {                                                            │
-│      "uuid-biz": "Huron Home Services"                                      │
-│    }                                                                         │
-│  }                                                                           │
+│  get_entity('project')                                                       │
+│        │                                                                     │
+│        ▼                                                                     │
+│  ┌─────────────────────────────┐                                             │
+│  │ Check Redis cache           │                                             │
+│  │ Key: entity:metadata:project│                                             │
+│  └─────────────┬───────────────┘                                             │
+│                │                                                             │
+│       ┌────────┴────────┐                                                    │
+│       ▼                 ▼                                                    │
+│   CACHE HIT         CACHE MISS                                               │
+│   (return)          │                                                        │
+│                     ▼                                                        │
+│             ┌───────────────────┐                                            │
+│             │ Query PostgreSQL  │                                            │
+│             └─────────┬─────────┘                                            │
+│                       │                                                      │
+│                       ▼                                                      │
+│             ┌───────────────────┐                                            │
+│             │ Store in Redis    │                                            │
+│             │ TTL: 5 minutes    │                                            │
+│             │ (active only)     │                                            │
+│             └─────────┬─────────┘                                            │
+│                       │                                                      │
+│                       ▼                                                      │
+│                   RETURN                                                     │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Response Structure
-
-```json
-{
-  "data": [
-    {
-      "id": "proj-1",
-      "name": "Kitchen Renovation",
-      "manager__employee_id": "uuid-james",
-      "business_id": "uuid-huron"
-    }
-  ],
-  "ref_data_entityInstance": {
-    "employee": {
-      "uuid-james": "James Miller"
-    },
-    "business": {
-      "uuid-huron": "Huron Home Services"
-    }
-  },
-  "metadata": { ... }
-}
-```
-
-### Frontend Usage
-
-```typescript
-// Frontend resolves UUID → display name in O(1)
-const displayName = ref_data_entityInstance[metadata.lookupEntity]?.[uuid];
-// "James Miller"
 ```
 
 ---
@@ -699,6 +789,22 @@ const displayName = ref_data_entityInstance[metadata.lookupEntity]?.[uuid];
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '@/services/entity-infrastructure.service.js';
 
 const entityInfra = getEntityInfrastructure(db);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ENTITY METADATA (Redis Cached)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Get single entity type metadata
+const projectMeta = await entityInfra.get_entity('project');
+
+// Get all entity types
+const allEntities = await entityInfra.get_all_entity();
+
+// Get parent entity types for a child
+const parentCodes = await entityInfra.get_parent_entity_codes('task');
+
+// Invalidate cache
+await entityInfra.invalidate_entity_cache('project');
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TRANSACTIONAL CRUD
@@ -751,6 +857,12 @@ const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
 
 // Build lookup table for entity references
 const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(rows);
+
+// Get specific entity instance names
+const names = await entityInfra.getEntityInstanceNames('employee', ['uuid-1', 'uuid-2']);
+
+// Get all entity instance names for a type
+const allNames = await entityInfra.getAllEntityInstanceNames('employee', userId);
 ```
 
 ### Helper Methods
@@ -773,6 +885,9 @@ await entityInfra.update_entity_instance_registry(
   'project', projectId, { entity_name: 'New Name' }
 );
 
+// Validate entity exists in registry
+const exists = await entityInfra.validate_entity_instance_registry('project', projectId);
+
 // ═══════════════════════════════════════════════════════════════════════════
 // LINKAGE OPERATIONS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -786,8 +901,26 @@ await entityInfra.set_entity_instance_link({
   relationship_type: 'contains'
 });
 
+// Get child entity IDs
+const taskIds = await entityInfra.get_entity_instance_link_children(
+  'project', projectId, 'task'
+);
+
 // Get child entity tabs
-const tabs = await entityInfra.get_dynamic_child_entity_tabs('project', projectId);
+const tabs = await entityInfra.get_dynamic_child_entity_tabs('project');
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PERMISSION GRANTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Grant OWNER permission
+await entityInfra.set_entity_rbac_owner(userId, 'project', projectId);
+
+// Grant specific permission
+await entityInfra.set_entity_rbac(userId, 'project', projectId, Permission.EDIT);
+
+// Revoke permission
+await entityInfra.delete_entity_rbac(userId, 'project', projectId);
 ```
 
 ---
@@ -800,9 +933,9 @@ const tabs = await entityInfra.get_dynamic_child_entity_tabs('project', projectI
 // apps/api/src/modules/{entity}/routes.ts
 
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '@/services/entity-infrastructure.service.js';
-import { generateEntityResponse } from '@/services/backend-formatter.service.js';
-import { createEntityDeleteEndpoint } from '@/lib/entity-delete-route-factory.js';
-import { db } from '@/db/index.js';
+import { generateEntityResponse } from '@/services/entity-component-metadata.service.js';
+import { createEntityDeleteEndpoint } from '@/lib/universal-entity-crud-factory.js';
+import { db, qualifyTable } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 
 const ENTITY_CODE = 'project';
@@ -823,7 +956,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
     );
 
     const projects = await db.execute(sql`
-      SELECT ${sql.raw(TABLE_ALIAS)}.* FROM app.project ${sql.raw(TABLE_ALIAS)}
+      SELECT ${sql.raw(TABLE_ALIAS)}.* FROM ${sql.raw(qualifyTable(ENTITY_CODE))} ${sql.raw(TABLE_ALIAS)}
       WHERE ${rbacCondition} AND ${sql.raw(TABLE_ALIAS)}.active_flag = true
       ORDER BY ${sql.raw(TABLE_ALIAS)}.created_ts DESC
       LIMIT ${limit} OFFSET ${offset}
@@ -871,7 +1004,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
       creator_id: userId,
       parent_entity_code,
       parent_entity_id: parent_entity_instance_id,
-      primary_table: 'app.project',
+      primary_table: qualifyTable(ENTITY_CODE),
       primary_data: data
     });
 
@@ -896,7 +1029,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
     const result = await entityInfra.update_entity({
       entity_code: ENTITY_CODE,
       entity_id: id,
-      primary_table: 'app.project',
+      primary_table: qualifyTable(ENTITY_CODE),
       primary_updates: updates
     });
 
@@ -944,7 +1077,7 @@ try {
 | Document | Path | Description |
 |----------|------|-------------|
 | Entity Metadata Caching | `docs/caching-backend/ENTITY_METADATA_CACHING.md` | Redis caching for metadata |
-| Backend Formatter Service | `docs/services/backend-formatter.service.md` | Metadata generation |
+| Entity Component Metadata Service | `docs/services/entity-component-metadata.service.md` | Metadata generation |
 | RBAC Infrastructure | `docs/rbac/RBAC_INFRASTRUCTURE.md` | Full RBAC details |
 | Unified Cache Architecture | `docs/caching-frontend/NORMALIZED_CACHE_ARCHITECTURE.md` | TanStack Query + Dexie unified cache |
 | State Management | `docs/state_management/STATE_MANAGEMENT.md` | Frontend state management overview |
@@ -952,8 +1085,8 @@ try {
 
 ---
 
-**Document Version**: 5.2.0
-**Last Updated**: 2025-12-01
+**Document Version**: 6.0.0
+**Last Updated**: 2025-12-03
 **Status**: Production Ready
 
 ### Version History
@@ -966,4 +1099,5 @@ try {
 | 4.0.0 | 2025-11-28 | Updated for TanStack Query + Dexie |
 | 5.0.0 | 2025-11-30 | Complete rewrite with end-to-end architecture, sequence diagrams |
 | 5.1.0 | 2025-12-01 | Updated related documentation references for unified cache |
-| 5.2.0 | 2025-12-01 | **v9.7.0 Note**: Added clarification that LIST endpoints support parent filtering via `parent_entity_code`/`parent_entity_instance_id` query params, used by frontend's two-query architecture for child entity tabs |
+| 5.2.0 | 2025-12-01 | **v9.7.0 Note**: Added clarification that LIST endpoints support parent filtering via `parent_entity_code`/`parent_entity_instance_id` query params |
+| 6.0.0 | 2025-12-03 | **v6.0.0**: Aligned with source of truth - added Redis caching section (5-min TTL, invalidation methods), Entity metadata methods (`get_entity()`, `get_all_entity()`, `get_parent_entity_codes()`), Entity instance lookup methods (`getEntityInstanceNames()`, `getAllEntityInstanceNames()`, `getEntityInstances()`), updated import paths to `entity-component-metadata.service.js`, added `qualifyTable()` usage in route patterns |

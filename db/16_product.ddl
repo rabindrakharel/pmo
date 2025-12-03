@@ -1,5 +1,5 @@
 -- =====================================================
--- PRODUCT ENTITY (d_product) - DIMENSION
+-- PRODUCT ENTITY (product) - DIMENSION
 -- Product catalog for quotes and work orders
 -- =====================================================
 --
@@ -9,9 +9,9 @@
 -- Each product has pricing, inventory tracking, and supplier information.
 --
 -- **HIERARCHY CONCEPT**:
--- • d_product: Actual product entity (SKU-level items)
--- • d_product_hierarchy: Product categorization hierarchy (Division → Department → Class → Sub-Class)
--- • Relationship: app.product links to d_product_hierarchy via entity_instance_link
+-- • product: Actual product entity (SKU-level items)
+-- • product_hierarchy: Product categorization hierarchy (Division → Department → Class → Sub-Class)
+-- • Relationship: app.product links to product_hierarchy via entity_instance_link
 -- • Example: Product "Carrier 3-Ton AC" links to hierarchy "HVAC Equipment > Residential HVAC > Central AC > 3-Ton Units"
 --
 -- OPERATIONS:
@@ -21,7 +21,7 @@
 -- • LIST: GET /api/v1/product, filters by category/brand, RBAC enforced
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Parent: d_product_hierarchy (via entity_instance_link)
+-- • Parent: product_hierarchy (via entity_instance_link)
 -- • Children: fact_quote (via rel_quote_product), fact_work_order (via work order details)
 --
 -- USAGE:
@@ -63,13 +63,13 @@ CREATE TABLE app.product (
 COMMENT ON TABLE app.product IS 'Product catalog (SKU-level) with pricing, inventory, and supplier information';
 
 -- =====================================================
--- PRODUCT HIERARCHY (d_product_hierarchy) - CATEGORIZATION
+-- PRODUCT HIERARCHY (product_hierarchy) - CATEGORIZATION
 -- 4-level hierarchy: Division → Department → Class → Sub-Class
 -- =====================================================
 --
 -- SEMANTICS:
 -- Product hierarchy provides a 4-level categorization structure for organizing products.
--- This hierarchy is separate from actual products (d_product) and linked via entity_instance_link.
+-- This hierarchy is separate from actual products (product) and linked via entity_instance_link.
 --
 -- HIERARCHY LEVELS:
 -- • Division: Top-level product grouping (e.g., "HVAC Products", "Plumbing Products")
@@ -83,7 +83,7 @@ COMMENT ON TABLE app.product IS 'Product catalog (SKU-level) with pricing, inven
 -- • TRAVERSE: Recursive CTE on parent__product_hierarchy_id for full hierarchy path
 --
 -- RELATIONSHIPS:
--- • Self: parent__product_hierarchy_id → d_product_hierarchy.id
+-- • Self: parent__product_hierarchy_id → app.product_hierarchy.id
 -- • Children: app.product (via entity_instance_link)
 --
 -- =====================================================

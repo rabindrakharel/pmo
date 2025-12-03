@@ -27,7 +27,7 @@ import { sql } from 'drizzle-orm';
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 
 // ✨ Universal Entity CRUD Factory - consolidated endpoint generation
-import { createUniversalEntityRoutes, createEntityDeleteEndpoint } from '../../lib/universal-entity-crud-factory.js';
+import { createUniversalEntityRoutes } from '../../lib/universal-entity-crud-factory.js';
 
 // Schema aligned with DDL: db/11_d_employee.ddl
 // ONLY includes fields that exist as table columns
@@ -359,10 +359,5 @@ export async function empRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // DELETE ENDPOINT (FACTORY)
-  // ════════════════════════════════════════════════════════════════════════════
-
-  createEntityDeleteEndpoint(fastify, ENTITY_CODE);
-
+  // DELETE endpoint is automatically created by createUniversalEntityRoutes above
 }

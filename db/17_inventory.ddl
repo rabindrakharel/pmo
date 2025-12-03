@@ -13,7 +13,7 @@
 --
 -- RELATIONSHIPS:
 -- - Links to app.product (product dimension) - NO FK CONSTRAINT
--- - Links to d_office/store (warehouse/location) - NO FK CONSTRAINT
+-- - Links to app.office/store (warehouse/location) - NO FK CONSTRAINT
 --
 -- METRICS:
 -- - On-hand quantity by product by location
@@ -30,7 +30,7 @@ CREATE TABLE app.inventory (
     office_id UUID,                                     -- Link to app.office (warehouse/store location)
 
     -- Product
-    product_id UUID,                                    -- Link to d_product
+    product_id UUID,                                    -- Link to app.product
 
     -- Stock Level
     qty DECIMAL(12,3) DEFAULT 0,                        -- On-hand quantity
@@ -112,8 +112,8 @@ COMMENT ON TABLE app.inventory IS 'Simplified inventory stock levels by product 
 -- =====================================================
 --
 -- This script generates realistic inventory data for:
--- - All 20 products in d_product
--- - Multiple store locations (from d_office)
+-- - All 20 products in app.product
+-- - Multiple store locations (from app.office)
 -- - Realistic stock quantities with variations
 -- - Seasonal adjustments
 --

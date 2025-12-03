@@ -1,18 +1,18 @@
 import type { EntityConfig } from '../types';
 
-export const bizConfig: EntityConfig = {
-  entityCode: 'biz',
+export const businessConfig: EntityConfig = {
+  entityCode: 'business',
   displayName: 'Business Unit',
   displayNamePlural: 'Business Units',
   description: 'Business unit management and organization',
 
   api: {
     endpoints: {
-      list: 'GET /api/v1/biz',
-      create: 'POST /api/v1/biz',
-      read: 'GET /api/v1/biz/:id',
-      update: 'PUT /api/v1/biz/:id',
-      delete: 'DELETE /api/v1/biz/:id'
+      list: 'GET /api/v1/business',
+      create: 'POST /api/v1/business',
+      read: 'GET /api/v1/business/:id',
+      update: 'PUT /api/v1/business/:id',
+      delete: 'DELETE /api/v1/business/:id'
     }
   },
 

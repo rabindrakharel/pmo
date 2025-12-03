@@ -5,8 +5,9 @@
 
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { db } from '@/db/index.js';
+import { db, qualifyTable } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
+import { getEntityInfrastructure } from '@/services/entity-infrastructure.service.js';
 
 // Entity type schema
 const EntityTypeSchema = Type.Object({
@@ -42,6 +43,27 @@ const ActionEntitySummarySchema = Type.Object({
   total_accessible: Type.Number()});
 
 export async function hierarchyRoutes(fastify: FastifyInstance) {
+  // Entity infrastructure service for entity metadata (Redis cached)
+  const entityInfra = getEntityInfrastructure(db);
+
+  /**
+   * Get database table name for an entity code
+   * Convention: entity.db_table or '{schema}.{entity_code}'
+   */
+  async function getDbTable(entityCode: string): Promise<string | null> {
+    const metadata = await entityInfra.get_entity_metadata(entityCode);
+    if (!metadata) return null;
+    // Use db_table if set, otherwise convention: {schema}.{entity_code}
+    return metadata.db_table || qualifyTable(entityCode);
+  }
+
+  /**
+   * Get FK column name for parent-child relationship
+   * Convention: {parent_entity_code}_id
+   */
+  function getFkColumn(parentEntityCode: string): string {
+    return `${parentEntityCode}_id`;
+  }
 
   // Get eligible parent entity types for an action entity type
   fastify.get('/api/v1/meta/entity-hierarchy/eligible-parents', {
@@ -116,17 +138,8 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'Unauthorized' });
       }
 
-      // Get parent entity info
-      const parentTableMap: Record<string, string> = {
-        'biz': 'app.business',
-        'project': 'app.project',
-        'task': 'app.task',
-        'hr': 'app.office',
-        'org': 'app.office',
-        'client': 'app.cust',
-        'worksite': 'app.worksite'};
-
-      const parentTable = parentTableMap[parentEntity];
+      // Get parent entity db_table from entity metadata (Redis cached)
+      const parentTable = await getDbTable(parentEntity);
       if (!parentTable) {
         return reply.status(400).send({ error: 'Invalid parent entity type' });
       }
@@ -165,48 +178,21 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
           ? actionEntity.permission_actions.map(String) 
           : [];
         
-        // Filter by parent context
+        // Filter by parent context using entity_instance_link
         let contextFilteredCount = 0;
         {
-          const entityTableMap: Record<string, string> = {
-            'project': 'app.project',
-            'task': 'app.task',
-            'wiki': 'app.wiki',
-            'form': 'app.form',
-            'artifact': 'app.artifact'};
-
-          const actionTable = entityTableMap[entityTypeCode];
+          // Get action entity's db_table from entity metadata
+          const actionTable = await getDbTable(entityTypeCode);
           if (actionTable) {
-            const parentColumnMap: Record<string, Record<string, string>> = {
-              'project': { 'biz': 'biz_id', 'client': 'clients' },
-              'task': { 'project': 'metadata->\'project_id\'', 'biz': 'metadata->\'business_id\'', 'worksite': 'worksite_id' },
-              'wiki': { 'biz': 'biz_id', 'project': 'project_id', 'task': 'task_id' },
-              'form': { 'biz': 'biz_id', 'project': 'project_id', 'task': 'task_id', 'worksite': 'worksite_id' },
-              'artifact': { 'biz': 'biz_id', 'project': 'project_id', 'task': 'task_id' }};
-
-            const parentColumn = parentColumnMap[entityTypeCode]?.[parentEntity];
-            if (parentColumn) {
-              // Handle JSONB extraction for task metadata
-              let countResult;
-              if (entityTypeCode === 'task' && parentColumn.includes('metadata')) {
-                // Extract from JSONB
-                const jsonbField = parentColumn.split('->')[1].replace(/'/g, '');
-                countResult = await db.execute(sql`
-                  SELECT COUNT(*) as count
-                  FROM ${sql.raw(actionTable)}
-                  WHERE (metadata->>${jsonbField})::uuid = ${parentId}::uuid
-                    AND active_flag = true
-                `);
-              } else {
-                countResult = await db.execute(sql`
-                  SELECT COUNT(*) as count
-                  FROM ${sql.raw(actionTable)}
-                  WHERE ${sql.raw(parentColumn)} = ${parentId}
-                    AND active_flag = true
-                `);
-              }
-              contextFilteredCount = parseInt(String(countResult[0]?.count || '0'));
-            }
+            // Count children via entity_instance_link (centralized relationship table)
+            const countResult = await db.execute(sql`
+              SELECT COUNT(*) as count
+              FROM app.entity_instance_link eil
+              WHERE eil.entity_code = ${parentEntity}
+                AND eil.entity_instance_id = ${parentId}::uuid
+                AND eil.child_entity_code = ${entityTypeCode}
+            `);
+            contextFilteredCount = parseInt(String(countResult[0]?.count || '0'));
           }
         }
 
@@ -331,7 +317,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
       }
 
       // Get sidebar entities (root-capable entities)
-      const sidebarEntities = await db.execute(sql`
+      const entityCodes = await db.execute(sql`
         SELECT 
           id,
           entity_type,
@@ -365,10 +351,9 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
         ORDER BY parent_entity, action_entity
       `);
 
-      // Get user permissions for each entity type
-      const entityTypes = ['biz', 'hr', 'org', 'client', 'project', 'task', 'worksite', 'employee', 'role', 'wiki', 'form', 'artifact'];
+      // Return navigation structure (entity types come from entity table)
       return {
-        sidebar_entities: sidebarEntities,
+        sidebar_entities: entityCodes,
         entity_hierarchy: entityHierarchy,
         user_permissions: {}};
     } catch (error) {
@@ -472,20 +457,11 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'Unauthorized' });
       }
 
-      // Verify entity exists
-      const entityTableMap: Record<string, string> = {
-        'business': 'business',
-        'project': 'project',
-        'task': 'task',
-        'office': 'office',
-        'client': 'cust',
-        'worksite': 'worksite'
-      };
-
-      const entityTable = entityTableMap[entityCode];
+      // Verify entity exists using entity metadata (Redis cached)
+      const entityTable = await getDbTable(entityCode);
       if (entityTable) {
         const entityCheck = await db.execute(sql`
-          SELECT id FROM app.${sql.identifier(entityTable)}
+          SELECT id FROM ${sql.raw(entityTable)}
           WHERE id::text = ${entityId}
             AND active_flag = true
         `);
@@ -528,11 +504,10 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
           eh.child_entity_id as entity_id,
           COALESCE(
             CASE eh.child_entity_type
-              WHEN 'biz' THEN (SELECT name FROM app.business WHERE id = eh.child_entity_id)
+              WHEN 'business' THEN (SELECT name FROM app.business WHERE id = eh.child_entity_id)
               WHEN 'project' THEN (SELECT name FROM app.project WHERE id = eh.child_entity_id)
-              WHEN 'hr' THEN (SELECT name FROM app.office WHERE id = eh.child_entity_id)
-              WHEN 'org' THEN (SELECT name FROM app.office WHERE id = eh.child_entity_id)
-              WHEN 'client' THEN (SELECT name FROM app.cust WHERE id = eh.child_entity_id)
+              WHEN 'office' THEN (SELECT name FROM app.office WHERE id = eh.child_entity_id)
+              WHEN 'customer' THEN (SELECT name FROM app.customer WHERE id = eh.child_entity_id)
               WHEN 'worksite' THEN (SELECT name FROM app.worksite WHERE id = eh.child_entity_id)
               WHEN 'employee' THEN (SELECT name FROM app.employee WHERE id = eh.child_entity_id)
               WHEN 'role' THEN (SELECT name FROM app.role WHERE id = eh.child_entity_id)
@@ -614,14 +589,14 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
           desc_field: 'descr',
           context_fields: ['task_number', 'task_type']
         },
-        'biz': { 
-          table: 'app.business', 
-          name_field: 'name', 
+        'business': {
+          table: 'app.business',
+          name_field: 'name',
           desc_field: 'descr'
         },
-        'client': { 
-          table: 'app.cust', 
-          name_field: 'name', 
+        'customer': {
+          table: 'app.customer',
+          name_field: 'name',
           desc_field: 'descr'
         },
         'employee': { 
@@ -847,7 +822,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
 
         bizScopes.forEach(biz => {
           scopes.push({
-            scope_type: 'biz',
+            scope_type: 'business',
             scope_id: String(biz.id),
             scope_name: String(biz.name),
             entity_count: Number(biz.entity_count)});

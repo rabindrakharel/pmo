@@ -1,5 +1,5 @@
 -- =====================================================
--- DOMAIN TABLE (d_domain)
+-- DOMAIN TABLE (domain)
 -- =====================================================
 --
 -- SEMANTICS:
@@ -27,7 +27,7 @@
 --
 -- =====================================================
 
-CREATE TABLE app.d_domain (
+CREATE TABLE app.domain (
     domain_id SERIAL,
     code varchar(50),
     name varchar(100),
@@ -40,20 +40,20 @@ CREATE TABLE app.d_domain (
     updated_ts timestamptz DEFAULT now()
 );
 
-COMMENT ON TABLE app.d_domain IS 'Master domain table organizing entities into business capability areas with subscription control';
-COMMENT ON COLUMN app.d_domain.domain_id IS 'Unique domain identifier';
-COMMENT ON COLUMN app.d_domain.code IS 'Domain code (customer_360, operations, service_delivery, etc.)';
-COMMENT ON COLUMN app.d_domain.name IS 'Display name (Customer 360, Operations, Service Delivery, etc.)';
-COMMENT ON COLUMN app.d_domain.description IS 'Business semantics and purpose of the domain';
-COMMENT ON COLUMN app.d_domain.subscription_flag IS 'Whether customer has subscribed/enabled this domain';
-COMMENT ON COLUMN app.d_domain.display_order IS 'Sidebar/menu display order';
-COMMENT ON COLUMN app.d_domain.ui_icon IS 'Lucide icon name for domain';
+COMMENT ON TABLE app.domain IS 'Master domain table organizing entities into business capability areas with subscription control';
+COMMENT ON COLUMN app.domain.domain_id IS 'Unique domain identifier';
+COMMENT ON COLUMN app.domain.code IS 'Domain code (customer_360, operations, service_delivery, etc.)';
+COMMENT ON COLUMN app.domain.name IS 'Display name (Customer 360, Operations, Service Delivery, etc.)';
+COMMENT ON COLUMN app.domain.description IS 'Business semantics and purpose of the domain';
+COMMENT ON COLUMN app.domain.subscription_flag IS 'Whether customer has subscribed/enabled this domain';
+COMMENT ON COLUMN app.domain.display_order IS 'Sidebar/menu display order';
+COMMENT ON COLUMN app.domain.ui_icon IS 'Lucide icon name for domain';
 
 -- =====================================================
 -- DATA CURATION: INSERT ALL DOMAINS
 -- =====================================================
 
-INSERT INTO app.d_domain (code, name, description, subscription_flag, display_order, ui_icon) VALUES
+INSERT INTO app.domain (code, name, description, subscription_flag, display_order, ui_icon) VALUES
 ('customer_360', 'Customer 360', 'Unified view of people, organizations, and business structures. Manages customers, employees, roles, offices, businesses, and worksites.', true, 10, 'Users'),
 ('operations', 'Operations', 'Internal operational execution structure. Manages projects, tasks, task data, work orders, and service catalog for field service delivery.', true, 20, 'FolderOpen'),
 ('product_inventory', 'Product & Inventory', 'Product catalog, stock management, consumables, and materials. Tracks inventory levels and product hierarchies.', true, 30, 'Package'),

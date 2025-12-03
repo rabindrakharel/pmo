@@ -12,7 +12,7 @@ import { taskConfig } from './taskConfig';
 import { formConfig } from './formConfig';
 import { artifactConfig } from './artifactConfig';
 import { wikiConfig } from './wikiConfig';
-import { bizConfig } from './bizConfig';
+import { businessConfig } from './businessConfig';
 
 export const META_CONFIGS = {
   // Meta/lookup entities
@@ -30,7 +30,7 @@ export const META_CONFIGS = {
   'form': formConfig,
   'artifact': artifactConfig,
   'wiki': wikiConfig,
-  'biz': bizConfig,
+  'business': businessConfig,
 } as const;
 
 export type MetaEntityType = keyof typeof META_CONFIGS;

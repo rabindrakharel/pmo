@@ -101,7 +101,7 @@
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              BACKEND API                                     │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│  Route Handler                     Backend Formatter Service                 │
+│  Route Handler                     Entity Component Metadata Service                 │
 │  ─────────────────                 ───────────────────────                  │
 │  • Parse content=metadata          • generateEntityResponse()               │
 │  • Route to correct mode           • generateMetadataForComponents()        │
@@ -479,10 +479,10 @@ fastify.get('/api/v1/project', async (request, reply) => {
 });
 ```
 
-### Backend Formatter Service Functions
+### Entity Component Metadata Service Functions
 
 ```typescript
-// apps/api/src/services/backend-formatter.service.ts
+// apps/api/src/services/entity-component-metadata.service.ts
 
 // ═══════════════════════════════════════════════════════════════
 // REDIS METADATA RESPONSE CACHE
@@ -766,7 +766,7 @@ const cacheKey = `entity:fields:${entityCode}`;
 ### Invalidation Functions
 
 ```typescript
-// apps/api/src/services/backend-formatter.service.ts
+// apps/api/src/services/entity-component-metadata.service.ts
 
 // Invalidate metadata cache for specific entity
 export async function invalidateMetadataCache(entityCode: string): Promise<void> {
@@ -902,7 +902,7 @@ async function getCachedMetadataResponse(apiPath: string): Promise<EntityRespons
 
 | Document | Path | Description |
 |----------|------|-------------|
-| Backend Formatter Service | `docs/services/backend-formatter.service.md` | Metadata generation patterns |
+| Entity Component Metadata Service | `docs/services/entity-component-metadata.service.md` | Metadata generation patterns |
 | Entity Infrastructure Service | `docs/services/entity-infrastructure.service.md` | Entity CRUD + ref_data_entityInstance |
 | State Management | `docs/state_management/STATE_MANAGEMENT.md` | Frontend TanStack Query + Dexie |
 | Dexie Schema | `docs/migrations/DEXIE_SCHEMA_REFACTORING.md` | IndexedDB v4 schema |

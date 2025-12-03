@@ -37,7 +37,7 @@ The PMO platform implements a **metadata-driven rendering architecture** where:
 │  │  pattern-mapping.yaml → Column → fieldBusinessType                  │ │
 │  │  view-type-mapping.yaml → fieldBusinessType → renderType/behavior   │ │
 │  │  edit-type-mapping.yaml → fieldBusinessType → inputType/validation  │ │
-│  │  backend-formatter.service.ts → Generates API metadata              │ │
+│  │  entity-component-metadata.service.ts → Generates API metadata              │ │
 │  └─────────────────────────────────────────────────────────────────────┘ │
 │                                      │                                    │
 │                                      ▼                                    │
@@ -566,12 +566,12 @@ UNREGISTERED TYPES (Handled by inline renderers)
 #### **ISSUE 1: Misleading Documentation in Backend Service**
 
 **Location:**
-- Backend: `backend-formatter.service.ts:62-64` (documentation example)
+- Backend: `entity-component-metadata.service.ts:62-64` (documentation example)
 - Actual YAML: `edit-type-mapping.yaml:520-524`
 
 **Problem:**
 ```typescript
-// backend-formatter.service.ts:62 shows this MISLEADING example:
+// entity-component-metadata.service.ts:62 shows this MISLEADING example:
 "inputType": "currency",  // ← Documentation says 'currency'
 ```
 
@@ -584,9 +584,9 @@ currency:
     inputType: number  # ← Correctly uses 'number', not 'currency'
 ```
 
-**Impact:** LOW - The code works correctly, but documentation is misleading. Developers reading the backend-formatter.service.ts header comments might think 'currency' is a valid inputType when it's not.
+**Impact:** LOW - The code works correctly, but documentation is misleading. Developers reading the entity-component-metadata.service.ts header comments might think 'currency' is a valid inputType when it's not.
 
-**Recommendation:** Update the documentation example in backend-formatter.service.ts to show `inputType: number` for currency fields.
+**Recommendation:** Update the documentation example in entity-component-metadata.service.ts to show `inputType: number` for currency fields.
 
 ---
 
@@ -667,7 +667,7 @@ This is **by design** (inline rendering), but:
 #### **ISSUE 5: lookupField vs lookupEntity Inconsistency**
 
 **Location:**
-- Backend: `backend-formatter.service.ts:1047-1061`
+- Backend: `entity-component-metadata.service.ts:1047-1061`
 - Frontend: `EntityInstanceFormContainer.tsx:136-137`
 
 **Problem:** Field metadata uses different property names:

@@ -198,7 +198,7 @@ export interface FieldDef {
    * - { view: 'DAGVisualizer', edit: undefined } → DAG for view, dropdown for edit
    * - { view: 'MetadataTable', edit: 'MetadataTable' } → Key-value table for JSONB
    *
-   * @see apps/api/src/services/backend-formatter.service.ts
+   * @see apps/api/src/services/entity-component-metadata.service.ts
    */
   vizContainer?: {
     view?: string;

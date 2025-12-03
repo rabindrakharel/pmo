@@ -1801,7 +1801,7 @@ apps/web/src/
 |----------|---------|
 | [NORMALIZED_CACHE_ARCHITECTURE.md](../caching-frontend/NORMALIZED_CACHE_ARCHITECTURE.md) | Cache system details |
 | [STATE_MANAGEMENT.md](../state_management/STATE_MANAGEMENT.md) | TanStack + Dexie state |
-| [backend-formatter.service.md](../services/backend-formatter.service.md) | Backend metadata generation |
+| [entity-component-metadata.service.md](../services/entity-component-metadata.service.md) | Backend metadata generation |
 | [frontend_datasetFormatter.md](../services/frontend_datasetFormatter.md) | Frontend rendering |
 
 ---

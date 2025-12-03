@@ -342,9 +342,9 @@ fastify.get('/api/v1/project', async (request, reply) => {
 
 ---
 
-## 4. Backend Formatter Service (Metadata Generation)
+## 4. Entity Component Metadata Service (Metadata Generation)
 
-**Location**: `apps/api/src/services/backend-formatter.service.ts`
+**Location**: `apps/api/src/services/entity-component-metadata.service.ts`
 
 **Purpose**: Generate complete field metadata from database column names using 35+ pattern rules. **Backend is single source of truth** for all field rendering.
 
@@ -381,7 +381,7 @@ Fallback: PostgreSQL result columns via postgres.js 'columns' property
 ### Usage in Routes (async - v9.2.0)
 
 ```typescript
-import { generateEntityResponse } from '@/services/backend-formatter.service.js';
+import { generateEntityResponse } from '@/services/entity-component-metadata.service.js';
 import { db, client } from '@/db/index.js';
 
 fastify.get('/api/v1/project', async (request, reply) => {
@@ -746,7 +746,7 @@ Request → RBAC Check (DELETE) → TRANSACTION {
 | **entity-infrastructure.service.md** | `docs/services/` | Entity infrastructure service API + build_ref_data_entityInstance |
 | **STATE_MANAGEMENT.md** | `docs/state_management/` | TanStack Query + Dexie state architecture |
 | **PAGE_ARCHITECTURE.md** | `docs/pages/` | Page components and routing |
-| **backend-formatter.service.md** | `docs/services/` | Backend metadata generation (BFF) + Redis field cache |
+| **entity-component-metadata.service.md** | `docs/services/` | Backend metadata generation (BFF) + Redis field cache |
 | **frontEndFormatterService.md** | `docs/services/` | Frontend rendering (pure renderer) |
 | **RefData README.md** | `docs/refData/` | Entity reference resolution pattern |
 

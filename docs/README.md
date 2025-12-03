@@ -31,9 +31,10 @@
 | TANSTACK_DEXIE_SYNC_ARCHITECTURE.md | `docs/caching/` | WebSocket real-time sync |
 | STATE_MANAGEMENT.md | `docs/state_management/` | TanStack + Dexie offline-first architecture |
 | frontend_datasetFormatter.md | `docs/services/` | Frontend rendering |
-| backend-formatter.service.md | `docs/services/` | BFF metadata |
+| entity-component-metadata.service.md | `docs/services/` | BFF metadata |
 | entity-infrastructure.service.md | `docs/services/` | Entity CRUD + ref_data_entityInstance |
-| RBAC_INFRASTRUCTURE.md | `docs/rbac/` | Permissions |
+| **[RBAC_INFRASTRUCTURE.md](rbac/RBAC_INFRASTRUCTURE.md)** | `docs/rbac/` | **RBAC: request flow, permission resolution, design patterns** |
+| entity_endpoint_design.md | `docs/api/` | Factory patterns, request flow, caching |
 | RefData README.md | `docs/refData/` | Entity reference resolution pattern |
 
 ---
@@ -71,7 +72,7 @@
 │  routes.ts                                                                   │
 │  └── generateEntityResponse(entityCode, data, { components })                │
 │       │                                                                      │
-│       ├── backend-formatter.service.ts                                       │
+│       ├── entity-component-metadata.service.ts                                       │
 │       │    ├── pattern-mapping.yaml     → fieldBusinessType                  │
 │       │    ├── view-type-mapping.yaml   → renderType per component           │
 │       │    └── edit-type-mapping.yaml   → inputType per component            │
@@ -189,8 +190,8 @@
 │                       │                                                      │
 ├───────────────────────┼─────────────────────────────────────────────────────┤
 │                       │                                                      │
-│  Backend Formatter    │  • Pattern detection (column name → field type)      │
-│  (BFF)                │  • Generate viewType/editType per component          │
+│  Entity Component     │  • Pattern detection (column name → field type)      │
+│  Metadata (BFF)       │  • Generate viewType/editType per component          │
 │                       │  • Extract lookupEntity from field names             │
 │                       │  • YAML-driven configuration (no hardcoding)         │
 │                       │  • Single source of truth for rendering behavior     │
@@ -437,7 +438,7 @@ Entity references are resolved via a response-level lookup table instead of per-
 
 | Purpose | Backend | Frontend |
 |---------|---------|----------|
-| Metadata Generation | `backend-formatter.service.ts` | - |
+| Metadata Generation | `entity-component-metadata.service.ts` | - |
 | Entity Reference Lookup | `entity-infrastructure.service.ts` | - |
 | Pattern Config | `pattern-mapping.yaml` | - |
 | View Config | `view-type-mapping.yaml` | - |
