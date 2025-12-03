@@ -254,7 +254,7 @@ export function InteractiveForm({
   const uploadFileToS3 = async (fieldName: string, file: File): Promise<string | null> => {
     return uploadToS3({
       entityCode: 'form',
-      entityId: formId,
+      entityInstanceId: formId,
       file,
       fileName: file.name,
       contentType: file.type || 'application/octet-stream',
@@ -284,7 +284,7 @@ export function InteractiveForm({
 
       const objectKey = await uploadToS3({
         entityCode: 'form',
-        entityId: formId,
+        entityInstanceId: formId,
         file: blob,
         fileName: `${fieldName}_${Date.now()}.${fileExt}`,
         contentType,

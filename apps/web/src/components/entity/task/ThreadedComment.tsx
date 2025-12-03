@@ -378,6 +378,7 @@ export function ThreadedComment({
                     onPin={onPin}
                     onResolve={onResolve}
                     employeeNames={employeeNames}
+                    getPresignedUrl={getPresignedUrl}
                   />
                 ))
               )}

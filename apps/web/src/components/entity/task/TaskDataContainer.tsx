@@ -4,6 +4,7 @@ import { InteractiveForm } from '../form';
 import { SmartComposer } from './SmartComposer';
 import { ThreadedComment } from './ThreadedComment';
 import { useRefDataEntityInstanceOptions } from '@/lib/hooks/useRefDataEntityInstance';
+import { useS3Upload } from '@/lib/hooks/useS3Upload';
 
 /**
  * TaskDataContainer v2.0 - Next-Gen Activity Feed
@@ -94,6 +95,9 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
 
   // Employee names for reaction tooltips (cached via TanStack Query)
   const { lookup: employeeNames } = useRefDataEntityInstanceOptions('employee');
+
+  // S3 download URL generation
+  const { getDownloadUrl } = useS3Upload();
 
   // Image preview modal
   const [imagePreview, setImagePreview] = useState<{ url: string; name: string } | null>(null);
@@ -529,6 +533,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
                         replies={replies[update.id]}
                         repliesLoading={loadingReplies[update.id]}
                         employeeNames={employeeNames}
+                        getPresignedUrl={getDownloadUrl}
                       />
                       {replyingTo === update.id && (
                         <div className="mt-3 ml-11">
@@ -564,6 +569,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
                     replies={replies[update.id]}
                     repliesLoading={loadingReplies[update.id]}
                     employeeNames={employeeNames}
+                    getPresignedUrl={getDownloadUrl}
                   />
                   {replyingTo === update.id && (
                     <div className="mt-3 ml-11">

@@ -9,7 +9,7 @@ import crypto from 'crypto';
  * S3 Attachment Service
  *
  * Provides reusable S3 operations for attachment management with the following features:
- * - Multi-tenant storage structure: tenant_id/entity/entity_id/attachment_id_hash.extension
+ * - Multi-tenant storage structure: tenant_id={tenant}/entity={entity}/entity_instance_id={id}/{hash}.{ext}
  * - Presigned URLs for secure uploads and downloads
  * - AWS SDK v3 with IAM role authentication (profile: cohuron)
  * - Default tenant_id: 'demo'
@@ -18,7 +18,7 @@ import crypto from 'crypto';
 export interface AttachmentMetadata {
   tenantId?: string;
   entityCode: string;
-  entityId: string;
+  entityInstanceId: string;
   fileName: string;
   contentType?: string;
 }
@@ -70,19 +70,19 @@ export class S3AttachmentService {
 
   /**
    * Generate S3 object key with hierarchical structure
-   * Format: tenant_id={tenant}/entity={entity}/entity_id={id}/attachment_hash.extension
+   * Format: tenant_id={tenant}/entity={entity}/entity_instance_id={id}/attachment_hash.extension
    */
   private generateObjectKey(metadata: AttachmentMetadata): string {
     const tenantId = metadata.tenantId || this.defaultTenantId;
     const hash = crypto.randomBytes(16).toString('hex');
     const extension = metadata.fileName.split('.').pop() || '';
 
-    return `tenant_id=${tenantId}/entity=${metadata.entityCode}/entity_id=${metadata.entityId}/${hash}.${extension}`;
+    return `tenant_id=${tenantId}/entity=${metadata.entityCode}/entity_instance_id=${metadata.entityInstanceId}/${hash}.${extension}`;
   }
 
   /**
    * Generate presigned URL for file upload
-   * @param metadata - Attachment metadata (tenant, entity, entityId, fileName)
+   * @param metadata - Attachment metadata (tenant, entity, entityInstanceId, fileName)
    * @param expiresIn - URL expiration time in seconds (default: 3600 = 1 hour)
    * @returns Presigned upload URL and object key
    */
@@ -157,19 +157,19 @@ export class S3AttachmentService {
   }
 
   /**
-   * List attachments for a specific entity
+   * List attachments for a specific entity instance
    * @param tenantId - Tenant ID (optional, defaults to 'demo')
    * @param entityCode - Entity type (e.g., 'project', 'task')
-   * @param entityId - Entity ID
+   * @param entityInstanceId - Entity instance UUID
    * @returns List of attachment objects
    */
   async listAttachments(
     tenantId: string | undefined,
     entityCode: string,
-    entityId: string
+    entityInstanceId: string
   ): Promise<AttachmentListItem[]> {
     const tenant = tenantId || this.defaultTenantId;
-    const prefix = `tenant_id=${tenant}/entity=${entityCode}/entity_id=${entityId}/`;
+    const prefix = `tenant_id=${tenant}/entity=${entityCode}/entity_instance_id=${entityInstanceId}/`;
 
     try {
       const command = new ListObjectsV2Command({

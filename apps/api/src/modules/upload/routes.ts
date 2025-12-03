@@ -53,14 +53,14 @@ export async function uploadRoutes(fastify: FastifyInstance) {
             error: 'File too large. Maximum size is 10MB.'});
         }
 
-        // Generate unique entity ID for this upload
-        const uploadId = randomUUID();
+        // Generate unique entity instance ID for this upload
+        const uploadInstanceId = randomUUID();
 
         // Upload to S3 using unified S3AttachmentService
         const uploadResult = await s3AttachmentService.generatePresignedUploadUrl({
           tenantId: 'demo',
           entityCode: 'upload',
-          entityId: uploadId,
+          entityInstanceId: uploadInstanceId,
           fileName: data.filename,
           contentType: data.mimetype});
 
@@ -158,14 +158,14 @@ export async function uploadRoutes(fastify: FastifyInstance) {
             continue; // Skip large files
           }
 
-          // Generate unique ID for this upload
-          const uploadId = randomUUID();
+          // Generate unique entity instance ID for this upload
+          const uploadInstanceId = randomUUID();
 
           // Upload to S3 using unified S3AttachmentService
           const uploadResult = await s3AttachmentService.generatePresignedUploadUrl({
             tenantId: 'demo',
             entityCode: 'upload',
-            entityId: uploadId,
+            entityInstanceId: uploadInstanceId,
             fileName: file.filename,
             contentType: file.mimetype});
 

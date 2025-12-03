@@ -240,7 +240,7 @@ export function SmartComposer({
       for (const file of files) {
         const objectKey = await uploadToS3({
           entityCode: 'task_data',
-          entityId: taskId,
+          entityInstanceId: taskId,
           file,
           fileName: file.name,
           contentType: file.type,
@@ -282,6 +282,10 @@ export function SmartComposer({
       setContent('');
       setFiles([]);
       setDetectedIntents([]);
+      // Reset file input to allow re-selecting same file
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     } catch (error) {
       console.error('Failed to submit:', error);
     } finally {

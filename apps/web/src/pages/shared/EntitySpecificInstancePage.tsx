@@ -858,7 +858,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
 
       const objectKey = await uploadToS3({
         entityCode: entityCode === 'cost' || entityCode === 'revenue' ? entityCode : 'artifact',
-        entityId: tempId,
+        entityInstanceId: tempId,
         file: selectedFile,
         fileName: selectedFile.name,
         contentType: selectedFile.type || 'application/octet-stream',

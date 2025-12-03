@@ -38,23 +38,23 @@ Provides secure S3 operations for file attachments using AWS SDK v3 with presign
 
 ### Block 1: Multi-Tenant Storage Structure
 
-**S3 Key Pattern**:
+**S3 Key Pattern** (Hive-style partitioning):
 ```
-tenant_id/entity_code/entity_id/attachment_id_hash.extension
+tenant_id={tenant}/entity={entity_code}/entity_instance_id={uuid}/{hash}.{extension}
 ```
 
-**Example**:
+**Example Keys**:
 ```
-demo/project/abc-123-uuid/def456_document.pdf
-demo/task/xyz-789-uuid/ghi012_screenshot.png
+tenant_id=demo/entity=project/entity_instance_id=abc-123-uuid/def456789012345678901234.pdf
+tenant_id=demo/entity=task/entity_instance_id=xyz-789-uuid/ghi012345678901234567890a.png
 ```
 
 **Components**:
-- `tenant_id` - Organization isolation (default: "demo")
-- `entity_code` - Entity classification (project, task, artifact, etc.)
-- `entity_id` - Specific entity UUID
-- `attachment_id_hash` - Unique file identifier (crypto hash)
-- `extension` - Original file extension
+- `tenant_id={tenant}` - Organization isolation (default: "demo")
+- `entity={entity_code}` - Entity TYPE code (project, task, artifact, etc.)
+- `entity_instance_id={uuid}` - Specific entity instance UUID
+- `{hash}` - 32-character hex hash from `crypto.randomBytes(16)` - ensures uniqueness
+- `{extension}` - Original file extension extracted from filename
 
 **Benefits**:
 - **Multi-tenancy** - Isolated storage per organization
@@ -62,17 +62,28 @@ demo/task/xyz-789-uuid/ghi012_screenshot.png
 - **Uniqueness** - Crypto hash prevents collisions
 - **Auditing** - Clear file ownership trail
 
+**S3 Key Generation Code**:
+```typescript
+private generateObjectKey(metadata: AttachmentMetadata): string {
+  const tenantId = metadata.tenantId || this.defaultTenantId;
+  const hash = crypto.randomBytes(16).toString('hex');  // 32 hex chars
+  const extension = metadata.fileName.split('.').pop() || '';
+
+  return `tenant_id=${tenantId}/entity=${metadata.entityCode}/entity_instance_id=${metadata.entityInstanceId}/${hash}.${extension}`;
+}
+```
+
 ### Block 2: Presigned URL Generation
 
 **Upload Flow**:
 1. Client requests presigned upload URL
-2. Service generates S3 PutObject presigned URL (15-minute expiry)
+2. Service generates S3 PutObject presigned URL (1-hour expiry default)
 3. Client uploads file DIRECTLY to S3 using presigned URL
 4. No file passes through API server (bandwidth savings)
 
 **Download Flow**:
 1. Client requests presigned download URL
-2. Service generates S3 GetObject presigned URL (15-minute expiry)
+2. Service generates S3 GetObject presigned URL (1-hour expiry default)
 3. Client downloads file DIRECTLY from S3
 4. No file passes through API server
 
@@ -101,16 +112,20 @@ demo/task/xyz-789-uuid/ghi012_screenshot.png
 
 ### Block 4: File Metadata Tracking
 
-**Attachment Metadata**:
-- `tenantId` - Organization ID (optional, defaults to "demo")
-- `entityType` - Entity classification (project, task, etc.)
-- `entityId` - Entity UUID
-- `fileName` - Original file name
-- `contentType` - MIME type (optional)
+**AttachmentMetadata Interface**:
+```typescript
+interface AttachmentMetadata {
+  tenantId?: string;         // Organization ID (optional, defaults to "demo")
+  entityCode: string;        // Entity TYPE code (project, task, etc.)
+  entityInstanceId: string;  // Entity instance UUID
+  fileName: string;          // Original file name
+  contentType?: string;      // MIME type (optional)
+}
+```
 
 **Usage**:
 - Passed to presigned URL generation
-- Constructs S3 object key
+- Constructs S3 object key using `generateObjectKey()`
 - Sets Content-Type header for downloads
 
 ### Block 5: Object Operations
@@ -134,11 +149,11 @@ demo/task/xyz-789-uuid/ghi012_screenshot.png
 
 **Sequence**:
 1. **Client calls** `POST /api/v1/upload/presigned-url`
-   - Body: `{ entityType: 'project', entityId: 'abc-123', fileName: 'doc.pdf' }`
+   - Body: `{ entityCode: 'project', entityInstanceId: 'abc-123-uuid', fileName: 'doc.pdf' }`
 2. **Service generates** presigned PUT URL
-   - S3 key: `demo/project/abc-123/hash_doc.pdf`
-   - Expiry: 15 minutes
-3. **Service returns** `{ url: 's3-presigned-url', objectKey: '...', expiresIn: 900 }`
+   - S3 key: `tenant_id=demo/entity=project/entity_instance_id=abc-123-uuid/def456789012345678901234.pdf`
+   - Expiry: 1 hour (3600 seconds)
+3. **Service returns** `{ url: 's3-presigned-url', objectKey: '...', expiresIn: 3600 }`
 4. **Client uploads** file directly to S3 using presigned URL
    - `PUT s3-presigned-url` with file binary
 5. **S3 stores** file at specified key
@@ -178,8 +193,8 @@ demo/task/xyz-789-uuid/ghi012_screenshot.png
 ### List Attachments
 
 **Sequence**:
-1. **Client calls** `GET /api/v1/artifact?entityType=project&entityId=abc-123`
-2. **Service constructs** S3 prefix: `demo/project/abc-123/`
+1. **Client calls** `GET /api/v1/artifact?entityCode=project&entityInstanceId=abc-123-uuid`
+2. **Service constructs** S3 prefix: `tenant_id=demo/entity=project/entity_instance_id=abc-123-uuid/`
 3. **Service calls** S3 ListObjectsV2
 4. **Service returns** array of attachments: `[{ key, size, lastModified }]`
 
@@ -207,7 +222,7 @@ demo/task/xyz-789-uuid/ghi012_screenshot.png
 - Clear ownership boundaries
 
 **Structure**:
-- `tenant_id/` prefix on all keys
+- `tenant_id={tenant}/` prefix on all keys
 - Default tenant: "demo"
 
 ### 3. Crypto Hash File Naming
@@ -259,7 +274,7 @@ demo/task/xyz-789-uuid/ghi012_screenshot.png
 
 ### Presigned URL Expiry
 
-- **Default**: 15 minutes (900 seconds)
+- **Default**: 1 hour (3600 seconds)
 - **Rationale**: Short-lived, reduces exposure
 - **Client responsibility**: Use URL before expiry
 
@@ -296,7 +311,7 @@ s3:ListBucket     - List attachments
 
 ### Presigned URL Caching
 
-- URLs expire after 15 minutes
+- URLs expire after 1 hour
 - No caching recommended (security)
 - Generate fresh URLs per request
 
@@ -312,7 +327,7 @@ s3:ListBucket     - List attachments
 
 ### Expired Presigned URL
 
-**Scenario**: Client uses URL after 15 minutes
+**Scenario**: Client uses URL after 1 hour
 **Handling**: S3 returns 403 Forbidden
 **Solution**: Request new presigned URL
 

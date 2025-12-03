@@ -111,7 +111,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
       const result = await s3AttachmentService.generatePresignedUploadUrl({
         tenantId: 'demo',
         entityCode: ENTITY_CODE,
-        entityId: 'temp-' + Date.now(),
+        entityInstanceId: 'temp-' + Date.now(),
         fileName: filename,
         contentType: contentType || 'application/pdf'
       });

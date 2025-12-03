@@ -586,7 +586,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         name: Type.String({ minLength: 1, description: 'Artifact name' }),
         descr: Type.Optional(Type.String({ description: 'Description' })),
         entityCode: Type.String({ description: 'Entity type (e.g., "project", "task")' }),
-        entityId: Type.String({ format: 'uuid', description: 'Entity UUID' }),
+        entityInstanceId: Type.String({ format: 'uuid', description: 'Entity instance UUID' }),
         fileName: Type.String({ description: 'File name with extension' }),
         contentType: Type.Optional(Type.String({ description: 'MIME type' })),
         fileSize: Type.Optional(Type.Number({ description: 'File size in bytes' })),
@@ -605,7 +605,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       const uploadResult = await s3AttachmentService.generatePresignedUploadUrl({
         tenantId: 'demo',
         entityCode: data.entityCode,
-        entityId: data.entityId,
+        entityInstanceId: data.entityInstanceId,
         fileName: data.fileName,
         contentType: data.contentType});
 
@@ -633,7 +633,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
           ${fileExtension},
           ${data.fileSize || null},
           ${data.entityCode},
-          ${data.entityId},
+          ${data.entityInstanceId},
           ${config.S3_ATTACHMENTS_BUCKET},
           ${uploadResult.objectKey},
           ${data.visibility || 'internal'},
@@ -762,16 +762,16 @@ export async function artifactRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // List artifacts by entity
-  fastify.get('/api/v1/artifact/entity/:entityCode/:entityId', {
+  // List artifacts by entity instance
+  fastify.get('/api/v1/artifact/entity/:entityCode/:entityInstanceId', {
     preHandler: [fastify.authenticate],
     schema: {
       tags: ['artifact'],
-      summary: 'List artifacts by entity',
-      description: 'Get all artifacts linked to a specific entity',
+      summary: 'List artifacts by entity instance',
+      description: 'Get all artifacts linked to a specific entity instance',
       params: Type.Object({
         entityCode: Type.String({ description: 'Entity type (e.g., "project", "task")' }),
-        entityId: Type.String({ format: 'uuid', description: 'Entity UUID' })}),
+        entityInstanceId: Type.String({ format: 'uuid', description: 'Entity instance UUID' })}),
       querystring: Type.Object({
         limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 50 })),
         offset: Type.Optional(Type.Integer({ minimum: 0, default: 0 }))}),
@@ -779,7 +779,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         200: Type.Object({
           data: Type.Array(ArtifactSchema),
           total: Type.Integer()})}}}, async (request, reply) => {
-    const { entityCode, entityId } = request.params as any;
+    const { entityCode, entityInstanceId } = request.params as any;
     const { limit = 50, offset = 0 } = request.query as any;
 
     try {
@@ -788,7 +788,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         SELECT COUNT(*) as count
         FROM app.artifact
         WHERE entity_type = ${entityCode}
-          AND entity_id = ${entityId}
+          AND entity_id = ${entityInstanceId}
           AND active_flag = true
       `);
       const total = Number(countResult[0]?.count || 0);
@@ -798,7 +798,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         SELECT *
         FROM app.artifact
         WHERE entity_type = ${entityCode}
-          AND entity_id = ${entityId}
+          AND entity_id = ${entityInstanceId}
           AND active_flag = true
         ORDER BY created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -863,7 +863,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         const uploadResult = await s3AttachmentService.generatePresignedUploadUrl({
           tenantId: 'demo',
           entityCode: current.entity_type || 'artifact',
-          entityId: id,
+          entityInstanceId: id,
           fileName: data.fileName,
           contentType: data.contentType});
         finalObjectKey = uploadResult.objectKey;
