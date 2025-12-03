@@ -1,20 +1,40 @@
 /**
- * Event API Routes
- * Manages events/meetings/appointments as universal parent entities
- * @module event/routes
+ * ============================================================================
+ * EVENT ROUTES MODULE - Universal Entity Pattern with Factory
+ * ============================================================================
+ *
+ * REFACTORED: Uses Universal CRUD Factory for GET (list), GET (single), and UPDATE endpoints.
+ * Custom endpoints remain for specialized event functionality.
+ *
+ * ENDPOINTS:
+ *   GET    /api/v1/event              - List events (FACTORY)
+ *   GET    /api/v1/event/:id          - Get single event (FACTORY)
+ *   POST   /api/v1/event              - Create event (CUSTOM)
+ *   PATCH  /api/v1/event/:id          - Update event (FACTORY)
+ *   PUT    /api/v1/event/:id          - Update event alias (FACTORY)
+ *   DELETE /api/v1/event/:id          - Delete event (DELETE FACTORY)
+ *   GET    /api/v1/event/enriched     - Enriched events (CUSTOM)
+ *   GET    /api/v1/event/:id/attendees - Event attendees (CUSTOM)
+ *   GET    /api/v1/event/:id/entities - Event linked entities (CUSTOM)
+ *   GET    /api/v1/event/:id/{child}  - Child entities (CHILD FACTORY)
+ *
+ * ============================================================================
  */
 
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { client, db } from '../../db/index.js';
 import { v4 as uuidv4 } from 'uuid';
-import { paginateQuery, getPaginationParams } from '../../lib/pagination.js';
+import { getPaginationParams } from '../../lib/pagination.js';
+
 // ✅ Entity Infrastructure Service - Centralized infrastructure management
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
-import { sql, SQL } from 'drizzle-orm';
-// ✨ Universal auto-filter builder - zero-config query filtering
-import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
+
+// ✨ Universal CRUD Factory - generates standardized endpoints
+import { createUniversalEntityRoutes } from '../../lib/universal-crud-factory.js';
+
 // ✅ Delete factory for cascading soft deletes
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+
 // ✅ Child entity factory for parent-child relationships
 import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 
@@ -22,7 +42,6 @@ import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-r
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
 const ENTITY_CODE = 'event';
-const TABLE_ALIAS = 'e';
 
 /**
  * Event creation request
@@ -76,148 +95,27 @@ export async function eventRoutes(fastify: FastifyInstance) {
   // ═══════════════════════════════════════════════════════════════
   const entityInfra = getEntityInfrastructure(db);
 
-  /**
-   * GET /api/v1/event
-   * Get all active events with optional filters
-   */
-  fastify.get<{
-    Querystring: {
-      event_type?: string;
-      event_platform_provider_name?: string;
-      from_ts?: string;
-      to_ts?: string;
-      search?: string;
-      page?: number;
-      limit?: number;
-    };
-  }>('/api/v1/event', {
-    preHandler: [fastify.authenticate],
-  }, async (request, reply) => {
-    const userId = (request as any).user?.sub;
-    if (!userId) {
-      return reply.code(401).send({ error: 'User not authenticated' });
-    }
+  // ════════════════════════════════════════════════════════════════════════════
+  // UNIVERSAL CRUD ENDPOINTS (FACTORY)
+  // ════════════════════════════════════════════════════════════════════════════
+  // Creates:
+  // - GET /api/v1/event         - List with RBAC, pagination, auto-filters, metadata
+  // - GET /api/v1/event/:id     - Single entity with RBAC, ref_data_entityInstance
+  // - PATCH /api/v1/event/:id   - Update with RBAC, registry sync
+  // - PUT /api/v1/event/:id     - Update alias
+  //
+  // Features:
+  // - content=metadata support for metadata-only responses
+  // - ref_data_entityInstance for entity reference resolution
+  // - Universal auto-filters from query parameters
+  // - Parent-child filtering via entity_instance_link
+  // ════════════════════════════════════════════════════════════════════════════
 
-    try {
-      const { from_ts, to_ts } = request.query;
-      const { page, limit, offset } = getPaginationParams(request.query);
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC filtering
-      // Only return events user has VIEW permission for
-      // ═══════════════════════════════════════════════════════════════
-      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(
-        userId, ENTITY_CODE, Permission.VIEW, 'e'
-      );
-
-      // Build WHERE conditions array
-      const conditions: SQL[] = [];
-
-      // ✅ RBAC filtering (REQUIRED)
-      conditions.push(rbacWhereClause);
-
-      // ✅ Default: only active records
-      conditions.push(sql`e.active_flag = true`);
-
-      // Build auto-filters for standard fields
-      const queryFilters: any = {};
-      Object.keys(request.query).forEach(key => {
-        if (!['page', 'limit', 'offset', 'from_ts', 'to_ts'].includes(key)) {
-          queryFilters[key] = (request.query as any)[key];
-        }
-      });
-
-      // Auto-filter: event_type
-      if (queryFilters.event_type) {
-        conditions.push(sql`e.event_type = ${queryFilters.event_type}`);
-      }
-
-      // Auto-filter: event_platform_provider_name
-      if (queryFilters.event_platform_provider_name) {
-        conditions.push(sql`e.event_platform_provider_name = ${queryFilters.event_platform_provider_name}`);
-      }
-
-      // Auto-filter: search (searches across name, code, descr)
-      if (queryFilters.search) {
-        conditions.push(sql`(
-          e.name ILIKE ${'%' + queryFilters.search + '%'}
-          OR e.code ILIKE ${'%' + queryFilters.search + '%'}
-          OR e.descr ILIKE ${'%' + queryFilters.search + '%'}
-        )`);
-      }
-
-      // Date range filters
-      if (from_ts) {
-        conditions.push(sql`e.from_ts >= ${from_ts}::timestamptz`);
-      }
-
-      if (to_ts) {
-        conditions.push(sql`e.to_ts <= ${to_ts}::timestamptz`);
-      }
-
-      // Build WHERE clause
-      const whereClause = sql`WHERE ${sql.join(conditions, sql` AND `)}`;
-
-      // Count query
-      const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total
-        FROM app.event e
-        ${whereClause}
-      `);
-      const total = Number(countResult[0]?.total || 0);
-
-      // Data query
-      const dataResult = await db.execute(sql`
-        SELECT
-          e.id::text,
-          e.code,
-          e.name,
-          e.descr,
-          e.event_action_entity_type,
-          e.event_action_entity_id::text,
-          e.organizer__employee_id::text,
-          e.event_type,
-          e.event_platform_provider_name,
-          e.venue_type,
-          e.event_addr,
-          e.event_instructions,
-          e.from_ts::text,
-          e.to_ts::text,
-          e.timezone,
-          e.event_metadata,
-          e.active_flag,
-          e.created_ts::text,
-          e.updated_ts::text,
-          e.version,
-          (
-            SELECT jsonb_build_object(
-              'employee_id', emp.id::text,
-              'name', emp.name,
-              'email', emp.email
-            )
-            FROM app.employee emp
-            WHERE emp.id = e.organizer__employee_id
-          ) as organizer
-        FROM app.event e
-        ${whereClause}
-        ORDER BY e.from_ts DESC, e.created_ts DESC
-        LIMIT ${limit}
-        OFFSET ${offset}
-      `);
-
-      reply.code(200).send({
-        data: dataResult,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit)
-        }
-      });
-    } catch (error) {
-      console.error('Error fetching events:', error);
-      reply.code(500).send({ error: 'Failed to fetch events' });
-    }
+  createUniversalEntityRoutes(fastify, {
+    entityCode: ENTITY_CODE,
+    tableName: 'event',
+    tableAlias: 'e',
+    searchFields: ['name', 'code', 'descr', 'event_type', 'event_platform_provider_name']
   });
 
   /**
@@ -402,111 +300,10 @@ export async function eventRoutes(fastify: FastifyInstance) {
     }
   });
 
-  /**
-   * GET /api/v1/event/:id
-   * Get event by ID with linked people (attendees)
-   */
-  fastify.get<{
-    Params: { id: string };
-  }>('/api/v1/event/:id', {
-    preHandler: [fastify.authenticate],
-  }, async (request, reply) => {
-    const userId = (request as any).user?.sub;
-    if (!userId) {
-      return reply.code(401).send({ error: 'User not authenticated' });
-    }
-
-    try {
-      const { id } = request.params;
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC check
-      // Check: Can user VIEW this event?
-      // ═══════════════════════════════════════════════════════════════
-      const canView = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.VIEW);
-      if (!canView) {
-        return reply.code(403).send({ error: 'No permission to view this event' });
-      }
-
-      // Get event details
-      const eventQuery = client`
-        SELECT
-          id::text,
-          code,
-          name,
-          descr,
-          event_action_entity_type,
-          event_action_entity_id::text,
-          organizer__employee_id::text,
-          event_type,
-          event_platform_provider_name,
-          venue_type,
-          event_addr,
-          event_instructions,
-          from_ts::text,
-          to_ts::text,
-          timezone,
-          event_metadata,
-          active_flag,
-          created_ts::text,
-          updated_ts::text,
-          version
-        FROM app.event
-        WHERE id = ${id}::uuid AND active_flag = true
-      `;
-
-      const eventResult = await eventQuery;
-
-      if (eventResult.length === 0) {
-        return reply.code(404).send({ error: 'Event not found' });
-      }
-
-      const event = eventResult[0];
-
-      // Get linked people (attendees) from entity_event_person_calendar
-      const attendeesQuery = client`
-        SELECT
-          id::text,
-          code,
-          name,
-          person_entity_type,
-          person_id::text,
-          event_rsvp_status,
-          from_ts::text,
-          to_ts::text,
-          timezone
-        FROM app.entity_event_person_calendar
-        WHERE event_id = ${id}::uuid AND active_flag = true
-        ORDER BY person_entity_type, event_rsvp_status
-      `;
-
-      const attendeesResult = await attendeesQuery;
-
-      // Get linked entities from entity_instance_link
-      const linkedEntitiesQuery = client`
-        SELECT
-          child_entity_type,
-          child_entity_id,
-          relationship_type
-        FROM app.entity_instance_link
-        WHERE parent_entity_type = 'event'
-          AND parent_entity_id = ${id}
-          AND active_flag = true
-        ORDER BY child_entity_type
-      `;
-
-      const linkedEntitiesResult = await linkedEntitiesQuery;
-
-      reply.code(200).send({
-        ...event,
-        attendees: attendeesResult,
-        linked_entities: linkedEntitiesResult
-      });
-    } catch (error) {
-      console.error('Error fetching event:', error);
-      reply.code(500).send({ error: 'Failed to fetch event' });
-    }
-  });
+  // NOTE: GET /api/v1/event/:id now handled by Universal CRUD Factory
+  // For detailed view with attendees and linked entities, use specific endpoints:
+  // - GET /api/v1/event/:id/attendees
+  // - GET /api/v1/event/:id/entities
 
   /**
    * POST /api/v1/event
@@ -698,148 +495,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
     }
   });
 
-  /**
-   * PATCH /api/v1/event/:id
-   * Update event details
-   */
-  fastify.patch<{
-    Params: { id: string };
-    Body: UpdateEventRequest;
-  }>('/api/v1/event/:id', {
-    preHandler: [fastify.authenticate],
-  }, async (request, reply) => {
-    const userId = (request as any).user?.sub;
-    if (!userId) {
-      return reply.code(401).send({ error: 'User not authenticated' });
-    }
-
-    try {
-      const { id } = request.params;
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
-      // Check: Can user EDIT this event?
-      // ═══════════════════════════════════════════════════════════════
-      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.EDIT);
-      if (!canEdit) {
-        return reply.code(403).send({ error: 'No permission to edit this event' });
-      }
-
-      const updates = request.body;
-
-      const updateQuery = client`
-        UPDATE app.d_event
-        SET
-          name = COALESCE(${updates.name || null}, name),
-          descr = COALESCE(${updates.descr || null}, descr),
-          event_type = COALESCE(${updates.event_type || null}, event_type),
-          event_platform_provider_name = COALESCE(${updates.event_platform_provider_name || null}, event_platform_provider_name),
-          event_addr = COALESCE(${updates.event_addr || null}, event_addr),
-          event_instructions = COALESCE(${updates.event_instructions || null}, event_instructions),
-          from_ts = COALESCE(${updates.from_ts ? `${updates.from_ts}::timestamptz` : null}, from_ts),
-          to_ts = COALESCE(${updates.to_ts ? `${updates.to_ts}::timestamptz` : null}, to_ts),
-          timezone = COALESCE(${updates.timezone || null}, timezone),
-          event_metadata = COALESCE(${updates.event_metadata ? JSON.stringify(updates.event_metadata) : null}::jsonb, event_metadata),
-          updated_ts = now(),
-          version = version + 1
-        WHERE id = ${id}::uuid AND active_flag = true
-        RETURNING
-          id::text,
-          code,
-          name,
-          event_type,
-          from_ts::text,
-          to_ts::text,
-          updated_ts::text
-      `;
-
-      const result = await updateQuery;
-
-      if (result.length === 0) {
-        return reply.code(404).send({ error: 'Event not found' });
-      }
-
-      console.log(`✅ Updated event: ${result[0].code}`);
-
-      reply.code(200).send(result[0]);
-    } catch (error) {
-      console.error('Error updating event:', error);
-      reply.code(500).send({ error: 'Failed to update event' });
-    }
-  });
-
-  /**
-   * PUT /api/v1/event/:id
-   * Update event details (alias to PATCH for frontend compatibility)
-   */
-  fastify.put<{
-    Params: { id: string };
-    Body: UpdateEventRequest;
-  }>('/api/v1/event/:id', {
-    preHandler: [fastify.authenticate],
-  }, async (request, reply) => {
-    const userId = (request as any).user?.sub;
-    if (!userId) {
-      return reply.code(401).send({ error: 'User not authenticated' });
-    }
-
-    try {
-      const { id } = request.params;
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
-      // Check: Can user EDIT this event?
-      // ═══════════════════════════════════════════════════════════════
-      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.EDIT);
-      if (!canEdit) {
-        return reply.code(403).send({ error: 'No permission to edit this event' });
-      }
-
-      const updates = request.body;
-
-      const updateQuery = client`
-        UPDATE app.d_event
-        SET
-          name = COALESCE(${updates.name || null}, name),
-          descr = COALESCE(${updates.descr || null}, descr),
-          event_type = COALESCE(${updates.event_type || null}, event_type),
-          event_platform_provider_name = COALESCE(${updates.event_platform_provider_name || null}, event_platform_provider_name),
-          event_addr = COALESCE(${updates.event_addr || null}, event_addr),
-          event_instructions = COALESCE(${updates.event_instructions || null}, event_instructions),
-          from_ts = COALESCE(${updates.from_ts ? `${updates.from_ts}::timestamptz` : null}, from_ts),
-          to_ts = COALESCE(${updates.to_ts ? `${updates.to_ts}::timestamptz` : null}, to_ts),
-          timezone = COALESCE(${updates.timezone || null}, timezone),
-          event_metadata = COALESCE(${updates.event_metadata ? JSON.stringify(updates.event_metadata) : null}::jsonb, event_metadata),
-          updated_ts = now(),
-          version = version + 1
-        WHERE id = ${id}::uuid AND active_flag = true
-        RETURNING
-          id::text,
-          code,
-          name,
-          event_type,
-          from_ts::text,
-          to_ts::text,
-          updated_ts::text
-      `;
-
-      const result = await updateQuery;
-
-      if (result.length === 0) {
-        return reply.code(404).send({ error: 'Event not found' });
-      }
-
-      console.log(`✅ Updated event: ${result[0].code}`);
-
-      reply.code(200).send(result[0]);
-    } catch (error) {
-      console.error('Error updating event:', error);
-      reply.code(500).send({ error: 'Failed to update event' });
-    }
-  });
-
-  // ✨ DELETE endpoint now handled by factory (see end of file)
-  // Factory provides cascading soft delete for event and linked entities
+  // NOTE: PATCH/PUT /api/v1/event/:id now handled by Universal CRUD Factory
 
   /**
    * GET /api/v1/event/:id/attendees

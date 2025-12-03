@@ -1,13 +1,34 @@
+/**
+ * ============================================================================
+ * SERVICE ROUTES MODULE - Universal Entity Pattern with Factory
+ * ============================================================================
+ *
+ * REFACTORED: Uses Universal CRUD Factory for GET (list), GET (single), and UPDATE endpoints.
+ * CREATE endpoint remains custom due to entity-specific validation.
+ *
+ * ENDPOINTS:
+ *   GET    /api/v1/service              - List services (FACTORY)
+ *   GET    /api/v1/service/:id          - Get single service (FACTORY)
+ *   POST   /api/v1/service              - Create service (CUSTOM)
+ *   PATCH  /api/v1/service/:id          - Update service (FACTORY)
+ *   PUT    /api/v1/service/:id          - Update service alias (FACTORY)
+ *   DELETE /api/v1/service/:id          - Delete service (DELETE FACTORY)
+ *
+ * ============================================================================
+ */
+
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
-import { sql, SQL } from 'drizzle-orm';
-import { filterUniversalColumns, createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
-// ✅ Centralized unified data gate - loosely coupled API
+import { sql } from 'drizzle-orm';
+import { filterUniversalColumns } from '../../lib/universal-schema-metadata.js';
+
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
-// ✨ Universal auto-filter builder - zero-config query filtering
-import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
+
+// ✨ Universal CRUD Factory - generates standardized endpoints
+import { createUniversalEntityRoutes } from '../../lib/universal-crud-factory.js';
+
 // ✅ Delete factory for cascading soft deletes
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 
@@ -15,25 +36,6 @@ import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factor
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
 const ENTITY_CODE = 'service';
-const TABLE_ALIAS = 's';
-
-const ServiceSchema = Type.Object({
-  id: Type.String(),
-  code: Type.String(),
-  name: Type.String(),
-  descr: Type.Optional(Type.String()),
-  metadata: Type.Optional(Type.Any()),
-  service_category: Type.Optional(Type.String()),
-  standard_rate_amt: Type.Optional(Type.Number()),
-  estimated_hours: Type.Optional(Type.Number()),
-  minimum_charge_amt: Type.Optional(Type.Number()),
-  taxable_flag: Type.Optional(Type.Boolean()),
-  requires_certification_flag: Type.Optional(Type.Boolean()),
-  active_flag: Type.Optional(Type.Boolean()),
-  created_ts: Type.Optional(Type.String()),
-  updated_ts: Type.Optional(Type.String()),
-  version: Type.Optional(Type.Number()),
-});
 
 const CreateServiceSchema = Type.Object({
   code: Type.Optional(Type.String({ minLength: 1 })),
@@ -49,143 +51,37 @@ const CreateServiceSchema = Type.Object({
   active_flag: Type.Optional(Type.Boolean()),
 });
 
-const UpdateServiceSchema = Type.Partial(CreateServiceSchema);
-
 export async function serviceRoutes(fastify: FastifyInstance) {
   // ✨ Initialize Entity Infrastructure Service
   const entityInfra = getEntityInfrastructure(db);
 
-  // List services
-  fastify.get('/api/v1/service', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      querystring: Type.Object({
-        active: Type.Optional(Type.Boolean()),
-        search: Type.Optional(Type.String()),
-        service_category: Type.Optional(Type.String()),
-        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
-        offset: Type.Optional(Type.Number({ minimum: 0 })),
-        page: Type.Optional(Type.Number({ minimum: 1 })),
-        parent_entity_code: Type.Optional(Type.String()),
-        parent_entity_instance_id: Type.Optional(Type.String({ format: 'uuid' })),
-      }),
-      response: {
-        200: Type.Object({
-          data: Type.Array(ServiceSchema),
-          total: Type.Number(),
-          limit: Type.Number(),
-          offset: Type.Number(),
-        }),
-      },
-    },
-  }, async (request, reply) => {
-    const { limit = 20, offset: queryOffset, page, parent_entity_code, parent_entity_instance_id } = request.query as any;
-    const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
-    const userId = (request as any).user?.sub;
+  // ════════════════════════════════════════════════════════════════════════════
+  // UNIVERSAL CRUD ENDPOINTS (FACTORY)
+  // ════════════════════════════════════════════════════════════════════════════
+  // Creates:
+  // - GET /api/v1/service         - List with RBAC, pagination, auto-filters, metadata
+  // - GET /api/v1/service/:id     - Single entity with RBAC, ref_data_entityInstance
+  // - PATCH /api/v1/service/:id   - Update with RBAC, registry sync
+  // - PUT /api/v1/service/:id     - Update alias
+  //
+  // Features:
+  // - content=metadata support for metadata-only responses
+  // - ref_data_entityInstance for entity reference resolution
+  // - Universal auto-filters from query parameters
+  // - Parent-child filtering via entity_instance_link
+  // ════════════════════════════════════════════════════════════════════════════
 
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    try {
-      // ═══════════════════════════════════════════════════════════════
-      // BUILD JOINs - Parent filtering via entity_instance_link
-      // ═══════════════════════════════════════════════════════════════
-      const joins: SQL[] = [];
-
-      if (parent_entity_code && parent_entity_instance_id) {
-        joins.push(sql`
-          INNER JOIN app.entity_instance_link eil
-            ON eil.child_entity_code = ${ENTITY_CODE}
-            AND eil.child_entity_instance_id = ${sql.raw(TABLE_ALIAS)}.id
-            AND eil.entity_code = ${parent_entity_code}
-            AND eil.entity_instance_id = ${parent_entity_instance_id}::uuid
-        `);
-      }
-
-      // Build WHERE conditions array
-      const conditions: SQL[] = [];
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC filtering
-      // Only return services user has VIEW permission for
-      // ═══════════════════════════════════════════════════════════════
-      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS);
-      conditions.push(rbacWhereClause);
-
-      // ✨ UNIVERSAL AUTO-FILTER SYSTEM
-      // Automatically builds filters from ANY query parameter based on field naming conventions
-      // Supports: ?service_category=X, ?active_flag=true, ?search=keyword, etc.
-      const autoFilters = buildAutoFilters(TABLE_ALIAS, request.query as any, {
-        searchFields: ['name', 'code', 'descr']
-      });
-      conditions.push(...autoFilters);
-
-      // Compose JOIN and WHERE clauses
-      const joinClause = joins.length > 0 ? sql.join(joins, sql` `) : sql``;
-      const whereClause = conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``;
-
-      const countResult = await db.execute(sql`
-        SELECT COUNT(DISTINCT ${sql.raw(TABLE_ALIAS)}.id) as total
-        FROM app.service ${sql.raw(TABLE_ALIAS)}
-        ${joinClause}
-        ${whereClause}
-      `);
-      const total = Number(countResult[0]?.total || 0);
-
-      const services = await db.execute(sql`
-        SELECT DISTINCT ${sql.raw(TABLE_ALIAS)}.*
-        FROM app.service ${sql.raw(TABLE_ALIAS)}
-        ${joinClause}
-        ${whereClause}
-        ORDER BY ${sql.raw(TABLE_ALIAS)}.name ASC NULLS LAST
-        LIMIT ${limit} OFFSET ${offset}
-      `);
-
-      return createPaginatedResponse(services, total, limit, offset);
-    } catch (error) {
-      fastify.log.error('Error fetching services:', error);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
+  createUniversalEntityRoutes(fastify, {
+    entityCode: ENTITY_CODE,
+    tableName: 'service',
+    tableAlias: 'e',
+    searchFields: ['name', 'code', 'descr', 'service_category']
   });
 
-  // Get single service
-  fastify.get('/api/v1/service/:id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
-    },
-  }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
+  // ════════════════════════════════════════════════════════════════════════════
+  // CREATE ENDPOINT (CUSTOM - Entity-specific validation)
+  // ════════════════════════════════════════════════════════════════════════════
 
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    try {
-      // ✨ ENTITY INFRASTRUCTURE - Use centralized RBAC check
-      const canView = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.VIEW);
-      if (!canView) {
-        return reply.status(403).send({ error: 'Insufficient permissions' });
-      }
-
-      const service = await db.execute(sql`
-        SELECT * FROM app.service WHERE id = ${id}
-      `);
-
-      if (service.length === 0) {
-        return reply.status(404).send({ error: 'Service not found' });
-      }
-
-      return service[0];
-    } catch (error) {
-      fastify.log.error('Error fetching service:', error);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
-
-  // Create service
   fastify.post('/api/v1/service', {
     preHandler: [fastify.authenticate],
     schema: { body: CreateServiceSchema },
@@ -246,77 +142,9 @@ export async function serviceRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Update service
-  fastify.put('/api/v1/service/:id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
-      body: UpdateServiceSchema,
-    },
-  }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const data = request.body as any;
-    const userId = (request as any).user?.sub;
+  // ════════════════════════════════════════════════════════════════════════════
+  // DELETE ENDPOINT (FACTORY)
+  // ════════════════════════════════════════════════════════════════════════════
 
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
-    // Check: Can user EDIT this service?
-    // ═══════════════════════════════════════════════════════════════
-    const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.EDIT);
-    if (!canEdit) {
-      return reply.status(403).send({ error: 'No permission to edit this service' });
-    }
-
-    try {
-      const existing = await db.execute(sql`SELECT id FROM app.service WHERE id = ${id}`);
-      if (existing.length === 0) {
-        return reply.status(404).send({ error: 'Service not found' });
-      }
-
-      const updateFields = [];
-      if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
-      if (data.descr !== undefined) updateFields.push(sql`descr = ${data.descr}`);
-      if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
-      if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
-      if (data.service_category !== undefined) updateFields.push(sql`service_category = ${data.service_category}`);
-      if (data.standard_rate_amt !== undefined) updateFields.push(sql`standard_rate_amt = ${data.standard_rate_amt}`);
-      if (data.estimated_hours !== undefined) updateFields.push(sql`estimated_hours = ${data.estimated_hours}`);
-      if (data.minimum_charge_amt !== undefined) updateFields.push(sql`minimum_charge_amt = ${data.minimum_charge_amt}`);
-      if (data.taxable_flag !== undefined) updateFields.push(sql`taxable_flag = ${data.taxable_flag}`);
-      if (data.requires_certification_flag !== undefined) updateFields.push(sql`requires_certification_flag = ${data.requires_certification_flag}`);
-      if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
-
-      if (updateFields.length === 0) {
-        return reply.status(400).send({ error: 'No fields to update' });
-      }
-
-      updateFields.push(sql`updated_ts = NOW()`);
-
-      const result = await db.execute(sql`
-        UPDATE app.service
-        SET ${sql.join(updateFields, sql`, `)}
-        WHERE id = ${id}
-        RETURNING *
-      `);
-
-      return filterUniversalColumns(result[0], {
-        canSeePII: true, canSeeFinancial: true, canSeeSystemFields: true, canSeeSafetyInfo: true
-      });
-    } catch (error) {
-      fastify.log.error('Error updating service:', error);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
-
-  // ============================================================================
-  // ✨ FACTORY-GENERATED ENDPOINTS
-  // ============================================================================
-
-  // ✨ Factory-generated DELETE endpoint
-  // Provides cascading soft delete for service and linked entities
   createEntityDeleteEndpoint(fastify, ENTITY_CODE);
 }

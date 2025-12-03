@@ -1,22 +1,37 @@
+/**
+ * ============================================================================
+ * EMPLOYEE ROUTES MODULE - Universal Entity Pattern with Factory
+ * ============================================================================
+ *
+ * REFACTORED: Uses Universal CRUD Factory for GET (list), GET (single), and UPDATE endpoints.
+ * CREATE endpoint remains custom due to entity-specific validation and auto-generation.
+ *
+ * ENDPOINTS:
+ *   GET    /api/v1/employee              - List employees (FACTORY)
+ *   GET    /api/v1/employee/:id          - Get single employee (FACTORY)
+ *   POST   /api/v1/employee              - Create employee (CUSTOM - auto-generation)
+ *   PATCH  /api/v1/employee/:id          - Update employee (FACTORY)
+ *   PUT    /api/v1/employee/:id          - Update employee alias (FACTORY)
+ *   DELETE /api/v1/employee/:id          - Delete employee (DELETE FACTORY)
+ *   GET    /api/v1/employee/:id/{child}  - Child entities (CHILD FACTORY)
+ *
+ * ============================================================================
+ */
+
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
-import { sql, SQL } from 'drizzle-orm';
-import bcrypt from 'bcrypt';
-import {
-  getUniversalColumnMetadata,
-  filterUniversalColumns,
-  getColumnsByMetadata
-} from '../../lib/universal-schema-metadata.js';
+import { sql } from 'drizzle-orm';
+
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
-// ✨ Universal auto-filter builder - zero-config query filtering
-import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
-// ✨ Backend Formatter Service - component-aware metadata generation
-import { generateEntityResponse } from '../../services/backend-formatter.service.js';
-// ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
+
+// ✨ Universal CRUD Factory - generates standardized endpoints
+import { createUniversalEntityRoutes } from '../../lib/universal-crud-factory.js';
+
 // ✅ Delete factory for cascading soft deletes
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+
 // ✅ Child entity factory for parent-child relationships
 import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 
@@ -78,12 +93,6 @@ const EmployeeSchema = Type.Object({
   time_zone: Type.Optional(Type.String()),
   preferred_language: Type.Optional(Type.String())});
 
-// Response schema for metadata-driven endpoints (single entity)
-const EmployeeWithMetadataSchema = Type.Object({
-  data: EmployeeSchema,
-  fields: Type.Array(Type.String()),  // Field names list
-  metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
-});
 
 // CREATE schema - accepts DDL columns + metadata JSONB
 const CreateEmployeeSchema = Type.Object({
@@ -136,55 +145,6 @@ const CreateEmployeeSchema = Type.Object({
   time_zone: Type.Optional(Type.String()),
   preferred_language: Type.Optional(Type.String())});
 
-// UPDATE schema - accepts DDL columns (nullable for partial updates)
-const UpdateEmployeeSchema = Type.Object({
-  // Standard fields
-  name: Type.Optional(Type.String({ minLength: 1 })),
-  descr: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  metadata: Type.Optional(Type.Any()),
-  active_flag: Type.Optional(Type.Boolean()),
-
-  // Employee identification (DDL columns)
-  email: Type.Optional(Type.String({ format: 'email' })),
-  first_name: Type.Optional(Type.String({ minLength: 1 })),
-  last_name: Type.Optional(Type.String({ minLength: 1 })),
-
-  // Contact information (DDL columns)
-  phone: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  mobile: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  emergency_contact_name: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  emergency_contact_phone: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-
-  // Address information (DDL columns)
-  address_line1: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  address_line2: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  city: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  province: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  postal_code: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  country: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-
-  // Employment details (DDL columns)
-  employee_type: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  department: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  title: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  hire_date: Type.Optional(Type.Union([Type.String({ format: 'date' }), Type.Null()])),
-  termination_date: Type.Optional(Type.Union([Type.String({ format: 'date' }), Type.Null()])),
-
-  // Compensation and HR (DDL columns)
-  salary_band: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  pay_grade: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  manager__employee_id: Type.Optional(Type.Union([Type.String({ format: 'uuid' }), Type.Null()])),
-
-  // Compliance and tracking (DDL columns)
-  sin: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  birth_date: Type.Optional(Type.Union([Type.String({ format: 'date' }), Type.Null()])),  // DDL name
-  citizenship: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  security_clearance: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-
-  // Work preferences (DDL columns)
-  remote_work_eligible: Type.Optional(Type.Boolean()),  // DDL name
-  time_zone: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  preferred_language: Type.Optional(Type.Union([Type.String(), Type.Null()]))});
 
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
@@ -196,235 +156,27 @@ export async function empRoutes(fastify: FastifyInstance) {
   // ✨ Initialize Entity Infrastructure Service
   const entityInfra = getEntityInfrastructure(db);
 
-  // List employees
-  fastify.get('/api/v1/employee', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      querystring: Type.Object({
-        active_flag: Type.Optional(Type.Boolean()),
-        search: Type.Optional(Type.String()),
-        employee_type: Type.Optional(Type.String()),
-        department: Type.Optional(Type.String()),
-        remote_work_eligible: Type.Optional(Type.Boolean()),
-        parent_entity_code: Type.Optional(Type.String()),
-        parent_entity_instance_id: Type.Optional(Type.String({ format: 'uuid' })),
-        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100000 })),
-        offset: Type.Optional(Type.Number({ minimum: 0 })),
-        page: Type.Optional(Type.Number({ minimum: 1 }))}),
-      response: {
-        200: Type.Object({
-          data: Type.Array(EmployeeSchema),
-          fields: Type.Array(Type.String()),
-          metadata: Type.Any(),
-          total: Type.Number(),
-          limit: Type.Number(),
-          offset: Type.Number()}),
-        403: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
-    const { active_flag, search, employee_type, department, remote_work_eligible, parent_entity_code, parent_entity_instance_id, limit = 50, offset: queryOffset, page } = request.query as any;
+  // ════════════════════════════════════════════════════════════════════════════
+  // UNIVERSAL CRUD ENDPOINTS (FACTORY)
+  // ════════════════════════════════════════════════════════════════════════════
+  // Creates:
+  // - GET /api/v1/employee         - List with RBAC, pagination, auto-filters, metadata
+  // - GET /api/v1/employee/:id     - Single entity with RBAC, ref_data_entityInstance
+  // - PATCH /api/v1/employee/:id   - Update with RBAC, registry sync
+  // - PUT /api/v1/employee/:id     - Update alias
+  //
+  // Features:
+  // - content=metadata support for metadata-only responses
+  // - ref_data_entityInstance for entity reference resolution
+  // - Universal auto-filters from query parameters
+  // - Parent-child filtering via entity_instance_link
+  // ════════════════════════════════════════════════════════════════════════════
 
-    // Support both page (new) and offset (legacy) parameters
-    const offset = page ? (page - 1) * limit : (queryOffset || 0);
-
-    const userId = (request as any).user?.sub;
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    try {
-      // RBAC check - only show employees user has access to
-      // No RBAC filtering - allow all authenticated users
-      const conditions = [];
-
-      // Parent filtering (create-link-edit pattern)
-      if (parent_entity_code && parent_entity_instance_id) {
-        conditions.push(sql`eim.parent_entity_type = ${parent_entity_code}`);
-        conditions.push(sql`eim.parent_entity_id = ${parent_entity_instance_id}`);
-        conditions.push(sql`eim.child_entity_type = 'employee'`);
-        conditions.push(sql`eim.active_flag = true`);
-      }
-
-      if (active_flag !== undefined) {
-        conditions.push(sql`e.active_flag = ${active_flag}`);
-      }
-
-      if (employee_type) {
-        conditions.push(sql`e.dl__employee_employment_type = ${employee_type}`);
-      }
-
-      if (department) {
-        conditions.push(sql`e.department = ${department}`);
-      }
-
-      if (remote_work_eligible !== undefined) {
-        conditions.push(sql`e.remote_work_eligible_flag = ${remote_work_eligible}`);
-      }
-
-      if (search) {
-        const searchConditions = [
-          sql`COALESCE(e.name, '') ILIKE ${`%${search}%`}`,
-          sql`COALESCE(e."descr", '') ILIKE ${`%${search}%`}`,
-          sql`COALESCE(e.email, '') ILIKE ${`%${search}%`}`,
-          sql`COALESCE(e.first_name, '') ILIKE ${`%${search}%`}`,
-          sql`COALESCE(e.last_name, '') ILIKE ${`%${search}%`}`
-        ];
-
-        conditions.push(sql`(${sql.join(searchConditions, sql` OR `)})`);
-      }
-
-      // ✅ DEFAULT FILTER: Only show active records (not soft-deleted)
-      // Can be overridden with ?active_flag=false to show inactive records
-      if (!('active_flag' in (request.query as any))) {
-        conditions.push(sql`e.active_flag = true`);
-      }
-
-      // Build queries with conditional JOIN (create-link-edit pattern)
-      let countResult;
-      let employees;
-
-      if (parent_entity_code && parent_entity_instance_id) {
-        // Query WITH JOIN for parent filtering
-        countResult = await db.execute(sql`
-          SELECT COUNT(*) as total
-          FROM app.employee e
-          INNER JOIN app.entity_instance_link eim ON eim.child_entity_id = e.id
-          ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        `);
-
-        employees = await db.execute(sql`
-          SELECT
-            e.id, e.code, e.name, e."descr",
-            COALESCE(e.metadata->'tags', '[]'::jsonb) as tags,
-            e.from_ts, e.to_ts, e.active_flag, e.created_ts, e.updated_ts, e.version,
-            e.email, e.phone, e.mobile, e.first_name, e.last_name,
-            e.address_line1, e.address_line2, e.city, e.province, e.postal_code, e.country,
-            e.dl__employee_employment_type as employee_type, e.department, e.title, e.hire_date, e.termination_date,
-            e.salary_band, e.pay_grade, e.manager__employee_id,
-            e.emergency_contact_name, e.emergency_contact_phone,
-            e.sin, e.birth_date, e.dl__employee_citizenship_status as citizenship, e.dl__employee_security_clearance as security_clearance,
-            e.remote_work_eligible_flag as remote_work_eligible, e.time_zone, e.preferred_language,
-            COALESCE(e.metadata, '{}'::jsonb) as metadata
-          FROM app.employee e
-          INNER JOIN app.entity_instance_link eim ON eim.child_entity_id = e.id
-          ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-          ORDER BY e.name ASC NULLS LAST, e.created_ts DESC
-          LIMIT ${limit} OFFSET ${offset}
-        `);
-      } else {
-        // Query WITHOUT JOIN for normal listing
-        countResult = await db.execute(sql`
-          SELECT COUNT(*) as total
-          FROM app.employee e
-          ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        `);
-
-        employees = await db.execute(sql`
-          SELECT
-            e.id, e.code, e.name, e."descr",
-            COALESCE(e.metadata->'tags', '[]'::jsonb) as tags,
-            e.from_ts, e.to_ts, e.active_flag, e.created_ts, e.updated_ts, e.version,
-            e.email, e.phone, e.mobile, e.first_name, e.last_name,
-            e.address_line1, e.address_line2, e.city, e.province, e.postal_code, e.country,
-            e.dl__employee_employment_type as employee_type, e.department, e.title, e.hire_date, e.termination_date,
-            e.salary_band, e.pay_grade, e.manager__employee_id,
-            e.emergency_contact_name, e.emergency_contact_phone,
-            e.sin, e.birth_date, e.dl__employee_citizenship_status as citizenship, e.dl__employee_security_clearance as security_clearance,
-            e.remote_work_eligible_flag as remote_work_eligible, e.time_zone, e.preferred_language,
-            COALESCE(e.metadata, '{}'::jsonb) as metadata
-          FROM app.employee e
-          ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-          ORDER BY e.name ASC NULLS LAST, e.created_ts DESC
-          LIMIT ${limit} OFFSET ${offset}
-        `);
-      }
-
-      const total = Number(countResult[0]?.total || 0);
-
-      // Ensure JSON fields are properly parsed and filter system columns
-      const filteredData = employees.map(emp => ({
-        ...emp,
-        tags: Array.isArray(emp.tags) ? emp.tags : (emp.tags ? JSON.parse(emp.tags) : []),
-        metadata: emp.metadata || {}
-      }));
-
-      // ✨ Generate component-aware metadata using Backend Formatter Service
-      const response = await generateEntityResponse(ENTITY_CODE, filteredData);
-
-      // ✅ Explicitly return all fields (Fastify strips fields not in schema)
-      return {
-        data: response.data,
-        fields: response.fields,
-        metadata: response.metadata,
-        total,
-        limit,
-        offset};
-    } catch (error) {
-      fastify.log.error('Error fetching employees:', error);
-      console.error('Employee endpoint error details:', error);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
-
-  // Get single employee
-  fastify.get('/api/v1/employee/:id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })}),
-      response: {
-        200: EmployeeWithMetadataSchema,
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
-    const { id } = request.params as { id: string };
-
-    const userId = (request as any).user?.sub;
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    // No RBAC check - allow all authenticated users
-
-    try {
-      const employee = await db.execute(sql`
-        SELECT
-          id, code, name, "descr",
-          from_ts, to_ts, active_flag, created_ts, updated_ts, version,
-          email, phone, mobile, first_name, last_name,
-          address_line1, address_line2, city, province, postal_code, country,
-          dl__employee_employment_type as employee_type, department, title, hire_date, termination_date,
-          salary_band, pay_grade, manager__employee_id,
-          emergency_contact_name, emergency_contact_phone,
-          sin, birth_date, dl__employee_citizenship_status as citizenship, dl__employee_security_clearance as security_clearance,
-          remote_work_eligible_flag as remote_work_eligible, time_zone, preferred_language,
-          COALESCE(metadata, '{}'::jsonb) as metadata
-        FROM app.employee
-        WHERE id = ${id}
-      `);
-
-      fastify.log.info(`Employee query returned ${employee.length} results`);
-      if (employee.length > 0) {
-        fastify.log.info(`Employee data keys: ${Object.keys(employee[0]).join(', ')}`);
-        fastify.log.info(`Employee raw data: ${JSON.stringify(employee[0]).substring(0, 200)}`);
-      }
-
-      if (employee.length === 0) {
-        return reply.status(404).send({ error: 'Employee not found' });
-      }
-
-      // ✨ Generate component-aware metadata using Backend Formatter Service
-      const response = await generateEntityResponse(ENTITY_CODE, employee);
-
-      // ✅ Explicitly return all fields (Fastify strips fields not in schema)
-      return reply.send({
-        data: response.data[0],
-        fields: response.fields,
-        metadata: response.metadata,
-      });
-    } catch (error) {
-      fastify.log.error('Error fetching employee:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
+  createUniversalEntityRoutes(fastify, {
+    entityCode: ENTITY_CODE,
+    tableName: 'employee',
+    tableAlias: 'e',
+    searchFields: ['name', 'descr', 'email', 'first_name', 'last_name', 'code']
   });
 
   // Create employee
@@ -613,287 +365,10 @@ export async function empRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Update employee (PATCH)
-  fastify.patch('/api/v1/employee/:id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })}),
-      body: UpdateEmployeeSchema,
-      response: {
-        200: Type.Any(),
-        400: Type.Object({ error: Type.String() }),
-        401: Type.Object({ error: Type.String() }),
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
-    const userId = (request as any).user?.sub;
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
+  // ════════════════════════════════════════════════════════════════════════════
+  // DELETE ENDPOINT (FACTORY)
+  // ════════════════════════════════════════════════════════════════════════════
 
-    const { id } = request.params as { id: string };
-    const data = request.body as any;
-
-    try {
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
-      // Check: Can user EDIT this employee?
-      // ═══════════════════════════════════════════════════════════════
-      const canEdit = await entityInfra.check_entity_rbac(
-        userId,
-        ENTITY_CODE,
-        id,
-        Permission.EDIT
-      );
-      if (!canEdit) {
-        return reply.status(403).send({ error: 'No permission to edit this employee' });
-      }
-
-      const existing = await db.execute(sql`
-        SELECT id FROM app.employee WHERE id = ${id}
-      `);
-
-      if (existing.length === 0) {
-        return reply.status(404).send({ error: 'Employee not found' });
-      }
-
-      const updateFields = [];
-
-      // Standard fields
-      if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
-      if (data.descr !== undefined) updateFields.push(sql`"descr" = ${data.descr}`);
-      if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
-
-      // Employee identification
-      if (data.email !== undefined) updateFields.push(sql`email = ${data.email}`);
-      if (data.first_name !== undefined) updateFields.push(sql`first_name = ${data.first_name}`);
-      if (data.last_name !== undefined) updateFields.push(sql`last_name = ${data.last_name}`);
-
-      // Contact information
-      if (data.phone !== undefined) updateFields.push(sql`phone = ${data.phone}`);
-      if (data.mobile !== undefined) updateFields.push(sql`mobile = ${data.mobile}`);
-      if (data.emergency_contact_name !== undefined) updateFields.push(sql`emergency_contact_name = ${data.emergency_contact_name}`);
-      if (data.emergency_contact_phone !== undefined) updateFields.push(sql`emergency_contact_phone = ${data.emergency_contact_phone}`);
-
-      // Address information
-      if (data.address_line1 !== undefined) updateFields.push(sql`address_line1 = ${data.address_line1}`);
-      if (data.address_line2 !== undefined) updateFields.push(sql`address_line2 = ${data.address_line2}`);
-      if (data.city !== undefined) updateFields.push(sql`city = ${data.city}`);
-      if (data.province !== undefined) updateFields.push(sql`province = ${data.province}`);
-      if (data.postal_code !== undefined) updateFields.push(sql`postal_code = ${data.postal_code}`);
-      if (data.country !== undefined) updateFields.push(sql`country = ${data.country}`);
-
-      // Employment details
-      if (data.employee_type !== undefined) updateFields.push(sql`dl__employee_employment_type = ${data.employee_type}`);
-      if (data.department !== undefined) updateFields.push(sql`department = ${data.department}`);
-      if (data.title !== undefined) updateFields.push(sql`title = ${data.title}`);
-      if (data.hire_date !== undefined) updateFields.push(sql`hire_date = ${data.hire_date}`);
-      if (data.termination_date !== undefined) updateFields.push(sql`termination_date = ${data.termination_date}`);
-
-      // Compensation and HR
-      if (data.salary_band !== undefined) updateFields.push(sql`salary_band = ${data.salary_band}`);
-      if (data.pay_grade !== undefined) updateFields.push(sql`pay_grade = ${data.pay_grade}`);
-      if (data.manager__employee_id !== undefined) updateFields.push(sql`manager__employee_id = ${data.manager__employee_id}`);
-
-      // Compliance and tracking
-      if (data.sin !== undefined) updateFields.push(sql`sin = ${data.sin}`);
-      if (data.birth_date !== undefined) updateFields.push(sql`birth_date = ${data.birth_date}`);
-      if (data.citizenship !== undefined) updateFields.push(sql`dl__employee_citizenship_status = ${data.citizenship}`);
-      if (data.security_clearance !== undefined) updateFields.push(sql`dl__employee_security_clearance = ${data.security_clearance}`);
-
-      // Work preferences
-      if (data.remote_work_eligible !== undefined) updateFields.push(sql`remote_work_eligible_flag = ${data.remote_work_eligible}`);
-      if (data.time_zone !== undefined) updateFields.push(sql`time_zone = ${data.time_zone}`);
-      if (data.preferred_language !== undefined) updateFields.push(sql`preferred_language = ${data.preferred_language}`);
-
-      // Handle metadata - can be object or JSON string
-      if (data.metadata !== undefined) {
-        const metadataValue = typeof data.metadata === 'string' ? data.metadata : JSON.stringify(data.metadata);
-        updateFields.push(sql`metadata = ${metadataValue}::jsonb`);
-      }
-
-      if (updateFields.length === 0) {
-        return reply.status(400).send({ error: 'No fields to update' });
-      }
-
-      updateFields.push(sql`updated_ts = NOW()`);
-
-      const result = await db.execute(sql`
-        UPDATE app.employee
-        SET ${sql.join(updateFields, sql`, `)}
-        WHERE id = ${id}
-        RETURNING *
-      `);
-
-      if (result.length === 0) {
-        return reply.status(500).send({ error: 'Failed to update employee' });
-      }
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
-      // ═══════════════════════════════════════════════════════════════
-      if (data.name !== undefined || data.code !== undefined) {
-        await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
-          entity_name: data.name,
-          instance_code: data.code
-        });
-      }
-
-      const userPermissions = {
-        canSeePII: true,
-        canSeeFinancial: true,
-        canSeeSystemFields: true};
-
-      return filterUniversalColumns(result[0], userPermissions);
-    } catch (error) {
-      fastify.log.error('Error updating employee:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
-
-  // Update employee (PUT - alias for frontend compatibility)
-  fastify.put('/api/v1/employee/:id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })}),
-      body: UpdateEmployeeSchema,
-      response: {
-        200: Type.Any(),
-        400: Type.Object({ error: Type.String() }),
-        401: Type.Object({ error: Type.String() }),
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
-    const userId = (request as any).user?.sub;
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    const { id } = request.params as { id: string };
-    const data = request.body as any;
-
-    try {
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
-      // Check: Can user EDIT this employee?
-      // ═══════════════════════════════════════════════════════════════
-      const canEdit = await entityInfra.check_entity_rbac(
-        userId,
-        ENTITY_CODE,
-        id,
-        Permission.EDIT
-      );
-      if (!canEdit) {
-        return reply.status(403).send({ error: 'No permission to edit this employee' });
-      }
-
-      const existing = await db.execute(sql`
-        SELECT id FROM app.employee WHERE id = ${id}
-      `);
-
-      if (existing.length === 0) {
-        return reply.status(404).send({ error: 'Employee not found' });
-      }
-
-      const updateFields = [];
-
-      // Standard fields
-      if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
-      if (data.descr !== undefined) updateFields.push(sql`"descr" = ${data.descr}`);
-      if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
-
-      // Employee identification
-      if (data.email !== undefined) updateFields.push(sql`email = ${data.email}`);
-      if (data.first_name !== undefined) updateFields.push(sql`first_name = ${data.first_name}`);
-      if (data.last_name !== undefined) updateFields.push(sql`last_name = ${data.last_name}`);
-
-      // Contact information
-      if (data.phone !== undefined) updateFields.push(sql`phone = ${data.phone}`);
-      if (data.mobile !== undefined) updateFields.push(sql`mobile = ${data.mobile}`);
-      if (data.emergency_contact_name !== undefined) updateFields.push(sql`emergency_contact_name = ${data.emergency_contact_name}`);
-      if (data.emergency_contact_phone !== undefined) updateFields.push(sql`emergency_contact_phone = ${data.emergency_contact_phone}`);
-
-      // Address information
-      if (data.address_line1 !== undefined) updateFields.push(sql`address_line1 = ${data.address_line1}`);
-      if (data.address_line2 !== undefined) updateFields.push(sql`address_line2 = ${data.address_line2}`);
-      if (data.city !== undefined) updateFields.push(sql`city = ${data.city}`);
-      if (data.province !== undefined) updateFields.push(sql`province = ${data.province}`);
-      if (data.postal_code !== undefined) updateFields.push(sql`postal_code = ${data.postal_code}`);
-      if (data.country !== undefined) updateFields.push(sql`country = ${data.country}`);
-
-      // Employment details
-      if (data.employee_type !== undefined) updateFields.push(sql`dl__employee_employment_type = ${data.employee_type}`);
-      if (data.department !== undefined) updateFields.push(sql`department = ${data.department}`);
-      if (data.title !== undefined) updateFields.push(sql`title = ${data.title}`);
-      if (data.hire_date !== undefined) updateFields.push(sql`hire_date = ${data.hire_date}`);
-      if (data.termination_date !== undefined) updateFields.push(sql`termination_date = ${data.termination_date}`);
-
-      // Compensation and HR
-      if (data.salary_band !== undefined) updateFields.push(sql`salary_band = ${data.salary_band}`);
-      if (data.pay_grade !== undefined) updateFields.push(sql`pay_grade = ${data.pay_grade}`);
-      if (data.manager__employee_id !== undefined) updateFields.push(sql`manager__employee_id = ${data.manager__employee_id}`);
-
-      // Compliance and tracking
-      if (data.sin !== undefined) updateFields.push(sql`sin = ${data.sin}`);
-      if (data.birth_date !== undefined) updateFields.push(sql`birth_date = ${data.birth_date}`);
-      if (data.citizenship !== undefined) updateFields.push(sql`dl__employee_citizenship_status = ${data.citizenship}`);
-      if (data.security_clearance !== undefined) updateFields.push(sql`dl__employee_security_clearance = ${data.security_clearance}`);
-
-      // Work preferences
-      if (data.remote_work_eligible !== undefined) updateFields.push(sql`remote_work_eligible_flag = ${data.remote_work_eligible}`);
-      if (data.time_zone !== undefined) updateFields.push(sql`time_zone = ${data.time_zone}`);
-      if (data.preferred_language !== undefined) updateFields.push(sql`preferred_language = ${data.preferred_language}`);
-
-      // Handle metadata - can be object or JSON string
-      if (data.metadata !== undefined) {
-        const metadataValue = typeof data.metadata === 'string' ? data.metadata : JSON.stringify(data.metadata);
-        updateFields.push(sql`metadata = ${metadataValue}::jsonb`);
-      }
-
-      if (updateFields.length === 0) {
-        return reply.status(400).send({ error: 'No fields to update' });
-      }
-
-      updateFields.push(sql`updated_ts = NOW()`);
-
-      const result = await db.execute(sql`
-        UPDATE app.employee 
-        SET ${sql.join(updateFields, sql`, `)}
-        WHERE id = ${id}
-        RETURNING *
-      `);
-
-      if (result.length === 0) {
-        return reply.status(500).send({ error: 'Failed to update employee' });
-      }
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
-      // ═══════════════════════════════════════════════════════════════
-      if (data.name !== undefined || data.code !== undefined) {
-        await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
-          entity_name: data.name,
-          instance_code: data.code
-        });
-      }
-
-      const userPermissions = {
-        canSeePII: true,
-        canSeeFinancial: true,
-        canSeeSystemFields: true};
-
-      return filterUniversalColumns(result[0], userPermissions);
-    } catch (error) {
-      fastify.log.error('Error updating employee:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
-
-  // ============================================================================
-  // DELETE Employee (Soft Delete via Factory)
-  // ============================================================================
   createEntityDeleteEndpoint(fastify, ENTITY_CODE);
 
   // ============================================================================

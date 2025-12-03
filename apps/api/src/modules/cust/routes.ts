@@ -1,24 +1,39 @@
+/**
+ * ============================================================================
+ * CUSTOMER ROUTES MODULE - Universal Entity Pattern with Factory
+ * ============================================================================
+ *
+ * REFACTORED: Uses Universal CRUD Factory for GET (list), GET (single), and UPDATE endpoints.
+ * CREATE endpoint remains custom due to entity-specific validation and auto-generation.
+ *
+ * ENDPOINTS:
+ *   GET    /api/v1/cust              - List customers (FACTORY)
+ *   GET    /api/v1/cust/:id          - Get single customer (FACTORY)
+ *   POST   /api/v1/cust              - Create customer (CUSTOM - auto-generation)
+ *   PATCH  /api/v1/cust/:id          - Update customer (FACTORY)
+ *   PUT    /api/v1/cust/:id          - Update customer alias (FACTORY)
+ *   DELETE /api/v1/cust/:id          - Delete customer (DELETE FACTORY)
+ *   GET    /api/v1/cust/:id/{child}  - Child entities (CHILD FACTORY)
+ *
+ * ============================================================================
+ */
+
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
-import { sql, SQL } from 'drizzle-orm';
-import {
-  getUniversalColumnMetadata,
-  filterUniversalColumns,
-  getColumnsByMetadata,
-  createPaginatedResponse
-} from '../../lib/universal-schema-metadata.js';
+import { sql } from 'drizzle-orm';
+import { filterUniversalColumns } from '../../lib/universal-schema-metadata.js';
 import { transformRequestBody } from '../../lib/data-transformers.js';
-// ✅ Centralized unified data gate - loosely coupled API
+
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
-// ✨ Universal auto-filter builder - zero-config query filtering
-import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
-// ✨ Backend Formatter Service - component-aware metadata generation
-import { generateEntityResponse } from '../../services/backend-formatter.service.js';
-// ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
+
+// ✨ Universal CRUD Factory - generates standardized endpoints
+import { createUniversalEntityRoutes } from '../../lib/universal-crud-factory.js';
+
 // ✅ Delete factory for cascading soft deletes
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+
 // ✅ Child entity factory for parent-child relationships
 import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 
@@ -102,14 +117,6 @@ const CreateCustSchema = Type.Object({
   metadata: Type.Optional(Type.Any()),
   active_flag: Type.Optional(Type.Boolean())});
 
-const UpdateCustSchema = Type.Partial(CreateCustSchema);
-
-// Response schema for metadata-driven endpoints (single entity)
-const CustWithMetadataSchema = Type.Object({
-  data: CustSchema,
-  fields: Type.Array(Type.String()),  // Field names list
-  metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
-});
 
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
@@ -121,190 +128,27 @@ export async function custRoutes(fastify: FastifyInstance) {
   // ✨ Initialize Entity Infrastructure Service
   const entityInfra = getEntityInfrastructure(db);
 
-  // Test endpoint
-  fastify.get('/api/v1/cust/test', async (request, reply) => {
-    try {
-      const result = await db.execute(sql`SELECT id, name FROM app.cust LIMIT 2`);
-      return { success: true, count: result.length, data: result };
-    } catch (error) {
-      return { error: String(error) };
-    }
-  });
+  // ════════════════════════════════════════════════════════════════════════════
+  // UNIVERSAL CRUD ENDPOINTS (FACTORY)
+  // ════════════════════════════════════════════════════════════════════════════
+  // Creates:
+  // - GET /api/v1/cust         - List with RBAC, pagination, auto-filters, metadata
+  // - GET /api/v1/cust/:id     - Single entity with RBAC, ref_data_entityInstance
+  // - PATCH /api/v1/cust/:id   - Update with RBAC, registry sync
+  // - PUT /api/v1/cust/:id     - Update alias
+  //
+  // Features:
+  // - content=metadata support for metadata-only responses
+  // - ref_data_entityInstance for entity reference resolution
+  // - Universal auto-filters from query parameters
+  // - Parent-child filtering via entity_instance_link
+  // ════════════════════════════════════════════════════════════════════════════
 
-  // List customers with filtering
-  fastify.get('/api/v1/cust', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      querystring: Type.Object({
-        active: Type.Optional(Type.Boolean()),
-        search: Type.Optional(Type.String()),
-        cust_type: Type.Optional(Type.String()),
-        biz_id: Type.Optional(Type.String()),
-        page: Type.Optional(Type.Number({ minimum: 1 })),
-        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
-        offset: Type.Optional(Type.Number({ minimum: 0 }))}),
-      response: {
-        200: Type.Object({
-          data: Type.Array(CustSchema),
-          fields: Type.Array(Type.String()),
-          metadata: Type.Any(),
-          total: Type.Number(),
-          limit: Type.Number(),
-          offset: Type.Number()
-        }),
-        401: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() })
-      }}}, async (request, reply) => {
-    const { active, search, cust_type, biz_id, page, limit = 20, offset } = request.query as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    // Calculate offset from page if page is provided
-    const actualOffset = page !== undefined ? (page - 1) * limit : (offset || 0);
-
-
-    try {
-      const conditions: SQL[] = [];
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC filtering
-      // Only return customers user has VIEW permission for
-      // ═══════════════════════════════════════════════════════════════
-      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(
-        userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
-      );
-      conditions.push(rbacWhereClause);
-
-      if (active !== undefined) {
-        conditions.push(sql`${sql.raw(TABLE_ALIAS)}.active_flag = ${active}`);
-      }
-
-      if (search) {
-        conditions.push(sql`(
-          ${sql.raw(TABLE_ALIAS)}.name ILIKE ${`%${search}%`} OR
-          ${sql.raw(TABLE_ALIAS)}."descr" ILIKE ${`%${search}%`} OR
-          ${sql.raw(TABLE_ALIAS)}.cust_number ILIKE ${`%${search}%`} OR
-          ${sql.raw(TABLE_ALIAS)}.primary_contact_name ILIKE ${`%${search}%`} OR
-          ${sql.raw(TABLE_ALIAS)}.primary_email ILIKE ${`%${search}%`}
-        )`);
-      }
-
-      // ✅ DEFAULT FILTER: Only show active records (not soft-deleted)
-      // Can be overridden with ?active=false to show inactive records
-      if (!('active' in (request.query as any))) {
-        conditions.push(sql`${sql.raw(TABLE_ALIAS)}.active_flag = true`);
-      }
-
-      // Build WHERE clause
-      const whereClause = conditions.length > 0
-        ? sql`WHERE ${sql.join(conditions, sql` AND `)}`
-        : sql``;
-
-      const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total
-        FROM app.cust ${sql.raw(TABLE_ALIAS)}
-        ${whereClause}
-      `);
-      const total = Number(countResult[0]?.total || 0);
-
-      const customers = await db.execute(sql`
-        SELECT
-          ${sql.raw(TABLE_ALIAS)}.id, ${sql.raw(TABLE_ALIAS)}.code, ${sql.raw(TABLE_ALIAS)}.name, ${sql.raw(TABLE_ALIAS)}."descr", ${sql.raw(TABLE_ALIAS)}.metadata, ${sql.raw(TABLE_ALIAS)}.from_ts, ${sql.raw(TABLE_ALIAS)}.to_ts, ${sql.raw(TABLE_ALIAS)}.active_flag, ${sql.raw(TABLE_ALIAS)}.created_ts, ${sql.raw(TABLE_ALIAS)}.updated_ts, ${sql.raw(TABLE_ALIAS)}.version,
-          ${sql.raw(TABLE_ALIAS)}.cust_number, ${sql.raw(TABLE_ALIAS)}.cust_type, ${sql.raw(TABLE_ALIAS)}.cust_status,
-          ${sql.raw(TABLE_ALIAS)}.primary_address, ${sql.raw(TABLE_ALIAS)}.city, ${sql.raw(TABLE_ALIAS)}.province, ${sql.raw(TABLE_ALIAS)}.postal_code, ${sql.raw(TABLE_ALIAS)}.country, ${sql.raw(TABLE_ALIAS)}.geo_coordinates,
-          ${sql.raw(TABLE_ALIAS)}.business_legal_name, ${sql.raw(TABLE_ALIAS)}.business_type, ${sql.raw(TABLE_ALIAS)}.gst_hst_number, ${sql.raw(TABLE_ALIAS)}.business_number,
-          ${sql.raw(TABLE_ALIAS)}.dl__customer_opportunity_funnel, ${sql.raw(TABLE_ALIAS)}.dl__customer_industry_sector, ${sql.raw(TABLE_ALIAS)}.dl__customer_acquisition_channel, ${sql.raw(TABLE_ALIAS)}.dl__customer_tier,
-          ${sql.raw(TABLE_ALIAS)}.primary_contact_name, ${sql.raw(TABLE_ALIAS)}.primary_email, ${sql.raw(TABLE_ALIAS)}.primary_phone,
-          ${sql.raw(TABLE_ALIAS)}.secondary_contact_name, ${sql.raw(TABLE_ALIAS)}.secondary_email, ${sql.raw(TABLE_ALIAS)}.secondary_phone,
-          ${sql.raw(TABLE_ALIAS)}.entities
-        FROM app.cust ${sql.raw(TABLE_ALIAS)}
-        ${whereClause}
-        ORDER BY ${sql.raw(TABLE_ALIAS)}.name ASC NULLS LAST, ${sql.raw(TABLE_ALIAS)}.created_ts DESC
-        LIMIT ${limit} OFFSET ${actualOffset}
-      `);
-
-      // ✨ Generate component-aware metadata using Backend Formatter Service
-      const response = await generateEntityResponse(ENTITY_CODE, customers);
-
-      // ✅ Explicitly return all fields (Fastify strips fields not in schema)
-      return {
-        data: response.data,
-        fields: response.fields,
-        metadata: response.metadata,
-        total,
-        limit,
-        offset: actualOffset
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching customers:', error);
-      console.error('CUST API ERROR:', error);
-      return reply.status(500).send({ error: 'Internal server error', details: error instanceof Error ? error.message : String(error) });
-    }
-  });
-
-  // Get single customer
-  fastify.get('/api/v1/cust/:id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })}),
-      response: {
-        200: CustWithMetadataSchema,
-        401: Type.Object({ error: Type.String() }),
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    try {
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC check
-      // Check: Can user VIEW this customer?
-      // ═══════════════════════════════════════════════════════════════
-      const canView = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.VIEW);
-      if (!canView) {
-        return reply.status(403).send({ error: 'No permission to view this customer' });
-      }
-
-      const customer = await db.execute(sql`
-        SELECT
-          c.id, c.code, c.name, c."descr", c.metadata, c.from_ts, c.to_ts, c.active_flag, c.created_ts, c.updated_ts, c.version,
-          c.cust_number, c.cust_type, c.cust_status,
-          c.primary_address, c.city, c.province, c.postal_code, c.country, c.geo_coordinates,
-          c.business_legal_name, c.business_type, c.gst_hst_number, c.business_number,
-          c.dl__customer_opportunity_funnel, c.dl__customer_industry_sector, c.dl__customer_acquisition_channel, c.dl__customer_tier,
-          c.primary_contact_name, c.primary_email, c.primary_phone,
-          c.secondary_contact_name, c.secondary_email, c.secondary_phone,
-          c.entities
-        FROM app.cust c
-        WHERE c.id = ${id}
-      `);
-
-      if (customer.length === 0) {
-        return reply.status(404).send({ error: 'Customer not found' });
-      }
-
-      // ✨ Generate component-aware metadata using Backend Formatter Service
-      const response = await generateEntityResponse(ENTITY_CODE, customer);
-
-      // ✅ Explicitly return all fields (Fastify strips fields not in schema)
-      return {
-        data: response.data[0],
-        fields: response.fields,
-        metadata: response.metadata,
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching customer:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
+  createUniversalEntityRoutes(fastify, {
+    entityCode: ENTITY_CODE,
+    tableName: 'cust',
+    tableAlias: 'e',
+    searchFields: ['name', 'descr', 'cust_number', 'primary_contact_name', 'primary_email', 'code']
   });
 
   // Get customer hierarchy (parent and children)
@@ -549,270 +393,10 @@ export async function custRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Update customer (PATCH)
-  fastify.patch('/api/v1/cust/:id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })}),
-      body: UpdateCustSchema,
-      response: {
-        200: CustSchema,
-        400: Type.Object({ error: Type.String() }),
-        401: Type.Object({ error: Type.String() }),
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
-    const userId = (request as any).user?.sub;
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
+  // ════════════════════════════════════════════════════════════════════════════
+  // DELETE ENDPOINT (FACTORY)
+  // ════════════════════════════════════════════════════════════════════════════
 
-    const { id } = request.params as { id: string };
-    // Transform request data (tags string → array, etc.)
-    const data = transformRequestBody(request.body as any);
-
-    try {
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
-      // Check: Can user EDIT this customer?
-      // ═══════════════════════════════════════════════════════════════
-      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.EDIT);
-      if (!canEdit) {
-        return reply.status(403).send({ error: 'No permission to edit this customer' });
-      }
-
-      const existing = await db.execute(sql`
-        SELECT id FROM app.cust WHERE id = ${id}
-      `);
-
-      if (existing.length === 0) {
-        return reply.status(404).send({ error: 'Customer not found' });
-      }
-
-      // Check for unique customer number on update
-      if (data.cust_number !== undefined) {
-        const existingNumber = await db.execute(sql`
-          SELECT id FROM app.cust
-          WHERE cust_number = ${data.cust_number}
-          AND id != ${id}
-          AND active_flag = true
-        `);
-        if (existingNumber.length > 0) {
-          return reply.status(400).send({ error: 'Customer with this customer number already exists' });
-        }
-      }
-
-      const updateFields = [];
-
-      if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
-      if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
-      if (data.descr !== undefined) updateFields.push(sql`"descr" = ${data.descr}`);
-      if (data.cust_number !== undefined) updateFields.push(sql`cust_number = ${data.cust_number}`);
-      if (data.cust_type !== undefined) updateFields.push(sql`cust_type = ${data.cust_type}`);
-      if (data.cust_status !== undefined) updateFields.push(sql`cust_status = ${data.cust_status}`);
-      // Address and location
-      if (data.primary_address !== undefined) updateFields.push(sql`primary_address = ${data.primary_address}`);
-      if (data.city !== undefined) updateFields.push(sql`city = ${data.city}`);
-      if (data.province !== undefined) updateFields.push(sql`province = ${data.province}`);
-      if (data.postal_code !== undefined) updateFields.push(sql`postal_code = ${data.postal_code}`);
-      if (data.country !== undefined) updateFields.push(sql`country = ${data.country}`);
-      if (data.geo_coordinates !== undefined) updateFields.push(sql`geo_coordinates = ${JSON.stringify(data.geo_coordinates)}::jsonb`);
-      // Business information
-      if (data.business_legal_name !== undefined) updateFields.push(sql`business_legal_name = ${data.business_legal_name}`);
-      if (data.business_type !== undefined) updateFields.push(sql`business_type = ${data.business_type}`);
-      if (data.gst_hst_number !== undefined) updateFields.push(sql`gst_hst_number = ${data.gst_hst_number}`);
-      if (data.business_number !== undefined) updateFields.push(sql`business_number = ${data.business_number}`);
-      // Sales and marketing
-      if (data.dl__customer_opportunity_funnel !== undefined) updateFields.push(sql`dl__customer_opportunity_funnel = ${data.dl__customer_opportunity_funnel}`);
-      if (data.dl__industry_sector !== undefined) updateFields.push(sql`dl__industry_sector = ${data.dl__industry_sector}`);
-      if (data.dl__acquisition_channel !== undefined) updateFields.push(sql`dl__acquisition_channel = ${data.dl__acquisition_channel}`);
-      if (data.dl__customer_tier !== undefined) updateFields.push(sql`dl__customer_tier = ${data.dl__customer_tier}`);
-      // Contact information
-      if (data.primary_contact_name !== undefined) updateFields.push(sql`primary_contact_name = ${data.primary_contact_name}`);
-      if (data.primary_email !== undefined) updateFields.push(sql`primary_email = ${data.primary_email}`);
-      if (data.primary_phone !== undefined) updateFields.push(sql`primary_phone = ${data.primary_phone}`);
-      if (data.secondary_contact_name !== undefined) updateFields.push(sql`secondary_contact_name = ${data.secondary_contact_name}`);
-      if (data.secondary_email !== undefined) updateFields.push(sql`secondary_email = ${data.secondary_email}`);
-      if (data.secondary_phone !== undefined) updateFields.push(sql`secondary_phone = ${data.secondary_phone}`);
-      // Entity configuration
-      if (data.entities !== undefined) updateFields.push(sql`entities = ${data.entities}::text[]`);
-      if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
-      if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
-
-      if (updateFields.length === 0) {
-        return reply.status(400).send({ error: 'No fields to update' });
-      }
-
-      updateFields.push(sql`updated_ts = NOW()`);
-
-      // ✅ Route owns UPDATE query
-      const result = await db.execute(sql`
-        UPDATE app.cust
-        SET ${sql.join(updateFields, sql`, `)}
-        WHERE id = ${id}
-        RETURNING *
-      `);
-
-      if (result.length === 0) {
-        return reply.status(500).send({ error: 'Failed to update customer' });
-      }
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
-      // ═══════════════════════════════════════════════════════════════
-      if (data.name !== undefined || data.code !== undefined) {
-        await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
-          entity_name: data.name,
-          instance_code: data.code
-        });
-      }
-
-      const userPermissions = {
-        canSeePII: true,
-        canSeeFinancial: true,
-        canSeeSystemFields: true};
-
-      return filterUniversalColumns(result[0], userPermissions);
-    } catch (error) {
-      fastify.log.error('Error updating customer:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
-
-  // Update customer (PUT - alias for frontend compatibility)
-  fastify.put('/api/v1/cust/:id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })}),
-      body: UpdateCustSchema,
-      response: {
-        200: CustSchema,
-        400: Type.Object({ error: Type.String() }),
-        401: Type.Object({ error: Type.String() }),
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
-    const userId = (request as any).user?.sub;
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    const { id } = request.params as { id: string };
-    // Transform request data (tags string → array, etc.)
-    const data = transformRequestBody(request.body as any);
-
-    try {
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
-      // Check: Can user EDIT this customer?
-      // ═══════════════════════════════════════════════════════════════
-      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.EDIT);
-      if (!canEdit) {
-        return reply.status(403).send({ error: 'No permission to edit this customer' });
-      }
-
-      const existing = await db.execute(sql`
-        SELECT id FROM app.cust WHERE id = ${id}
-      `);
-
-      if (existing.length === 0) {
-        return reply.status(404).send({ error: 'Customer not found' });
-      }
-
-      // Check for unique customer number on update
-      if (data.cust_number !== undefined) {
-        const existingNumber = await db.execute(sql`
-          SELECT id FROM app.cust
-          WHERE cust_number = ${data.cust_number}
-          AND id != ${id}
-          AND active_flag = true
-        `);
-        if (existingNumber.length > 0) {
-          return reply.status(400).send({ error: 'Customer with this customer number already exists' });
-        }
-      }
-
-      const updateFields = [];
-
-      if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
-      if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
-      if (data.descr !== undefined) updateFields.push(sql`"descr" = ${data.descr}`);
-      if (data.cust_number !== undefined) updateFields.push(sql`cust_number = ${data.cust_number}`);
-      if (data.cust_type !== undefined) updateFields.push(sql`cust_type = ${data.cust_type}`);
-      if (data.cust_status !== undefined) updateFields.push(sql`cust_status = ${data.cust_status}`);
-      // Address and location
-      if (data.primary_address !== undefined) updateFields.push(sql`primary_address = ${data.primary_address}`);
-      if (data.city !== undefined) updateFields.push(sql`city = ${data.city}`);
-      if (data.province !== undefined) updateFields.push(sql`province = ${data.province}`);
-      if (data.postal_code !== undefined) updateFields.push(sql`postal_code = ${data.postal_code}`);
-      if (data.country !== undefined) updateFields.push(sql`country = ${data.country}`);
-      if (data.geo_coordinates !== undefined) updateFields.push(sql`geo_coordinates = ${JSON.stringify(data.geo_coordinates)}::jsonb`);
-      // Business information
-      if (data.business_legal_name !== undefined) updateFields.push(sql`business_legal_name = ${data.business_legal_name}`);
-      if (data.business_type !== undefined) updateFields.push(sql`business_type = ${data.business_type}`);
-      if (data.gst_hst_number !== undefined) updateFields.push(sql`gst_hst_number = ${data.gst_hst_number}`);
-      if (data.business_number !== undefined) updateFields.push(sql`business_number = ${data.business_number}`);
-      // Sales and marketing
-      if (data.dl__customer_opportunity_funnel !== undefined) updateFields.push(sql`dl__customer_opportunity_funnel = ${data.dl__customer_opportunity_funnel}`);
-      if (data.dl__industry_sector !== undefined) updateFields.push(sql`dl__industry_sector = ${data.dl__industry_sector}`);
-      if (data.dl__acquisition_channel !== undefined) updateFields.push(sql`dl__acquisition_channel = ${data.dl__acquisition_channel}`);
-      if (data.dl__customer_tier !== undefined) updateFields.push(sql`dl__customer_tier = ${data.dl__customer_tier}`);
-      // Contact information
-      if (data.primary_contact_name !== undefined) updateFields.push(sql`primary_contact_name = ${data.primary_contact_name}`);
-      if (data.primary_email !== undefined) updateFields.push(sql`primary_email = ${data.primary_email}`);
-      if (data.primary_phone !== undefined) updateFields.push(sql`primary_phone = ${data.primary_phone}`);
-      if (data.secondary_contact_name !== undefined) updateFields.push(sql`secondary_contact_name = ${data.secondary_contact_name}`);
-      if (data.secondary_email !== undefined) updateFields.push(sql`secondary_email = ${data.secondary_email}`);
-      if (data.secondary_phone !== undefined) updateFields.push(sql`secondary_phone = ${data.secondary_phone}`);
-      // Entity configuration
-      if (data.entities !== undefined) updateFields.push(sql`entities = ${data.entities}::text[]`);
-      if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
-      if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
-
-      if (updateFields.length === 0) {
-        return reply.status(400).send({ error: 'No fields to update' });
-      }
-
-      updateFields.push(sql`updated_ts = NOW()`);
-
-      const result = await db.execute(sql`
-        UPDATE app.cust
-        SET ${sql.join(updateFields, sql`, `)}
-        WHERE id = ${id}
-        RETURNING *
-      `);
-
-      if (result.length === 0) {
-        return reply.status(500).send({ error: 'Failed to update customer' });
-      }
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
-      // ═══════════════════════════════════════════════════════════════
-      if (data.name !== undefined || data.code !== undefined) {
-        await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
-          entity_name: data.name,
-          instance_code: data.code
-        });
-      }
-
-      const userPermissions = {
-        canSeePII: true,
-        canSeeFinancial: true,
-        canSeeSystemFields: true};
-
-      return filterUniversalColumns(result[0], userPermissions);
-    } catch (error) {
-      fastify.log.error('Error updating customer:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
-
-  // ============================================================================
-  // Delete Customer (Soft Delete via Factory)
-  // ============================================================================
   createEntityDeleteEndpoint(fastify, ENTITY_CODE);
 
   // ============================================================================
