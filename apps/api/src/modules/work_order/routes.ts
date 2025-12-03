@@ -1,183 +1,61 @@
+/**
+ * ============================================================================
+ * WORK_ORDER ROUTES MODULE - Universal CRUD Factory Pattern
+ * ============================================================================
+ *
+ * ENDPOINTS (via Universal CRUD Factory):
+ * - GET    /api/v1/work_order           - List with pagination, RBAC, auto-filters
+ * - GET    /api/v1/work_order/:id       - Get single with RBAC, metadata
+ * - PATCH  /api/v1/work_order/:id       - Update with RBAC, registry sync
+ * - PUT    /api/v1/work_order/:id       - Update (alias for PATCH)
+ *
+ * CUSTOM ENDPOINTS:
+ * - POST   /api/v1/work_order           - Create with custom validation
+ * - DELETE /api/v1/work_order/:id       - Soft delete via factory
+ * - GET    /api/v1/work_order/:id/{child} - Child entity endpoints via factory
+ *
+ * ============================================================================
+ */
+
 import type { FastifyInstance } from 'fastify';
-import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
-import { sql, SQL } from 'drizzle-orm';
-import { filterUniversalColumns, createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
+import { sql } from 'drizzle-orm';
+import { createUniversalEntityRoutes } from '../../lib/universal-crud-factory.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
-// ✅ Centralized unified data gate - loosely coupled API
-// ✨ Entity Infrastructure Service - centralized infrastructure operations
-import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
-// ✨ Universal auto-filter builder - zero-config query filtering
-import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
-// ✅ Child entity factory for parent-child relationships
 import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
-
-const WorkOrderSchema = Type.Object({
-  id: Type.String(),
-  code: Type.String(),
-  name: Type.String(),
-  descr: Type.Optional(Type.String()),
-  metadata: Type.Optional(Type.Any()),
-  dl__work_order_status: Type.Optional(Type.String()),
-  scheduled_date: Type.Optional(Type.String()),
-  started_ts: Type.Optional(Type.String()),
-  completed_ts: Type.Optional(Type.String()),
-  labor_hours: Type.Optional(Type.Number()),
-  labor_cost_amt: Type.Optional(Type.Number()),
-  materials_cost_amt: Type.Optional(Type.Number()),
-  total_cost_amt: Type.Optional(Type.Number()),
-  customer_name: Type.Optional(Type.String()),
-  customer_signature_flag: Type.Optional(Type.Boolean()),
-  active_flag: Type.Optional(Type.Boolean()),
-  created_ts: Type.Optional(Type.String()),
-  updated_ts: Type.Optional(Type.String()),
-});
-
-const CreateWorkOrderSchema = Type.Partial(Type.Object({
-  code: Type.String({ minLength: 1 }),
-  name: Type.String({ minLength: 1 }),
-  descr: Type.String(),
-  metadata: Type.Any(),
-  dl__work_order_status: Type.String(),
-  scheduled_date: Type.String({ format: 'date' }),
-  scheduled_start_time: Type.String(),
-  scheduled_end_time: Type.String(),
-  assigned_technician_name: Type.String(),
-  labor_hours: Type.Number(),
-  labor_cost_amt: Type.Number(),
-  materials_cost_amt: Type.Number(),
-  total_cost_amt: Type.Number(),
-  customer_name: Type.String(),
-  customer_email: Type.String(),
-  customer_phone: Type.String(),
-  service_address_line1: Type.String(),
-  service_city: Type.String(),
-  service_postal_code: Type.String(),
-  customer_signature_flag: Type.Boolean(),
-  customer_satisfaction_rating: Type.Number(),
-  completion_notes: Type.String(),
-  internal_notes: Type.String(),
-}));
-
-const UpdateWorkOrderSchema = Type.Partial(CreateWorkOrderSchema);
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
 const ENTITY_CODE = 'work_order';
-const TABLE_ALIAS = 'w';
 
 export async function workOrderRoutes(fastify: FastifyInstance) {
-  // ✨ Initialize Entity Infrastructure Service
+  // ═══════════════════════════════════════════════════════════════
+  // ✨ UNIVERSAL CRUD FACTORY - Generates LIST, GET, PATCH, PUT endpoints
+  // ═══════════════════════════════════════════════════════════════
+  createUniversalEntityRoutes(fastify, {
+    entityCode: ENTITY_CODE,
+    tableName: 'fact_work_order',
+    tableAlias: 'w',
+    searchFields: ['name', 'descr', 'code', 'customer_name'],
+    defaultOrderBy: 'scheduled_date DESC NULLS LAST, created_ts DESC'
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // ✅ ENTITY INFRASTRUCTURE SERVICE - Initialize service instance
+  // ═══════════════════════════════════════════════════════════════
   const entityInfra = getEntityInfrastructure(db);
 
-  // List work orders
-  fastify.get('/api/v1/work_order', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      querystring: Type.Object({
-        active: Type.Optional(Type.Boolean()),
-        search: Type.Optional(Type.String()),
-        dl__work_order_status: Type.Optional(Type.String()),
-        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
-        offset: Type.Optional(Type.Number({ minimum: 0 })),
-      }),
-      response: {
-        200: Type.Object({
-          data: Type.Array(WorkOrderSchema),
-          total: Type.Number(),
-          limit: Type.Number(),
-          offset: Type.Number(),
-        }),
-      },
-    },
-  }, async (request, reply) => {
-    const { active, search, dl__work_order_status, limit = 50, offset = 0 } = request.query as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    try {
-      // Build WHERE conditions array
-      const conditions: SQL[] = [];
-
-      // ✨ UNIFIED RBAC - Replace ~9 lines of manual SQL with single service call
-      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
-      );
-      conditions.push(rbacWhereClause);
-
-      // ✨ UNIVERSAL AUTO-FILTER SYSTEM
-      // Automatically builds filters from ANY query parameter based on field naming conventions
-      // Supports: ?active=true, ?dl__work_order_status=X, ?search=keyword, etc.
-      const autoFilters = buildAutoFilters(TABLE_ALIAS, request.query as any, {
-        searchFields: ['name', 'descr', 'code', 'customer_name']
-      });
-      conditions.push(...autoFilters);
-
-      const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total
-        FROM app.fact_work_order w
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-      `);
-      const total = Number(countResult[0]?.total || 0);
-
-      const workOrders = await db.execute(sql`
-        SELECT *
-        FROM app.fact_work_order w
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY w.scheduled_date DESC NULLS LAST, w.created_ts DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `);
-
-      return createPaginatedResponse(workOrders, total, limit, offset);
-    } catch (error) {
-      fastify.log.error('Error fetching work orders:', error);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
-
-  // Get single work order
-  fastify.get('/api/v1/work_order/:id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
-    },
-  }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    // ✨ UNIFIED RBAC - Replace ~9 lines of manual SQL with single service call
-    const canView = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.VIEW);
-    if (!canView) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
-    }
-
-    try {
-      const workOrder = await db.execute(sql`
-        SELECT * FROM app.fact_work_order WHERE id = ${id}
-      `);
-
-      if (workOrder.length === 0) {
-        return reply.status(404).send({ error: 'Work order not found' });
-      }
-
-      return workOrder[0];
-    } catch (error) {
-      fastify.log.error('Error fetching work order:', error);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
-
-  // Create work order
+  // ============================================================================
+  // Create Work Order (Custom - entity-specific validation)
+  // ============================================================================
   fastify.post('/api/v1/work_order', {
     preHandler: [fastify.authenticate],
-    schema: { body: CreateWorkOrderSchema },
+    schema: {
+      tags: ['work_order'],
+      summary: 'Create work order'
+    }
   }, async (request, reply) => {
     const data = request.body as any;
     const userId = (request as any).user?.sub;
@@ -186,16 +64,25 @@ export async function workOrderRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
+    // Default values
     if (!data.name) data.name = 'Untitled';
     if (!data.code) data.code = `WO-${Date.now()}`;
 
-    // ✨ UNIFIED RBAC - Replace ~9 lines of manual SQL with single service call
-    const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE);
-    if (!canCreate) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
-    }
-
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ RBAC CHECK - Can user CREATE work orders?
+      // ═══════════════════════════════════════════════════════════════
+      const canCreate = await entityInfra.check_entity_rbac(
+        userId,
+        ENTITY_CODE,
+        ALL_ENTITIES_ID,
+        Permission.CREATE
+      );
+
+      if (!canCreate) {
+        return reply.status(403).send({ error: 'Insufficient permissions' });
+      }
+
       const result = await db.execute(sql`
         INSERT INTO app.fact_work_order (
           code, name, descr, metadata,
@@ -224,6 +111,7 @@ export async function workOrderRoutes(fastify: FastifyInstance) {
 
       const newWorkOrder = result[0] as any;
 
+      // Register in entity_instance
       await db.execute(sql`
         INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code)
         VALUES ('work_order', ${newWorkOrder.id}::uuid, ${newWorkOrder.name}, ${newWorkOrder.code})
@@ -231,84 +119,20 @@ export async function workOrderRoutes(fastify: FastifyInstance) {
         SET entity_name = EXCLUDED.entity_name, entity_code = EXCLUDED.entity_code, updated_ts = NOW()
       `);
 
-      return reply.status(201).send(filterUniversalColumns(newWorkOrder, {
-        canSeePII: true, canSeeFinancial: true, canSeeSystemFields: true, canSeeSafetyInfo: true
-      }));
+      return reply.status(201).send(newWorkOrder);
     } catch (error) {
       fastify.log.error('Error creating work order:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Update work order
-  fastify.put('/api/v1/work_order/:id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
-      body: UpdateWorkOrderSchema,
-    },
-  }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const data = request.body as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    // ✨ UNIFIED RBAC - Replace ~9 lines of manual SQL with single service call
-    const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.EDIT);
-    if (!canEdit) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
-    }
-
-    try {
-      const existing = await db.execute(sql`SELECT id FROM app.fact_work_order WHERE id = ${id}`);
-      if (existing.length === 0) {
-        return reply.status(404).send({ error: 'Work order not found' });
-      }
-
-      const updateFields = [];
-      if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
-      if (data.descr !== undefined) updateFields.push(sql`descr = ${data.descr}`);
-      if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
-      if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
-      if (data.dl__work_order_status !== undefined) updateFields.push(sql`dl__work_order_status = ${data.dl__work_order_status}`);
-      if (data.scheduled_date !== undefined) updateFields.push(sql`scheduled_date = ${data.scheduled_date}`);
-      if (data.labor_hours !== undefined) updateFields.push(sql`labor_hours = ${data.labor_hours}`);
-      if (data.labor_cost_amt !== undefined) updateFields.push(sql`labor_cost_amt = ${data.labor_cost_amt}`);
-      if (data.materials_cost_amt !== undefined) updateFields.push(sql`materials_cost_amt = ${data.materials_cost_amt}`);
-      if (data.total_cost_amt !== undefined) updateFields.push(sql`total_cost_amt = ${data.total_cost_amt}`);
-      if (data.customer_name !== undefined) updateFields.push(sql`customer_name = ${data.customer_name}`);
-      if (data.customer_signature_flag !== undefined) updateFields.push(sql`customer_signature_flag = ${data.customer_signature_flag}`);
-      if (data.customer_satisfaction_rating !== undefined) updateFields.push(sql`customer_satisfaction_rating = ${data.customer_satisfaction_rating}`);
-      if (data.completion_notes !== undefined) updateFields.push(sql`completion_notes = ${data.completion_notes}`);
-
-      if (updateFields.length === 0) {
-        return reply.status(400).send({ error: 'No fields to update' });
-      }
-
-      updateFields.push(sql`updated_ts = NOW()`);
-
-      const result = await db.execute(sql`
-        UPDATE app.fact_work_order
-        SET ${sql.join(updateFields, sql`, `)}
-        WHERE id = ${id}
-        RETURNING *
-      `);
-
-      return filterUniversalColumns(result[0], {
-        canSeePII: true, canSeeFinancial: true, canSeeSystemFields: true, canSeeSafetyInfo: true
-      });
-    } catch (error) {
-      fastify.log.error('Error updating work order:', error);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
-
-  // ✨ Factory-generated DELETE endpoint
+  // ============================================================================
+  // Delete Work Order (Soft Delete via Factory)
+  // ============================================================================
   createEntityDeleteEndpoint(fastify, ENTITY_CODE);
 
-  // ✨ Factory-generated child entity endpoints
+  // ============================================================================
+  // Child Entity Endpoints (via Factory)
+  // ============================================================================
   await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 }
