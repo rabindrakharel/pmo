@@ -125,17 +125,18 @@ import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../serv
 import { createUniversalEntityRoutes } from '../../lib/universal-entity-crud-factory.js';
 
 // Schema based on actual d_business table structure
+// NOTE: All optional fields allow null (permissive input philosophy)
 const BizSchema = Type.Object({
   id: Type.String(),
   code: Type.String(),
   name: Type.String(),
-  descr: Type.Optional(Type.String()),
+  descr: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   metadata: Type.Optional(Type.Any()),
-  office_id: Type.Optional(Type.String()),
-  current_headcount: Type.Optional(Type.Number()),
-  operational_status: Type.Optional(Type.String()),
+  office_id: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  current_headcount: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
+  operational_status: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   from_ts: Type.String(),
-  to_ts: Type.Optional(Type.String()),
+  to_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   active_flag: Type.Boolean(),
   created_ts: Type.String(),
   updated_ts: Type.String(),
@@ -145,12 +146,12 @@ const BizSchema = Type.Object({
 const CreateBizSchema = Type.Object({
   code: Type.String({ minLength: 1 }),
   name: Type.String({ minLength: 1 }),
-  descr: Type.Optional(Type.String()),
+  descr: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   metadata: Type.Optional(Type.Any()),
-  office_id: Type.Optional(Type.String({ format: 'uuid' })),
-  current_headcount: Type.Optional(Type.Number()),
-  operational_status: Type.Optional(Type.String()),
-  active_flag: Type.Optional(Type.Boolean()),
+  office_id: Type.Optional(Type.Union([Type.String({ format: 'uuid' }), Type.Null()])),
+  current_headcount: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
+  operational_status: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  active_flag: Type.Optional(Type.Union([Type.Boolean(), Type.Null()])),
 });
 
 // ============================================================================

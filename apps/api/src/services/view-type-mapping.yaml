@@ -1684,6 +1684,24 @@ fieldBusinessTypes:
     dagView:
       <<: *hidden
 
+  # SCD2 temporal validity fields (from_ts, to_ts) - hidden everywhere
+  systemInternal_SCD2_ts:
+    dtype: timestamp
+    entityListOfInstancesTable:
+      <<: *hidden
+      renderType: timestamp
+    entityInstanceFormContainer:
+      <<: *hidden
+      renderType: timestamp
+    kanbanView:
+      <<: *hidden
+    gridView:
+      <<: *hidden
+    calendarView:
+      <<: *hidden
+    dagView:
+      <<: *hidden
+
   systemInternal_flag:
     dtype: bool
     entityListOfInstancesTable:

@@ -1535,12 +1535,42 @@ setData(fresh);
 
 ## 11. Special Entity Pages
 
-### 11.1 Wiki Pages
+### 11.1 Data Entity Containers
+
+The platform uses a **Main Entity + Data Entity** pattern where activity logs, comments, and content versions are stored in separate tables. Data entity containers render within the main entity's detail page.
+
+See: [MAIN_ENTITY_DATA_ENTITY_PATTERN.md](../design_pattern/MAIN_ENTITY_DATA_ENTITY_PATTERN.md)
+
+**Key Characteristics:**
+- **Loosely coupled** - Container receives `parentId` prop, handles own data fetching
+- **Parent RBAC** - Permission checks against parent entity, not data entity
+- **Append-only** - No soft delete, preserves complete audit trail
+- **Nested API** - `/api/v1/{parent}/:parentId/data` pattern
+
+```tsx
+// EntitySpecificInstancePage.tsx
+{entityCode === 'task' && (
+  <TaskDataContainer
+    taskId={id!}
+    projectId={data.project_id}
+    onUpdatePosted={() => refetch()}
+  />
+)}
+```
+
+**Current Implementations:**
+| Main Entity | Data Entity | Container | Purpose |
+|-------------|-------------|-----------|---------|
+| task | d_task_data | TaskDataContainer | Comments, status changes, time logs |
+| wiki | wiki_data | (planned) | Content versions |
+| form | form_data | FormDataTable | Submissions |
+
+### 11.2 Wiki Pages
 
 **WikiViewPage:** `/wiki/:id` - Read-only wiki display with cover image
 **WikiEditorPage:** `/wiki/:id/edit` or `/wiki/new` - Notion-style block editor
 
-### 11.2 Form Pages
+### 11.3 Form Pages
 
 **FormBuilderPage:** `/form/:id/edit` - Drag-and-drop form schema editor
 **FormViewPage:** `/form/:id` - Render form for submission
@@ -1799,6 +1829,7 @@ apps/web/src/
 
 | Document | Purpose |
 |----------|---------|
+| [MAIN_ENTITY_DATA_ENTITY_PATTERN.md](../design_pattern/MAIN_ENTITY_DATA_ENTITY_PATTERN.md) | Main + Data entity architecture |
 | [NORMALIZED_CACHE_ARCHITECTURE.md](../caching-frontend/NORMALIZED_CACHE_ARCHITECTURE.md) | Cache system details |
 | [STATE_MANAGEMENT.md](../state_management/STATE_MANAGEMENT.md) | TanStack + Dexie state |
 | [entity-component-metadata.service.md](../services/entity-component-metadata.service.md) | Backend metadata generation |

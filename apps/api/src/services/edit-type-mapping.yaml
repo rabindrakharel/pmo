@@ -1326,19 +1326,38 @@ fieldBusinessTypes:
   systemInternal_ts:
     dtype: timestamp
     entityListOfInstancesTable:
-      inputType: readonly
+      inputType: datetime-local
       behavior: { editable: false, filterable: false, sortable: false, visible: false }
     entityInstanceFormContainer:
-      inputType: readonly
-      behavior: { editable: false, visible: false }
+      inputType: datetime-local
+      behavior: { editable: false }
     kanbanView:
-      inputType: readonly
+      inputType: datetime-local
       behavior: { editable: false, visible: false }
     calendarView:
-      inputType: readonly
+      inputType: datetime-local
       behavior: { editable: false, visible: false }
     dagView:
-      inputType: readonly
+      inputType: datetime-local
+      behavior: { editable: false, visible: false }
+
+  # SCD2 temporal validity fields (from_ts, to_ts) - hidden and not editable everywhere
+  systemInternal_SCD2_ts:
+    dtype: timestamp
+    entityListOfInstancesTable:
+      inputType: datetime-local
+      behavior: { editable: false, filterable: false, sortable: false, visible: false }
+    entityInstanceFormContainer:
+      inputType: datetime-local
+      behavior: { editable: false, visible: false }
+    kanbanView:
+      inputType: datetime-local
+      behavior: { editable: false, visible: false }
+    calendarView:
+      inputType: datetime-local
+      behavior: { editable: false, visible: false }
+    dagView:
+      inputType: datetime-local
       behavior: { editable: false, visible: false }
 
   systemInternal_flag:

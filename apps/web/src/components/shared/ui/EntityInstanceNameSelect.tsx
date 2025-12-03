@@ -233,7 +233,7 @@ export function EntityInstanceNameSelect({
 
       {/* Dropdown menu */}
       {isOpen && !disabled && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-64 overflow-hidden">
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-[400px] overflow-hidden">
           {/* Search input */}
           <div className="p-2 border-b border-gray-200 bg-gray-50">
             <div className="relative">
@@ -251,7 +251,7 @@ export function EntityInstanceNameSelect({
           </div>
 
           {/* Options list */}
-          <div ref={optionsRef} className="max-h-48 overflow-y-auto" role="listbox">
+          <div ref={optionsRef} className="max-h-80 overflow-y-auto" role="listbox">
             {filteredOptions.length === 0 ? (
               <div className="px-3 py-3 text-sm text-gray-500 text-center">
                 No {entityCode} found

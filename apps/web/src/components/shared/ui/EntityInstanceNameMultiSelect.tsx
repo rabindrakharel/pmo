@@ -186,7 +186,7 @@ export function EntityInstanceNameMultiSelect({
 
       {/* Dropdown menu */}
       {isOpen && !disabled && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-72 overflow-hidden">
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-[400px] overflow-hidden">
           {/* Search input */}
           <div className="p-2 border-b border-gray-200 bg-gray-50">
             <div className="relative">
@@ -203,7 +203,7 @@ export function EntityInstanceNameMultiSelect({
           </div>
 
           {/* Options list */}
-          <div className="max-h-56 overflow-y-auto">
+          <div className="max-h-72 overflow-y-auto">
             {isLoading ? (
               <div className="px-3 py-4 text-center">
                 <InlineSpinner size="md" />

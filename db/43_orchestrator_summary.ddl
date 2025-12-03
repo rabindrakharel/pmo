@@ -1,10 +1,17 @@
--- Orchestrator Conversation Summary Table
+-- =====================================================
+-- ORCHESTRATOR CONVERSATION SUMMARY TABLE
 -- LLM-generated summaries to maintain context with small token models
 -- Part of the LLM Orchestration Framework
+-- =====================================================
+--
+-- RELATIONSHIPS (NO FOREIGN KEYS - Platform Pattern):
+-- • session_id → orchestrator_session (application-level integrity)
+--
+-- =====================================================
 
 CREATE TABLE IF NOT EXISTS app.orchestrator_summary (
-  id uuid DEFAULT gen_random_uuid(),
-  session_id uuid) ON DELETE CASCADE,
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id uuid NOT NULL,  -- Parent session reference (no FK - platform pattern)
 
   -- Summary details
   summary_type varchar(50), -- 'full', 'incremental', 'node_completion'

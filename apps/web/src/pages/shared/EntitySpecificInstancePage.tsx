@@ -1023,7 +1023,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
             <div className="flex-1 min-w-0 px-2">
               {/* Compact metadata row using DRY components */}
               <EntityMetadataRow className="overflow-x-auto">
-                {/* Name */}
+                {/* Name - v12.3.0: Supports inline editing via long-press */}
                 <EntityMetadataField
                   label={`${config.displayName} name`}
                   value={isEditing ? (editedData.name || editedData.title || '') : (data.name || data.title || `${config.displayName} Details`)}
@@ -1034,11 +1034,15 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                   onChange={handleFieldChange}
                   placeholder="Enter name..."
                   inputWidth="16rem"
+                  // v12.3.0: Inline editing support
+                  inlineEditable={!isEditing}
+                  onInlineSave={handleInlineSave}
+                  editable={formEditType?.name?.editable !== false}
                 />
 
                 <EntityMetadataSeparator show={!!(data.code || id)} />
 
-                {/* Code */}
+                {/* Code - v12.3.0: Supports inline editing via long-press */}
                 {(data.code || isEditing) && (
                   <EntityMetadataField
                     label="code"
@@ -1050,12 +1054,16 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                     onChange={handleFieldChange}
                     placeholder="CODE"
                     inputWidth="8rem"
+                    // v12.3.0: Inline editing support
+                    inlineEditable={!isEditing}
+                    onInlineSave={handleInlineSave}
+                    editable={formEditType?.code?.editable !== false}
                   />
                 )}
 
                 <EntityMetadataSeparator show={!!(data.code && id)} />
 
-                {/* ID */}
+                {/* ID - always readonly (system field) */}
                 {id && (
                   <EntityMetadataField
                     label="id"
@@ -1065,6 +1073,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                     copiedField={copiedField}
                     onCopy={handleCopy}
                     className="text-dark-700"
+                    editable={false}
                   />
                 )}
 

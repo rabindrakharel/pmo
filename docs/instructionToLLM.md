@@ -1,3 +1,20 @@
+Modern uiux design principles around these concepts below that are production grade and robust, industry pioneers using it. 
+Brainstorm and provide next generation, innovative design pattern here. 
+Don't fix my code but propose a design, solution so I may review and approve. 
+-----------------------------------------------------------------------------------------------------------------------
+
+
+Check the below logs for above interaction, and spot any any issues and do RCA (Root cause analysis).
+Keep analysing until you can be confident of the root cause, Then go on to propose the solution. 
+Don't make the changes, but do proper issue identification, RCA and suggest resolution. Also mention why this issue occured? 
+How can we prevent in the future? Where else might we have such issue? Write them. 
+
+Reference documents: 
+\docs/services/entity-component-metadata.service.md
+docs/services/entity-infrastructure.service.md\
+------------------------------------------------------------------------------------------------------------------------
+
+
 Login page → Login
 Sidebar → Click "Office"
 EntityListOfInstancesPage (Office list with data table) → EntityListOfInstancesTable component
@@ -51,14 +68,6 @@ Color	Meaning
 What's the industry standard robust engineered fix, not band aid solution?
 
 
-Check the below logs for above interaction, and spot any any issues and do RCA (Root cause analysis).
-Keep analysing until you can be confident of the root cause, Then go on to propose the solution. 
-Don't make the changes, but do proper issue identification, RCA and suggest resolution. Also mention why this issue occured? 
-How can we prevent in the future? Where else might we have such issue? Write them. 
-
-Reference documents: 
-\docs/services/entity-component-metadata.service.md
-docs/services/entity-infrastructure.service.md\
 
 
 

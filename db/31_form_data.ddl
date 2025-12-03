@@ -35,11 +35,17 @@
 --   Frontend DataTableInput component extracts keys matching pattern:
 --   Object.keys(submissionData).filter(k => k.startsWith('tableName__'))
 --
+--
+-- RELATIONSHIPS (NO FOREIGN KEYS - Platform Pattern):
+-- • Parent: form (via form_id) - application-level integrity
+-- • submitted_by__employee_id → employee.id (soft reference)
+-- • approved_by__employee_id → employee.id (soft reference)
+--
 -- =====================================================
 
 CREATE TABLE app.form_data (
-    id uuid DEFAULT gen_random_uuid(),
-    form_id uuid) ON DELETE CASCADE,
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    form_id uuid NOT NULL,  -- Parent form reference (no FK - platform pattern)
 
     -- Submission data (JSONB with flattened structure - see documentation above)
     submission_data jsonb DEFAULT '{}'::jsonb,

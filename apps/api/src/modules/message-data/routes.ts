@@ -45,30 +45,31 @@ const MessageDataResponseSchema = Type.Object({
 });
 
 // Create/Send message schema
+// NOTE: All optional fields allow null (permissive input philosophy)
 const CreateMessageDataSchema = Type.Object({
   message_schema_id: Type.String(),
   content_data: Type.Object({
     recipient: Type.String(),
-    recipientName: Type.Optional(Type.String()),
+    recipientName: Type.Optional(Type.Union([Type.String(), Type.Null()])),
     variables: Type.Optional(Type.Any()),
   }),
-  recipient_email: Type.Optional(Type.String()),
-  recipient_phone: Type.Optional(Type.String()),
-  recipient_device_token: Type.Optional(Type.String()),
-  recipient_name: Type.Optional(Type.String()),
-  recipient_entity_id: Type.Optional(Type.String()),
-  scheduled_ts: Type.Optional(Type.String()),
+  recipient_email: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  recipient_phone: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  recipient_device_token: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  recipient_name: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  recipient_entity_id: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  scheduled_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   metadata: Type.Optional(Type.Any()),
 });
 
 const UpdateMessageDataSchema = Type.Object({
-  status: Type.Optional(Type.String()),
+  status: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   content_data: Type.Optional(Type.Any()),
-  sent_ts: Type.Optional(Type.String()),
-  delivered_ts: Type.Optional(Type.String()),
-  error_code: Type.Optional(Type.String()),
-  error_message: Type.Optional(Type.String()),
-  retry_count: Type.Optional(Type.Number()),
+  sent_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  delivered_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  error_code: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  error_message: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  retry_count: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
   metadata: Type.Optional(Type.Any()),
 });
 

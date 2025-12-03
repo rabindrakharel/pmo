@@ -242,8 +242,8 @@ patterns:
   - { pattern: "deleted_ts", exact: true, fieldBusinessType: systemInternal_ts }
   - { pattern: "archived_ts", exact: true, fieldBusinessType: systemInternal_ts }
 
-  - { pattern: "from_ts", exact: true, fieldBusinessType: systemInternal_ts }
-  - { pattern: "to_ts", exact: true, fieldBusinessType: systemInternal_ts }
+  - { pattern: "from_ts", exact: true, fieldBusinessType: systemInternal_SCD2_ts }
+  - { pattern: "to_ts", exact: true, fieldBusinessType: systemInternal_SCD2_ts }
   - { pattern: "*_ts", exact: false, fieldBusinessType: timestamp }
   - { pattern: "*_at", exact: false, fieldBusinessType: timestamp }
   - { pattern: "*_datetime", exact: false, fieldBusinessType: timestamp }

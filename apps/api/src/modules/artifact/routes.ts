@@ -62,20 +62,20 @@ const ArtifactSchema = Type.Object({
   artifact_type: Type.Optional(Type.String()),
   attachment: Type.Optional(Type.String()),
   attachment_format: Type.Optional(Type.String()),
-  attachment_size_bytes: Type.Optional(Type.Number()),
-  entity_type: Type.Optional(Type.String()),
-  entity_id: Type.Optional(Type.String()),
-  attachment_object_bucket: Type.Optional(Type.String()),
-  attachment_object_key: Type.Optional(Type.String()),
-  visibility: Type.Optional(Type.String()),
-  security_classification: Type.Optional(Type.String()),
-  latest_version_flag: Type.Optional(Type.Boolean()),
+  attachment_size_bytes: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
+  entity_type: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  entity_id: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  attachment_object_bucket: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  attachment_object_key: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  visibility: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  security_classification: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  latest_version_flag: Type.Optional(Type.Union([Type.Boolean(), Type.Null()])),
   active_flag: Type.Boolean(),
   from_ts: Type.String(),
-  to_ts: Type.Optional(Type.String()),
+  to_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   created_ts: Type.String(),
   updated_ts: Type.String(),
-  version: Type.Optional(Type.Number())});
+  version: Type.Optional(Type.Union([Type.Number(), Type.Null()]))});
 
 const CreateArtifactSchema = Type.Object({
   // Required fields (will be auto-generated if not provided)
@@ -87,34 +87,34 @@ const CreateArtifactSchema = Type.Object({
   metadata: Type.Optional(Type.Union([Type.Object({}), Type.String(), Type.Any()])),
   attr: Type.Optional(Type.Union([Type.Object({}), Type.String(), Type.Any()])),
 
-  // Classification
-  artifact_type: Type.Optional(Type.String()),
-  attachment: Type.Optional(Type.String()),
-  attachment_format: Type.Optional(Type.String()),
-  attachment_size_bytes: Type.Optional(Type.Number()),
+  // Classification (all optional fields allow null - permissive input philosophy)
+  artifact_type: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  attachment: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  attachment_format: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  attachment_size_bytes: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
 
   // S3/Storage
-  attachment_object_bucket: Type.Optional(Type.String()),
-  attachment_object_key: Type.Optional(Type.String()),
+  attachment_object_bucket: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  attachment_object_key: Type.Optional(Type.Union([Type.String(), Type.Null()])),
 
   // Access control
-  visibility: Type.Optional(Type.String()), // public, internal, restricted, private
-  security_classification: Type.Optional(Type.String()), // general, confidential, restricted
+  visibility: Type.Optional(Type.Union([Type.String(), Type.Null()])), // public, internal, restricted, private
+  security_classification: Type.Optional(Type.Union([Type.String(), Type.Null()])), // general, confidential, restricted
 
   // Entity relationship
-  entity_type: Type.Optional(Type.String()),
-  entity_id: Type.Optional(Type.String()),
-  primary_entity_type: Type.Optional(Type.String()),
-  primary_entity_id: Type.Optional(Type.String()),
+  entity_type: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  entity_id: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  primary_entity_type: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  primary_entity_id: Type.Optional(Type.Union([Type.String(), Type.Null()])),
 
   // Versioning
-  parent__artifact_id: Type.Optional(Type.String()),
-  latest_version_flag: Type.Optional(Type.Boolean()),
-  version: Type.Optional(Type.Number()),
+  parent__artifact_id: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  latest_version_flag: Type.Optional(Type.Union([Type.Boolean(), Type.Null()])),
+  version: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
 
   // Status
-  active_flag: Type.Optional(Type.Boolean()),
-  active: Type.Optional(Type.Boolean())});
+  active_flag: Type.Optional(Type.Union([Type.Boolean(), Type.Null()])),
+  active: Type.Optional(Type.Union([Type.Boolean(), Type.Null()]))});
 
 const UpdateArtifactSchema = Type.Partial(CreateArtifactSchema);
 
@@ -822,15 +822,15 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         id: Type.String({ format: 'uuid' })}),
       body: Type.Object({
         fileName: Type.String(),
-        contentType: Type.Optional(Type.String()),
-        fileSize: Type.Optional(Type.Number()),
-        attachment_format: Type.Optional(Type.String()),
-        attachment_size_bytes: Type.Optional(Type.Number()),
-        attachment_object_key: Type.Optional(Type.String()), // Pre-uploaded object key from frontend
-        descr: Type.Optional(Type.String()),
-        visibility: Type.Optional(Type.String()),
-        security_classification: Type.Optional(Type.String()),
-        artifact_type: Type.Optional(Type.String())}),
+        contentType: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+        fileSize: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
+        attachment_format: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+        attachment_size_bytes: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
+        attachment_object_key: Type.Optional(Type.Union([Type.String(), Type.Null()])), // Pre-uploaded object key from frontend
+        descr: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+        visibility: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+        security_classification: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+        artifact_type: Type.Optional(Type.Union([Type.String(), Type.Null()])),}),
       response: {
         200: Type.Object({
           oldArtifact: Type.Any(),

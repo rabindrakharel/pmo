@@ -1,6 +1,6 @@
 # DAG Visualizer Component
 
-**Version:** 12.2.0 | **Library:** ReactFlow + dagre | **Location:** `apps/web/src/components/workflow/DAGVisualizer.tsx`
+**Version:** 12.3.0 | **Library:** ReactFlow + dagre | **Location:** `apps/web/src/components/workflow/DAGVisualizer.tsx`
 
 > **Note:** As of v12.2.0, DAGVisualizer is registered in both **ViewComponentRegistry** and **EditComponentRegistry**. It is resolved automatically by FieldRenderer when `vizContainer.view='DAGVisualizer'` or `renderType='component'` with `component='DAGVisualizer'`.
 
@@ -419,15 +419,42 @@ const NODE_WIDTH = 120;   // Node width for layout calculation
 const NODE_HEIGHT = 40;   // Node height for layout calculation
 ```
 
+### Dynamic Container Height (v12.3.0)
+
+The container height is calculated dynamically based on the graph dimensions to ensure **uniform node sizing** regardless of the number of nodes:
+
+```typescript
+// Calculate container height based on graph dimensions
+const graphHeight = useMemo(() => {
+  if (nodes.length === 0) return 80;
+
+  const positions = nodes.map(n => n.position);
+  const minY = Math.min(...positions.map(p => p.y));
+  const maxY = Math.max(...positions.map(p => p.y));
+
+  return maxY - minY + NODE_HEIGHT;
+}, [nodes]);
+
+// Fixed zoom level (1.0 = actual size) + padding
+const PADDING = 40;
+const containerHeight = Math.max(80, graphHeight + PADDING);
+```
+
+**Key Behavior:**
+- **Few nodes** → smaller container, nodes stay same size
+- **Many nodes** → taller container, nodes stay same size
+- **Minimum height** of 80px ensures container isn't too small
+- **Fixed zoom (1.0)** prevents nodes from scaling to fill container
+
 ### ReactFlow Settings
 
 ```typescript
 <ReactFlow
   fitView                           // Auto-fit graph to container
   fitViewOptions={{
-    padding: 0.15,                  // Padding around graph
-    minZoom: 0.3,                   // Allow zoom out to fit all nodes
-    maxZoom: 1.5,                   // Max zoom level
+    padding: 0.1,                   // Padding around graph
+    minZoom: 1,                     // Fixed zoom - no scaling down
+    maxZoom: 1,                     // Fixed zoom - no scaling up
     includeHiddenNodes: true,       // Include all nodes in fit calculation
   }}
   nodesDraggable={false}            // Disable node dragging
@@ -664,9 +691,15 @@ const { options } = useDatalabel(lookupField);          // ✅ TanStack Query ho
 
 ---
 
-**Last Updated:** 2025-12-02 | **Version:** 12.2.0 | **Status:** Production Ready
+**Last Updated:** 2025-12-03 | **Version:** 12.3.0 | **Status:** Production Ready
 
 **Recent Updates:**
+- v12.3.0 (2025-12-03):
+  - **Uniform node sizing**: Fixed zoom level (1.0) ensures nodes are always the same size
+  - **Dynamic container height**: Container height calculated from graph dimensions
+  - Few nodes → smaller container; Many nodes → taller container
+  - Minimum height of 80px with 40px padding
+  - Added "Dynamic Container Height" documentation section
 - v12.2.0 (2025-12-02):
   - Registered in ViewComponentRegistry and EditComponentRegistry
   - FieldRenderer integration - automatic component resolution

@@ -12,18 +12,19 @@ import { createEntityDeleteEndpoint } from '../../lib/universal-entity-crud-fact
 import { getEntityInfrastructure, Permission } from '../../services/entity-infrastructure.service.js';
 
 // Business Hierarchy Schema (3-level: Corporate → Division → Department)
+// NOTE: All optional fields allow null (permissive input philosophy)
 const BusinessHierarchySchema = Type.Object({
   id: Type.String(),
   code: Type.String(),
   name: Type.String(),
-  descr: Type.Optional(Type.String()),
+  descr: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   metadata: Type.Optional(Type.Any()),
-  parent_id: Type.Optional(Type.String()),
+  parent_id: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   dl__business_hierarchy_level: Type.String(),
-  manager__employee_id: Type.Optional(Type.String()),
-  budget_allocated_amt: Type.Optional(Type.Number()),
+  manager__employee_id: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  budget_allocated_amt: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
   from_ts: Type.String(),
-  to_ts: Type.Optional(Type.String()),
+  to_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   active_flag: Type.Boolean(),
   created_ts: Type.String(),
   updated_ts: Type.String(),
@@ -33,13 +34,13 @@ const BusinessHierarchySchema = Type.Object({
 const CreateBusinessHierarchySchema = Type.Object({
   code: Type.String({ minLength: 1 }),
   name: Type.String({ minLength: 1 }),
-  descr: Type.Optional(Type.String()),
+  descr: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   metadata: Type.Optional(Type.Any()),
-  parent_id: Type.Optional(Type.String()),
+  parent_id: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   dl__business_hierarchy_level: Type.String({ minLength: 1 }),
-  manager__employee_id: Type.Optional(Type.String()),
-  budget_allocated_amt: Type.Optional(Type.Number()),
-  active_flag: Type.Optional(Type.Boolean()),
+  manager__employee_id: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  budget_allocated_amt: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
+  active_flag: Type.Optional(Type.Union([Type.Boolean(), Type.Null()])),
 });
 
 const UpdateBusinessHierarchySchema = Type.Partial(CreateBusinessHierarchySchema);

@@ -1,10 +1,17 @@
--- Orchestrator Agent Log Table
+-- =====================================================
+-- ORCHESTRATOR AGENT LOG TABLE
 -- Audit trail of all agent actions (Orchestrator, Worker, Evaluator, Critic)
 -- Part of the LLM Orchestration Framework
+-- =====================================================
+--
+-- RELATIONSHIPS (NO FOREIGN KEYS - Platform Pattern):
+-- • session_id → orchestrator_session (application-level integrity)
+--
+-- =====================================================
 
 CREATE TABLE IF NOT EXISTS app.orchestrator_agent_log (
-  id uuid DEFAULT gen_random_uuid(),
-  session_id uuid) ON DELETE CASCADE,
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id uuid NOT NULL,  -- Parent session reference (no FK - platform pattern)
 
   -- Agent info
   agent_role varchar(50), -- 'authenticator', 'orchestrator', 'worker', 'evaluator', 'critic'

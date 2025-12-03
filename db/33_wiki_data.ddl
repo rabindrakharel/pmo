@@ -2,10 +2,16 @@
 -- WIKI DATA (wiki_data) - DATA TABLE
 -- Wiki content with markdown/HTML and change tracking
 -- =====================================================
+--
+-- RELATIONSHIPS (NO FOREIGN KEYS - Platform Pattern):
+-- • Parent: wiki (via wiki_id) - application-level integrity
+-- • updated_by__employee_id → employee.id (soft reference)
+--
+-- =====================================================
 
 CREATE TABLE app.wiki_data (
-    id uuid DEFAULT gen_random_uuid(),
-    wiki_id uuid REFERENCES app.wiki(id) ON DELETE CASCADE,
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    wiki_id uuid NOT NULL,  -- Parent wiki reference (no FK - platform pattern)
 
     -- Content storage
     content_markdown text,

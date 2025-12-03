@@ -31,21 +31,22 @@ const MessageSchemaResponseSchema = Type.Object({
 });
 
 // Create schema
+// NOTE: All optional fields allow null (permissive input philosophy)
 const CreateMessageSchemaSchema = Type.Object({
   name: Type.String({ minLength: 1 }),
   message_delivery_method: Type.String({ enum: ['EMAIL', 'SMS', 'PUSH'] }),
-  subject: Type.Optional(Type.String()),
-  code: Type.Optional(Type.String()),
-  descr: Type.Optional(Type.String()),
-  status: Type.Optional(Type.String()),
+  subject: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  code: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  descr: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  status: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   template_schema: Type.Optional(Type.Any()),
-  preview_text: Type.Optional(Type.String()),
-  from_name: Type.Optional(Type.String()),
-  from_email: Type.Optional(Type.String()),
-  reply_to_email: Type.Optional(Type.String()),
-  sms_sender_id: Type.Optional(Type.String()),
-  push_priority: Type.Optional(Type.String()),
-  push_ttl: Type.Optional(Type.Number()),
+  preview_text: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  from_name: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  from_email: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  reply_to_email: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  sms_sender_id: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  push_priority: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  push_ttl: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
   metadata: Type.Optional(Type.Any()),
 });
 

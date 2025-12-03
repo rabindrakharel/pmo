@@ -2,6 +2,9 @@
  * Multi-Agent Orchestrator Extension
  * Adds circuit breaker, agent execution tracking, and checkpointing
  * Dependencies: 30_orchestrator.ddl
+ *
+ * RELATIONSHIPS (NO FOREIGN KEYS - Platform Pattern):
+ * • session_id → orchestrator_session (application-level integrity)
  */
 
 -- ============================================================================
@@ -10,8 +13,8 @@
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS app.orchestrator_agent_execution (
-  id uuid DEFAULT uuid_generate_v4(),
-  session_id uuid) ON DELETE CASCADE,
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_id uuid NOT NULL,  -- Parent session reference (no FK - platform pattern)
   agent_type text, -- 'planner', 'worker', 'critic', 'summarizer', 'orchestrator'
   execution_order int, -- Sequential order within session
 
@@ -33,8 +36,6 @@ CREATE TABLE IF NOT EXISTS app.orchestrator_agent_execution (
   -- Timestamps
   created_ts timestamptz DEFAULT now(),
   completed_ts timestamptz
-
-  -- Indexes
 );
 
 
@@ -48,8 +49,8 @@ COMMENT ON COLUMN app.orchestrator_agent_execution.decision IS 'Planner agent de
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS app.orchestrator_circuit_breaker (
-  id uuid DEFAULT uuid_generate_v4(),
-  session_id uuid) ON DELETE CASCADE,
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_id uuid NOT NULL,  -- Parent session reference (no FK - platform pattern)
   agent_type text,
 
   -- Failure tracking
@@ -68,7 +69,6 @@ CREATE TABLE IF NOT EXISTS app.orchestrator_circuit_breaker (
 
   created_ts timestamptz DEFAULT now(),
   updated_ts timestamptz DEFAULT now()
-
 );
 
 
@@ -81,8 +81,8 @@ COMMENT ON COLUMN app.orchestrator_circuit_breaker.circuit_state IS 'closed=norm
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS app.orchestrator_checkpoint (
-  id uuid DEFAULT uuid_generate_v4(),
-  session_id uuid) ON DELETE CASCADE,
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_id uuid NOT NULL,  -- Parent session reference (no FK - platform pattern)
 
   -- Checkpoint identification
   checkpoint_name text,
@@ -136,13 +136,13 @@ BEGIN
       ADD COLUMN current_retry_count int DEFAULT 0;
   END IF;
 
-  -- Checkpoint reference
+  -- Checkpoint reference (no FK)
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                  WHERE table_schema = 'app'
                  AND table_name = 'orchestrator_session'
                  AND column_name = 'last_checkpoint_id') THEN
     ALTER TABLE app.orchestrator_session
-      ADD COLUMN last_checkpoint_id uuid);
+      ADD COLUMN last_checkpoint_id uuid;
   END IF;
 
   -- Failure mode tracking

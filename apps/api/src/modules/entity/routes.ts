@@ -28,11 +28,12 @@ function normalizeEntityType(entityCode: string): string {
   return entityCode;
 }
 
+// NOTE: All optional fields allow null (permissive input philosophy)
 const EntityTypeMetadataSchema = Type.Object({
   code: Type.String(),
   name: Type.String(),
   ui_label: Type.String(),
-  ui_icon: Type.Optional(Type.String()),
+  ui_icon: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   child_entity_codes: Type.Array(Type.String()), // Simple array of entity codes
   child_entities: Type.Optional(Type.Array(Type.Object({
     entity: Type.String(),
@@ -83,12 +84,12 @@ export async function entityRoutes(fastify: FastifyInstance) {
             code: Type.String(),
             name: Type.String(),
             ui_label: Type.String(),
-            ui_icon: Type.Optional(Type.String()),
-            db_table: Type.Optional(Type.String()),
-            db_model_type: Type.Optional(Type.String()),
+            ui_icon: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+            db_table: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+            db_model_type: Type.Optional(Type.Union([Type.String(), Type.Null()])),
             child_entity_codes: Type.Array(Type.String()),
             display_order: Type.Number(),
-            domain_code: Type.Optional(Type.String()),
+            domain_code: Type.Optional(Type.Union([Type.String(), Type.Null()])),
             column_metadata: Type.Optional(Type.Array(Type.Any())),
             active_flag: Type.Boolean(),
           })),
@@ -180,8 +181,8 @@ export async function entityRoutes(fastify: FastifyInstance) {
             entity_instance_id: Type.String(),
             entity_instance_name: Type.String(),
             code: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-            order_id: Type.Optional(Type.Number()),
-            updated_ts: Type.Optional(Type.String()),
+            order_id: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
+            updated_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
           })),
           syncedAt: Type.Number(),
           hasMore: Type.Boolean(),
@@ -286,7 +287,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
             child_entity_code: Type.String(),
             child_entity_instance_id: Type.String(),
             relationship_type: Type.String(),
-            updated_ts: Type.Optional(Type.String()),
+            updated_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
           })),
           syncedAt: Type.Number(),
           hasMore: Type.Boolean(),
@@ -372,10 +373,10 @@ export async function entityRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        entity_code: Type.Optional(Type.String())
+        entity_code: Type.Optional(Type.Union([Type.String(), Type.Null()]))
       }),
       querystring: Type.Object({
-        include_inactive: Type.Optional(Type.Boolean())
+        include_inactive: Type.Optional(Type.Union([Type.Boolean(), Type.Null()]))
       }),
       response: {
         200: Type.Union([
@@ -639,8 +640,8 @@ export async function entityRoutes(fastify: FastifyInstance) {
         code: Type.String(),
         name: Type.String(),
         ui_label: Type.String(),
-        ui_icon: Type.Optional(Type.String()),
-        display_order: Type.Optional(Type.Number()),
+        ui_icon: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+        display_order: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
       }),
       response: {
         200: Type.Object({
@@ -717,11 +718,11 @@ export async function entityRoutes(fastify: FastifyInstance) {
         code: Type.String()
       }),
       body: Type.Object({
-        name: Type.Optional(Type.String()),
-        ui_label: Type.Optional(Type.String()),
-        ui_icon: Type.Optional(Type.String()),
-        display_order: Type.Optional(Type.Number()),
-        active_flag: Type.Optional(Type.Boolean())
+        name: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+        ui_label: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+        ui_icon: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+        display_order: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
+        active_flag: Type.Optional(Type.Union([Type.Boolean(), Type.Null()]))
       }),
       response: {
         200: Type.Object({
@@ -878,10 +879,10 @@ export async function entityRoutes(fastify: FastifyInstance) {
       }),
       body: Type.Object({
         code: Type.String(),
-        name: Type.Optional(Type.String()),
-        ui_label: Type.Optional(Type.String()),
-        ui_icon: Type.Optional(Type.String()),
-        display_order: Type.Optional(Type.Number()),
+        name: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+        ui_label: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+        ui_icon: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+        display_order: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
         columns: Type.Array(Type.Object({
           id: Type.String(),
           column_name: Type.String(),
@@ -905,7 +906,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
             code: Type.String(),
             name: Type.String(),
             ui_label: Type.String(),
-            ui_icon: Type.Optional(Type.String()),
+            ui_icon: Type.Optional(Type.Union([Type.String(), Type.Null()])),
             display_order: Type.Number(),
             columns: Type.Array(Type.Any())
           })
@@ -1029,7 +1030,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
               code: Type.String(),
               name: Type.String(),
               ui_label: Type.String(),
-              ui_icon: Type.Optional(Type.String()),
+              ui_icon: Type.Optional(Type.Union([Type.String(), Type.Null()])),
               domain: Type.String(),
               column_metadata: Type.Array(Type.Any()),
               data_labels: Type.Array(Type.String()),
@@ -1206,17 +1207,18 @@ export async function entityRoutes(fastify: FastifyInstance) {
             title: Type.String(),
             dataType: Type.String(),
             visible: Type.Boolean(),
-            width: Type.Optional(Type.String()),
+            width: Type.Optional(Type.Union([Type.String(), Type.Null()])),
             align: Type.Optional(Type.Union([
               Type.Literal('left'),
               Type.Literal('center'),
-              Type.Literal('right')
+              Type.Literal('right'),
+              Type.Null()
             ])),
             format: Type.Object({
               type: Type.String(),
-              settingsDatalabel: Type.Optional(Type.String()),
-              entityCode: Type.Optional(Type.String()),
-              dateFormat: Type.Optional(Type.String())
+              settingsDatalabel: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+              entityCode: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+              dateFormat: Type.Optional(Type.Union([Type.String(), Type.Null()]))
             }),
             editable: Type.Boolean(),
             editType: Type.String(),

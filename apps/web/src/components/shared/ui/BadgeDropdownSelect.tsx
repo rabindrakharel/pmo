@@ -69,7 +69,7 @@ export function BadgeDropdownSelect({
       const updatePosition = () => {
         if (buttonRef.current) {
           const rect = buttonRef.current.getBoundingClientRect();
-          const maxDropdownHeight = 240; // max-h-60 = 240px
+          const maxDropdownHeight = 400; // Show at least 10 items (40px each)
           const viewportHeight = window.innerHeight;
           const spaceBelow = viewportHeight - rect.bottom - 20; // 20px buffer
           const spaceAbove = rect.top - 20; // 20px buffer
@@ -172,7 +172,7 @@ export function BadgeDropdownSelect({
             top: `${dropdownPosition.top}px`,
             left: `${dropdownPosition.left}px`,
             width: `${dropdownPosition.width}px`,
-            maxHeight: '240px',
+            maxHeight: '400px',
             zIndex: 9999,
             boxShadow: dropdownPosition.openUpward
               ? '0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06)'

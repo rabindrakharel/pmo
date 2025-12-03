@@ -86,15 +86,16 @@ const FormSchema = Type.Object({
   version: Type.Number()});
 
 // Create schema
+// NOTE: All optional fields allow null (permissive input philosophy)
 const CreateFormSchema = Type.Object({
-  name: Type.Optional(Type.String({ minLength: 1 })),
-  descr: Type.Optional(Type.String()),
-  internal_url: Type.Optional(Type.String()),
-  shared_url: Type.Optional(Type.String()),
-  form_type: Type.Optional(Type.String()),
+  name: Type.Optional(Type.Union([Type.String({ minLength: 1 }), Type.Null()])),
+  descr: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  internal_url: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  shared_url: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  form_type: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   form_schema: Type.Optional(Type.Any()),
-  version: Type.Optional(Type.Number()),
-  active_flag: Type.Optional(Type.Boolean())});
+  version: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
+  active_flag: Type.Optional(Type.Union([Type.Boolean(), Type.Null()]))});
 
 const UpdateFormSchema = Type.Partial(CreateFormSchema);
 

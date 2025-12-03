@@ -10,13 +10,14 @@ import { sql } from 'drizzle-orm';
 // ============================================================================
 
 // Simplified setting item schema for data table display
+// NOTE: All optional fields allow null (permissive input philosophy)
 const DatalabelItemSchema = Type.Object({
   id: Type.String(),
   name: Type.String(),
   descr: Type.String(),
   parent_id: Type.Union([Type.Number(), Type.Null()]),
   color_code: Type.String(),
-  position: Type.Optional(Type.Number()),
+  position: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
 });
 
 export async function datalabelRoutes(fastify: FastifyInstance) {
@@ -157,12 +158,12 @@ export async function datalabelRoutes(fastify: FastifyInstance) {
             options: Type.Array(Type.Object({
               id: Type.Number(),
               name: Type.String(),
-              descr: Type.Optional(Type.String()),
+              descr: Type.Optional(Type.Union([Type.String(), Type.Null()])),
               parent_id: Type.Union([Type.Number(), Type.Null()]),
               parent_ids: Type.Optional(Type.Array(Type.Number())),  // DAG parent IDs array
               sort_order: Type.Number(),
-              color_code: Type.Optional(Type.String()),
-              active_flag: Type.Optional(Type.Boolean()),
+              color_code: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+              active_flag: Type.Optional(Type.Union([Type.Boolean(), Type.Null()])),
             })),
           })),
           total: Type.Number(),
@@ -217,7 +218,7 @@ export async function datalabelRoutes(fastify: FastifyInstance) {
         entity_code: Type.String(),
         label_name: Type.String(),
         ui_label: Type.String(),
-        ui_icon: Type.Optional(Type.String()),
+        ui_icon: Type.Optional(Type.Union([Type.String(), Type.Null()])),
       }),
       response: {
         200: Type.Object({
@@ -278,9 +279,9 @@ export async function datalabelRoutes(fastify: FastifyInstance) {
       }),
       body: Type.Object({
         name: Type.String(),
-        descr: Type.Optional(Type.String()),
+        descr: Type.Optional(Type.Union([Type.String(), Type.Null()])),
         parent_id: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
-        color_code: Type.Optional(Type.String()),
+        color_code: Type.Optional(Type.Union([Type.String(), Type.Null()])),
       }),
       response: {
         200: Type.Object({
@@ -355,9 +356,9 @@ export async function datalabelRoutes(fastify: FastifyInstance) {
         id: Type.String(),
       }),
       body: Type.Object({
-        color_code: Type.Optional(Type.String()),
-        name: Type.Optional(Type.String()),
-        descr: Type.Optional(Type.String()),
+        color_code: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+        name: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+        descr: Type.Optional(Type.Union([Type.String(), Type.Null()])),
         parent_id: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
       }),
       response: {

@@ -1,6 +1,6 @@
 # EntityListOfInstancesTable Component
 
-**Version:** 11.1.0 | **Location:** `apps/web/src/components/shared/ui/EntityListOfInstancesTable.tsx` | **Updated:** 2025-12-02
+**Version:** 12.3.0 | **Location:** `apps/web/src/components/shared/ui/EntityListOfInstancesTable.tsx` | **Updated:** 2025-12-03
 
 ---
 
@@ -10,7 +10,7 @@ EntityListOfInstancesTable is a universal data table component with **virtualize
 
 **Core Principle:** Backend metadata with `{ viewType, editType }` structure controls all columns, rendering, and edit behavior. Frontend is a pure renderer.
 
-**v11.1.0 Key Change:** Both `EntityListOfInstancesTable` and `EntityInstanceFormContainer` now use the same **flat metadata format**: `{ viewType, editType }`. Entity reference fields resolved via `getEntityInstanceNameSync()` which reads directly from TanStack Query cache (no separate sync stores as of v11.0.0).
+**v12.3.0 Key Change:** All three components (`EntityListOfInstancesTable`, `EntityInstanceFormContainer`, `EntityMetadataField`) now use the same **slow click-and-hold (500ms) inline editing pattern** for consistent UX. Flat metadata format `{ viewType, editType }` used across all components. Entity reference fields resolved via `getEntityInstanceNameSync()` which reads directly from TanStack Query cache.
 
 ---
 
@@ -289,16 +289,27 @@ if (formatted.styles[key]) {                   onChange
 
 ---
 
-## Inline Editing (Airtable-style v8.4.0)
+## Inline Editing (Airtable-style v12.3.0)
+
+### Unified Inline Editing Pattern
+
+As of v12.3.0, all three components share the **same slow click-and-hold inline editing pattern**:
+
+| Component | Location | Pattern |
+|-----------|----------|---------|
+| `EntityListOfInstancesTable` | List/grid views | 500ms long-press on cell |
+| `EntityInstanceFormContainer` | Entity detail form | 500ms long-press on field |
+| `EntityMetadataField` | Sticky header fields | 500ms long-press on name/code |
 
 ### Behavior
 
 | Interaction | Action |
 |-------------|--------|
-| Single-click on editable cell | Instant inline edit of THAT cell only |
-| Click outside / Tab / Enter | Auto-save and exit edit mode |
+| **Hold mouse 500ms** on editable cell | Enter inline edit mode for THAT cell only |
+| Click outside | Auto-save via optimistic update and exit edit mode |
+| Enter key | Auto-save via optimistic update and exit edit mode |
 | Escape | Cancel without saving |
-| Edit icon (✏️) | Fallback - edits entire row |
+| Edit icon (✏️) | Fallback - edits entire row (full edit mode) |
 | 'E' key when row focused | Enter row edit mode |
 | Tab | Navigate to next editable cell |
 | Cmd+Z / Ctrl+Z | Undo last change with toast |
@@ -306,20 +317,91 @@ if (formatted.styles[key]) {                   onChange
 ### Implementation
 
 ```typescript
-// Cell-level editing
-const handleCellClick = (record, columnKey) => {
-  if (isEditable(columnKey)) {
-    setEditingCell({ rowId: record.id, columnKey });
-  }
-};
+const LONG_PRESS_DELAY = 500; // Same across all components
+const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-// Auto-save on blur
-const handleCellBlur = async () => {
-  if (editingCell && hasChanged) {
-    await onInlineEdit(editingCell.rowId, editingCell.columnKey, newValue);
+// Start long-press timer on mouse down
+const handleCellMouseDown = useCallback((record, columnKey) => {
+  if (!isEditable(columnKey)) return;
+
+  longPressTimerRef.current = setTimeout(() => {
+    setEditingCell({ rowId: record.id, columnKey });
+    longPressTimerRef.current = null;
+  }, LONG_PRESS_DELAY);
+}, []);
+
+// Cancel timer on mouse up/leave
+const handleCellMouseUp = useCallback(() => {
+  if (longPressTimerRef.current) {
+    clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = null;
+  }
+}, []);
+
+// Click outside detection - triggers optimistic save
+useEffect(() => {
+  if (!editingCell) return;
+
+  const handleClickOutside = (event: MouseEvent) => {
+    if (cellRef.current && !cellRef.current.contains(event.target as Node)) {
+      handleInlineSave(); // Optimistic update
+    }
+  };
+
+  // Delay listener attachment to avoid immediate trigger
+  const timeoutId = setTimeout(() => {
+    document.addEventListener('mousedown', handleClickOutside);
+  }, 0);
+
+  return () => {
+    clearTimeout(timeoutId);
+    document.removeEventListener('mousedown', handleClickOutside);
+  };
+}, [editingCell, handleInlineSave]);
+
+// Key handling - Enter saves, Escape cancels
+const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    handleInlineSave(); // Optimistic update
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    handleInlineCancel();
+  }
+}, [handleInlineSave, handleInlineCancel]);
+
+// Optimistic update via useOptimisticMutation
+const handleInlineSave = useCallback(async () => {
+  if (newValue !== originalValue) {
+    await optimisticUpdateEntity(recordId, { [columnKey]: newValue });
   }
   setEditingCell(null);
-};
+}, [newValue, originalValue, optimisticUpdateEntity, recordId, columnKey]);
+```
+
+### Optimistic Update Flow
+
+```
+User holds 500ms → Edit mode activated → User modifies value
+                                          │
+                                          v
+                        ┌─────────────────────────────────────┐
+                        │ Click outside OR Enter key pressed  │
+                        └─────────────────────────────────────┘
+                                          │
+                                          v
+                        ┌─────────────────────────────────────┐
+                        │ optimisticUpdateEntity(id, updates) │
+                        │ └── Updates TanStack Query cache    │
+                        │ └── Updates Dexie (IndexedDB)       │
+                        │ └── PATCH /api/v1/{entity}/:id     │
+                        └─────────────────────────────────────┘
+                                          │
+                                          v
+                        ┌─────────────────────────────────────┐
+                        │ UI updates instantly (optimistic)   │
+                        │ Server confirms in background       │
+                        └─────────────────────────────────────┘
 ```
 
 ---
@@ -510,25 +592,28 @@ Table Load Flow (v11.1.0 - Two-Query Architecture)
     Edit cells: renderEditModeFromMetadata(row.raw[key], editType[key])
 
 
-Inline Edit Flow
-────────────────
+Inline Edit Flow (v12.3.0 - Slow Click-and-Hold)
+─────────────────────────────────────────────────
 
-1. User clicks cell (or Edit icon)
+1. User holds mouse down on editable cell (500ms)
    │
-2. setEditingCell({ rowId, columnKey })
+2. longPressTimerRef fires → setEditingCell({ rowId, columnKey })
    │
 3. Cell re-renders in edit mode:
    renderEditModeFromMetadata(row.raw[key], editType[key], onChange)
    │
 4. User modifies value
    │
-5. User clicks away / Tab / Enter → onInlineEdit(rowId, key, value)
+5. User clicks outside OR presses Enter:
+   │  └── handleInlineSave() called
    │
-6. Optimistic update → TanStack Query cache updated immediately
+6. Optimistic update → TanStack Query + Dexie updated immediately
    │
-7. PATCH /api/v1/project/:id → Server confirms
+7. PATCH /api/v1/project/:id → Server confirms in background
    │
-8. Cache invalidation → Component re-renders with fresh data
+8. UI already updated (instant feedback to user)
+
+   Note: Escape key cancels without saving (handleInlineCancel)
 ```
 
 ---
@@ -564,6 +649,7 @@ Inline Edit Flow
 
 | Document | Purpose |
 |----------|---------|
+| `docs/ui_components/EntityInstanceFormContainer.md` | Entity detail form with same inline editing pattern |
 | `docs/ui_page/PAGE_LAYOUT_COMPONENT_ARCHITECTURE.md` | Page components and routing |
 | `docs/caching-frontend/NORMALIZED_CACHE_ARCHITECTURE.md` | TanStack Query + Dexie cache architecture |
 | `docs/caching-frontend/ref_data_entityInstance.md` | Entity reference resolution pattern |
@@ -571,9 +657,15 @@ Inline Edit Flow
 
 ---
 
-**Version:** 11.1.0 | **Last Updated:** 2025-12-02 | **Status:** Production
+**Version:** 12.3.0 | **Last Updated:** 2025-12-03 | **Status:** Production
 
 **Recent Updates:**
+- v12.3.0 (2025-12-03): **Unified Slow Click-and-Hold Inline Editing**
+  - All three components (`EntityListOfInstancesTable`, `EntityInstanceFormContainer`, `EntityMetadataField`) now use consistent 500ms long-press pattern
+  - Click outside OR Enter key triggers optimistic update (TanStack Query + Dexie)
+  - Escape cancels without saving
+  - Edit pencil icon still available for full row edit mode
+  - Font size consistent between view and edit modes (`text-sm` class)
 - v11.1.0 (2025-12-02): **Flat Metadata Format**
   - Both `EntityListOfInstancesTable` and `EntityInstanceFormContainer` now use flat `{ viewType, editType }` format
   - Component supports both flat and nested formats for backward compatibility
