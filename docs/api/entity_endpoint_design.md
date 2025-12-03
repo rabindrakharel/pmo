@@ -588,6 +588,8 @@ const result = await db.execute(sql`
 
 ## RBAC Permission Model
 
+> **For comprehensive RBAC documentation, see [`docs/rbac/RBAC_INFRASTRUCTURE.md`](../rbac/RBAC_INFRASTRUCTURE.md)**
+
 ### Permission Levels
 
 ```typescript
@@ -624,6 +626,8 @@ const ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111';
 │                                                                                      │
 │  Result: MAX(all sources) >= required level?                                        │
 │                                                                                      │
+│  → See docs/rbac/RBAC_INFRASTRUCTURE.md for detailed algorithm and SQL queries      │
+│                                                                                      │
 └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -634,6 +638,8 @@ const ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111';
 | `check_entity_rbac(userId, entity, id, perm)` | boolean | Single permission check |
 | `get_entity_rbac_where_condition(userId, entity, perm, alias)` | SQL | List filtering |
 | `set_entity_rbac_owner(userId, entity, id)` | void | Grant OWNER on create |
+
+> **Detailed documentation:** Request flows, logical flows, design patterns → [`RBAC_INFRASTRUCTURE.md`](../rbac/RBAC_INFRASTRUCTURE.md)
 
 ---
 

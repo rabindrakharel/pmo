@@ -33,7 +33,8 @@
 | frontend_datasetFormatter.md | `docs/services/` | Frontend rendering |
 | backend-formatter.service.md | `docs/services/` | BFF metadata |
 | entity-infrastructure.service.md | `docs/services/` | Entity CRUD + ref_data_entityInstance |
-| RBAC_INFRASTRUCTURE.md | `docs/rbac/` | Permissions |
+| **[RBAC_INFRASTRUCTURE.md](rbac/RBAC_INFRASTRUCTURE.md)** | `docs/rbac/` | **RBAC: request flow, permission resolution, design patterns** |
+| entity_endpoint_design.md | `docs/api/` | Factory patterns, request flow, caching |
 | RefData README.md | `docs/refData/` | Entity reference resolution pattern |
 
 ---

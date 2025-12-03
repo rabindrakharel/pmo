@@ -432,6 +432,8 @@ async delete_entity(params: {
 
 ## RBAC System
 
+> **For comprehensive RBAC documentation including request flows, logical flows, and design patterns, see [`docs/rbac/RBAC_INFRASTRUCTURE.md`](../rbac/RBAC_INFRASTRUCTURE.md)**
+
 ### Permission Levels
 
 ```
