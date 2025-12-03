@@ -102,7 +102,7 @@ export const ENTITY_TABLE_MAP: Record<string, string> = {
   service: 'service',
   product: 'product',
   event: 'event',
-  cust: 'cust',
+  customer: 'customer',
   business: 'business',
   order: 'order',
   shipment: 'shipment',

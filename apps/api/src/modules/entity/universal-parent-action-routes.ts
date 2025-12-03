@@ -30,13 +30,12 @@ const CreateEntitySchema = Type.Object({
 
 const UpdateEntitySchema = Type.Partial(CreateEntitySchema);
 
-// Entity table mapping
+// Entity table mapping (canonical names only)
 const ENTITY_TABLE_MAP: Record<string, string> = {
-  'biz': 'app.business',
+  'business': 'app.business',
   'project': 'app.project',
-  'hr': 'app.office',
-  'org': 'app.office',
-  'client': 'app.cust',
+  'office': 'app.office',
+  'customer': 'app.customer',
   'worksite': 'app.worksite',
   'employee': 'app.employee',
   'role': 'app.role',
@@ -51,34 +50,31 @@ interface RelationshipConfig {
   foreignKeyColumn?: string;
 }
 
-// Relationship mapping with patterns
+// Relationship mapping with patterns (canonical names)
 const RELATIONSHIP_MAP: Record<string, Record<string, RelationshipConfig>> = {
   'project': {
     'task': { type: 'foreign_key', foreignKeyColumn: 'project_id' },
     'form': { type: 'foreign_key', foreignKeyColumn: 'project_id' },
     'wiki': { type: 'hierarchy_mapping' },
     'artifact': { type: 'hierarchy_mapping' }},
-  'biz': {
-    'project': { type: 'foreign_key', foreignKeyColumn: 'biz_id' },
-    'task': { type: 'foreign_key', foreignKeyColumn: 'biz_id' },
-    'form': { type: 'foreign_key', foreignKeyColumn: 'biz_id' },
-    'client': { type: 'foreign_key', foreignKeyColumn: 'biz_id' },
-    'employee': { type: 'foreign_key', foreignKeyColumn: 'biz_id' },
+  'business': {
+    'project': { type: 'foreign_key', foreignKeyColumn: 'business_id' },
+    'task': { type: 'foreign_key', foreignKeyColumn: 'business_id' },
+    'form': { type: 'foreign_key', foreignKeyColumn: 'business_id' },
+    'customer': { type: 'foreign_key', foreignKeyColumn: 'business_id' },
+    'employee': { type: 'foreign_key', foreignKeyColumn: 'business_id' },
     'wiki': { type: 'hierarchy_mapping' },
     'artifact': { type: 'hierarchy_mapping' }},
   'worksite': {
     'task': { type: 'foreign_key', foreignKeyColumn: 'worksite_id' },
     'form': { type: 'foreign_key', foreignKeyColumn: 'worksite_id' },
     'employee': { type: 'foreign_key', foreignKeyColumn: 'worksite_id' }},
-  'org': {
-    'worksite': { type: 'foreign_key', foreignKeyColumn: 'org_id' },
-    'employee': { type: 'foreign_key', foreignKeyColumn: 'primary_org_id' }},
-  'hr': {
-    'employee': { type: 'foreign_key', foreignKeyColumn: 'hr_position_id' },
-    'role': { type: 'hierarchy_mapping' }},
-  'client': {
-    'project': { type: 'hierarchy_mapping' }, // projects have clients jsonb array
-    'task': { type: 'foreign_key', foreignKeyColumn: 'client_id' }},
+  'office': {
+    'worksite': { type: 'foreign_key', foreignKeyColumn: 'office_id' },
+    'employee': { type: 'foreign_key', foreignKeyColumn: 'primary_office_id' }},
+  'customer': {
+    'project': { type: 'hierarchy_mapping' }, // projects have customers jsonb array
+    'task': { type: 'foreign_key', foreignKeyColumn: 'customer_id' }},
   'task': {
     'form': { type: 'foreign_key', foreignKeyColumn: 'task_id' },
     'artifact': { type: 'hierarchy_mapping' }},

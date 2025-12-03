@@ -29,13 +29,12 @@ const CreateEntitySchema = Type.Object({
 
 const UpdateEntitySchema = Type.Partial(CreateEntitySchema);
 
-// Entity type mapping to table names
+// Entity type mapping to table names (canonical names only)
 const ENTITY_TABLE_MAP: Record<string, string> = {
-  'biz': 'app.business',
-  'project': 'app.project', 
-  'hr': 'app.office',
-  'org': 'app.office',
-  'client': 'app.cust',
+  'business': 'app.business',
+  'project': 'app.project',
+  'office': 'app.office',
+  'customer': 'app.customer',
   'worksite': 'app.worksite',
   'employee': 'app.employee',
   'role': 'app.role',

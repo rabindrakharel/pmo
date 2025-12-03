@@ -1,5 +1,5 @@
 -- ============================================================================
--- CUSTOMER ENTITY (d_cust) - CORE ENTITY
+-- CUSTOMER ENTITY (d_customer) - CORE ENTITY
 -- Customer relationship management across residential, commercial, municipal, industrial sectors
 -- ============================================================================
 --
@@ -9,23 +9,23 @@
 -- tracking, and revenue attribution. Customers own projects and receive services.
 --
 -- OPERATIONS:
--- • CREATE: POST /api/v1/cust, INSERT with version=1, active_flag=true
--- • UPDATE: PUT /api/v1/cust/{id}, same ID, version++, updated_ts refreshes
--- • DELETE: DELETE /api/v1/cust/{id}, active_flag=false, to_ts=now() (soft delete)
--- • LIST: GET /api/v1/cust, filters by cust_type/cust_status/customer_tier, RBAC enforced
+-- • CREATE: POST /api/v1/customer, INSERT with version=1, active_flag=true
+-- • UPDATE: PUT /api/v1/customer/{id}, same ID, version++, updated_ts refreshes
+-- • DELETE: DELETE /api/v1/customer/{id}, active_flag=false, to_ts=now() (soft delete)
+-- • LIST: GET /api/v1/customer, filters by cust_type/cust_status/customer_tier, RBAC enforced
 --
 -- API SEMANTICS & LIFECYCLE:
 --
 -- 1. CREATE CUSTOMER
---    • Endpoint: POST /api/v1/cust
+--    • Endpoint: POST /api/v1/customer
 --    • Body: {name, code, cust_number, cust_type, cust_status, primary_contact_name, primary_email, primary_phone, primary_address, city, province}
 --    • Returns: {id: "new-uuid", version: 1, ...}
 --    • Database: INSERT with version=1, active_flag=true, created_ts=now()
---    • RBAC: Requires permission 4 (create) on entity='cust', entity_id='11111111-1111-1111-1111-111111111111'
+--    • RBAC: Requires permission 4 (create) on entity='customer', entity_id='11111111-1111-1111-1111-111111111111'
 --    • Business Rule: cust_number must be unique; cust_type validates against ('residential', 'commercial', 'municipal', 'industrial')
 --
 -- 2. UPDATE CUSTOMER (Contact Changes, Status Updates, Relationship Upgrades)
---    • Endpoint: PUT /api/v1/cust/{id}
+--    • Endpoint: PUT /api/v1/customer/{id}
 --    • Body: {primary_contact_name, primary_email, cust_status, opportunity_funnel_stage_name, customer_tier_name}
 --    • Returns: {id: "same-uuid", version: 2, updated_ts: "new-timestamp"}
 --    • Database: UPDATE SET [fields], version=version+1, updated_ts=now() WHERE id=$1
@@ -34,24 +34,24 @@
 --      - version increments (audit trail)
 --      - updated_ts refreshed
 --      - NO archival (customer tier can change: Lead → Prospect → Active Customer)
---    • RBAC: Requires permission 1 (edit) on entity='cust', entity_id={id} OR '11111111-1111-1111-1111-111111111111'
+--    • RBAC: Requires permission 1 (edit) on entity='customer', entity_id={id} OR '11111111-1111-1111-1111-111111111111'
 --    • Business Rule: Changing dl__customer_opportunity_funnel reflects sales pipeline progress
 --
 -- 3. SOFT DELETE CUSTOMER (Account Closure)
---    • Endpoint: DELETE /api/v1/cust/{id}
+--    • Endpoint: DELETE /api/v1/customer/{id}
 --    • Database: UPDATE SET active_flag=false, to_ts=now(), cust_status='inactive' WHERE id=$1
 --    • RBAC: Requires permission 3 (delete)
 --    • Business Rule: Preserves all historical projects and service records; customer hidden from active lists
 --
 -- 4. LIST CUSTOMERS (Filtered by Type, Status, Tier)
---    • Endpoint: GET /api/v1/cust?cust_type=commercial&customer_tier_name=Enterprise&limit=50
+--    • Endpoint: GET /api/v1/customer?cust_type=commercial&customer_tier_name=Enterprise&limit=50
 --    • Database:
---      SELECT c.* FROM d_cust c
+--      SELECT c.* FROM d_customer c
 --      WHERE c.active_flag=true
 --        AND EXISTS (
 --          SELECT 1 FROM entity_rbac rbac
 --          WHERE rbac.person_code='employee' AND rbac.person_id=$user_id
---            AND rbac.entity='cust'
+--            AND rbac.entity='customer'
 --            AND (rbac.entity_id=c.id::text OR rbac.entity_id='11111111-1111-1111-1111-111111111111')
 --            AND 0=ANY(rbac.permission)  -- View permission
 --        )
@@ -61,18 +61,18 @@
 --    • Frontend: Renders in EntityListOfInstancesPage with table view + advanced filtering
 --
 -- 5. GET SINGLE CUSTOMER
---    • Endpoint: GET /api/v1/cust/{id}
---    • Database: SELECT * FROM d_cust WHERE id=$1 AND active_flag=true
+--    • Endpoint: GET /api/v1/customer/{id}
+--    • Database: SELECT * FROM d_customer WHERE id=$1 AND active_flag=true
 --    • RBAC: Checks entity_rbac for view permission
 --    • Frontend: EntitySpecificInstancePage renders fields + tabs for projects/tasks/forms
 --
 -- 6. GET CUSTOMER PROJECTS
---    • Endpoint: GET /api/v1/cust/{id}/project?project_stage=Execution&limit=20
+--    • Endpoint: GET /api/v1/customer/{id}/project?project_stage=Execution&limit=20
 --    • Database:
 --      SELECT p.* FROM d_project p
 --      INNER JOIN entity_id_map eim ON eim.child_entity_instance_id=p.id
 --      WHERE eim.entity_instance_id=$1
---        AND eim.entity_code='cust'
+--        AND eim.entity_code='customer'
 --        AND eim.child_entity_code='project'
 --        AND p.active_flag=true
 --      ORDER BY p.created_ts DESC
@@ -80,15 +80,15 @@
 --    • Frontend: Renders in DynamicChildEntityTabs component
 --
 -- 7. GET CUSTOMER REVENUE SUMMARY
---    • Endpoint: GET /api/v1/cust/{id}/revenue-summary
+--    • Endpoint: GET /api/v1/customer/{id}/revenue-summary
 --    • Database: Aggregates project budgets and metadata fields
 --      SELECT
 --        c.metadata->>'lifetime_value' AS lifetime_value,
 --        c.metadata->>'annual_contract_value' AS annual_contract_value,
 --        COUNT(p.id) AS project_count,
 --        SUM(p.budget_spent) AS total_project_spending
---      FROM d_cust c
---      LEFT JOIN entity_id_map eim ON eim.entity_instance_id=c.id AND eim.entity_code='cust'
+--      FROM d_customer c
+--      LEFT JOIN entity_id_map eim ON eim.entity_instance_id=c.id AND eim.entity_code='customer'
 --      LEFT JOIN d_project p ON p.id=eim.child_entity_instance_id AND p.active_flag=true
 --      WHERE c.id=$1
 --      GROUP BY c.id
@@ -96,7 +96,7 @@
 --
 -- 8. SALES PIPELINE MOVEMENT (Opportunity Funnel)
 --    • Frontend Action: User moves customer from "Lead" to "Qualified" in pipeline view
---    • Endpoint: PUT /api/v1/cust/{id}
+--    • Endpoint: PUT /api/v1/customer/{id}
 --    • Body: {opportunity_funnel_stage_name: "Qualified"}
 --    • Database: UPDATE SET opportunity_funnel_stage_name=$1, updated_ts=now(), version=version+1 WHERE id=$2
 --    • Business Rule: dl__customer_opportunity_funnel loads from app.datalabel (datalabel_name='opportunity__funnel_stage')
@@ -111,13 +111,13 @@
 -- 10. APP USER SIGNIN (Authentication)
 --     • Endpoint: POST /api/v1/auth/customer/signin
 --     • Body: {email, password}
---     • Database: SELECT * FROM d_cust WHERE primary_email=$1 AND active_flag=true
+--     • Database: SELECT * FROM d_customer WHERE primary_email=$1 AND active_flag=true
 --     • Verification: bcrypt.compare(password, password_hash)
 --     • Returns: {token (JWT), user: {id, name, email, entities}}
 --     • Business Rule: Updates last_login_ts, resets failed_login_attempts
 --
 -- 11. ENTITY CONFIGURATION (First-Time Setup)
---     • Endpoint: PUT /api/v1/cust/{id}/configure
+--     • Endpoint: PUT /api/v1/customer/{id}/configure
 --     • Body: {entities: ["project", "task", "wiki", "form"]}
 --     • Database: UPDATE SET entities=$1, updated_ts=now() WHERE id=$2
 --     • Business Rule: Updates user's activated entities, filters sidebar navigation
@@ -157,14 +157,14 @@
 --   - Configured on first-time login or via settings
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • cust_id ← entity_id_map (projects/tasks/forms linked to customers via mapping table)
+-- • customer_id ← entity_id_map (projects/tasks/forms linked to customers via mapping table)
 -- • Follows flexible relationship model via entity_id_map
 --
 -- ============================================================================
 -- DDL:
 -- ============================================================================
 
-CREATE TABLE app.cust (
+CREATE TABLE app.customer (
   id uuid DEFAULT gen_random_uuid(),
   code varchar(50),
   name varchar(200),

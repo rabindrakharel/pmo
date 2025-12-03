@@ -58,7 +58,7 @@ interface CreateEventRequest {
   event_metadata?: Record<string, any>;
   // Optional: Attendees to automatically create event-person mappings
   attendees?: Array<{
-    person_entity_type: 'employee' | 'client' | 'customer';
+    person_entity_type: 'employee' | 'customer';
     person_id: string;
     event_rsvp_status?: 'pending' | 'accepted' | 'declined';
   }>;

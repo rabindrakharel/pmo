@@ -3,15 +3,15 @@ import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 
 export type Action = 'view' | 'create' | 'modify' | 'delete' | 'execute';
-export type ScopeType = 
-  | 'business' 
-  | 'location' 
-  | 'hr' 
-  | 'worksite' 
-  | 'project' 
-  | 'task' 
-  | 'app:page' 
-  | 'app:api' 
+export type ScopeType =
+  | 'business'
+  | 'location'
+  | 'office'
+  | 'worksite'
+  | 'project'
+  | 'task'
+  | 'app:page'
+  | 'app:api'
   | 'app:component';
 
 export interface ScopePermission {

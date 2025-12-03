@@ -21,21 +21,11 @@ import { getEntityInfrastructure, Permission } from '@/services/entity-infrastru
  */
 
 /**
- * Entity type alias mapping
- * Maps frontend/URL entity names to database entity_type values
- * Example: 'biz' (frontend) → 'business' (database)
- */
-const ENTITY_ALIAS_MAP: Record<string, string> = {
-  'biz': 'business',
-  'client': 'cust',  // Map 'client' to 'cust' (customer)
-  // Add more aliases as needed
-};
-
-/**
- * Normalize entity type - convert frontend alias to database entity_type
+ * Normalize entity type - no aliases, use canonical names directly
+ * Canonical names: business, office, customer, project, task, employee, etc.
  */
 function normalizeEntityType(entityCode: string): string {
-  return ENTITY_ALIAS_MAP[entityCode] || entityCode;
+  return entityCode;
 }
 
 const EntityTypeMetadataSchema = Type.Object({

@@ -206,8 +206,8 @@ export async function authRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'Unauthorized' });
       }
 
-      // Get entity-based permissions summary
-      const entityTypes = ['biz', 'hr', 'org', 'client', 'project', 'task', 'worksite', 'employee', 'role', 'wiki', 'form', 'artifact'];
+      // Get entity-based permissions summary (canonical names)
+      const entityTypes = ['business', 'office', 'customer', 'project', 'task', 'worksite', 'employee', 'role', 'wiki', 'form', 'artifact'];
       const actions = ['view', 'create', 'edit', 'share'];
       
       const permissions: any = {};
@@ -256,9 +256,9 @@ export async function authRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'Unauthorized' });
       }
 
-      // Validate entity type
+      // Validate entity type (canonical names)
       const validEntityTypes = [
-        'biz', 'hr', 'org', 'client', 'project', 'task', 
+        'business', 'office', 'customer', 'project', 'task',
         'worksite', 'employee', 'role', 'wiki', 'form', 'artifact'
       ];
       
@@ -615,10 +615,10 @@ export async function authRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'Not authenticated as customer' });
       }
 
-      // Validate entities array
+      // Validate entities array (canonical names)
       const validEntities = [
-        'biz', 'office', 'project', 'task', 'employee', 'role', 'worksite',
-        'cust', 'position', 'artifact', 'wiki', 'form', 'marketing',
+        'business', 'office', 'project', 'task', 'employee', 'role', 'worksite',
+        'customer', 'position', 'artifact', 'wiki', 'form', 'marketing',
         'product', 'inventory', 'order', 'invoice', 'shipment'
       ];
 
@@ -631,7 +631,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       // Update customer entities
       const result = await db.execute(sql`
-        UPDATE app.cust
+        UPDATE app.customer
         SET entities = ${sql`ARRAY[${sql.join(entities.map(e => sql`${e}`), sql`, `)}]::text[]`},
             updated_ts = NOW()
         WHERE id = ${userId}

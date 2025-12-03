@@ -17,17 +17,14 @@ import { getEntityInfrastructure, Permission } from '@/services/entity-infrastru
  * Uses Entity Infrastructure Service for RBAC permission filtering.
  */
 
-// Map of entity codes to their database table names
+// Map of entity codes to their database table names (canonical names only)
 const ENTITY_TABLE_MAP: Record<string, string> = {
   employee: 'employee',
   project: 'project',
   task: 'task',
-  biz: 'business',
   business: 'business',
   office: 'office',
-  org: 'office',
-  client: 'cust',
-  cust: 'cust',
+  customer: 'customer',
   worksite: 'worksite',
   role: 'role',
   position: 'position',
