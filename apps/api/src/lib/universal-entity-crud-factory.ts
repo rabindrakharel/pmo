@@ -303,8 +303,6 @@ export interface EntityRouteConfig {
     patch?: boolean;
     put?: boolean;
     delete?: boolean;
-    /** @deprecated Use patch and put separately */
-    update?: boolean;
   };
 
   /**
@@ -935,23 +933,6 @@ export function createEntityPutEndpoint(
   });
 }
 
-/**
- * Create both PATCH and PUT /api/v1/{entity}/:id endpoints
- *
- * @deprecated Use createEntityPatchEndpoint and createEntityPutEndpoint separately
- * for more granular control
- *
- * @example
- * createEntityUpdateEndpoint(fastify, { entityCode: 'role' });
- */
-export function createEntityUpdateEndpoint(
-  fastify: FastifyInstance,
-  config: EntityRouteConfig
-): void {
-  createEntityPatchEndpoint(fastify, config);
-  createEntityPutEndpoint(fastify, config);
-}
-
 // ============================================================================
 // DELETE ENDPOINT FACTORY
 // ============================================================================
@@ -1094,10 +1075,6 @@ export function createUniversalEntityRoutes(
 ): void {
   const { skip = {}, deleteOptions } = config;
 
-  // Backward compatibility: if 'update' is set, apply to both patch and put
-  const skipPatch = skip.patch ?? skip.update ?? false;
-  const skipPut = skip.put ?? skip.update ?? false;
-
   // Create LIST endpoint
   if (!skip.list) {
     createEntityListEndpoint(fastify, config);
@@ -1109,12 +1086,12 @@ export function createUniversalEntityRoutes(
   }
 
   // Create PATCH endpoint
-  if (!skipPatch) {
+  if (!skip.patch) {
     createEntityPatchEndpoint(fastify, config);
   }
 
   // Create PUT endpoint
-  if (!skipPut) {
+  if (!skip.put) {
     createEntityPutEndpoint(fastify, config);
   }
 
@@ -1127,8 +1104,8 @@ export function createUniversalEntityRoutes(
   const endpoints: string[] = [];
   if (!skip.list) endpoints.push('LIST');
   if (!skip.get) endpoints.push('GET');
-  if (!skipPatch) endpoints.push('PATCH');
-  if (!skipPut) endpoints.push('PUT');
+  if (!skip.patch) endpoints.push('PATCH');
+  if (!skip.put) endpoints.push('PUT');
   if (!skip.delete) endpoints.push('DELETE');
 
   fastify.log.info(
@@ -1152,7 +1129,6 @@ export default {
   createEntityGetEndpoint,
   createEntityPatchEndpoint,
   createEntityPutEndpoint,
-  createEntityUpdateEndpoint,  // Deprecated: use createEntityPatchEndpoint + createEntityPutEndpoint
   createEntityDeleteEndpoint,
 
   // Unified factory
