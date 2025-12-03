@@ -5,7 +5,7 @@
 
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { db } from '@/db/index.js';
+import { db, qualifyTable } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 import { getEntityInfrastructure } from '@/services/entity-infrastructure.service.js';
 
@@ -48,13 +48,13 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
 
   /**
    * Get database table name for an entity code
-   * Convention: entity.db_table or 'app.{entity_code}'
+   * Convention: entity.db_table or '{schema}.{entity_code}'
    */
   async function getDbTable(entityCode: string): Promise<string | null> {
     const metadata = await entityInfra.get_entity_metadata(entityCode);
     if (!metadata) return null;
-    // Use db_table if set, otherwise convention: app.{entity_code}
-    return metadata.db_table || `app.${entityCode}`;
+    // Use db_table if set, otherwise convention: {schema}.{entity_code}
+    return metadata.db_table || qualifyTable(entityCode);
   }
 
   /**

@@ -55,3 +55,38 @@ export type Database = typeof db;
 export * from './schema/meta.js';
 export * from './schema/dimensions.js';
 export * from './schema/operations.js';
+
+// =====================================================
+// Database Schema Utilities
+// =====================================================
+
+/**
+ * Database schema name (from config, defaults to 'app')
+ * Use this instead of hardcoding 'app' in SQL queries
+ */
+export const DB_SCHEMA = config.DB_SCHEMA;
+
+/**
+ * Get fully qualified table name: {schema}.{table}
+ *
+ * @param tableName - Table name without schema prefix
+ * @returns Qualified table name (e.g., 'app.project')
+ *
+ * @example
+ * // Instead of: sql`SELECT * FROM app.project`
+ * // Use: sql`SELECT * FROM ${sql.raw(qualifyTable('project'))}`
+ */
+export function qualifyTable(tableName: string): string {
+  return `${DB_SCHEMA}.${tableName}`;
+}
+
+/**
+ * Get table name from entity code
+ * Convention: {schema}.{entity_code}
+ *
+ * @param entityCode - Entity code (e.g., 'project', 'task')
+ * @returns Qualified table name (e.g., 'app.project')
+ */
+export function entityTable(entityCode: string): string {
+  return qualifyTable(entityCode);
+}

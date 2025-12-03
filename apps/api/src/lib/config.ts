@@ -6,9 +6,10 @@ const configSchema = z.object({
   HOST: z.string().default('0.0.0.0'),
   PORT: z.coerce.number().default(4000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  
+
   // Database
   DATABASE_URL: z.string().url(),
+  DB_SCHEMA: z.string().default('app'),
   
   // Redis
   REDIS_URL: z.string().url(),
