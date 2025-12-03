@@ -597,7 +597,7 @@ VALUES (
   'Interaction',
   'Interactions',
   'MessageCircle',
-  'customer_interaction',
+  'interaction',
   'f',
   '[]'::jsonb,
   270

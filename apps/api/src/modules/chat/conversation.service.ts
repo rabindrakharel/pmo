@@ -42,14 +42,14 @@ export async function createSession(args: {
         }
       }
 
-      // Insert into f_customer_interaction
+      // Insert into interaction table
       await client`
-        INSERT INTO app.f_customer_interaction (
+        INSERT INTO app.interaction (
           id,
-          interaction_number,
+          code,
           interaction_type,
           interaction_subtype,
-          channel,
+          channel_name,
           interaction_ts,
           interaction_person_entities,
           content_text,
@@ -87,7 +87,7 @@ export async function createSession(args: {
       };
     } catch (error: any) {
       // If it's a duplicate key error, retry with a new number
-      if (error.code === '23505' && error.constraint_name === 'f_customer_interaction_interaction_number_key') {
+      if (error.code === '23505' && error.constraint_name === 'interaction_code_key') {
         console.log(`⚠️ Duplicate interaction number on attempt ${attempt + 1}, retrying...`);
         await new Promise(resolve => setTimeout(resolve, 50 * (attempt + 1))); // Exponential backoff
         continue;
@@ -118,7 +118,7 @@ export async function getSession(sessionId: string): Promise<ChatSession | null>
         interaction_person_entities,
         created_ts::text,
         updated_ts::text
-      FROM app.f_customer_interaction
+      FROM app.interaction
       WHERE id = ${sessionId}::uuid
     `;
 
@@ -198,7 +198,7 @@ export async function updateSession(
 
     // Update interaction record
     const updateQuery = client`
-      UPDATE app.f_customer_interaction
+      UPDATE app.interaction
       SET
         content_text = ${JSON.stringify(conversationHistory)},
         content_summary = ${conversationText.substring(0, 500)},
@@ -235,7 +235,7 @@ export async function closeSession(
 ): Promise<void> {
   try {
     await client`
-      UPDATE app.f_customer_interaction
+      UPDATE app.interaction
       SET
         metadata = metadata || ${JSON.stringify({ resolution_status: resolution })}::jsonb,
         updated_ts = now()
@@ -257,16 +257,16 @@ async function generateInteractionNumber(): Promise<string> {
 
   // Get the highest number used this year
   const result = await client`
-    SELECT interaction_number
-    FROM app.f_customer_interaction
-    WHERE interaction_number LIKE ${`INT-${year}-%`}
-    ORDER BY interaction_number DESC
+    SELECT code
+    FROM app.interaction
+    WHERE code LIKE ${`INT-${year}-%`}
+    ORDER BY code DESC
     LIMIT 1
   `;
 
   let nextNumber = 1;
   if (result.length > 0) {
-    const lastNumber = result[0].interaction_number;
+    const lastNumber = result[0].code;
     const match = lastNumber.match(/INT-\d{4}-(\d{5})/);
     if (match) {
       nextNumber = parseInt(match[1], 10) + 1;
@@ -282,8 +282,8 @@ async function generateInteractionNumber(): Promise<string> {
     // Check if this number already exists
     const existingCheck = await client`
       SELECT 1
-      FROM app.f_customer_interaction
-      WHERE interaction_number = ${checkNumber}
+      FROM app.interaction
+      WHERE code = ${checkNumber}
       LIMIT 1
     `;
 
@@ -304,16 +304,16 @@ export async function getRecentInteractions(limit: number = 50): Promise<any[]> 
     const result = await client`
       SELECT
         id::text,
-        interaction_number,
+        code as interaction_number,
         interaction_ts,
         metadata->>'customer_name' as customer_name,
         sentiment_label,
         metadata->>'resolution_status' as resolution_status,
         duration_seconds
-      FROM app.f_customer_interaction
+      FROM app.interaction
       WHERE interaction_type = 'chat'
         AND source_system = 'ai_chat_widget'
-        AND metadata->>'active_flag' = 'true'
+        AND active_flag = true
       ORDER BY interaction_ts DESC
       LIMIT ${limit}
     `;

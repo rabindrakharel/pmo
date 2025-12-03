@@ -362,14 +362,14 @@ COMMENT ON COLUMN app.interaction.metadata IS 'Flexible JSONB for additional con
 -- Show interaction summary by type and channel
 -- SELECT
 --     interaction_type,
---     channel,
+--     channel_name,
 --     COUNT(*) as interaction_count,
 --     AVG(duration_seconds) as avg_duration_seconds,
 --     AVG(customer_satisfaction_score) as avg_csat,
 --     AVG(sentiment_score) as avg_sentiment
--- FROM app.customer_interaction
--- WHERE deleted_ts IS NULL
--- GROUP BY interaction_type, channel
+-- FROM app.interaction
+-- WHERE active_flag = true
+-- GROUP BY interaction_type, channel_name
 -- ORDER BY interaction_count DESC;
 
 -- Show content storage summary
@@ -379,29 +379,29 @@ COMMENT ON COLUMN app.interaction.metadata IS 'Flexible JSONB for additional con
 --     SUM(content_size_bytes) as total_size_bytes,
 --     AVG(content_size_bytes) as avg_size_bytes,
 --     MAX(content_size_bytes) as max_size_bytes
--- FROM app.customer_interaction
--- WHERE content_object_key IS
+-- FROM app.interaction
+-- WHERE content_object_key IS NOT NULL
 -- GROUP BY content_format
 -- ORDER BY total_size_bytes DESC;
 
 -- Show multi-chunk interactions
 -- SELECT
---     interaction_number,
+--     code,
 --     chunk_number,
 --     total_chunks,
 --     duration_seconds,
 --     LENGTH(transcript_text) as transcript_length
--- FROM app.customer_interaction
+-- FROM app.interaction
 -- WHERE total_chunks > 1
--- ORDER BY interaction_number, chunk_number;
+-- ORDER BY code, chunk_number;
 
 -- Query person entities from interactions
 -- SELECT
---     interaction_number,
+--     code,
 --     interaction_type,
 --     interaction_ts,
 --     interaction_person_entities
--- FROM app.customer_interaction
--- WHERE interaction_person_entities IS
+-- FROM app.interaction
+-- WHERE interaction_person_entities IS NOT NULL
 -- ORDER BY interaction_ts DESC
 -- LIMIT 10;

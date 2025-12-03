@@ -1,19 +1,21 @@
 /**
  * Customer Interaction Type Definitions
- * Based on f_customer_interaction table
+ * Based on interaction table
  */
 
 export interface Interaction {
   id: string;
-  interaction_number: string;
+  code: string;       // Human-readable ID (e.g., INT-2025-00123)
+  name?: string;      // Display name for the interaction
+  descr?: string;     // Description
   interaction_type: string; // 'voice_call', 'chat', 'email', 'sms', 'video_call', 'social_media', 'in_person'
   interaction_subtype?: string; // 'inbound', 'outbound', 'follow_up', 'escalation'
-  channel: string; // 'phone', 'live_chat', 'whatsapp', 'email', 'facebook', 'twitter', 'zoom', 'in_store'
+  channel_name: string; // 'phone', 'live_chat', 'whatsapp', 'email', 'facebook', 'twitter', 'zoom', 'in_store'
 
   // Chunking support
   chunk_number?: number;
   total_chunks?: number;
-  parent_interaction_id?: string;
+  parent__interaction_id?: string;
   is_primary_chunk?: boolean;
 
   // Timing
@@ -71,18 +73,22 @@ export interface Interaction {
   // Metadata
   metadata?: Record<string, any>;
 
-  // Audit fields
-  created_by_employee_id?: string;
+  // SCD Type 2 + Audit fields
+  active_flag?: boolean;
+  from_ts?: string;
+  to_ts?: string;
+  created_by__employee_id?: string;
   created_ts?: string;
   updated_ts?: string;
-  deleted_ts?: string;
-  archived_ts?: string;
+  version?: number;
 }
 
 export interface CreateInteractionRequest {
-  interaction_number: string;
+  code: string;
+  name?: string;
+  descr?: string;
   interaction_type: string;
-  channel: string;
+  channel_name: string;
   interaction_subtype?: string;
   interaction_ts?: string;
   duration_seconds?: number;
@@ -103,6 +109,8 @@ export interface CreateInteractionRequest {
 }
 
 export interface UpdateInteractionRequest {
+  name?: string;
+  descr?: string;
   interaction_subtype?: string;
   interaction_intention_entity?: string;
   content_summary?: string;
