@@ -104,20 +104,23 @@ export const ENTITY_TABLE_MAP: Record<string, string> = {
   event: 'event',
   customer: 'customer',
   business: 'business',
-  order: 'order',
-  shipment: 'shipment',
+  inventory: 'inventory',
+  booking: 'booking',
+  workflow: 'workflow',
+
+  // Entities with head/data split
+  form: 'form',
+  message: 'message_data',
+
+  // Fact/transactional entities with f_ prefix
   expense: 'f_expense',
   revenue: 'f_revenue',
   quote: 'fact_quote',
   work_order: 'fact_work_order',
-  interaction: 'interaction',
-  inventory: 'inventory',
-  booking: 'booking',
-
-  // Entities with head/data split
-  form: 'form',
-  invoice: 'invoice',
-  message: 'message_data',
+  interaction: 'f_customer_interaction',
+  invoice: 'f_invoice',
+  order: 'f_order',
+  shipment: 'f_shipment',
 
   // Hierarchy entities
   office_hierarchy: 'office_hierarchy',
@@ -130,7 +133,8 @@ export const ENTITY_TABLE_MAP: Record<string, string> = {
 
   // Special entities
   rbac: 'entity_rbac',
-  message_schema: 'message_schema'
+  message_schema: 'message_schema',
+  cust: 'cust',  // Frontend uses 'cust', not 'customer'
 };
 
 /**
@@ -230,6 +234,19 @@ export interface EntityHooks {
   afterGet?: (ctx: GetHookContext, entity: any) => Promise<any>;
 
   /**
+   * Called before create execution (BEFORE RBAC checks)
+   * Use to transform data, add defaults, or validate
+   * Return modified data object
+   */
+  beforeCreate?: (ctx: CreateHookContext) => Promise<Record<string, any>>;
+
+  /**
+   * Called after create, before response
+   * Use for side effects, additional linkages, or notifications
+   */
+  afterCreate?: (ctx: CreateHookContext, entity: any) => Promise<any>;
+
+  /**
    * Called before update execution
    * Use to transform updates or add computed fields
    * Return modified updates object
@@ -297,6 +314,7 @@ export interface EntityRouteConfig {
   skip?: {
     list?: boolean;
     get?: boolean;
+    post?: boolean;
     patch?: boolean;
     put?: boolean;
     delete?: boolean;
@@ -314,6 +332,65 @@ export interface EntityRouteConfig {
    * Default: 'created_ts DESC'
    */
   defaultOrderBy?: string;
+
+  /**
+   * Soft delete style used by this entity
+   * 'active_flag' - Uses active_flag = false (default)
+   * 'deleted_ts' - Uses deleted_ts IS NOT NULL
+   */
+  softDeleteStyle?: SoftDeleteStyle;
+
+  /**
+   * Default values for POST create
+   * Applied when field is not provided in request body
+   * Supports functions for dynamic values: () => `CODE-${Date.now()}`
+   */
+  createDefaults?: Record<string, any | (() => any)>;
+
+  /**
+   * Fields required for POST create
+   * Will return 400 if any are missing
+   */
+  requiredFields?: string[];
+
+  /**
+   * Name field used for entity registry
+   * Default: 'name'
+   */
+  nameField?: string;
+
+  /**
+   * Code field used for entity registry
+   * Default: 'code'
+   */
+  codeField?: string;
+
+  /**
+   * Use transactional create via entity-infrastructure.service
+   * When true, uses create_entity() for atomic INSERT + registry + RBAC + linkage
+   * When false, uses direct INSERT (legacy pattern)
+   * Default: true
+   */
+  useTransactionalCreate?: boolean;
+}
+
+/**
+ * Soft delete style for the entity
+ * Different entities use different soft delete patterns
+ */
+export type SoftDeleteStyle = 'active_flag' | 'deleted_ts';
+
+/**
+ * Hook context for create operations
+ */
+export interface CreateHookContext {
+  request: any;
+  reply: any;
+  userId: string;
+  entityCode: string;
+  data: Record<string, any>;
+  parentEntityCode?: string;
+  parentEntityId?: string;
 }
 
 /**
@@ -465,8 +542,14 @@ export function createEntityListEndpoint(
       }
 
       // Default: Only active records (unless explicitly querying inactive)
+      // Support both soft delete styles: active_flag and deleted_ts
+      const softDeleteStyle = config.softDeleteStyle || 'active_flag';
       if (!('active' in query)) {
-        conditions.push(sql`${sql.raw(TABLE_ALIAS)}.active_flag = true`);
+        if (softDeleteStyle === 'deleted_ts') {
+          conditions.push(sql`${sql.raw(TABLE_ALIAS)}.deleted_ts IS NULL`);
+        } else {
+          conditions.push(sql`${sql.raw(TABLE_ALIAS)}.active_flag = true`);
+        }
       }
 
       // Universal auto-filters
@@ -679,12 +762,17 @@ export function createEntityGetEndpoint(
         return reply.status(403).send({ error: `No permission to view this ${ENTITY_CODE}` });
       }
 
-      // Execute query
+      // Execute query with soft delete filter
+      const softDeleteStyle = config.softDeleteStyle || 'active_flag';
+      const softDeleteCondition = softDeleteStyle === 'deleted_ts'
+        ? sql`deleted_ts IS NULL`
+        : sql`active_flag = true`;
+
       const result = await db.execute(sql`
         SELECT *
         FROM app.${sql.raw(TABLE_NAME)}
         WHERE id = ${id}::uuid
-          AND active_flag = true
+          AND ${softDeleteCondition}
       `);
 
       if (result.length === 0) {
@@ -726,6 +814,215 @@ export function createEntityGetEndpoint(
 
     } catch (error) {
       fastify.log.error(`Error fetching ${ENTITY_CODE}:`, error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+}
+
+// ============================================================================
+// CREATE (POST) ENDPOINT FACTORY
+// ============================================================================
+
+/**
+ * Create POST /api/v1/{entity} endpoint
+ *
+ * Features:
+ * - RBAC permission check (CREATE at type level)
+ * - Parent RBAC check (EDIT on parent if linking)
+ * - Transactional create via entity-infrastructure.service
+ * - Configurable defaults and required fields
+ * - Hook system for custom validation/transformation
+ *
+ * @example
+ * // Basic usage
+ * createEntityPostEndpoint(fastify, { entityCode: 'role' });
+ *
+ * // With defaults and required fields
+ * createEntityPostEndpoint(fastify, {
+ *   entityCode: 'project',
+ *   createDefaults: {
+ *     code: () => `PROJ-${Date.now()}`,
+ *     name: 'Untitled Project',
+ *     active_flag: true
+ *   },
+ *   requiredFields: ['name']
+ * });
+ *
+ * // With custom hooks
+ * createEntityPostEndpoint(fastify, {
+ *   entityCode: 'invoice',
+ *   hooks: {
+ *     beforeCreate: async (ctx) => {
+ *       // Auto-generate invoice number
+ *       ctx.data.invoice_number = `INV-${Date.now()}`;
+ *       return ctx.data;
+ *     }
+ *   }
+ * });
+ */
+export function createEntityPostEndpoint(
+  fastify: FastifyInstance,
+  config: EntityRouteConfig
+): void {
+  const {
+    entityCode,
+    tableName,
+    hooks = {},
+    createDefaults = {},
+    requiredFields = [],
+    nameField = 'name',
+    codeField = 'code',
+    useTransactionalCreate = true
+  } = config;
+
+  const TABLE_NAME = getTableName(entityCode, tableName);
+  const ENTITY_CODE = entityCode;
+  const entityInfra = getEntityInfrastructure(db);
+
+  fastify.post(`/api/v1/${ENTITY_CODE}`, {
+    preHandler: [fastify.authenticate],
+    schema: {
+      querystring: Type.Object({
+        parent_entity_code: Type.Optional(Type.String()),
+        parent_entity_instance_id: Type.Optional(Type.String({ format: 'uuid' })),
+      }),
+      body: Type.Record(Type.String(), Type.Any()),  // Accept any fields
+      response: {
+        201: Type.Any(),
+        400: Type.Object({ error: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    const { parent_entity_code, parent_entity_instance_id } = request.query as any;
+    let data = { ...(request.body as Record<string, any>) };
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    try {
+      // ═══════════════════════════════════════════════════════════════
+      // APPLY DEFAULTS - Functions are called, values are used directly
+      // ═══════════════════════════════════════════════════════════════
+      for (const [key, defaultValue] of Object.entries(createDefaults)) {
+        if (data[key] === undefined || data[key] === null) {
+          data[key] = typeof defaultValue === 'function' ? defaultValue() : defaultValue;
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // HOOK: beforeCreate - Transform data, add computed fields
+      // ═══════════════════════════════════════════════════════════════
+      if (hooks.beforeCreate) {
+        const hookCtx: CreateHookContext = {
+          request, reply, userId, entityCode: ENTITY_CODE, data,
+          parentEntityCode: parent_entity_code,
+          parentEntityId: parent_entity_instance_id
+        };
+        data = await hooks.beforeCreate(hookCtx);
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // VALIDATE REQUIRED FIELDS
+      // ═══════════════════════════════════════════════════════════════
+      const missingFields = requiredFields.filter(field => !data[field]);
+      if (missingFields.length > 0) {
+        return reply.status(400).send({
+          error: `Missing required fields: ${missingFields.join(', ')}`
+        });
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // RBAC CHECK 1: Can user CREATE this entity type?
+      // ═══════════════════════════════════════════════════════════════
+      const canCreate = await entityInfra.check_entity_rbac(
+        userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE
+      );
+      if (!canCreate) {
+        return reply.status(403).send({ error: `No permission to create ${ENTITY_CODE}` });
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // RBAC CHECK 2: If linking to parent, can user EDIT parent?
+      // ═══════════════════════════════════════════════════════════════
+      if (parent_entity_code && parent_entity_instance_id) {
+        const canEditParent = await entityInfra.check_entity_rbac(
+          userId, parent_entity_code, parent_entity_instance_id, Permission.EDIT
+        );
+        if (!canEditParent) {
+          return reply.status(403).send({
+            error: `No permission to link ${ENTITY_CODE} to this ${parent_entity_code}`
+          });
+        }
+      }
+
+      let entity: any;
+
+      if (useTransactionalCreate) {
+        // ═══════════════════════════════════════════════════════════════
+        // TRANSACTIONAL CREATE via Entity Infrastructure Service
+        // Atomic: INSERT + registry + RBAC (OWNER) + linkage
+        // ═══════════════════════════════════════════════════════════════
+        const result = await entityInfra.create_entity({
+          entity_code: ENTITY_CODE,
+          creator_id: userId,
+          parent_entity_code: parent_entity_code,
+          parent_entity_id: parent_entity_instance_id,
+          primary_table: `app.${TABLE_NAME}`,
+          primary_data: data
+        });
+        entity = result.entity;
+      } else {
+        // ═══════════════════════════════════════════════════════════════
+        // LEGACY: Direct INSERT (for entities not using infrastructure)
+        // ═══════════════════════════════════════════════════════════════
+        const fields = Object.keys(data);
+        const values = Object.values(data).map(v => {
+          if (v === null) return sql`NULL`;
+          if (Array.isArray(v)) return sql`${`{${v.join(',')}}`}`;
+          if (typeof v === 'object') return sql`${JSON.stringify(v)}::jsonb`;
+          return sql`${v}`;
+        });
+
+        const result = await db.execute(sql`
+          INSERT INTO app.${sql.raw(TABLE_NAME)} (${sql.raw(fields.join(', '))})
+          VALUES (${sql.join(values, sql`, `)})
+          RETURNING *
+        `);
+        entity = result[0];
+
+        // Register in entity_instance for legacy mode
+        const entityName = data[nameField] || data[codeField] || entity.id;
+        const entityCode = data[codeField] || null;
+        await entityInfra.set_entity_instance_registry({
+          entity_code: ENTITY_CODE,
+          entity_id: entity.id,
+          entity_name: entityName,
+          instance_code: entityCode
+        });
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // HOOK: afterCreate - Side effects, additional linkages
+      // ═══════════════════════════════════════════════════════════════
+      if (hooks.afterCreate) {
+        const hookCtx: CreateHookContext = {
+          request, reply, userId, entityCode: ENTITY_CODE, data,
+          parentEntityCode: parent_entity_code,
+          parentEntityId: parent_entity_instance_id
+        };
+        entity = await hooks.afterCreate(hookCtx, entity);
+      }
+
+      fastify.log.info(`Created ${ENTITY_CODE}: ${entity.id}`);
+      return reply.status(201).send(entity);
+
+    } catch (error) {
+      fastify.log.error(`Error creating ${ENTITY_CODE}:`, error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -1033,20 +1330,29 @@ export function createEntityDeleteEndpoint(
  * Creates:
  * - GET /api/v1/{entity} - List with pagination, filtering, RBAC
  * - GET /api/v1/{entity}/:id - Single entity with RBAC
+ * - POST /api/v1/{entity} - Create with RBAC + transactional infrastructure
  * - PATCH /api/v1/{entity}/:id - Update with RBAC
  * - PUT /api/v1/{entity}/:id - Update alias
  * - DELETE /api/v1/{entity}/:id - Delete with RBAC (soft delete by default)
  *
- * Note: POST (create) remains entity-specific due to field variations
- *
  * @example
- * // Minimal - generates all endpoints (including DELETE)
+ * // Minimal - generates ALL endpoints (LIST, GET, POST, PATCH, PUT, DELETE)
  * createUniversalEntityRoutes(fastify, { entityCode: 'role' });
  *
- * // With hooks for customization
+ * // With create defaults and hooks
  * createUniversalEntityRoutes(fastify, {
- *   entityCode: 'office',
+ *   entityCode: 'project',
+ *   createDefaults: {
+ *     code: () => `PROJ-${Date.now()}`,
+ *     name: 'Untitled Project',
+ *     active_flag: true
+ *   },
  *   hooks: {
+ *     beforeCreate: async (ctx) => {
+ *       // Custom validation
+ *       if (ctx.data.name?.length < 3) throw new Error('Name too short');
+ *       return ctx.data;
+ *     },
  *     afterList: async (ctx, data) => {
  *       // Add computed field
  *       return data.map(d => ({ ...d, fullAddress: `${d.city}, ${d.country}` }));
@@ -1054,10 +1360,16 @@ export function createEntityDeleteEndpoint(
  *   }
  * });
  *
- * // Skip certain endpoints
+ * // Skip certain endpoints (use custom implementations)
  * createUniversalEntityRoutes(fastify, {
  *   entityCode: 'project',
- *   skip: { list: true, delete: true }  // Use custom list and delete endpoints
+ *   skip: { post: true }  // Use custom POST handler
+ * });
+ *
+ * // With soft delete style (for entities using deleted_ts instead of active_flag)
+ * createUniversalEntityRoutes(fastify, {
+ *   entityCode: 'interaction',
+ *   softDeleteStyle: 'deleted_ts'
  * });
  *
  * // With hard delete for linkage entities
@@ -1082,6 +1394,11 @@ export function createUniversalEntityRoutes(
     createEntityGetEndpoint(fastify, config);
   }
 
+  // Create POST endpoint
+  if (!skip.post) {
+    createEntityPostEndpoint(fastify, config);
+  }
+
   // Create PATCH endpoint
   if (!skip.patch) {
     createEntityPatchEndpoint(fastify, config);
@@ -1101,6 +1418,7 @@ export function createUniversalEntityRoutes(
   const endpoints: string[] = [];
   if (!skip.list) endpoints.push('LIST');
   if (!skip.get) endpoints.push('GET');
+  if (!skip.post) endpoints.push('POST');
   if (!skip.patch) endpoints.push('PATCH');
   if (!skip.put) endpoints.push('PUT');
   if (!skip.delete) endpoints.push('DELETE');
@@ -1124,6 +1442,7 @@ export default {
   // Individual factories
   createEntityListEndpoint,
   createEntityGetEndpoint,
+  createEntityPostEndpoint,
   createEntityPatchEndpoint,
   createEntityPutEndpoint,
   createEntityDeleteEndpoint,
