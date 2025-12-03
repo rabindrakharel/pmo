@@ -1,5 +1,5 @@
 -- =====================================================
--- BUSINESS ENTITY (d_business) - OPERATIONAL UNITS
+-- BUSINESS ENTITY (business) - OPERATIONAL UNITS
 -- =====================================================
 --
 -- SEMANTICS:
@@ -7,10 +7,10 @@
 -- These are working teams/units that map to business hierarchy nodes.
 --
 -- **HIERARCHY CONCEPT**:
--- • d_business: Operational units (team-level entities doing actual work)
--- • d_business_hierarchy: Organizational hierarchy (Corporate → Division → Department)
--- • Relationship: app.business links to d_business_hierarchy via entity_instance_link
--- • Example: "Landscaping Team Alpha" (d_business) links to "Landscaping Department" (d_business_hierarchy)
+-- • business: Operational units (team-level entities doing actual work)
+-- • business_hierarchy: Organizational hierarchy (Corporate → Division → Department)
+-- • Relationship: app.business links to business_hierarchy via entity_instance_link
+-- • Example: "Landscaping Team Alpha" (business) links to "Landscaping Department" (business_hierarchy)
 --
 -- OPERATIONS:
 -- • CREATE: POST /api/v1/business, INSERT with version=1, active_flag=true
@@ -19,7 +19,7 @@
 -- • LIST: GET /api/v1/business, filters by office/status, RBAC enforced
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Parent: d_business_hierarchy (via entity_instance_link)
+-- • Parent: business_hierarchy (via entity_instance_link)
 -- • Parent: app.office (office assignment)
 -- • Children: project, task, employee assignments
 -- • RBAC: entity_rbac
@@ -49,13 +49,13 @@ CREATE TABLE app.business (
 COMMENT ON TABLE app.business IS 'Operational business units (team-level) executing day-to-day work and projects';
 
 -- =====================================================
--- BUSINESS HIERARCHY (d_business_hierarchy) - ORGANIZATIONAL STRUCTURE
+-- BUSINESS HIERARCHY (business_hierarchy) - ORGANIZATIONAL STRUCTURE
 -- 3-level hierarchy: Corporate → Division → Department
 -- =====================================================
 --
 -- SEMANTICS:
 -- Business hierarchy provides a 3-level organizational structure for business management.
--- This hierarchy is separate from operational units (d_business) and linked via entity_instance_link.
+-- This hierarchy is separate from operational units (business) and linked via entity_instance_link.
 --
 -- HIERARCHY LEVELS:
 -- • Corporate: Top-level corporate entity (e.g., "Huron Home Services Corporation")
@@ -68,7 +68,7 @@ COMMENT ON TABLE app.business IS 'Operational business units (team-level) execut
 -- • TRAVERSE: Recursive CTE on parent__business_hierarchy_id for full hierarchy path
 --
 -- RELATIONSHIPS:
--- • Self: parent__business_hierarchy_id → d_business_hierarchy.id
+-- • Self: parent__business_hierarchy_id → app.business_hierarchy.id
 -- • Children: app.business (via entity_instance_link)
 --
 -- =====================================================

@@ -1,5 +1,5 @@
 -- =====================================================
--- OFFICE ENTITY (d_office) - PHYSICAL LOCATIONS
+-- OFFICE ENTITY (office) - PHYSICAL LOCATIONS
 -- =====================================================
 --
 -- SEMANTICS:
@@ -7,10 +7,10 @@
 -- These are actual brick-and-mortar locations with full address information.
 --
 -- **HIERARCHY CONCEPT**:
--- • d_office: Physical office locations (address-level entities)
--- • d_office_hierarchy: Organizational hierarchy (Corporate → Region → District → Office)
--- • Relationship: app.office links to d_office_hierarchy via entity_instance_link
--- • Example: "London Service Office" (d_office) links to "Southwestern Ontario District" (d_office_hierarchy)
+-- • office: Physical office locations (address-level entities)
+-- • office_hierarchy: Organizational hierarchy (Corporate → Region → District → Office)
+-- • Relationship: app.office links to office_hierarchy via entity_instance_link
+-- • Example: "London Service Office" (office) links to "Southwestern Ontario District" (office_hierarchy)
 --
 -- OPERATIONS:
 -- • CREATE: POST /api/v1/office, INSERT with version=1, active_flag=true
@@ -19,7 +19,7 @@
 -- • LIST: GET /api/v1/office, filters by province/city, RBAC enforced
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Parent: d_office_hierarchy (via entity_instance_link)
+-- • Parent: office_hierarchy (via entity_instance_link)
 -- • Children: employee, business, equipment
 -- • RBAC: entity_rbac
 --
@@ -60,13 +60,13 @@ CREATE TABLE app.office (
 COMMENT ON TABLE app.office IS 'Physical office locations (address-level) with full address information';
 
 -- =====================================================
--- OFFICE HIERARCHY (d_office_hierarchy) - ORGANIZATIONAL STRUCTURE
+-- OFFICE HIERARCHY (office_hierarchy) - ORGANIZATIONAL STRUCTURE
 -- 4-level hierarchy: Corporate → Region → District → Office
 -- =====================================================
 --
 -- SEMANTICS:
 -- Office hierarchy provides a 4-level organizational structure for office management.
--- This hierarchy is separate from physical offices (d_office) and linked via entity_instance_link.
+-- This hierarchy is separate from physical offices (office) and linked via entity_instance_link.
 --
 -- HIERARCHY LEVELS:
 -- • Corporate: Top-level corporate entity (e.g., "Corporate Headquarters")
@@ -80,7 +80,7 @@ COMMENT ON TABLE app.office IS 'Physical office locations (address-level) with f
 -- • TRAVERSE: Recursive CTE on parent__office_hierarchy_id for full hierarchy path
 --
 -- RELATIONSHIPS:
--- • Self: parent__office_hierarchy_id → d_office_hierarchy.id
+-- • Self: parent__office_hierarchy_id → app.office_hierarchy.id
 -- • Children: app.office (via entity_instance_link)
 --
 -- =====================================================

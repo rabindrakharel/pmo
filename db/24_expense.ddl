@@ -57,15 +57,15 @@ CREATE TABLE app.expense (
     -- Entity Linkages
     invoice_id UUID,                                    -- Link to f_invoice (if expense relates to billable work)
     invoice_number VARCHAR(50),                         -- Denormalized invoice number
-    project_id UUID,                                    -- Link to d_project
+    project_id UUID,                                    -- Link to app.project
     project_name VARCHAR(255),                          -- Denormalized project name
     employee_id UUID,                                   -- Employee who incurred expense
     employee_name VARCHAR(255),                         -- Denormalized employee name
-    cust_id UUID,                                       -- Link to d_cust (if client-related)
+    customer_id UUID,                                   -- Link to app.customer (if client-related)
     client_name VARCHAR(255),                           -- Denormalized client name
-    business_id UUID,                                   -- Link to d_business
+    business_id UUID,                                   -- Link to app.business
     business_name VARCHAR(255),                         -- Denormalized business name
-    office_id UUID,                                     -- Link to d_office
+    office_id UUID,                                     -- Link to app.office
     office_name VARCHAR(255),                           -- Denormalized office name
 
     -- Expense Metrics (Canadian Dollars)

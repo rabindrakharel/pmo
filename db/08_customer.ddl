@@ -1,5 +1,5 @@
 -- ============================================================================
--- CUSTOMER ENTITY (d_customer) - CORE ENTITY
+-- CUSTOMER ENTITY (customer) - CORE ENTITY
 -- Customer relationship management across residential, commercial, municipal, industrial sectors
 -- ============================================================================
 --
@@ -46,7 +46,7 @@
 -- 4. LIST CUSTOMERS (Filtered by Type, Status, Tier)
 --    • Endpoint: GET /api/v1/customer?cust_type=commercial&customer_tier_name=Enterprise&limit=50
 --    • Database:
---      SELECT c.* FROM d_customer c
+--      SELECT c.* FROM app.customer c
 --      WHERE c.active_flag=true
 --        AND EXISTS (
 --          SELECT 1 FROM entity_rbac rbac
@@ -62,14 +62,14 @@
 --
 -- 5. GET SINGLE CUSTOMER
 --    • Endpoint: GET /api/v1/customer/{id}
---    • Database: SELECT * FROM d_customer WHERE id=$1 AND active_flag=true
+--    • Database: SELECT * FROM app.customer WHERE id=$1 AND active_flag=true
 --    • RBAC: Checks entity_rbac for view permission
 --    • Frontend: EntitySpecificInstancePage renders fields + tabs for projects/tasks/forms
 --
 -- 6. GET CUSTOMER PROJECTS
 --    • Endpoint: GET /api/v1/customer/{id}/project?project_stage=Execution&limit=20
 --    • Database:
---      SELECT p.* FROM d_project p
+--      SELECT p.* FROM app.project p
 --      INNER JOIN entity_id_map eim ON eim.child_entity_instance_id=p.id
 --      WHERE eim.entity_instance_id=$1
 --        AND eim.entity_code='customer'
@@ -87,9 +87,9 @@
 --        c.metadata->>'annual_contract_value' AS annual_contract_value,
 --        COUNT(p.id) AS project_count,
 --        SUM(p.budget_spent) AS total_project_spending
---      FROM d_customer c
+--      FROM app.customer c
 --      LEFT JOIN entity_id_map eim ON eim.entity_instance_id=c.id AND eim.entity_code='customer'
---      LEFT JOIN d_project p ON p.id=eim.child_entity_instance_id AND p.active_flag=true
+--      LEFT JOIN app.project p ON p.id=eim.child_entity_instance_id AND p.active_flag=true
 --      WHERE c.id=$1
 --      GROUP BY c.id
 --    • Business Rule: Provides customer lifetime value and project spending analytics
@@ -111,7 +111,7 @@
 -- 10. APP USER SIGNIN (Authentication)
 --     • Endpoint: POST /api/v1/auth/customer/signin
 --     • Body: {email, password}
---     • Database: SELECT * FROM d_customer WHERE primary_email=$1 AND active_flag=true
+--     • Database: SELECT * FROM app.customer WHERE primary_email=$1 AND active_flag=true
 --     • Verification: bcrypt.compare(password, password_hash)
 --     • Returns: {token (JWT), user: {id, name, email, entities}}
 --     • Business Rule: Updates last_login_ts, resets failed_login_attempts

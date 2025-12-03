@@ -56,16 +56,16 @@ CREATE TABLE app.revenue (
     -- Entity Linkages
     invoice_id UUID,                                    -- Link to f_invoice (source invoice)
     invoice_number VARCHAR(50),                         -- Denormalized invoice number
-    cust_id UUID,                                       -- Link to d_cust
+    customer_id UUID,                                   -- Link to app.customer
     client_name VARCHAR(255),                           -- Denormalized client name
     client_type VARCHAR(50),                            -- 'residential', 'commercial', 'government'
-    project_id UUID,                                    -- Link to d_project
+    project_id UUID,                                    -- Link to app.project
     project_name VARCHAR(255),                          -- Denormalized project name
     employee_id UUID,                                   -- Responsible employee
     employee_name VARCHAR(255),                         -- Denormalized employee name
-    business_id UUID,                                   -- Link to d_business
+    business_id UUID,                                   -- Link to app.business
     business_name VARCHAR(255),                         -- Denormalized business name
-    office_id UUID,                                     -- Link to d_office
+    office_id UUID,                                     -- Link to app.office
     office_name VARCHAR(255),                           -- Denormalized office name
 
     -- Revenue Metrics (Canadian Dollars)
