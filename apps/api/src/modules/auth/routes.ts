@@ -628,7 +628,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       // Update customer entities
       const result = await db.execute(sql`
-        UPDATE app.customeromer
+        UPDATE app.customer
         SET entities = ${sql`ARRAY[${sql.join(entities.map(e => sql`${e}`), sql`, `)}]::text[]`},
             updated_ts = NOW()
         WHERE id = ${userId}

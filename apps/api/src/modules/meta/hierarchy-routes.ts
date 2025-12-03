@@ -317,7 +317,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
       }
 
       // Get sidebar entities (root-capable entities)
-      const sidebarEntities = await db.execute(sql`
+      const entityCodes = await db.execute(sql`
         SELECT 
           id,
           entity_type,
@@ -353,7 +353,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
 
       // Return navigation structure (entity types come from entity table)
       return {
-        sidebar_entities: sidebarEntities,
+        sidebar_entities: entityCodes,
         entity_hierarchy: entityHierarchy,
         user_permissions: {}};
     } catch (error) {
