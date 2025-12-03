@@ -14,6 +14,7 @@
 
 import type { ReactElement } from 'react';
 import type { ComponentRendererProps } from './ComponentRegistry';
+import { getEntityInstanceNameSync } from '@/db/tanstack-index';
 
 // ============================================================================
 // renderViewField - Main Entry Point
@@ -29,7 +30,7 @@ import type { ComponentRendererProps } from './ComponentRegistry';
  * @returns React element for the field display
  */
 export function renderViewField(props: ComponentRendererProps): ReactElement {
-  const { value, field, formattedData, className } = props;
+  const { value, field, formattedData, refData, className } = props;
   const { key, renderType, style } = field;
 
   // ========================================================================
@@ -167,25 +168,81 @@ export function renderViewField(props: ComponentRendererProps): ReactElement {
     // ENTITY REFERENCES
     // --------------------------------------------------------------------
     case 'entityLink':
-    case 'entityInstanceId':
-      // Should be resolved via refData, fallback to UUID display
+    case 'entityInstanceId': {
+      // Resolve entity instance name using:
+      // 1. refData from API response (preferred)
+      // 2. TanStack Query cache via getEntityInstanceNameSync
+      // 3. Fallback to truncated UUID
+      const lookupEntity = field.lookupEntity;
+      let displayName: string | null = null;
+
+      // Try refData first (from API response ref_data_entityInstance)
+      if (refData && lookupEntity && refData[lookupEntity]) {
+        displayName = refData[lookupEntity][String(value)] || null;
+      }
+
+      // Try TanStack Query cache
+      if (!displayName && lookupEntity) {
+        displayName = getEntityInstanceNameSync(lookupEntity, String(value));
+      }
+
+      // Fallback to truncated UUID if name not found
+      if (!displayName) {
+        displayName = `${String(value).slice(0, 8)}...`;
+      }
+
       return (
         <span className={`text-blue-600 ${className || ''}`}>
-          {String(value).slice(0, 8)}...
+          {displayName}
         </span>
       );
+    }
 
     case 'entityLinks':
-    case 'entityInstanceIds':
-      // Array of UUIDs - show count
-      if (Array.isArray(value)) {
-        return (
-          <span className={className}>
-            {value.length} item{value.length !== 1 ? 's' : ''}
-          </span>
-        );
+    case 'entityInstanceIds': {
+      // Array of entity references - resolve names
+      if (!Array.isArray(value) || value.length === 0) {
+        return <span className={className}>—</span>;
       }
-      return <span className={className}>—</span>;
+
+      const lookupEntityMulti = field.lookupEntity;
+      const maxDisplay = style?.maxDisplay || 3;
+      const displayItems = value.slice(0, maxDisplay);
+      const remaining = value.length - maxDisplay;
+
+      const resolvedNames = displayItems.map((id: string) => {
+        let name: string | null = null;
+
+        // Try refData first
+        if (refData && lookupEntityMulti && refData[lookupEntityMulti]) {
+          name = refData[lookupEntityMulti][String(id)] || null;
+        }
+
+        // Try TanStack Query cache
+        if (!name && lookupEntityMulti) {
+          name = getEntityInstanceNameSync(lookupEntityMulti, String(id));
+        }
+
+        // Fallback to truncated UUID
+        return name || `${String(id).slice(0, 8)}...`;
+      });
+
+      return (
+        <span className={`flex flex-wrap gap-1 ${className || ''}`}>
+          {resolvedNames.map((name: string, i: number) => (
+            <span
+              key={i}
+              className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700"
+            >
+              {name}
+            </span>
+          ))}
+          {remaining > 0 && (
+            <span className="text-xs text-gray-500">+{remaining} more</span>
+          )}
+        </span>
+      );
+    }
 
     // --------------------------------------------------------------------
     // TAGS

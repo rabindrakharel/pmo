@@ -28,12 +28,12 @@ export const SESSION_STORE_CONFIG = {
 // ============================================================================
 // On-Demand Store (entityInstanceData only)
 // ============================================================================
-// Never prefetch, 5 min TTL, invalidation applies
+// Never prefetch, 1 min TTL, invalidation applies
 // This store contains query results that change frequently
 
 export const ONDEMAND_STORE_CONFIG = {
   /** How long before data is considered stale */
-  staleTime: 5 * 60 * 1000, // 5 minutes
+  staleTime: 1 * 60 * 1000, // 1 minute - synced with metadata TTL to prevent stale rendering
 
   /** How long to keep data in memory after last use */
   gcTime: 30 * 60 * 1000, // 30 minutes
@@ -111,7 +111,7 @@ export const STORE_STALE_TIMES = {
   entityCodes: 30 * 60 * 1000, // 30 minutes (changes rarely)
   entityInstanceNames: SESSION_STORE_CONFIG.staleTime,
   entityLinks: 5 * 60 * 1000, // 5 minutes (changes with entity updates)
-  entityInstanceMetadata: 30 * 60 * 1000, // 30 minutes (field definitions)
+  entityInstanceMetadata: 1 * 60 * 1000, // 1 minute - synced with data TTL to prevent stale rendering
   entityInstanceData: ONDEMAND_STORE_CONFIG.staleTime,
 } as const;
 

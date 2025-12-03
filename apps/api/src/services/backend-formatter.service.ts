@@ -59,9 +59,9 @@
  *         "budget_allocated_amt": {
  *           "dtype": "float",
  *           "label": "Budget Allocated",
- *           "inputType": "currency",
+ *           "inputType": "number",           // Currency uses HTML5 number input (see edit-type-mapping.yaml)
  *           "behavior": { "editable": true },
- *           "style": { "symbol": "$", "decimals": 2 },
+ *           "style": { "symbol": "$", "decimals": 2, "step": "0.01" },
  *           "validation": { "min": 0 }
  *         },
  *         "dl__project_stage": {
