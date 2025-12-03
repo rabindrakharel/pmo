@@ -264,7 +264,10 @@
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzY0NjA1NzEyLCJleHAiOjE3NjQ2OTIxMTJ9.vXUM-Lq4fUbJX7G_nTm5CQLkSeOxgqYXgys0YmnLmh4\" curl -s \"http://localhost:4000/api/v1/project?limit=10\" -H \"Authorization: Bearer $TOKEN\")",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzY0NjA1NzEyLCJleHAiOjE3NjQ2OTIxMTJ9.vXUM-Lq4fUbJX7G_nTm5CQLkSeOxgqYXgys0YmnLmh4\")",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzY0NjA1NzEyLCJleHAiOjE3NjQ2OTIxMTJ9.vXUM-Lq4fUbJX7G_nTm5CQLkSeOxgqYXgys0YmnLmh4\" curl -s \"http://localhost:4000/api/v1/project?limit=5\" -H \"Authorization: Bearer $TOKEN\")",
-      "Bash(git -C /home/rabin/projects/pmo mv:*)"
+      "Bash(git -C /home/rabin/projects/pmo mv:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzY0NzI4OTUxLCJleHAiOjE3NjQ4MTUzNTF9.GnVZDko6o3WchAVbjJeR3o59ig3q2Z43TyXYFf29CNc\" curl -s \"http://localhost:4000/api/v1/project?limit=1\" -H \"Authorization: Bearer $TOKEN\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzY0NzI4OTUxLCJleHAiOjE3NjQ4MTUzNTF9.GnVZDko6o3WchAVbjJeR3o59ig3q2Z43TyXYFf29CNc\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzY0NzI4OTUxLCJleHAiOjE3NjQ4MTUzNTF9.GnVZDko6o3WchAVbjJeR3o59ig3q2Z43TyXYFf29CNc\" curl -s \"http://localhost:4000/api/v1/project?content=metadata\" -H \"Authorization: Bearer $TOKEN\")"
     ],
     "deny": [],
     "ask": [],

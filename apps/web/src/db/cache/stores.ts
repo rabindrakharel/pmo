@@ -51,8 +51,7 @@ export function getSettingSync<K extends keyof GlobalSettings>(
  * Get datalabel options synchronously from TanStack Query cache
  */
 export function getDatalabelSync(key: string): DatalabelOption[] | null {
-  const normalizedKey = key.startsWith('dl__') ? key.slice(4) : key;
-  return queryClient.getQueryData<DatalabelOption[]>(QUERY_KEYS.datalabel(normalizedKey)) ?? null;
+  return queryClient.getQueryData<DatalabelOption[]>(QUERY_KEYS.datalabel(key)) ?? null;
 }
 
 // ============================================================================

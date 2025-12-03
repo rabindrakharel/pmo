@@ -194,6 +194,11 @@ config/local.yml
 generated/
 auto-generated/
 
+# Prevent compiled JS in TypeScript source directories
+# (Vite handles compilation - never run tsc directly on web source)
+apps/web/src/**/*.js
+apps/api/src/**/*.js
+
 # Lock files (uncomment if you want to ignore them)
 # package-lock.json
 # yarn.lock

@@ -27,7 +27,7 @@ import {
   useOptimisticMutation,
   invalidateEntityQueries,
 } from '../../db/tanstack-index';
-import { formatRow } from '../../lib/formatters';
+import { formatRow, formatDataset, type ComponentMetadata } from '../../lib/formatters';
 import { useKeyboardShortcuts, useShortcutHints } from '../../lib/hooks/useKeyboardShortcuts';
 import { API_CONFIG } from '../../lib/config/api';
 import { EllipsisBounce, InlineSpinner } from '../../components/shared/ui/EllipsisBounce';
@@ -326,10 +326,18 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
 
   // Combine server data with local additions for display
   // Note: childData is stable (frozen empty array when disabled)
-  const childDisplayData = useMemo(() => {
+  const childRawData = useMemo(() => {
     if (childLocalAdditions.length === 0) return childData;
     return [...childData, ...childLocalAdditions];
   }, [childData, childLocalAdditions]);
+
+  // v12.3.0: Format child data for display (same as EntityListOfInstancesPage)
+  // This transforms raw API data into FormattedRow structure with display/styles
+  // Required for badge rendering and other styled view modes
+  const childDisplayData = useMemo(() => {
+    if (!childRawData || childRawData.length === 0) return [];
+    return formatDataset(childRawData, childMetadata as ComponentMetadata | undefined);
+  }, [childRawData, childMetadata]);
 
   // Child pagination
   const childPagination = useMemo(() => ({
