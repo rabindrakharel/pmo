@@ -7,6 +7,7 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
+import { getEntityInfrastructure } from '@/services/entity-infrastructure.service.js';
 
 // Entity type schema
 const EntityTypeSchema = Type.Object({
@@ -42,6 +43,27 @@ const ActionEntitySummarySchema = Type.Object({
   total_accessible: Type.Number()});
 
 export async function hierarchyRoutes(fastify: FastifyInstance) {
+  // Entity infrastructure service for entity metadata (Redis cached)
+  const entityInfra = getEntityInfrastructure(db);
+
+  /**
+   * Get database table name for an entity code
+   * Convention: entity.db_table or 'app.{entity_code}'
+   */
+  async function getDbTable(entityCode: string): Promise<string | null> {
+    const metadata = await entityInfra.get_entity_metadata(entityCode);
+    if (!metadata) return null;
+    // Use db_table if set, otherwise convention: app.{entity_code}
+    return metadata.db_table || `app.${entityCode}`;
+  }
+
+  /**
+   * Get FK column name for parent-child relationship
+   * Convention: {parent_entity_code}_id
+   */
+  function getFkColumn(parentEntityCode: string): string {
+    return `${parentEntityCode}_id`;
+  }
 
   // Get eligible parent entity types for an action entity type
   fastify.get('/api/v1/meta/entity-hierarchy/eligible-parents', {
@@ -116,16 +138,8 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'Unauthorized' });
       }
 
-      // Get parent entity info (canonical names)
-      const parentTableMap: Record<string, string> = {
-        'business': 'app.business',
-        'project': 'app.project',
-        'task': 'app.task',
-        'office': 'app.office',
-        'customer': 'app.customer',
-        'worksite': 'app.worksite'};
-
-      const parentTable = parentTableMap[parentEntity];
+      // Get parent entity db_table from entity metadata (Redis cached)
+      const parentTable = await getDbTable(parentEntity);
       if (!parentTable) {
         return reply.status(400).send({ error: 'Invalid parent entity type' });
       }
@@ -164,48 +178,21 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
           ? actionEntity.permission_actions.map(String) 
           : [];
         
-        // Filter by parent context
+        // Filter by parent context using entity_instance_link
         let contextFilteredCount = 0;
         {
-          const entityTableMap: Record<string, string> = {
-            'project': 'app.project',
-            'task': 'app.task',
-            'wiki': 'app.wiki',
-            'form': 'app.form',
-            'artifact': 'app.artifact'};
-
-          const actionTable = entityTableMap[entityTypeCode];
+          // Get action entity's db_table from entity metadata
+          const actionTable = await getDbTable(entityTypeCode);
           if (actionTable) {
-            const parentColumnMap: Record<string, Record<string, string>> = {
-              'project': { 'business': 'business_id', 'customer': 'customers' },
-              'task': { 'project': 'metadata->\'project_id\'', 'business': 'metadata->\'business_id\'', 'worksite': 'worksite_id' },
-              'wiki': { 'business': 'business_id', 'project': 'project_id', 'task': 'task_id' },
-              'form': { 'business': 'business_id', 'project': 'project_id', 'task': 'task_id', 'worksite': 'worksite_id' },
-              'artifact': { 'business': 'business_id', 'project': 'project_id', 'task': 'task_id' }};
-
-            const parentColumn = parentColumnMap[entityTypeCode]?.[parentEntity];
-            if (parentColumn) {
-              // Handle JSONB extraction for task metadata
-              let countResult;
-              if (entityTypeCode === 'task' && parentColumn.includes('metadata')) {
-                // Extract from JSONB
-                const jsonbField = parentColumn.split('->')[1].replace(/'/g, '');
-                countResult = await db.execute(sql`
-                  SELECT COUNT(*) as count
-                  FROM ${sql.raw(actionTable)}
-                  WHERE (metadata->>${jsonbField})::uuid = ${parentId}::uuid
-                    AND active_flag = true
-                `);
-              } else {
-                countResult = await db.execute(sql`
-                  SELECT COUNT(*) as count
-                  FROM ${sql.raw(actionTable)}
-                  WHERE ${sql.raw(parentColumn)} = ${parentId}
-                    AND active_flag = true
-                `);
-              }
-              contextFilteredCount = parseInt(String(countResult[0]?.count || '0'));
-            }
+            // Count children via entity_instance_link (centralized relationship table)
+            const countResult = await db.execute(sql`
+              SELECT COUNT(*) as count
+              FROM app.entity_instance_link eil
+              WHERE eil.entity_code = ${parentEntity}
+                AND eil.entity_instance_id = ${parentId}::uuid
+                AND eil.child_entity_code = ${entityTypeCode}
+            `);
+            contextFilteredCount = parseInt(String(countResult[0]?.count || '0'));
           }
         }
 
@@ -364,8 +351,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
         ORDER BY parent_entity, action_entity
       `);
 
-      // Get user permissions for each entity type (canonical names)
-      const entityTypes = ['business', 'office', 'customer', 'project', 'task', 'worksite', 'employee', 'role', 'wiki', 'form', 'artifact'];
+      // Return navigation structure (entity types come from entity table)
       return {
         sidebar_entities: sidebarEntities,
         entity_hierarchy: entityHierarchy,
@@ -471,20 +457,11 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'Unauthorized' });
       }
 
-      // Verify entity exists (canonical names)
-      const entityTableMap: Record<string, string> = {
-        'business': 'business',
-        'project': 'project',
-        'task': 'task',
-        'office': 'office',
-        'customer': 'customer',
-        'worksite': 'worksite'
-      };
-
-      const entityTable = entityTableMap[entityCode];
+      // Verify entity exists using entity metadata (Redis cached)
+      const entityTable = await getDbTable(entityCode);
       if (entityTable) {
         const entityCheck = await db.execute(sql`
-          SELECT id FROM app.${sql.identifier(entityTable)}
+          SELECT id FROM ${sql.raw(entityTable)}
           WHERE id::text = ${entityId}
             AND active_flag = true
         `);

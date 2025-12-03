@@ -10,6 +10,7 @@ import { sql } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { config } from '@/lib/config.js';
+import { getEntityInfrastructure } from '@/services/entity-infrastructure.service.js';
 
 // Login request schema
 const LoginRequestSchema = Type.Object({
@@ -77,6 +78,8 @@ const ErrorResponseSchema = Type.Object({
   error: Type.String()});
 
 export async function authRoutes(fastify: FastifyInstance) {
+  // Entity infrastructure service for entity metadata (Redis cached)
+  const entityInfra = getEntityInfrastructure(db);
   // Login endpoint
   fastify.post('/login', {
     schema: {
@@ -206,14 +209,15 @@ export async function authRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'Unauthorized' });
       }
 
-      // Get entity-based permissions summary (canonical names)
-      const entityTypes = ['business', 'office', 'customer', 'project', 'task', 'worksite', 'employee', 'role', 'wiki', 'form', 'artifact'];
+      // Get entity-based permissions summary from entity table (Redis cached)
+      const entities = await entityInfra.get_all_entity();
+      const validEntityCodes = entities.map(e => e.code);
       const actions = ['view', 'create', 'edit', 'share'];
-      
+
       const permissions: any = {};
       const entityCounts: any = {};
 
-      for (const entityCode of entityTypes) {
+      for (const entityCode of validEntityCodes) {
         entityCounts[entityCode] = 0;
         permissions[entityCode] = actions;
       }
@@ -256,13 +260,9 @@ export async function authRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'Unauthorized' });
       }
 
-      // Validate entity type (canonical names)
-      const validEntityTypes = [
-        'business', 'office', 'customer', 'project', 'task',
-        'worksite', 'employee', 'role', 'wiki', 'form', 'artifact'
-      ];
-      
-      if (!validEntityTypes.includes(entityCode)) {
+      // Validate entity type from entity table (Redis cached)
+      const entityMetadata = await entityInfra.get_entity_metadata(entityCode);
+      if (!entityMetadata) {
         return reply.status(400).send({ error: `Invalid entity type: ${entityCode}` });
       }
 
@@ -383,7 +383,7 @@ export async function authRoutes(fastify: FastifyInstance) {
     try {
       // Check if email already exists
       const existingCustomer = await db.execute(sql`
-        SELECT id FROM app.cust
+        SELECT id FROM app.customer
         WHERE primary_email = ${primary_email}
           AND active_flag = true
       `);
@@ -397,7 +397,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       // Generate customer number (simple incrementing system)
       const lastCustNumber = await db.execute(sql`
-        SELECT cust_number FROM app.cust
+        SELECT cust_number FROM app.customer
         WHERE cust_number LIKE 'APP-%'
         ORDER BY created_ts DESC
         LIMIT 1
@@ -411,7 +411,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       // Create customer account
       const result = await db.execute(sql`
-        INSERT INTO app.cust (
+        INSERT INTO app.customer (
           name,
           cust_number,
           cust_type,
@@ -483,7 +483,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       // Find customer by email
       const customerResult = await db.execute(sql`
         SELECT id, name, primary_email, password_hash, entities
-        FROM app.cust
+        FROM app.customer
         WHERE primary_email = ${email}
           AND active_flag = true
           AND password_hash IS NOT NULL
@@ -505,7 +505,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       if (!isValidPassword) {
         // Increment failed login attempts
         await db.execute(sql`
-          UPDATE app.cust
+          UPDATE app.customer
           SET failed_login_attempts = failed_login_attempts + 1,
               account_locked_until = CASE
                 WHEN failed_login_attempts >= 4
@@ -519,7 +519,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       // Update last login and reset failed attempts
       await db.execute(sql`
-        UPDATE app.cust
+        UPDATE app.customer
         SET last_login_ts = NOW(),
             failed_login_attempts = 0,
             account_locked_until = NULL
@@ -570,7 +570,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       const customerResult = await db.execute(sql`
         SELECT id, name, primary_email, entities, cust_type
-        FROM app.cust
+        FROM app.customer
         WHERE id = ${userId}
           AND active_flag = true
       `);
@@ -615,14 +615,11 @@ export async function authRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'Not authenticated as customer' });
       }
 
-      // Validate entities array (canonical names)
-      const validEntities = [
-        'business', 'office', 'project', 'task', 'employee', 'role', 'worksite',
-        'customer', 'position', 'artifact', 'wiki', 'form', 'marketing',
-        'product', 'inventory', 'order', 'invoice', 'shipment'
-      ];
+      // Validate entities array from entity table (Redis cached)
+      const allEntities = await entityInfra.get_all_entity();
+      const validEntityCodes = allEntities.map(e => e.code);
 
-      const invalidEntities = entities.filter(e => !validEntities.includes(e));
+      const invalidEntities = entities.filter(e => !validEntityCodes.includes(e));
       if (invalidEntities.length > 0) {
         return reply.status(400).send({
           error: `Invalid entities: ${invalidEntities.join(', ')}`
@@ -631,7 +628,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       // Update customer entities
       const result = await db.execute(sql`
-        UPDATE app.customer
+        UPDATE app.customeromer
         SET entities = ${sql`ARRAY[${sql.join(entities.map(e => sql`${e}`), sql`, `)}]::text[]`},
             updated_ts = NOW()
         WHERE id = ${userId}
