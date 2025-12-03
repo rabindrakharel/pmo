@@ -3,7 +3,7 @@
  * ROLE ROUTES MODULE - Universal Entity Pattern with Factory
  * ============================================================================
  *
- * REFACTORED: Uses Universal CRUD Factory for GET (list), GET (single), and UPDATE endpoints.
+ * REFACTORED: Uses Universal CRUD Factory for all standard endpoints.
  * CREATE endpoint remains custom due to entity-specific validation and field mapping.
  *
  * ENDPOINTS:
@@ -12,7 +12,7 @@
  *   POST   /api/v1/role              - Create role (CUSTOM - entity-specific validation)
  *   PATCH  /api/v1/role/:id          - Update role (FACTORY)
  *   PUT    /api/v1/role/:id          - Update role alias (FACTORY)
- *   DELETE /api/v1/role/:id          - Delete role (DELETE FACTORY)
+ *   DELETE /api/v1/role/:id          - Delete role (FACTORY - soft delete)
  *   GET    /api/v1/role/:id/{child}  - Child entities (CHILD FACTORY)
  *
  * ============================================================================
@@ -27,7 +27,7 @@ import { sql } from 'drizzle-orm';
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 
 // ✨ Universal Entity CRUD Factory - consolidated endpoint generation
-import { createUniversalEntityRoutes, createEntityDeleteEndpoint } from '../../lib/universal-entity-crud-factory.js';
+import { createUniversalEntityRoutes } from '../../lib/universal-entity-crud-factory.js';
 
 // ============================================================================
 // SCHEMA DEFINITIONS
@@ -207,9 +207,5 @@ export async function roleRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // DELETE ENDPOINT (FACTORY)
-  // ════════════════════════════════════════════════════════════════════════════
-
-  createEntityDeleteEndpoint(fastify, ENTITY_CODE);
+  // DELETE endpoint is automatically created by createUniversalEntityRoutes above
 }

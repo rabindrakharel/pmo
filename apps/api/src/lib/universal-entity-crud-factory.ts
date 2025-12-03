@@ -2,11 +2,11 @@
  * ============================================================================
  * UNIVERSAL ENTITY CRUD FACTORY - Consolidated REST API Generation
  * ============================================================================
- * Version: 2.0.0
+ * Version: 3.0.0
  *
  * PURPOSE:
  * Single source of truth for all entity CRUD endpoint generation.
- * Consolidates all factory patterns (LIST, GET, UPDATE, DELETE) with ZERO boilerplate.
+ * Consolidates all factory patterns (LIST, GET, PATCH, PUT, DELETE) with ZERO boilerplate.
  *
  * ARCHITECTURE:
  * - Configuration-driven: Define entity once, generate all endpoints
@@ -23,20 +23,40 @@
  * - Pagination with page/offset support
  * - Registry sync on updates
  * - Transactional DELETE with infrastructure cleanup
+ * - Configurable soft/hard delete per entity
  *
  * USAGE:
  * ```typescript
  * import {
  *   createUniversalEntityRoutes,
  *   createEntityDeleteEndpoint,
+ *   createEntityListEndpoint,
+ *   createEntityGetEndpoint,
+ *   createEntityPatchEndpoint,
+ *   createEntityPutEndpoint,
  *   ENTITY_TABLE_MAP
  * } from '@/lib/universal-entity-crud-factory.js';
  *
- * // Minimal configuration - generates LIST, GET, UPDATE endpoints
+ * // Minimal - generates ALL endpoints (LIST, GET, PATCH, PUT, DELETE)
  * createUniversalEntityRoutes(fastify, { entityCode: 'role' });
  *
- * // DELETE endpoint (separate for explicit control)
- * createEntityDeleteEndpoint(fastify, 'role');
+ * // With hard delete (for transactional entities like linkage)
+ * createUniversalEntityRoutes(fastify, {
+ *   entityCode: 'entity_instance_link',
+ *   deleteOptions: { hardDelete: true }
+ * });
+ *
+ * // Skip delete (use custom implementation)
+ * createUniversalEntityRoutes(fastify, {
+ *   entityCode: 'project',
+ *   skip: { delete: true }
+ * });
+ * createEntityDeleteEndpoint(fastify, 'project', { hardDelete: false });
+ *
+ * // Mix and match individual factories
+ * createEntityListEndpoint(fastify, { entityCode: 'custom' });
+ * createEntityGetEndpoint(fastify, { entityCode: 'custom' });
+ * // Skip PATCH/PUT/DELETE - use custom handlers
  * ```
  *
  * INDUSTRY PATTERNS APPLIED:
@@ -280,8 +300,18 @@ export interface EntityRouteConfig {
   skip?: {
     list?: boolean;
     get?: boolean;
+    patch?: boolean;
+    put?: boolean;
+    delete?: boolean;
+    /** @deprecated Use patch and put separately */
     update?: boolean;
   };
+
+  /**
+   * Delete endpoint options
+   * Controls hard/soft delete behavior
+   */
+  deleteOptions?: DeleteEndpointOptions;
 
   /**
    * Default ORDER BY clause for list queries
@@ -318,6 +348,14 @@ export interface DeleteEndpointOptions {
    * Default: uses Entity Infrastructure Service RBAC
    */
   skip_rbac_check?: boolean;
+
+  /**
+   * Hard delete vs soft delete
+   * true = DELETE FROM table (permanent)
+   * false = SET active_flag = false (soft delete, default)
+   * NOTE: entity_instance, entity_instance_link, entity_rbac are ALWAYS hard-deleted
+   */
+  hardDelete?: boolean;
 }
 
 // ============================================================================
@@ -699,8 +737,120 @@ export function createEntityGetEndpoint(
 }
 
 // ============================================================================
-// UPDATE ENDPOINT FACTORY
+// UPDATE ENDPOINT FACTORIES
 // ============================================================================
+
+/**
+ * Internal helper: Core update logic shared by PATCH and PUT
+ * @internal
+ */
+async function handleEntityUpdate(
+  fastify: FastifyInstance,
+  request: any,
+  reply: any,
+  config: EntityRouteConfig,
+  entityInfra: ReturnType<typeof getEntityInfrastructure>
+): Promise<any> {
+  const { entityCode, tableName, hooks = {} } = config;
+  const TABLE_NAME = getTableName(entityCode, tableName);
+  const ENTITY_CODE = entityCode;
+
+  const { id } = request.params as { id: string };
+  let updates = request.body as Record<string, any>;
+  const userId = (request as any).user?.sub;
+
+  if (!userId) {
+    return reply.status(401).send({ error: 'User not authenticated' });
+  }
+
+  try {
+    // RBAC check
+    const canEdit = await entityInfra.check_entity_rbac(
+      userId, ENTITY_CODE, id, Permission.EDIT
+    );
+
+    if (!canEdit) {
+      return reply.status(403).send({ error: `No permission to edit this ${ENTITY_CODE}` });
+    }
+
+    // Hook: beforeUpdate
+    if (hooks.beforeUpdate) {
+      const hookCtx: UpdateHookContext = {
+        request, reply, userId, entityCode: ENTITY_CODE, entityId: id, updates
+      };
+      updates = await hooks.beforeUpdate(hookCtx);
+    }
+
+    // Filter out system fields that shouldn't be updated directly
+    const systemFields = ['id', 'created_ts', 'version'];
+    const filteredUpdates = Object.entries(updates)
+      .filter(([key, value]) => !systemFields.includes(key) && value !== undefined);
+
+    if (filteredUpdates.length === 0) {
+      return reply.status(400).send({ error: 'No fields to update' });
+    }
+
+    // Build update fields dynamically
+    const updateFields: SQL[] = filteredUpdates.map(([key, value]) => {
+      // Handle special types
+      if (value === null) {
+        return sql`${sql.identifier(key)} = NULL`;
+      }
+      if (Array.isArray(value)) {
+        // Handle arrays (e.g., stakeholder__employee_ids)
+        if (value.length === 0) {
+          return sql`${sql.identifier(key)} = '{}'`;
+        }
+        return sql`${sql.identifier(key)} = ${`{${value.join(',')}}`}`;
+      }
+      if (typeof value === 'object') {
+        // Handle JSONB
+        return sql`${sql.identifier(key)} = ${JSON.stringify(value)}::jsonb`;
+      }
+      return sql`${sql.identifier(key)} = ${value}`;
+    });
+
+    // Always update timestamp and version
+    updateFields.push(sql`updated_ts = now()`);
+    updateFields.push(sql`version = version + 1`);
+
+    // Execute update
+    const updated = await db.execute(sql`
+      UPDATE app.${sql.raw(TABLE_NAME)}
+      SET ${sql.join(updateFields, sql`, `)}
+      WHERE id = ${id}
+      RETURNING *
+    `);
+
+    if (updated.length === 0) {
+      return reply.status(404).send({ error: `${ENTITY_CODE} not found` });
+    }
+
+    let entity = updated[0];
+
+    // Sync registry if name/code changed
+    if (updates.name !== undefined || updates.code !== undefined) {
+      await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
+        entity_name: updates.name,
+        instance_code: updates.code
+      });
+    }
+
+    // Hook: afterUpdate
+    if (hooks.afterUpdate) {
+      const hookCtx: UpdateHookContext = {
+        request, reply, userId, entityCode: ENTITY_CODE, entityId: id, updates
+      };
+      entity = await hooks.afterUpdate(hookCtx, entity);
+    }
+
+    return reply.send(entity);
+
+  } catch (error) {
+    fastify.log.error(`Error updating ${ENTITY_CODE}:`, error as any);
+    return reply.status(500).send({ error: 'Internal server error' });
+  }
+}
 
 /**
  * Create PATCH /api/v1/{entity}/:id endpoint
@@ -712,23 +862,16 @@ export function createEntityGetEndpoint(
  * - Version increment
  *
  * @example
- * createEntityUpdateEndpoint(fastify, { entityCode: 'role' });
+ * createEntityPatchEndpoint(fastify, { entityCode: 'role' });
  */
-export function createEntityUpdateEndpoint(
+export function createEntityPatchEndpoint(
   fastify: FastifyInstance,
   config: EntityRouteConfig
 ): void {
-  const {
-    entityCode,
-    tableName,
-    hooks = {}
-  } = config;
-
-  const TABLE_NAME = getTableName(entityCode, tableName);
+  const { entityCode } = config;
   const ENTITY_CODE = entityCode;
   const entityInfra = getEntityInfrastructure(db);
 
-  // PATCH endpoint
   fastify.patch(`/api/v1/${ENTITY_CODE}/:id`, {
     preHandler: [fastify.authenticate],
     schema: {
@@ -746,104 +889,31 @@ export function createEntityUpdateEndpoint(
       },
     },
   }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    let updates = request.body as Record<string, any>;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    try {
-      // RBAC check
-      const canEdit = await entityInfra.check_entity_rbac(
-        userId, ENTITY_CODE, id, Permission.EDIT
-      );
-
-      if (!canEdit) {
-        return reply.status(403).send({ error: `No permission to edit this ${ENTITY_CODE}` });
-      }
-
-      // Hook: beforeUpdate
-      if (hooks.beforeUpdate) {
-        const hookCtx: UpdateHookContext = {
-          request, reply, userId, entityCode: ENTITY_CODE, entityId: id, updates
-        };
-        updates = await hooks.beforeUpdate(hookCtx);
-      }
-
-      // Filter out system fields that shouldn't be updated directly
-      const systemFields = ['id', 'created_ts', 'version'];
-      const filteredUpdates = Object.entries(updates)
-        .filter(([key, value]) => !systemFields.includes(key) && value !== undefined);
-
-      if (filteredUpdates.length === 0) {
-        return reply.status(400).send({ error: 'No fields to update' });
-      }
-
-      // Build update fields dynamically
-      const updateFields: SQL[] = filteredUpdates.map(([key, value]) => {
-        // Handle special types
-        if (value === null) {
-          return sql`${sql.identifier(key)} = NULL`;
-        }
-        if (Array.isArray(value)) {
-          // Handle arrays (e.g., stakeholder__employee_ids)
-          if (value.length === 0) {
-            return sql`${sql.identifier(key)} = '{}'`;
-          }
-          return sql`${sql.identifier(key)} = ${`{${value.join(',')}}`}`;
-        }
-        if (typeof value === 'object') {
-          // Handle JSONB
-          return sql`${sql.identifier(key)} = ${JSON.stringify(value)}::jsonb`;
-        }
-        return sql`${sql.identifier(key)} = ${value}`;
-      });
-
-      // Always update timestamp and version
-      updateFields.push(sql`updated_ts = now()`);
-      updateFields.push(sql`version = version + 1`);
-
-      // Execute update
-      const updated = await db.execute(sql`
-        UPDATE app.${sql.raw(TABLE_NAME)}
-        SET ${sql.join(updateFields, sql`, `)}
-        WHERE id = ${id}
-        RETURNING *
-      `);
-
-      if (updated.length === 0) {
-        return reply.status(404).send({ error: `${ENTITY_CODE} not found` });
-      }
-
-      let entity = updated[0];
-
-      // Sync registry if name/code changed
-      if (updates.name !== undefined || updates.code !== undefined) {
-        await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
-          entity_name: updates.name,
-          instance_code: updates.code
-        });
-      }
-
-      // Hook: afterUpdate
-      if (hooks.afterUpdate) {
-        const hookCtx: UpdateHookContext = {
-          request, reply, userId, entityCode: ENTITY_CODE, entityId: id, updates
-        };
-        entity = await hooks.afterUpdate(hookCtx, entity);
-      }
-
-      return reply.send(entity);
-
-    } catch (error) {
-      fastify.log.error(`Error updating ${ENTITY_CODE}:`, error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
+    return handleEntityUpdate(fastify, request, reply, config, entityInfra);
   });
+}
 
-  // PUT endpoint (alias to PATCH for frontend compatibility)
+/**
+ * Create PUT /api/v1/{entity}/:id endpoint
+ *
+ * Features:
+ * - RBAC permission check (EDIT)
+ * - Dynamic field updates (only provided fields)
+ * - Registry sync when name/code changes
+ * - Version increment
+ * - Alias to PATCH for frontend compatibility
+ *
+ * @example
+ * createEntityPutEndpoint(fastify, { entityCode: 'role' });
+ */
+export function createEntityPutEndpoint(
+  fastify: FastifyInstance,
+  config: EntityRouteConfig
+): void {
+  const { entityCode } = config;
+  const ENTITY_CODE = entityCode;
+  const entityInfra = getEntityInfrastructure(db);
+
   fastify.put(`/api/v1/${ENTITY_CODE}/:id`, {
     preHandler: [fastify.authenticate],
     schema: {
@@ -861,92 +931,25 @@ export function createEntityUpdateEndpoint(
       },
     },
   }, async (request, reply) => {
-    // Delegate to PATCH handler logic (same implementation)
-    const { id } = request.params as { id: string };
-    let updates = request.body as Record<string, any>;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    try {
-      const canEdit = await entityInfra.check_entity_rbac(
-        userId, ENTITY_CODE, id, Permission.EDIT
-      );
-
-      if (!canEdit) {
-        return reply.status(403).send({ error: `No permission to edit this ${ENTITY_CODE}` });
-      }
-
-      if (hooks.beforeUpdate) {
-        const hookCtx: UpdateHookContext = {
-          request, reply, userId, entityCode: ENTITY_CODE, entityId: id, updates
-        };
-        updates = await hooks.beforeUpdate(hookCtx);
-      }
-
-      const systemFields = ['id', 'created_ts', 'version'];
-      const filteredUpdates = Object.entries(updates)
-        .filter(([key, value]) => !systemFields.includes(key) && value !== undefined);
-
-      if (filteredUpdates.length === 0) {
-        return reply.status(400).send({ error: 'No fields to update' });
-      }
-
-      const updateFields: SQL[] = filteredUpdates.map(([key, value]) => {
-        if (value === null) {
-          return sql`${sql.identifier(key)} = NULL`;
-        }
-        if (Array.isArray(value)) {
-          if (value.length === 0) {
-            return sql`${sql.identifier(key)} = '{}'`;
-          }
-          return sql`${sql.identifier(key)} = ${`{${value.join(',')}}`}`;
-        }
-        if (typeof value === 'object') {
-          return sql`${sql.identifier(key)} = ${JSON.stringify(value)}::jsonb`;
-        }
-        return sql`${sql.identifier(key)} = ${value}`;
-      });
-
-      updateFields.push(sql`updated_ts = now()`);
-      updateFields.push(sql`version = version + 1`);
-
-      const updated = await db.execute(sql`
-        UPDATE app.${sql.raw(TABLE_NAME)}
-        SET ${sql.join(updateFields, sql`, `)}
-        WHERE id = ${id}
-        RETURNING *
-      `);
-
-      if (updated.length === 0) {
-        return reply.status(404).send({ error: `${ENTITY_CODE} not found` });
-      }
-
-      let entity = updated[0];
-
-      if (updates.name !== undefined || updates.code !== undefined) {
-        await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
-          entity_name: updates.name,
-          instance_code: updates.code
-        });
-      }
-
-      if (hooks.afterUpdate) {
-        const hookCtx: UpdateHookContext = {
-          request, reply, userId, entityCode: ENTITY_CODE, entityId: id, updates
-        };
-        entity = await hooks.afterUpdate(hookCtx, entity);
-      }
-
-      return reply.send(entity);
-
-    } catch (error) {
-      fastify.log.error(`Error updating ${ENTITY_CODE}:`, error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
+    return handleEntityUpdate(fastify, request, reply, config, entityInfra);
   });
+}
+
+/**
+ * Create both PATCH and PUT /api/v1/{entity}/:id endpoints
+ *
+ * @deprecated Use createEntityPatchEndpoint and createEntityPutEndpoint separately
+ * for more granular control
+ *
+ * @example
+ * createEntityUpdateEndpoint(fastify, { entityCode: 'role' });
+ */
+export function createEntityUpdateEndpoint(
+  fastify: FastifyInstance,
+  config: EntityRouteConfig
+): void {
+  createEntityPatchEndpoint(fastify, config);
+  createEntityPutEndpoint(fastify, config);
 }
 
 // ============================================================================
@@ -1014,7 +1017,7 @@ export function createEntityDeleteEndpoint(
         entity_id: id,
         user_id: userId,
         primary_table: tableName,
-        hard_delete: false,  // Soft delete by default
+        hard_delete: options?.hardDelete ?? false,  // Soft delete by default, configurable per entity
         skip_rbac_check: options?.skip_rbac_check || false
       });
 
@@ -1054,12 +1057,12 @@ export function createEntityDeleteEndpoint(
  * - GET /api/v1/{entity}/:id - Single entity with RBAC
  * - PATCH /api/v1/{entity}/:id - Update with RBAC
  * - PUT /api/v1/{entity}/:id - Update alias
+ * - DELETE /api/v1/{entity}/:id - Delete with RBAC (soft delete by default)
  *
- * Note: DELETE is handled by createEntityDeleteEndpoint (separate for explicit control)
  * Note: POST (create) remains entity-specific due to field variations
  *
  * @example
- * // Minimal - generates all endpoints
+ * // Minimal - generates all endpoints (including DELETE)
  * createUniversalEntityRoutes(fastify, { entityCode: 'role' });
  *
  * // With hooks for customization
@@ -1076,14 +1079,24 @@ export function createEntityDeleteEndpoint(
  * // Skip certain endpoints
  * createUniversalEntityRoutes(fastify, {
  *   entityCode: 'project',
- *   skip: { list: true }  // Use custom list endpoint
+ *   skip: { list: true, delete: true }  // Use custom list and delete endpoints
+ * });
+ *
+ * // With hard delete for linkage entities
+ * createUniversalEntityRoutes(fastify, {
+ *   entityCode: 'linkage',
+ *   deleteOptions: { hardDelete: true }
  * });
  */
 export function createUniversalEntityRoutes(
   fastify: FastifyInstance,
   config: EntityRouteConfig
 ): void {
-  const { skip = {} } = config;
+  const { skip = {}, deleteOptions } = config;
+
+  // Backward compatibility: if 'update' is set, apply to both patch and put
+  const skipPatch = skip.patch ?? skip.update ?? false;
+  const skipPut = skip.put ?? skip.update ?? false;
 
   // Create LIST endpoint
   if (!skip.list) {
@@ -1095,14 +1108,31 @@ export function createUniversalEntityRoutes(
     createEntityGetEndpoint(fastify, config);
   }
 
-  // Create UPDATE endpoints (PATCH + PUT)
-  if (!skip.update) {
-    createEntityUpdateEndpoint(fastify, config);
+  // Create PATCH endpoint
+  if (!skipPatch) {
+    createEntityPatchEndpoint(fastify, config);
   }
 
+  // Create PUT endpoint
+  if (!skipPut) {
+    createEntityPutEndpoint(fastify, config);
+  }
+
+  // Create DELETE endpoint
+  if (!skip.delete) {
+    createEntityDeleteEndpoint(fastify, config.entityCode, deleteOptions);
+  }
+
+  // Build log message
+  const endpoints: string[] = [];
+  if (!skip.list) endpoints.push('LIST');
+  if (!skip.get) endpoints.push('GET');
+  if (!skipPatch) endpoints.push('PATCH');
+  if (!skipPut) endpoints.push('PUT');
+  if (!skip.delete) endpoints.push('DELETE');
+
   fastify.log.info(
-    `✓ Universal CRUD routes created for '${config.entityCode}' ` +
-    `[${!skip.list ? 'LIST' : ''}${!skip.get ? ' GET' : ''}${!skip.update ? ' UPDATE' : ''}]`
+    `✓ Universal CRUD routes created for '${config.entityCode}' [${endpoints.join(' ')}]`
   );
 }
 
@@ -1120,7 +1150,9 @@ export default {
   // Individual factories
   createEntityListEndpoint,
   createEntityGetEndpoint,
-  createEntityUpdateEndpoint,
+  createEntityPatchEndpoint,
+  createEntityPutEndpoint,
+  createEntityUpdateEndpoint,  // Deprecated: use createEntityPatchEndpoint + createEntityPutEndpoint
   createEntityDeleteEndpoint,
 
   // Unified factory

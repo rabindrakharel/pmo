@@ -27,7 +27,7 @@ import { filterUniversalColumns } from '../../lib/universal-schema-metadata.js';
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 
 // ✨ Universal Entity CRUD Factory - consolidated endpoint generation
-import { createUniversalEntityRoutes, createEntityDeleteEndpoint } from '../../lib/universal-entity-crud-factory.js';
+import { createUniversalEntityRoutes } from '../../lib/universal-entity-crud-factory.js';
 
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
@@ -139,9 +139,5 @@ export async function serviceRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // DELETE ENDPOINT (FACTORY)
-  // ════════════════════════════════════════════════════════════════════════════
-
-  createEntityDeleteEndpoint(fastify, ENTITY_CODE);
+  // DELETE endpoint is automatically created by createUniversalEntityRoutes above
 }

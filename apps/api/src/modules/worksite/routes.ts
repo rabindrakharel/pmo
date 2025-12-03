@@ -24,7 +24,7 @@ import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 
 // ✨ Universal Entity CRUD Factory - consolidated endpoint generation
-import { createUniversalEntityRoutes, createEntityDeleteEndpoint } from '../../lib/universal-entity-crud-factory.js';
+import { createUniversalEntityRoutes } from '../../lib/universal-entity-crud-factory.js';
 
 // Schema based on d_worksite table structure
 const WorksiteSchema = Type.Object({
@@ -209,10 +209,5 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // DELETE ENDPOINT (FACTORY)
-  // ════════════════════════════════════════════════════════════════════════════
-
-  createEntityDeleteEndpoint(fastify, ENTITY_CODE);
-
+  // DELETE endpoint is automatically created by createUniversalEntityRoutes above
 }
