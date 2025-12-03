@@ -1,8 +1,13 @@
 # EntityInstanceFormContainer Component
 
-**Version:** 12.2.0 | **Location:** `apps/web/src/components/shared/entity/EntityInstanceFormContainer.tsx`
+**Version:** 12.3.0 | **Location:** `apps/web/src/components/shared/entity/EntityInstanceFormContainer.tsx`
 
 > **Note:** As of v12.2.0, EntityInstanceFormContainer uses the **FieldRenderer architecture** for modular, metadata-driven field rendering. This replaces the 900+ line hardcoded switch statement with a component registry pattern. Fields are rendered via `<FieldRenderer>` which resolves components using `renderType` (VIEW) and `inputType` (EDIT) from backend metadata.
+>
+> **v12.3.0 Key Changes:**
+> - **Slow click-and-hold inline editing** - Hold mouse down 500ms to edit single field (like EntityListOfInstancesTable)
+> - **Optimistic updates** - Click outside or Enter saves immediately via TanStack Query + Dexie
+> - **Escape to cancel** - Cancel inline edit without saving
 >
 > **v12.2.0 Key Changes:**
 > - **FieldRenderer delegation** - Single `<FieldRenderer>` call per field (no switch statements)
@@ -450,7 +455,7 @@ json:
 
 ---
 
-## Props Interface (v11.1.0)
+## Props Interface (v12.3.0)
 
 ```typescript
 import type { FormattedRow } from '@/lib/formatters';
@@ -485,6 +490,16 @@ interface EntityInstanceFormContainerProps {
   formattedData?: FormattedRow<Record<string, any>>;
 
   // v11.0.0: ref_data_entityInstance removed - uses TanStack Query cache via getEntityInstanceNameSync()
+
+  // v12.3.0: Inline editing support (slow click-and-hold)
+  /** Enable slow click-and-hold inline editing (like EntityListOfInstancesTable) */
+  inlineEditable?: boolean;
+
+  /** Called when a single field is saved via inline edit (optimistic update trigger) */
+  onInlineSave?: (fieldKey: string, value: any) => void;
+
+  /** Entity ID (required for inline editing) */
+  entityId?: string;
 }
 
 // v11.1.0: Component supports BOTH formats
@@ -510,6 +525,84 @@ interface ComponentMetadata {
   editType: Record<string, EditFieldMetadata>;
 }
 ```
+
+---
+
+## Inline Editing (v12.3.0 - Airtable-style)
+
+### Behavior
+
+EntityInstanceFormContainer now supports the same slow click-and-hold inline editing pattern as EntityListOfInstancesTable:
+
+| Interaction | Action |
+|-------------|--------|
+| Hold mouse down 500ms on editable field | Enter inline edit mode for THAT field only |
+| Click outside editing field | Auto-save via optimistic update and exit edit mode |
+| Enter key (except textarea) | Auto-save via optimistic update and exit edit mode |
+| Escape key | Cancel without saving |
+| Edit pencil icon (✏️) | Fallback - enters full edit mode for all fields |
+
+### Optimistic Update Flow
+
+```
+Inline Edit Save Flow (v12.3.0)
+───────────────────────────────
+
+1. User holds mouse down 500ms on field
+   │
+2. Field enters inline edit mode (input appears)
+   │
+3. User types new value
+   │
+4. User clicks outside OR presses Enter
+   │
+5. handleInlineSave(fieldKey, value) called
+   │
+   ├── IMMEDIATE: Update TanStack Query cache (all matching queries)
+   ├── IMMEDIATE: Update Dexie (IndexedDB) for persistence
+   └── BACKGROUND: PATCH /api/v1/{entityCode}/{id} to API
+                   │
+                   ├── SUCCESS: Cache already correct, optionally refetch
+                   └── FAILURE: Direct rollback using captured previous state
+```
+
+### Usage Example
+
+```typescript
+import { useOptimisticMutation } from '@/db/tanstack-index';
+import { EntityInstanceFormContainer } from '@/components/shared';
+
+function EntityDetailPage({ entityCode, id }) {
+  const { data } = useEntity(entityCode, id);
+  const { updateEntity: optimisticUpdateEntity } = useOptimisticMutation(entityCode);
+
+  // v12.3.0: Inline save handler - triggers optimistic update
+  const handleInlineSave = useCallback(async (fieldKey: string, value: any) => {
+    if (!id) return;
+    await optimisticUpdateEntity(id, { [fieldKey]: value });
+  }, [id, optimisticUpdateEntity]);
+
+  return (
+    <EntityInstanceFormContainer
+      data={data}
+      isEditing={false}  // Full edit mode OFF
+      onChange={handleFieldChange}
+      // v12.3.0: Inline editing
+      inlineEditable={true}  // Enable slow click-and-hold
+      onInlineSave={handleInlineSave}  // Optimistic update callback
+      entityId={id}
+    />
+  );
+}
+```
+
+### Design Decisions
+
+1. **Same pattern as EntityListOfInstancesTable** - Users learn one interaction pattern
+2. **500ms long-press delay** - Prevents accidental edits on quick clicks
+3. **Optimistic updates** - UI updates instantly, API syncs in background
+4. **Separate from full edit mode** - `isEditing` controls full form edit, `inlineEditable` controls per-field edit
+5. **Click outside = save** - Matches user expectation from spreadsheet applications
 
 ---
 
@@ -790,9 +883,17 @@ export const EntityInstanceFormContainer = React.memo(EntityInstanceFormContaine
 
 ---
 
-**Last Updated:** 2025-12-02 | **Version:** 12.2.0 | **Status:** Production Ready
+**Last Updated:** 2025-12-03 | **Version:** 12.3.0 | **Status:** Production Ready
 
 **Recent Updates:**
+- v12.3.0 (2025-12-03): **Slow Click-and-Hold Inline Editing**
+  - Added slow click-and-hold inline editing (same pattern as `EntityListOfInstancesTable`)
+  - Hold mouse down 500ms on editable field → enter edit mode for that field only
+  - Click outside or Enter key → optimistic update (TanStack + Dexie, API in background)
+  - Escape key → cancel without saving
+  - New props: `inlineEditable`, `onInlineSave`, `entityId`
+  - Works alongside full edit mode (edit pencil icon)
+  - See: `apps/web/src/pages/shared/EntitySpecificInstancePage.tsx` for usage
 - v12.2.0 (2025-12-02): **FieldRenderer Architecture**
   - Replaced 900+ line hardcoded switch statement with `<FieldRenderer>` component
   - Component registries: `ViewComponentRegistry` and `EditComponentRegistry`

@@ -15,7 +15,6 @@ import { formatRelativeTime, formatFriendlyDate, transformForApi, transformFromA
 import { Button } from '../../components/shared/button/Button';
 import { useS3Upload } from '../../lib/hooks/useS3Upload';
 import { useSidebar } from '../../contexts/SidebarContext';
-import { useNavigationHistory } from '../../contexts/NavigationHistoryContext';
 // v9.1.0: Use canonical hooks from @/db/tanstack-index (no wrapper layer)
 // v9.5.0: Added useOptimisticMutation for instant UI feedback
 // v9.6.0: Added useEntityInstanceMetadata for form metadata (content=metadata API)
@@ -56,7 +55,6 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   const location = useLocation();
   const config = getEntityConfig(entityCode);
   const { hideSidebar } = useSidebar();
-  const { pushEntity, updateCurrentEntityName, updateCurrentEntityActiveTab } = useNavigationHistory();
 
   // ============================================================================
   // DEXIE DRAFT + REACT QUERY INTEGRATION (v9.0.0)
@@ -464,7 +462,15 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
 
   const handleChildRowClick = useCallback((item: any) => {
     if (!currentChildEntity) return;
-    navigate(`/${currentChildEntity}/${item.id}`);
+    // Handle FormattedRow objects (raw data is inside item.raw)
+    const rawItem = item.raw || item;
+    const id = rawItem.id;
+    // Guard against undefined id to prevent /entity/undefined URLs
+    if (!id) {
+      console.warn(`[handleChildRowClick] Missing id in ${currentChildEntity} record:`, rawItem);
+      return;
+    }
+    navigate(`/${currentChildEntity}/${id}`);
   }, [currentChildEntity, navigate]);
 
   // Child row actions
@@ -490,6 +496,11 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
 
   // Prepare tabs with Overview as first tab - MUST be before any returns
   const allTabs = React.useMemo(() => {
+    // Guard against undefined or invalid id to prevent /entity/undefined URLs
+    if (!id || id === 'undefined') {
+      return [];
+    }
+
     // Special handling for form entity - always show tabs
     if (entityCode === 'form') {
       const overviewTab = {
@@ -550,51 +561,6 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, location.state, data]); // data added to ensure we have data before starting edit
-
-  // Register entity in navigation history when data is loaded
-  // Track the last entity ID we pushed to detect navigation to a different entity
-  const lastPushedIdRef = React.useRef<string | null>(null);
-
-  useEffect(() => {
-    // Only push if we have data and haven't pushed this specific entity yet
-    if (data && id && lastPushedIdRef.current !== id) {
-      lastPushedIdRef.current = id;
-      pushEntity({
-        entityCode,
-        entityId: id,
-        entityName: data.name || data.title || 'Untitled',
-        timestamp: Date.now()
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data?.id, id, entityCode]); // Only re-run when entity ID changes, not entire data object
-
-  // Update entity name in navigation history when it changes
-  // Use a timeout to debounce rapid updates
-  useEffect(() => {
-    if (data) {
-      const timeoutId = setTimeout(() => {
-        const entityName = data.name || data.title || 'Untitled';
-        updateCurrentEntityName(entityName);
-      }, 100); // Small debounce to prevent rapid updates
-
-      return () => clearTimeout(timeoutId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data?.name, data?.title]); // updateCurrentEntityName removed from deps
-
-  // Update current entity's active tab when viewing a child entity tab
-  // This ensures we return to the correct tab when going back
-  useEffect(() => {
-    if (currentChildEntity) {
-      const timeoutId = setTimeout(() => {
-        updateCurrentEntityActiveTab(currentChildEntity);
-      }, 50); // Small debounce
-
-      return () => clearTimeout(timeoutId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentChildEntity]); // updateCurrentEntityActiveTab removed from deps
 
   // ============================================================================
   // DEXIE DRAFT SAVE HANDLER (v9.0.0)
@@ -820,6 +786,24 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
     }
   }, [updateDraftField]);
 
+  // ============================================================================
+  // v12.3.0: INLINE SAVE HANDLER - Optimistic update for single field edits
+  // ============================================================================
+  // Called when user completes inline edit (click outside, Enter key)
+  // Triggers optimistic update: TanStack + Dexie updated immediately, API in background
+  // ============================================================================
+  const handleInlineSave = useCallback(async (fieldKey: string, value: any) => {
+    if (!id) return;
+
+    try {
+      // Optimistic update: UI updates instantly, API syncs in background
+      await optimisticUpdateEntity(id, { [fieldKey]: value });
+    } catch (err) {
+      // Error is handled by useOptimisticMutation's onError callback
+      console.error('Inline save failed:', err);
+    }
+  }, [id, optimisticUpdateEntity]);
+
   const handleTabClick = (tabPath: string) => {
     if (tabPath === 'overview') {
       navigate(`/${entityCode}/${id}`);
@@ -983,6 +967,17 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
     );
   }
 
+  // Guard against undefined or invalid id in URL
+  if (!id || id === 'undefined') {
+    return (
+      <Layout>
+        <div className="text-center py-12">
+          <p className="text-red-600">Invalid or missing {entityCode} ID</p>
+        </div>
+      </Layout>
+    );
+  }
+
   if (loading) {
     return (
       <Layout>
@@ -1015,11 +1010,12 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
 
   return (
     <Layout>
-        <div className="w-[97%] max-w-[1536px] mx-auto">
-        {/* Sticky Header Section */}
-        <div className="sticky top-0 z-20 bg-white pb-2">
+        {/* Sticky Header Section - Full width, compensates for Layout's p-4 padding */}
+        {/* top-[-1rem] matches -mt-4 to prevent content showing above sticky header when scrolling */}
+        <div className="sticky top-[-1rem] z-20 bg-gray-100 shadow-sm border-b border-gray-200 -mx-4 -mt-4 px-4 pb-2 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-6 after:h-6 after:bg-gradient-to-b after:from-white after:to-transparent after:pointer-events-none">
+          <div className="w-[97%] max-w-[1536px] mx-auto">
           {/* Header */}
-          <div className="flex items-center justify-between py-3 border-b border-gray-100">
+          <div className="flex items-center justify-between py-3">
           <div className="flex items-center space-x-4 flex-1 min-w-0">
             {/* Exit button on left */}
             <ExitButton entityCode={entityCode} isDetailPage={true} />
@@ -1078,7 +1074,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                     <EntityMetadataSeparator show={true} />
                     <span className="text-gray-400 font-normal text-xs flex-shrink-0">created:</span>
                     <span
-                      className="text-gray-700 font-medium text-sm"
+                      className="text-gray-600 font-normal text-sm"
                       title={formatFriendlyDate(data.created_ts)}
                     >
                       {formatRelativeTime(data.created_ts)}
@@ -1092,7 +1088,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                     <EntityMetadataSeparator show={true} />
                     <span className="text-gray-400 font-normal text-xs flex-shrink-0">updated:</span>
                     <span
-                      className="text-gray-700 font-medium text-sm"
+                      className="text-gray-600 font-normal text-sm"
                       title={formatFriendlyDate(data.updated_ts)}
                     >
                       {formatRelativeTime(data.updated_ts)}
@@ -1251,21 +1247,21 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
 
           {/* Sticky Tabs Section */}
           {allTabs && allTabs.length > 0 && (
-            <div className="mt-4 border-b border-gray-100">
-              <DynamicChildEntityTabs
-                title={data?.name || data?.title || config.displayName}
-                parentType={entityCode}
-                parentId={id!}
-                parentName={data?.name || data?.title}
-                tabs={allTabs}
-                showBackButton={false}
-              />
-            </div>
+            <DynamicChildEntityTabs
+              title={data?.name || data?.title || config.displayName}
+              parentType={entityCode}
+              parentId={id!}
+              parentName={data?.name || data?.title}
+              tabs={allTabs}
+              showBackButton={false}
+              className="mt-3"
+            />
           )}
+          </div>
         </div>
 
         {/* Content Area - Shows Overview or Child Entity Table */}
-        <div className="mt-6">
+        <div className="w-[97%] max-w-[1536px] mx-auto mt-6">
         {isOverviewTab ? (
           // Overview Tab - Entity Details
           <>
@@ -1344,6 +1340,10 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                 isEditing={isEditing}
                 onChange={handleFieldChange}
                 mode="edit"
+                // v12.3.0: Inline editing support (slow click-and-hold like EntityListOfInstancesTable)
+                inlineEditable={!isEditing}  // Enable when NOT in full edit mode
+                onInlineSave={handleInlineSave}
+                entityId={id}
               />
 
               {/* Task Data Container - Only show for task entity */}
@@ -1433,7 +1433,6 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
           )
         )}
         </div>
-      </div>
 
       {/* Share Modal */}
       <ShareModal

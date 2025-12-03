@@ -2,7 +2,6 @@ import React, { Fragment } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SidebarProvider } from './contexts/SidebarContext';
-import { NavigationHistoryProvider } from './contexts/NavigationHistoryContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { EntityPreviewProvider } from './contexts/EntityPreviewContext';
 import { EntityMetadataProvider, useEntityMetadata } from './contexts/EntityMetadataContext';
@@ -344,12 +343,10 @@ function App() {
           <Router>
             <SidebarProvider>
               <SettingsProvider>
-                <NavigationHistoryProvider>
-                  <EntityPreviewProvider>
-                    <AppRoutes />
-                    <EntityPreviewPanel />
-                  </EntityPreviewProvider>
-                </NavigationHistoryProvider>
+                <EntityPreviewProvider>
+                  <AppRoutes />
+                  <EntityPreviewPanel />
+                </EntityPreviewProvider>
               </SettingsProvider>
             </SidebarProvider>
           </Router>

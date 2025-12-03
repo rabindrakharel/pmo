@@ -51,9 +51,9 @@ export function DynamicChildEntityTabs({
   const activeTab = tabs.find(tab => currentPath === tab.path);
 
   return (
-    <div className={`bg-dark-100 rounded-xl p-4 border border-dark-300 ${className}`}>
-      {/* Tab Navigation - Following design system v10.0 */}
-      <div className="flex flex-wrap gap-2">
+    <div className={className}>
+      {/* Tab Navigation - JIRA-style horizontal tabs with underline indicator */}
+      <nav className="flex gap-6 px-1" aria-label="Project navigation">
         {tabs.map((tab) => {
           const isActive = activeTab?.id === tab.id;
           const IconComponent = tab.icon || getIconComponent(null);
@@ -65,12 +65,12 @@ export function DynamicChildEntityTabs({
               disabled={tab.disabled}
               title={tab.tooltip}
               className={[
-                'flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-all',
+                'relative flex items-center gap-2 py-3 text-sm font-medium transition-colors',
                 isActive
-                  ? 'bg-slate-600 text-white shadow-sm'
+                  ? 'text-blue-600'
                   : tab.disabled
-                  ? 'bg-white text-dark-500 border border-dark-300 cursor-not-allowed opacity-50'
-                  : 'bg-white text-dark-700 border border-dark-300 hover:border-dark-400 cursor-pointer'
+                  ? 'text-gray-400 cursor-not-allowed'
+                  : 'text-gray-600 hover:text-gray-900 cursor-pointer'
               ].join(' ')}
             >
               {/* Icon */}
@@ -81,14 +81,22 @@ export function DynamicChildEntityTabs({
 
               {/* Count badge */}
               {tab.count !== undefined && (
-                <span className="inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full text-xs font-medium bg-white/20 text-current">
+                <span className={[
+                  'inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full text-xs font-medium',
+                  isActive ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
+                ].join(' ')}>
                   {tab.count}
                 </span>
+              )}
+
+              {/* Active underline indicator */}
+              {isActive && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
               )}
             </button>
           );
         })}
-      </div>
+      </nav>
     </div>
   );
 }
@@ -105,6 +113,13 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
   React.useEffect(() => {
     // Wait for entity codes to load
     if (isEntityCodesLoading) {
+      return;
+    }
+
+    // Guard against undefined or invalid parentId to prevent /entity/undefined URLs
+    if (!parentId || parentId === 'undefined') {
+      setTabs([]);
+      setLoading(false);
       return;
     }
 

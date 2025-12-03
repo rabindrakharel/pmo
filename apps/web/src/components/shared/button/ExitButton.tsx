@@ -1,8 +1,6 @@
 import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import { useSidebar } from '../../../contexts/SidebarContext';
-import { useNavigationHistory } from '../../../contexts/NavigationHistoryContext';
 
 interface ExitButtonProps {
   /** Entity type for navigation (e.g., 'project', 'task') */
@@ -22,9 +20,6 @@ export function ExitButton({
   className = ''
 }: ExitButtonProps) {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { collapseSidebar } = useSidebar();
-  const { history, goBack } = useNavigationHistory();
 
   const handleClick = () => {
     if (onClick) {
@@ -33,15 +28,8 @@ export function ExitButton({
     }
 
     if (isDetailPage && entityCode) {
-      // Check if we have navigation history
-      if (history.length > 0) {
-        // Use smart back navigation with history
-        goBack();
-      } else {
-        // Fallback: Navigate to list page with collapsed sidebar
-        navigate(`/${entityCode}`);
-        // Sidebar will be collapsed by EntityListOfInstancesPage's useEffect
-      }
+      // Navigate to list page
+      navigate(`/${entityCode}`);
     }
   };
 

@@ -57,7 +57,7 @@ export function EntityMetadataField({
   badge
 }: EntityMetadataFieldProps) {
   const labelClass = 'text-gray-400 font-normal text-xs flex-shrink-0';
-  const valueClass = `text-gray-700 font-medium text-sm ${className}`;
+  const valueClass = `text-gray-600 font-normal text-sm ${className}`;
 
   if (!value && !isEditing) return null;
 

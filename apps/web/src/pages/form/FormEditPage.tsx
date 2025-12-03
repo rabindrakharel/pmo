@@ -7,7 +7,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { formApi } from '../../lib/api';
 import { FormDesigner } from '../../components/entity/form/FormDesigner';
 import { useSidebar } from '../../contexts/SidebarContext';
-import { useNavigationHistory } from '../../contexts/NavigationHistoryContext';
 
 export function FormEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -16,7 +15,6 @@ export function FormEditPage() {
   const [formData, setFormData] = useState<any>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const { hideSidebar } = useSidebar();
-  const { history, goBack, pushEntity, updateCurrentEntityName } = useNavigationHistory();
 
   // Unified linkage modal
   const linkageModal = useLinkageModal({
@@ -50,25 +48,6 @@ export function FormEditPage() {
     };
     load();
   }, [id]);
-
-  // Register form in navigation history when editing
-  useEffect(() => {
-    if (formData && id) {
-      pushEntity({
-        entityCode: 'form',
-        entityId: id,
-        entityName: formData.name || 'Untitled Form',
-        timestamp: Date.now()
-      });
-    }
-  }, [formData, id, pushEntity]);
-
-  // Update entity name in navigation history when it changes
-  useEffect(() => {
-    if (formData && formData.name) {
-      updateCurrentEntityName(formData.name);
-    }
-  }, [formData?.name, updateCurrentEntityName]);
 
   const handleSave = async (formData: any) => {
     if (!id) return;
@@ -134,12 +113,7 @@ export function FormEditPage() {
   };
 
   const handleExit = () => {
-    // Use smart back navigation if history exists
-    if (history.length > 0) {
-      goBack();
-    } else {
-      navigate('/form');
-    }
+    navigate('/form');
   };
 
   if (loading) {

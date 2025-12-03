@@ -73,23 +73,24 @@ interface StageNodeData extends Record<string, unknown> {
 function StageNode({ data }: { data: StageNodeData }) {
   const { label, isCurrent, isCompleted } = data;
 
-  // Node styling based on state - all nodes have gray border
+  // Node styling: light gray fill for all, thin border
+  // Current node gets slightly darker text for emphasis
   const getNodeStyle = () => {
     if (isCurrent) {
-      return 'bg-blue-500 text-white border-gray-400 shadow-lg shadow-blue-200';
+      return 'bg-gray-100 text-gray-900 border-gray-400 font-semibold';
     }
     if (isCompleted) {
-      return 'bg-green-100 text-green-800 border-gray-400';
+      return 'bg-gray-100 text-gray-700 border-gray-300';
     }
-    return 'bg-white text-gray-700 border-gray-300';
+    return 'bg-gray-50 text-gray-500 border-gray-200';
   };
 
   return (
     <div
       className={`
-        px-4 py-2 rounded-full border-2 min-w-[80px] text-center
-        font-medium text-sm transition-all cursor-pointer
-        hover:shadow-md ${getNodeStyle()}
+        px-4 py-2 rounded-full border min-w-[80px] text-center
+        text-sm transition-all cursor-pointer
+        hover:border-gray-400 ${getNodeStyle()}
       `}
     >
       {/* Left handle for incoming edges */}
@@ -241,15 +242,15 @@ export function DAGVisualizer({
           type: 'default',  // Bezier curve (loose curve lines)
           animated: false,  // No animation
           style: {
-            stroke: isActive ? '#3B82F6' : '#9CA3AF',  // Blue for traversed, gray for others
-            strokeWidth: isActive ? 2 : 1,
-            strokeDasharray: isActive ? '0' : '5,5',  // Solid for traversed, dotted for others
+            stroke: isActive ? '#6B7280' : '#D1D5DB',  // Gray-500 for traversed, Gray-300 for others
+            strokeWidth: isActive ? 1.5 : 1,
+            strokeDasharray: isActive ? '0' : '4,4',  // Solid for traversed, dotted for others
           },
           markerEnd: {
             type: MarkerType.ArrowClosed,
-            color: isActive ? '#3B82F6' : '#9CA3AF',
-            width: 16,
-            height: 16,
+            color: isActive ? '#6B7280' : '#D1D5DB',  // Gray-500 for traversed, Gray-300 for others
+            width: 14,
+            height: 14,
           },
         });
       });
@@ -295,8 +296,20 @@ export function DAGVisualizer({
     return null;
   }
 
-  // Fixed height for consistent display
-  const containerHeight = 200;
+  // Calculate container height based on graph dimensions
+  const graphHeight = useMemo(() => {
+    if (nodes.length === 0) return 80;
+
+    const positions = nodes.map(n => n.position);
+    const minY = Math.min(...positions.map(p => p.y));
+    const maxY = Math.max(...positions.map(p => p.y));
+
+    return maxY - minY + NODE_HEIGHT;
+  }, [nodes]);
+
+  // Fixed zoom level (1.0 = actual size) + padding
+  const PADDING = 40;
+  const containerHeight = Math.max(80, graphHeight + PADDING);
 
   return (
     <div
@@ -312,9 +325,9 @@ export function DAGVisualizer({
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{
-          padding: 0.15,
-          minZoom: 0.3,
-          maxZoom: 1.5,
+          padding: 0.1,
+          minZoom: 1,
+          maxZoom: 1,
           includeHiddenNodes: true,
         }}
         proOptions={{ hideAttribution: true }}

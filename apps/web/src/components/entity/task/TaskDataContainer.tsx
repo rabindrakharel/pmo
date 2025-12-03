@@ -50,7 +50,14 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
   const [selectedForm, setSelectedForm] = useState<any>(null);
   const [loadingForms, setLoadingForms] = useState(false);
 
+  // Guard: Skip API calls if taskId is invalid
+  const isValidTaskId = taskId && taskId !== 'undefined';
+
   useEffect(() => {
+    if (!isValidTaskId) {
+      setLoading(false);
+      return;
+    }
     loadUpdates();
     loadForms();
 
@@ -66,10 +73,10 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
 
   // Load forms when updateType changes to 'form'
   useEffect(() => {
-    if (updateType === 'form') {
+    if (updateType === 'form' && isValidTaskId) {
       loadForms();
     }
-  }, [updateType]);
+  }, [updateType, isValidTaskId]);
 
   // Helper function to format relative time (JIRA-style)
   const formatRelativeTime = (timestamp: string): string => {
@@ -596,6 +603,11 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
       </div>
     );
   };
+
+  // Early return if taskId is invalid
+  if (!isValidTaskId) {
+    return null;
+  }
 
   return (
     <>

@@ -1,12 +1,18 @@
 // ============================================================================
-// EntityInstanceFormContainer - v12.2.0 (FieldRenderer Architecture)
+// EntityInstanceFormContainer - v12.3.0 (Slow Click-and-Hold Inline Editing)
 // ============================================================================
 // A reusable form container component that renders form fields using the
 // modular FieldRenderer system. Uses metadata-driven rendering with no
 // hardcoded switch statements.
+//
+// v12.3.0: Added slow click-and-hold inline editing (Airtable-style):
+// - Hold mouse down for 500ms to enter edit mode for that field
+// - Click outside OR Enter key → optimistic update (TanStack + Dexie)
+// - Escape → cancel without saving
+// - Edit pencil icon fallback still works for full edit mode
 // ============================================================================
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type { EntityConfig, FieldDef } from '../../../lib/entityConfig';
 import type { LabelMetadata } from '../../../lib/formatters/labelMetadataLoader';
 // v12.2.0: Use modular FieldRenderer instead of hardcoded switch statements
@@ -35,6 +41,13 @@ interface EntityInstanceFormContainerProps {
   metadata?: EntityMetadata;
   datalabels?: DatalabelData[];
   formattedData?: FormattedRow<Record<string, any>>;
+  // v12.3.0: Inline editing support
+  /** Enable slow click-and-hold inline editing (like EntityListOfInstancesTable) */
+  inlineEditable?: boolean;
+  /** Called when a single field is saved via inline edit (optimistic update trigger) */
+  onInlineSave?: (fieldKey: string, value: any) => void;
+  /** Entity ID (required for inline editing) */
+  entityId?: string;
 }
 
 // Stable default values
@@ -80,7 +93,11 @@ function EntityInstanceFormContainerInner({
   mode = 'edit',
   metadata,
   datalabels: _datalabels = EMPTY_DATALABELS,
-  formattedData
+  formattedData,
+  // v12.3.0: Inline editing props
+  inlineEditable = false,
+  onInlineSave,
+  entityId: _entityId // Used in arePropsEqual for memoization
 }: EntityInstanceFormContainerProps) {
   // Local state for immediate UI feedback
   const [localData, setLocalData] = useState<Record<string, any>>(data);
@@ -88,6 +105,150 @@ function EntityInstanceFormContainerInner({
   useEffect(() => {
     setLocalData(data);
   }, [data]);
+
+  // ============================================================================
+  // v12.3.0: SLOW CLICK-AND-HOLD INLINE EDITING STATE
+  // ============================================================================
+  // Matches EntityListOfInstancesTable behavior exactly:
+  // - Hold mouse down 500ms → enter edit mode for THAT field only
+  // - Click outside / Enter → save (optimistic update)
+  // - Escape → cancel
+  // ============================================================================
+
+  // Currently editing field (null = not editing any field inline)
+  const [inlineEditingField, setInlineEditingField] = useState<string | null>(null);
+  // Local value being edited inline
+  const [inlineEditValue, setInlineEditValue] = useState<any>(null);
+  // Ref for the editing field container (click-outside detection)
+  const editingFieldRef = useRef<HTMLDivElement | null>(null);
+  // Long-press timer ref
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Long-press delay (same as EntityListOfInstancesTable)
+  const LONG_PRESS_DELAY = 500;
+
+  // Cancel any pending long-press timer
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  // Enter inline edit mode for a specific field
+  const enterInlineEditMode = useCallback((fieldKey: string) => {
+    const currentValue = localData[fieldKey];
+    setInlineEditingField(fieldKey);
+    setInlineEditValue(currentValue);
+  }, [localData]);
+
+  // Handle mouse down on a field - start long-press timer
+  const handleFieldMouseDown = useCallback((
+    e: React.MouseEvent,
+    fieldKey: string,
+    isFieldEditable: boolean
+  ) => {
+    // Skip if full edit mode is active, field not editable, or already inline editing this field
+    if (isEditing || !inlineEditable || !isFieldEditable) return;
+    if (inlineEditingField === fieldKey) return;
+
+    // Cancel any existing timer
+    cancelLongPress();
+
+    // Start long-press timer
+    longPressTimerRef.current = setTimeout(() => {
+      enterInlineEditMode(fieldKey);
+      longPressTimerRef.current = null;
+    }, LONG_PRESS_DELAY);
+  }, [isEditing, inlineEditable, inlineEditingField, cancelLongPress, enterInlineEditMode, LONG_PRESS_DELAY]);
+
+  // Handle mouse up - cancel long-press timer
+  const handleFieldMouseUp = useCallback(() => {
+    cancelLongPress();
+  }, [cancelLongPress]);
+
+  // Handle mouse leave - cancel long-press timer
+  const handleFieldMouseLeave = useCallback(() => {
+    cancelLongPress();
+  }, [cancelLongPress]);
+
+  // Handle inline field value change
+  const handleInlineValueChange = useCallback((value: any) => {
+    setInlineEditValue(value);
+  }, []);
+
+  // Save inline edit (optimistic update)
+  const handleInlineSave = useCallback(() => {
+    if (!inlineEditingField) return;
+
+    const originalValue = data[inlineEditingField];
+    const newValue = inlineEditValue;
+
+    // Only save if value actually changed
+    if (newValue !== originalValue) {
+      // Update local data immediately for UI feedback
+      setLocalData(prev => ({ ...prev, [inlineEditingField]: newValue }));
+
+      // Trigger optimistic update via callback
+      if (onInlineSave) {
+        onInlineSave(inlineEditingField, newValue);
+      }
+    }
+
+    // Exit inline edit mode
+    setInlineEditingField(null);
+    setInlineEditValue(null);
+  }, [inlineEditingField, inlineEditValue, data, onInlineSave]);
+
+  // Cancel inline edit
+  const handleInlineCancel = useCallback(() => {
+    setInlineEditingField(null);
+    setInlineEditValue(null);
+  }, []);
+
+  // Handle key down in inline edit mode
+  const handleInlineKeyDown = useCallback((e: React.KeyboardEvent, inputType: string) => {
+    // Enter to save (except for textarea where Enter adds newline)
+    if (e.key === 'Enter' && inputType !== 'textarea') {
+      e.preventDefault();
+      handleInlineSave();
+      return;
+    }
+
+    // Escape to cancel
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      handleInlineCancel();
+      return;
+    }
+  }, [handleInlineSave, handleInlineCancel]);
+
+  // Click outside to save and close
+  useEffect(() => {
+    if (!inlineEditingField) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (editingFieldRef.current && !editingFieldRef.current.contains(event.target as Node)) {
+        handleInlineSave();
+      }
+    };
+
+    // Delay adding listener to avoid immediate trigger
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    }, 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [inlineEditingField, handleInlineSave]);
+
+  // Cleanup long-press timer on unmount
+  useEffect(() => {
+    return () => {
+      cancelLongPress();
+    };
+  }, [cancelLongPress]);
 
   // ============================================================================
   // METADATA-DRIVEN FIELD GENERATION
@@ -234,6 +395,21 @@ function EntityInstanceFormContainerInner({
               vizContainer: field.vizContainer,
             };
 
+            // v12.3.0: Determine if this field is being inline edited
+            const isInlineEditing = inlineEditingField === field.key;
+            const isFieldEditable = field.editable !== false;
+
+            // v12.3.0: Determine effective editing state (full edit mode OR inline editing this field)
+            const effectiveIsEditing = isEditing || isInlineEditing;
+
+            // v12.3.0: Get the value to display/edit
+            // - Full edit mode: use localData
+            // - Inline editing this field: use inlineEditValue
+            // - View mode: use data
+            const displayValue = isInlineEditing
+              ? inlineEditValue
+              : (isEditing ? localData[field.key] : value);
+
             return (
               <div key={field.key}>
                 {index > 0 && (
@@ -260,18 +436,26 @@ function EntityInstanceFormContainerInner({
                       )}
                     </label>
                     <div
+                      ref={isInlineEditing ? editingFieldRef : undefined}
                       className={`
                         relative break-words rounded-md px-3 py-2 -ml-3
                         transition-all duration-300 ease-out
-                        ${isEditing
+                        ${effectiveIsEditing
                           ? 'bg-gray-50 hover:bg-gray-100 hover:shadow-sm focus-within:bg-white focus-within:shadow-sm focus-within:border focus-within:border-blue-200'
                           : 'hover:bg-gray-50'
                         }
+                        ${!isEditing && inlineEditable && isFieldEditable ? 'cursor-text' : ''}
                         text-sm text-gray-700 tracking-tight leading-normal
                       `}
+                      // v12.3.0: Long-press handlers for inline editing
+                      onMouseDown={(e) => handleFieldMouseDown(e, field.key, isFieldEditable)}
+                      onMouseUp={handleFieldMouseUp}
+                      onMouseLeave={handleFieldMouseLeave}
+                      // v12.3.0: Keyboard handler for inline editing
+                      onKeyDown={isInlineEditing ? (e) => handleInlineKeyDown(e, field.inputType || 'text') : undefined}
                     >
                       {/* Special: Date range visualizer for end_date fields */}
-                      {isEndDateField(field.key) && datePattern && effectiveData[datePattern.start] && !isEditing ? (
+                      {isEndDateField(field.key) && datePattern && effectiveData[datePattern.start] && !effectiveIsEditing ? (
                         <DateRangeVisualizer
                           startDate={effectiveData[datePattern.start]}
                           endDate={value}
@@ -279,9 +463,17 @@ function EntityInstanceFormContainerInner({
                       ) : (
                         <FieldRenderer
                           field={fieldProps}
-                          value={value}
-                          isEditing={isEditing}
-                          onChange={(v) => handleFieldChange(field.key, v)}
+                          value={displayValue}
+                          isEditing={effectiveIsEditing}
+                          onChange={(v) => {
+                            if (isInlineEditing) {
+                              // v12.3.0: Update inline edit value
+                              handleInlineValueChange(v);
+                            } else {
+                              // Full edit mode: use original handler
+                              handleFieldChange(field.key, v);
+                            }
+                          }}
                           options={options}
                           formattedData={formattedData ? {
                             display: formattedData.display,
@@ -314,6 +506,9 @@ function arePropsEqual(
   if (prevProps.metadata !== nextProps.metadata) return false;
   if (prevProps.config !== nextProps.config) return false;
   if (prevProps.datalabels !== nextProps.datalabels) return false;
+  // v12.3.0: Check inline editing props
+  if (prevProps.inlineEditable !== nextProps.inlineEditable) return false;
+  if (prevProps.entityId !== nextProps.entityId) return false;
 
   const prevKeys = Object.keys(prevProps.data || {}).sort().join(',');
   const nextKeys = Object.keys(nextProps.data || {}).sort().join(',');

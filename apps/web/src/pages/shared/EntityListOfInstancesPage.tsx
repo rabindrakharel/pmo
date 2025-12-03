@@ -104,9 +104,9 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   } = useEntityInstanceMetadata(entityCode, mappedView);
 
   // Combine viewType and editType into metadata structure for EntityListOfInstancesTable
-  const metadata = useMemo(() => {
-    if (!viewType || Object.keys(viewType).length === 0) return undefined;
-    return { viewType, editType };
+  const metadata = useMemo((): ComponentMetadata | null => {
+    if (!viewType || Object.keys(viewType).length === 0) return null;
+    return { viewType, editType } as ComponentMetadata;
   }, [viewType, editType]);
 
   // ============================================================================
@@ -157,7 +157,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
       rowCount: rawData.length,
       firstRowManagerId: (rawData[0] as any)?.manager__employee_id,
     });
-    return formatDataset(rawData, metadata as ComponentMetadata | undefined);
+    return formatDataset(rawData, metadata ?? null);
   }, [rawData, metadata, entityCode]);
 
   // ============================================================================
@@ -251,6 +251,11 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     const rawItem = item.raw || item;
     const idField = config.detailPageIdField || 'id';
     const id = rawItem[idField];
+    // Guard against undefined id to prevent /entity/undefined URLs
+    if (!id) {
+      console.warn(`[handleRowClick] Missing ${idField} in record:`, rawItem);
+      return;
+    }
     navigate(`/${entityCode}/${id}`);
   }, [config, entityCode, navigate]);
 

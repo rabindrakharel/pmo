@@ -19,11 +19,9 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useSidebar } from '../../../contexts/SidebarContext';
-import { useNavigationHistory } from '../../../contexts/NavigationHistoryContext';
 import { useSettings } from '../../../contexts/SettingsContext';
 import { useEntityMetadata } from '../../../contexts/EntityMetadataContext';
 import { CreateButton } from '../button/CreateButton';
-import { NavigationBreadcrumb } from '../navigation/NavigationBreadcrumb';
 import { getIconComponent } from '../../../lib/iconMapping';
 
 interface CreateButtonConfig {
@@ -297,14 +295,6 @@ export function Layout({ children, createButton }: LayoutProps) {
 
       {/* Main content area - always present */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header Bar */}
-        <header className="bg-dark-100 border-b border-dark-300 px-6 py-2">
-          <div className="flex items-center justify-between">
-            {/* Navigation Breadcrumb */}
-            <NavigationBreadcrumb />
-          </div>
-        </header>
-
         {/* Page content - this is the key part that must stay mounted */}
         <main className="flex-1 overflow-y-auto overflow-x-hidden bg-dark-100 p-4 pb-8">
           {/* Create Button in Content Area */}
@@ -318,9 +308,7 @@ export function Layout({ children, createButton }: LayoutProps) {
               />
             </div>
           )}
-          <div className="pb-2">
-            {children}
-          </div>
+          {children}
         </main>
       </div>
     </div>

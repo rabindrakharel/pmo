@@ -86,10 +86,13 @@ export function useEntity<T = Record<string, unknown>>(
   const { enabled = true, staleTime, refetchOnMount = true } = options;
   const queryClient = useQueryClient();
 
+  // Guard: Check for valid entityId (not undefined, null, empty, or literal "undefined" string)
+  const isValidEntityId = entityId && entityId !== 'undefined' && entityId !== 'null';
+
   const query = useQuery<EntityResponse<T>, Error>({
     queryKey: QUERY_KEYS.entityInstance(entityCode, entityId ?? ''),
     queryFn: async () => {
-      if (!entityId) {
+      if (!isValidEntityId) {
         throw new Error('Entity ID is required');
       }
 
@@ -140,7 +143,7 @@ export function useEntity<T = Record<string, unknown>>(
         ref_data_entityInstance: apiData.ref_data_entityInstance,
       };
     },
-    enabled: enabled && !!entityId,
+    enabled: enabled && isValidEntityId,
     staleTime: staleTime ?? ONDEMAND_STORE_CONFIG.staleTime,
     gcTime: ONDEMAND_STORE_CONFIG.gcTime,
     refetchOnMount,
@@ -150,10 +153,10 @@ export function useEntity<T = Record<string, unknown>>(
 
   // Auto-subscribe to WebSocket updates when query succeeds
   useEffect(() => {
-    if (entityId && query.isSuccess) {
-      wsManager.subscribe(entityCode, [entityId]);
+    if (isValidEntityId && query.isSuccess) {
+      wsManager.subscribe(entityCode, [entityId!]);
     }
-  }, [entityCode, entityId, query.isSuccess]);
+  }, [entityCode, entityId, isValidEntityId, query.isSuccess]);
 
   // Wrap refetch to return void
   const refetch = async (): Promise<void> => {
