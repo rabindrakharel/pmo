@@ -82,36 +82,14 @@ import { getEntityLimit } from './pagination.js';
 // ============================================================================
 
 /**
- * Entity-to-Table Mapping
+ * Entity-to-Table Mapping (ONLY for exceptions)
  *
- * Maps entity type codes to their corresponding database table names.
- * Used by all factories to automatically resolve table names.
+ * Default: entity_code = table_name (e.g., 'project' -> 'project')
+ * This map ONLY contains exceptions where table name differs from entity code.
  *
- * Convention: Most entities use direct mapping (entity code = table name), with exceptions.
+ * DO NOT add entries where entity_code === table_name.
  */
 export const ENTITY_TABLE_MAP: Record<string, string> = {
-  // Core entities (direct mapping)
-  task: 'task',
-  project: 'project',
-  employee: 'employee',
-  role: 'role',
-  office: 'office',
-  worksite: 'worksite',
-  wiki: 'wiki',
-  artifact: 'artifact',
-  service: 'service',
-  product: 'product',
-  event: 'event',
-  customer: 'customer',
-  business: 'business',
-  inventory: 'inventory',
-  booking: 'booking',
-  workflow: 'workflow',
-
-  // Entities with head/data split
-  form: 'form',
-  message: 'message_data',
-
   // Fact/transactional entities with f_ prefix
   expense: 'f_expense',
   revenue: 'f_revenue',
@@ -122,19 +100,11 @@ export const ENTITY_TABLE_MAP: Record<string, string> = {
   order: 'f_order',
   shipment: 'f_shipment',
 
-  // Hierarchy entities
-  office_hierarchy: 'office_hierarchy',
-  business_hierarchy: 'business_hierarchy',
-  product_hierarchy: 'product_hierarchy',
-
-  // Calendar entities
+  // Entities with different naming
+  message: 'message_data',
   calendar: 'entity_person_calendar',
   event_person_calendar: 'entity_event_person_calendar',
-
-  // Special entities
   rbac: 'entity_rbac',
-  message_schema: 'message_schema',
-  cust: 'cust',  // Frontend uses 'cust', not 'customer'
 };
 
 /**
@@ -334,13 +304,6 @@ export interface EntityRouteConfig {
   defaultOrderBy?: string;
 
   /**
-   * Soft delete style used by this entity
-   * 'active_flag' - Uses active_flag = false (default)
-   * 'deleted_ts' - Uses deleted_ts IS NOT NULL
-   */
-  softDeleteStyle?: SoftDeleteStyle;
-
-  /**
    * Default values for POST create
    * Applied when field is not provided in request body
    * Supports functions for dynamic values: () => `CODE-${Date.now()}`
@@ -373,12 +336,6 @@ export interface EntityRouteConfig {
    */
   useTransactionalCreate?: boolean;
 }
-
-/**
- * Soft delete style for the entity
- * Different entities use different soft delete patterns
- */
-export type SoftDeleteStyle = 'active_flag' | 'deleted_ts';
 
 /**
  * Hook context for create operations
@@ -542,14 +499,9 @@ export function createEntityListEndpoint(
       }
 
       // Default: Only active records (unless explicitly querying inactive)
-      // Support both soft delete styles: active_flag and deleted_ts
-      const softDeleteStyle = config.softDeleteStyle || 'active_flag';
+      // SCD Type 2: active_flag = true means record is current
       if (!('active' in query)) {
-        if (softDeleteStyle === 'deleted_ts') {
-          conditions.push(sql`${sql.raw(TABLE_ALIAS)}.deleted_ts IS NULL`);
-        } else {
-          conditions.push(sql`${sql.raw(TABLE_ALIAS)}.active_flag = true`);
-        }
+        conditions.push(sql`${sql.raw(TABLE_ALIAS)}.active_flag = true`);
       }
 
       // Universal auto-filters
@@ -762,17 +714,12 @@ export function createEntityGetEndpoint(
         return reply.status(403).send({ error: `No permission to view this ${ENTITY_CODE}` });
       }
 
-      // Execute query with soft delete filter
-      const softDeleteStyle = config.softDeleteStyle || 'active_flag';
-      const softDeleteCondition = softDeleteStyle === 'deleted_ts'
-        ? sql`deleted_ts IS NULL`
-        : sql`active_flag = true`;
-
+      // Execute query - only active records (SCD Type 2)
       const result = await db.execute(sql`
         SELECT *
         FROM app.${sql.raw(TABLE_NAME)}
         WHERE id = ${id}::uuid
-          AND ${softDeleteCondition}
+          AND active_flag = true
       `);
 
       if (result.length === 0) {
@@ -1333,7 +1280,7 @@ export function createEntityDeleteEndpoint(
  * - POST /api/v1/{entity} - Create with RBAC + transactional infrastructure
  * - PATCH /api/v1/{entity}/:id - Update with RBAC
  * - PUT /api/v1/{entity}/:id - Update alias
- * - DELETE /api/v1/{entity}/:id - Delete with RBAC (soft delete by default)
+ * - DELETE /api/v1/{entity}/:id - Delete with RBAC (physical delete)
  *
  * @example
  * // Minimal - generates ALL endpoints (LIST, GET, POST, PATCH, PUT, DELETE)
@@ -1364,18 +1311,6 @@ export function createEntityDeleteEndpoint(
  * createUniversalEntityRoutes(fastify, {
  *   entityCode: 'project',
  *   skip: { post: true }  // Use custom POST handler
- * });
- *
- * // With soft delete style (for entities using deleted_ts instead of active_flag)
- * createUniversalEntityRoutes(fastify, {
- *   entityCode: 'interaction',
- *   softDeleteStyle: 'deleted_ts'
- * });
- *
- * // With hard delete for linkage entities
- * createUniversalEntityRoutes(fastify, {
- *   entityCode: 'linkage',
- *   deleteOptions: { hardDelete: true }
  * });
  */
 export function createUniversalEntityRoutes(

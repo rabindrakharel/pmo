@@ -6,8 +6,6 @@
  * Handles omnichannel customer interactions with S3 storage support.
  * Refactored to use universal-entity-crud-factory for consistent CRUD.
  *
- * Uses `deleted_ts` soft delete pattern instead of `active_flag`.
- *
  * @module interaction/routes
  */
 
@@ -29,9 +27,6 @@ export async function interactionRoutes(fastify: FastifyInstance) {
   const config: EntityRouteConfig = {
     entityCode: 'interaction',
     tableAlias: 'i',
-
-    // Interaction uses deleted_ts for soft delete (not active_flag)
-    softDeleteStyle: 'deleted_ts',
 
     // Search across interaction content fields
     searchFields: ['interaction_number', 'content_text', 'transcript_text', 'content_summary'],
