@@ -152,8 +152,7 @@ import {
   createPaginatedResponse,
   getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
-import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
-import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
+import { createEntityDeleteEndpoint } from '../../lib/universal-entity-crud-factory.js';
 // ✅ Centralized unified data gate - loosely coupled API
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
@@ -946,25 +945,4 @@ export async function projectRoutes(fastify: FastifyInstance) {
   // 3. app.entity_instance_link (linkages in both directions)
   createEntityDeleteEndpoint(fastify, 'project');
 
-  // ========================================
-  // CHILD ENTITY ENDPOINTS (Database-Driven)
-  // ========================================
-  // Auto-create all child entity endpoints from entity metadata
-  // Reads project's child_entity_codes from database: ["task", "wiki", "artifact", "form", "expense", "revenue"]
-  // Creates endpoints: /api/v1/project/:id/task, /api/v1/project/:id/wiki, etc.
-  //
-  // Benefits:
-  // - Single source of truth: child relationships defined in entity DDL only
-  // - Zero repetition: no manual endpoint declarations needed
-  // - Self-maintaining: add child entity → update d_entity → routes auto-created
-  await createChildEntityEndpointsFromMetadata(fastify, 'project');
-
-  // ========================================
-  // CHILD ENTITY CREATION
-  // ========================================
-  // Child entities (task, wiki, form, artifact) are created using:
-  // 1. Universal entity create endpoint: POST /api/v1/:childType
-  // 2. Linkage API: POST /api/v1/linkage to link child to parent
-  // 3. Navigate to child detail page for editing
-  // No special endpoints needed - reuses existing universal APIs
 }

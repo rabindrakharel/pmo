@@ -1,12 +1,12 @@
 /**
  * ============================================================================
- * UNIVERSAL ENTITY CRUD FACTORY - Industry-Standard REST API Generation
+ * UNIVERSAL ENTITY CRUD FACTORY - Consolidated REST API Generation
  * ============================================================================
- * Version: 1.0.0
+ * Version: 2.0.0
  *
  * PURPOSE:
- * Generate standardized CRUD endpoints for any entity type with ZERO boilerplate.
- * Based on industry patterns from Django REST Framework, NestJS CRUD, and Strapi.
+ * Single source of truth for all entity CRUD endpoint generation.
+ * Consolidates all factory patterns (LIST, GET, UPDATE, DELETE) with ZERO boilerplate.
  *
  * ARCHITECTURE:
  * - Configuration-driven: Define entity once, generate all endpoints
@@ -22,28 +22,28 @@
  * - Parent-child filtering via entity_instance_link
  * - Pagination with page/offset support
  * - Registry sync on updates
+ * - Transactional DELETE with infrastructure cleanup
  *
  * USAGE:
  * ```typescript
- * // Minimal configuration - generates all CRUD endpoints
+ * import {
+ *   createUniversalEntityRoutes,
+ *   createEntityDeleteEndpoint,
+ *   ENTITY_TABLE_MAP
+ * } from '@/lib/universal-entity-crud-factory.js';
+ *
+ * // Minimal configuration - generates LIST, GET, UPDATE endpoints
  * createUniversalEntityRoutes(fastify, { entityCode: 'role' });
  *
- * // With customization hooks
- * createUniversalEntityRoutes(fastify, {
- *   entityCode: 'office',
- *   hooks: {
- *     beforeList: async (ctx) => {
- *       ctx.conditions.push(sql`${ctx.alias}.business_id = ${businessId}`);
- *     }
- *   }
- * });
+ * // DELETE endpoint (separate for explicit control)
+ * createEntityDeleteEndpoint(fastify, 'role');
  * ```
  *
  * INDUSTRY PATTERNS APPLIED:
  * - Django REST Framework: ViewSet pattern with list/retrieve/update/destroy
  * - NestJS CRUD: Configuration object with options
  * - Strapi: Hook system for extensibility
- * - Rails: Convention over configuration (entity_code → table name → routes)
+ * - Rails: Convention over configuration (entity_code -> table name -> routes)
  *
  * ============================================================================
  */
@@ -56,7 +56,90 @@ import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../service
 import { buildAutoFilters } from './universal-filter-builder.js';
 import { generateEntityResponse, getCachedMetadataResponse, cacheMetadataResponse, type ComponentName } from '../services/backend-formatter.service.js';
 import { getEntityLimit } from './pagination.js';
-import { ENTITY_TABLE_MAP } from './child-entity-route-factory.js';
+
+// ============================================================================
+// ENTITY-TO-TABLE MAPPING
+// ============================================================================
+
+/**
+ * Entity-to-Table Mapping
+ *
+ * Maps entity type codes to their corresponding database table names.
+ * Used by all factories to automatically resolve table names.
+ *
+ * Convention: Most entities use direct mapping (entity code = table name), with exceptions.
+ */
+export const ENTITY_TABLE_MAP: Record<string, string> = {
+  // Core entities (direct mapping)
+  task: 'task',
+  project: 'project',
+  employee: 'employee',
+  role: 'role',
+  office: 'office',
+  worksite: 'worksite',
+  wiki: 'wiki',
+  artifact: 'artifact',
+  service: 'service',
+  product: 'product',
+  event: 'event',
+  cust: 'cust',
+  business: 'business',
+  order: 'order',
+  shipment: 'shipment',
+  expense: 'f_expense',
+  revenue: 'f_revenue',
+  quote: 'fact_quote',
+  work_order: 'fact_work_order',
+  interaction: 'interaction',
+  inventory: 'inventory',
+  booking: 'booking',
+
+  // Entities with head/data split
+  form: 'form',
+  invoice: 'invoice',
+  message: 'message_data',
+
+  // Hierarchy entities
+  office_hierarchy: 'office_hierarchy',
+  business_hierarchy: 'business_hierarchy',
+  product_hierarchy: 'product_hierarchy',
+
+  // Calendar entities
+  calendar: 'entity_person_calendar',
+  event_person_calendar: 'entity_event_person_calendar',
+
+  // Legacy aliases
+  biz: 'business',
+
+  // Special entities
+  rbac: 'entity_rbac',
+  message_schema: 'message_schema'
+};
+
+/**
+ * Resolve database table name from entity code
+ * @param entityCode - Entity type code (e.g., 'project', 'task')
+ * @param customTable - Optional override table name
+ * @returns Database table name
+ */
+export function getTableName(entityCode: string, customTable?: string): string {
+  if (customTable) return customTable;
+  return ENTITY_TABLE_MAP[entityCode] || entityCode;
+}
+
+/**
+ * Alias for getTableName (for backwards compatibility)
+ */
+export function getEntityTableName(entityCode: string): string {
+  return getTableName(entityCode);
+}
+
+/**
+ * Alias for getTableName (for backwards compatibility with delete factory)
+ */
+export function getEntityTable(entityCode: string): string {
+  return getTableName(entityCode);
+}
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -199,14 +282,42 @@ export interface EntityRouteConfig {
     get?: boolean;
     update?: boolean;
   };
+
+  /**
+   * Default ORDER BY clause for list queries
+   * Example: 'created_ts DESC' or 'name ASC'
+   * Default: 'created_ts DESC'
+   */
+  defaultOrderBy?: string;
 }
 
 /**
- * Resolve database table name from entity code
+ * Delete endpoint configuration options
  */
-export function getTableName(entityCode: string, customTable?: string): string {
-  if (customTable) return customTable;
-  return ENTITY_TABLE_MAP[entityCode] || entityCode;
+export interface DeleteEndpointOptions {
+  /**
+   * Callback to delete from primary table
+   * If not provided, only infrastructure tables are cleaned up
+   */
+  primary_table_callback?: (db: typeof import('@/db/index.js').db, entity_id: string) => Promise<void>;
+
+  /**
+   * Enable cascade delete of child entities
+   * Default: false
+   */
+  cascade_delete_children?: boolean;
+
+  /**
+   * Remove RBAC entries on delete
+   * Default: false (preserves audit trail)
+   */
+  remove_rbac_entries?: boolean;
+
+  /**
+   * Custom RBAC check override
+   * Default: uses Entity Infrastructure Service RBAC
+   */
+  skip_rbac_check?: boolean;
 }
 
 // ============================================================================
@@ -238,7 +349,8 @@ export function createEntityListEndpoint(
     searchFields = ['name', 'code', 'descr'],
     defaultLimit,
     hooks = {},
-    filterOverrides = {}
+    filterOverrides = {},
+    defaultOrderBy = 'created_ts DESC'
   } = config;
 
   const TABLE_NAME = getTableName(entityCode, tableName);
@@ -409,7 +521,7 @@ export function createEntityListEndpoint(
         FROM app.${sql.raw(TABLE_NAME)} ${sql.raw(TABLE_ALIAS)}
         ${joinClause}
         ${whereClause}
-        ORDER BY ${sql.raw(TABLE_ALIAS)}.created_ts DESC
+        ORDER BY ${sql.raw(`${TABLE_ALIAS}.${defaultOrderBy}`)}
         LIMIT ${limit}
         OFFSET ${offset}
       `;
@@ -838,6 +950,99 @@ export function createEntityUpdateEndpoint(
 }
 
 // ============================================================================
+// DELETE ENDPOINT FACTORY
+// ============================================================================
+
+/**
+ * Create DELETE /api/v1/{entity}/:id endpoint
+ *
+ * Uses Entity Infrastructure Service for transactional delete:
+ * - RBAC permission check (DELETE)
+ * - Soft delete primary table
+ * - Hard delete entity_instance, entity_instance_link, entity_rbac
+ *
+ * @example
+ * createEntityDeleteEndpoint(fastify, 'task');
+ */
+export function createEntityDeleteEndpoint(
+  fastify: FastifyInstance,
+  entityCode: string,
+  options?: DeleteEndpointOptions
+): void {
+  const entityInfra = getEntityInfrastructure(db);
+
+  fastify.delete(`/api/v1/${entityCode}/:id`, {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })
+      }),
+      response: {
+        204: Type.Null(),
+        200: Type.Object({
+          success: Type.Boolean(),
+          entity_type: Type.String(),
+          entity_id: Type.String(),
+          registry_deactivated: Type.Boolean(),
+          linkages_deactivated: Type.Number(),
+          rbac_entries_removed: Type.Number(),
+          primary_table_deleted: Type.Boolean(),
+          children_deleted: Type.Optional(Type.Number())
+        }),
+        401: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })
+      }
+    }
+  }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const userId = (request as any).user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    try {
+      // ═══════════════════════════════════════════════════════════════
+      // ENTITY INFRASTRUCTURE SERVICE - TRANSACTIONAL DELETE
+      // All deletes (primary + registry + linkages + RBAC) in ONE transaction
+      // ═══════════════════════════════════════════════════════════════
+      const tableName = `app.${getEntityTable(entityCode)}`;
+      const result = await entityInfra.delete_entity({
+        entity_code: entityCode,
+        entity_id: id,
+        user_id: userId,
+        primary_table: tableName,
+        hard_delete: false,  // Soft delete by default
+        skip_rbac_check: options?.skip_rbac_check || false
+      });
+
+      fastify.log.info(`Deleted ${entityCode} ${id}:`, result);
+
+      // Return detailed result (useful for debugging)
+      return reply.status(200).send({
+        success: result.success,
+        entity_type: entityCode,
+        entity_id: id,
+        registry_deactivated: result.registry_deleted,
+        linkages_deactivated: result.linkages_deleted,
+        rbac_entries_removed: result.rbac_entries_deleted,
+        primary_table_deleted: result.entity_deleted
+      });
+    } catch (error: any) {
+      // Check for permission error
+      if (error.message?.includes('lacks DELETE permission')) {
+        return reply.status(403).send({ error: error.message });
+      }
+
+      fastify.log.error(`Error deleting ${entityCode}:`, error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+}
+
+// ============================================================================
 // UNIFIED FACTORY - Creates All CRUD Endpoints
 // ============================================================================
 
@@ -850,7 +1055,7 @@ export function createEntityUpdateEndpoint(
  * - PATCH /api/v1/{entity}/:id - Update with RBAC
  * - PUT /api/v1/{entity}/:id - Update alias
  *
- * Note: DELETE is handled by createEntityDeleteEndpoint (separate factory)
+ * Note: DELETE is handled by createEntityDeleteEndpoint (separate for explicit control)
  * Note: POST (create) remains entity-specific due to field variations
  *
  * @example
@@ -906,9 +1111,18 @@ export function createUniversalEntityRoutes(
 // ============================================================================
 
 export default {
+  // Table mapping
+  ENTITY_TABLE_MAP,
+  getTableName,
+  getEntityTableName,
+  getEntityTable,
+
+  // Individual factories
   createEntityListEndpoint,
   createEntityGetEndpoint,
   createEntityUpdateEndpoint,
+  createEntityDeleteEndpoint,
+
+  // Unified factory
   createUniversalEntityRoutes,
-  getTableName
 };

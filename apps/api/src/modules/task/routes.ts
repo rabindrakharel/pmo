@@ -144,9 +144,7 @@ import {
   filterUniversalColumns,
   getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
-import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
-// ✅ Child entity factory for parent-child relationships
-import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
+import { createEntityDeleteEndpoint } from '../../lib/universal-entity-crud-factory.js';
 // ✅ Centralized unified data gate - loosely coupled API
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
@@ -1508,10 +1506,4 @@ export async function taskRoutes(fastify: FastifyInstance) {
   // 3. Navigate to child detail page for editing
   // No special endpoints needed - reuses existing universal APIs
 
-  // ============================================================================
-  // Child Entity Endpoints (Auto-Generated from entity metadata)
-  // ============================================================================
-  // Creates: GET /api/v1/task/:id/{child} for each child in entity table.child_entity_codes
-  // Uses Entity Infrastructure Service for RBAC + entity_instance_link for parent-child filtering
-  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 }

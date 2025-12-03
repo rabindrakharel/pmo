@@ -20,9 +20,7 @@
 import type { FastifyInstance } from 'fastify';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
-import { createUniversalEntityRoutes } from '../../lib/universal-crud-factory.js';
-import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
-import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
+import { createUniversalEntityRoutes, createEntityDeleteEndpoint } from '../../lib/universal-entity-crud-factory.js';
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 
 // ============================================================================
@@ -130,9 +128,4 @@ export async function workOrderRoutes(fastify: FastifyInstance) {
   // Delete Work Order (Soft Delete via Factory)
   // ============================================================================
   createEntityDeleteEndpoint(fastify, ENTITY_CODE);
-
-  // ============================================================================
-  // Child Entity Endpoints (via Factory)
-  // ============================================================================
-  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 }

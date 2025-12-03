@@ -26,14 +26,8 @@ import { sql } from 'drizzle-orm';
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 
-// ✨ Universal CRUD Factory - generates standardized endpoints
-import { createUniversalEntityRoutes } from '../../lib/universal-crud-factory.js';
-
-// ✅ Delete factory for cascading soft deletes
-import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
-
-// ✅ Child entity factory for parent-child relationships
-import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
+// ✨ Universal Entity CRUD Factory - consolidated endpoint generation
+import { createUniversalEntityRoutes, createEntityDeleteEndpoint } from '../../lib/universal-entity-crud-factory.js';
 
 // Schema aligned with DDL: db/11_d_employee.ddl
 // ONLY includes fields that exist as table columns
@@ -371,8 +365,4 @@ export async function empRoutes(fastify: FastifyInstance) {
 
   createEntityDeleteEndpoint(fastify, ENTITY_CODE);
 
-  // ============================================================================
-  // Child Entity Endpoints (Auto-Generated from entity metadata)
-  // ============================================================================
-  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 }

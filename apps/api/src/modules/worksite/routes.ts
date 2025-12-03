@@ -23,14 +23,8 @@ import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 
-// ✨ Universal CRUD Factory - generates standardized endpoints
-import { createUniversalEntityRoutes } from '../../lib/universal-crud-factory.js';
-
-// ✅ Delete factory for cascading soft deletes
-import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
-
-// ✅ Child entity factory for parent-child relationships
-import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
+// ✨ Universal Entity CRUD Factory - consolidated endpoint generation
+import { createUniversalEntityRoutes, createEntityDeleteEndpoint } from '../../lib/universal-entity-crud-factory.js';
 
 // Schema based on d_worksite table structure
 const WorksiteSchema = Type.Object({
@@ -221,8 +215,4 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
 
   createEntityDeleteEndpoint(fastify, ENTITY_CODE);
 
-  // ============================================================================
-  // Child Entity Endpoints (Auto-Generated from entity metadata)
-  // ============================================================================
-  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 }

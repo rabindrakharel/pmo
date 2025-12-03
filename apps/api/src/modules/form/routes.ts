@@ -38,9 +38,7 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql, SQL } from 'drizzle-orm';
-import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
-// ✅ Child entity factory for parent-child relationships
-import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
+import { createEntityDeleteEndpoint } from '../../lib/universal-entity-crud-factory.js';
 import { createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 // ✅ Centralized unified data gate - loosely coupled API
 // ✅ Entity Infrastructure Service - Centralized infrastructure management
@@ -1293,11 +1291,4 @@ export async function formRoutes(fastify: FastifyInstance) {
   // 2. app.entity_instance (entity registry)
   // 3. app.entity_instance_link (linkages in both directions)
   createEntityDeleteEndpoint(fastify, ENTITY_CODE);
-
-  // ============================================================================
-  // Child Entity Endpoints (Auto-Generated from entity metadata)
-  // ============================================================================
-  // Creates: GET /api/v1/form/:id/{child} for each child in entity table.child_entity_codes
-  // Uses Entity Infrastructure Service for RBAC + entity_instance_link for parent-child filtering
-  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 }

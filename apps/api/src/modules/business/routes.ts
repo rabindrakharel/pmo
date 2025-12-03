@@ -121,14 +121,8 @@ import { sql } from 'drizzle-orm';
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 
-// ✨ Universal CRUD Factory - generates standardized endpoints
-import { createUniversalEntityRoutes } from '../../lib/universal-crud-factory.js';
-
-// ✅ Delete factory for cascading soft deletes
-import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
-
-// ✅ Child entity factory for parent-child relationships
-import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
+// ✨ Universal Entity CRUD Factory - consolidated endpoint generation
+import { createUniversalEntityRoutes, createEntityDeleteEndpoint } from '../../lib/universal-entity-crud-factory.js';
 
 // Schema based on actual d_business table structure
 const BizSchema = Type.Object({
@@ -371,10 +365,4 @@ export async function businessRoutes(fastify: FastifyInstance) {
 
   createEntityDeleteEndpoint(fastify, ENTITY_CODE);
 
-  // ============================================================================
-  // Child Entity Endpoints (Auto-Generated from entity metadata)
-  // ============================================================================
-  // Creates: GET /api/v1/business/:id/{child} for each child in entity table.child_entity_codes
-  // Uses Entity Infrastructure Service for RBAC + entity_instance_link for parent-child filtering
-  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 }

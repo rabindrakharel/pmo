@@ -29,14 +29,8 @@ import { getPaginationParams } from '../../lib/pagination.js';
 // ✅ Entity Infrastructure Service - Centralized infrastructure management
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 
-// ✨ Universal CRUD Factory - generates standardized endpoints
-import { createUniversalEntityRoutes } from '../../lib/universal-crud-factory.js';
-
-// ✅ Delete factory for cascading soft deletes
-import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
-
-// ✅ Child entity factory for parent-child relationships
-import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
+// ✨ Universal Entity CRUD Factory - consolidated endpoint generation
+import { createUniversalEntityRoutes, createEntityDeleteEndpoint } from '../../lib/universal-entity-crud-factory.js';
 
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
@@ -650,11 +644,6 @@ export async function eventRoutes(fastify: FastifyInstance) {
   // ✨ Factory-generated DELETE endpoint
   // Provides cascading soft delete for event and all linked entities
   createEntityDeleteEndpoint(fastify, ENTITY_CODE);
-
-  // ✨ Factory-generated child entity endpoints
-  // Auto-generates endpoints for child entities based on entity metadata
-  // Example: GET /api/v1/event/:id/{child_entity}
-  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 
   console.log('✅ Event routes registered');
 }
