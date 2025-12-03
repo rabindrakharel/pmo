@@ -927,7 +927,7 @@ ORDER BY e.created_ts DESC;
 | **Entity Endpoint Design** | [`docs/api/entity_endpoint_design.md`](../api/entity_endpoint_design.md) | Factory patterns, request flow, caching |
 | **Entity Infrastructure Service** | [`docs/services/entity-infrastructure.service.md`](../services/entity-infrastructure.service.md) | Full service API reference |
 | **State Management** | [`docs/state_management/STATE_MANAGEMENT.md`](../state_management/STATE_MANAGEMENT.md) | TanStack Query + Dexie architecture |
-| **Backend Formatter** | [`docs/services/backend-formatter.service.md`](../services/backend-formatter.service.md) | Metadata generation |
+| **Entity Component Metadata** | [`docs/services/entity-component-metadata.service.md`](../services/entity-component-metadata.service.md) | Metadata generation |
 | **Main README** | [`docs/README.md`](../README.md) | Documentation index |
 
 ---

@@ -1,9 +1,9 @@
-# Backend Formatter Service
+# Entity Component Metadata Service
 
 > Complete reference for field metadata generation, YAML pattern matching, and API response formatting. Backend is the single source of truth for all field rendering.
 
 **Version**: 4.0.0
-**Location**: `apps/api/src/services/backend-formatter.service.ts`
+**Location**: `apps/api/src/services/entity-component-metadata.service.ts`
 **Last Updated**: 2025-11-30
 **Status**: Production Ready
 
@@ -112,8 +112,8 @@
 
 ```
 ┌──────────┐     ┌───────────────┐     ┌────────────────────┐     ┌──────────┐
-│  Client  │     │ Route Handler │     │ Backend Formatter  │     │ Entity   │
-│          │     │               │     │ Service            │     │ Infra    │
+│  Client  │     │ Route Handler │     │ Entity Component   │     │ Entity   │
+│          │     │               │     │ Metadata Service   │     │ Infra    │
 └────┬─────┘     └───────┬───────┘     └──────────┬─────────┘     └────┬─────┘
      │                   │                        │                    │
      │ GET /api/v1/project                        │                    │
@@ -150,8 +150,8 @@
 
 ```
 ┌──────────┐     ┌───────────────┐     ┌────────────────────┐     ┌──────────┐
-│  Client  │     │ Route Handler │     │ Backend Formatter  │     │  Redis   │
-│          │     │               │     │ Service            │     │          │
+│  Client  │     │ Route Handler │     │ Entity Component   │     │  Redis   │
+│          │     │               │     │ Metadata Service   │     │          │
 └────┬─────┘     └───────┬───────┘     └──────────┬─────────┘     └────┬─────┘
      │                   │                        │                    │
      │ GET /api/v1/project?content=metadata       │                    │
@@ -909,7 +909,7 @@ renderTypes:
 ```typescript
 // apps/api/src/modules/{entity}/routes.ts
 
-import { generateEntityResponse, getCachedMetadataResponse, cacheMetadataResponse } from '@/services/backend-formatter.service.js';
+import { generateEntityResponse, getCachedMetadataResponse, cacheMetadataResponse } from '@/services/entity-component-metadata.service.js';
 import { getEntityInfrastructure, Permission } from '@/services/entity-infrastructure.service.js';
 import { db, client } from '@/db/index.js';
 

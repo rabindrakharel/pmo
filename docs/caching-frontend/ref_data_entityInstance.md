@@ -372,7 +372,7 @@ async build_ref_data_entityInstance(
 
 ### 4.5 Layer 5: API Response Assembly
 
-**File:** `apps/api/src/services/backend-formatter.service.ts`
+**File:** `apps/api/src/services/entity-component-metadata.service.ts`
 
 ```json
 {
@@ -680,7 +680,7 @@ API Response → TanStack Query Cache (RAW data)
 | Pattern Mapping | `apps/api/src/services/pattern-mapping.yaml` |
 | View Type Mapping | `apps/api/src/services/view-type-mapping.yaml` |
 | Edit Type Mapping | `apps/api/src/services/edit-type-mapping.yaml` |
-| Backend Formatter | `apps/api/src/services/backend-formatter.service.ts` |
+| Entity Component Metadata | `apps/api/src/services/entity-component-metadata.service.ts` |
 | Entity Infrastructure | `apps/api/src/services/entity-infrastructure.service.ts` |
 | Dataset Formatter | `apps/web/src/lib/formatters/datasetFormatter.ts` |
 | Value Formatters | `apps/web/src/lib/formatters/valueFormatters.ts` |

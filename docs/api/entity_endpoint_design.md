@@ -54,7 +54,7 @@
 │  │  apps/api/src/services/                                                         ││
 │  │  ─────────────────────────                                                      ││
 │  │  • entity-infrastructure.service.ts  → RBAC, Registry, Links (Redis cached)    ││
-│  │  • backend-formatter.service.ts      → Metadata generation (Redis cached)      ││
+│  │  • entity-component-metadata.service.ts      → Metadata generation (Redis cached)      ││
 │  └─────────────────────────────────────────────────────────────────────────────────┘│
 │                              ↓                                                       │
 │  ┌─────────────────────────────────────────────────────────────────────────────────┐│
@@ -739,7 +739,7 @@ import {
   Permission,
   ALL_ENTITIES_ID
 } from '@/services/entity-infrastructure.service.js';
-import { generateEntityResponse } from '@/services/backend-formatter.service.js';
+import { generateEntityResponse } from '@/services/entity-component-metadata.service.js';
 import { buildAutoFilters } from '@/lib/universal-filter-builder.js';
 import { createEntityDeleteEndpoint } from '@/lib/universal-entity-crud-factory.js';
 
@@ -867,7 +867,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
 | Document | Path | Description |
 |----------|------|-------------|
 | Entity Infrastructure Service | `docs/services/entity-infrastructure.service.md` | RBAC + Registry + Links |
-| Backend Formatter Service | `docs/services/backend-formatter.service.md` | Metadata generation |
+| Entity Component Metadata Service | `docs/services/entity-component-metadata.service.md` | Metadata generation |
 | State Management | `docs/state_management/STATE_MANAGEMENT.md` | TanStack Query + Dexie |
 | RBAC Infrastructure | `docs/rbac/RBAC_INFRASTRUCTURE.md` | Full RBAC details |
 

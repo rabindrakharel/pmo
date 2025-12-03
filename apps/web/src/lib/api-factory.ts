@@ -63,7 +63,7 @@ export interface CompositeFieldConfig {
 }
 
 /**
- * Backend field metadata (matches backend-formatter.service.ts)
+ * Backend field metadata (matches entity-component-metadata.service.ts)
  */
 export interface BackendFieldMetadata {
   key: string;

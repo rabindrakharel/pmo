@@ -8,7 +8,7 @@
  * This prevents silent failures when column names deviate from conventions.
  *
  * USAGE:
- * The Backend Formatter Service checks this config FIRST before falling back
+ * The Entity Component Metadata Service checks this config FIRST before falling back
  * to pattern detection. If a field is defined here, its config takes precedence.
  *
  * WHEN TO USE THIS CONFIG:

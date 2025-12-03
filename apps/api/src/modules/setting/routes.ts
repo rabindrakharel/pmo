@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { GLOBAL_SETTINGS } from '../../services/backend-formatter.service.js';
+import { GLOBAL_SETTINGS } from '../../services/entity-component-metadata.service.js';
 
 // ============================================================================
 // SETTING ROUTES
@@ -50,7 +50,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (_request, _reply) => {
-    // Return the centralized GLOBAL_SETTINGS from backend-formatter.service
+    // Return the centralized GLOBAL_SETTINGS from entity-component-metadata.service
     return GLOBAL_SETTINGS;
   });
 }

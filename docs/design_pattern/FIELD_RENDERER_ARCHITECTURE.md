@@ -330,6 +330,6 @@ Components being replaced:
 ## Related Documentation
 
 - [STATE_MANAGEMENT.md](../state_management/STATE_MANAGEMENT.md) - TanStack Query + Dexie architecture
-- [backend-formatter.service.md](../services/backend-formatter.service.md) - Backend metadata generation
+- [entity-component-metadata.service.md](../services/entity-component-metadata.service.md) - Backend metadata generation
 - [view-type-mapping.yaml](../../apps/api/src/services/view-type-mapping.yaml) - VIEW mode configuration
 - [edit-type-mapping.yaml](../../apps/api/src/services/edit-type-mapping.yaml) - EDIT mode configuration

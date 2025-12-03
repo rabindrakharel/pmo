@@ -46,8 +46,8 @@ import { createPaginatedResponse } from '../../lib/universal-schema-metadata.js'
 // ✅ Centralized unified data gate - loosely coupled API
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
-// ✨ Backend Formatter Service - component-aware metadata generation
-import { generateEntityResponse } from '../../services/backend-formatter.service.js';
+// ✨ Entity Component Metadata Service - component-aware metadata generation
+import { generateEntityResponse } from '../../services/entity-component-metadata.service.js';
 // ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
 // ✅ Entity Infrastructure Service - Centralized infrastructure management
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';

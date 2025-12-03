@@ -802,7 +802,7 @@ const tabs = await entityInfra.get_dynamic_child_entity_tabs('project', projectI
 // apps/api/src/modules/{entity}/routes.ts
 
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '@/services/entity-infrastructure.service.js';
-import { generateEntityResponse } from '@/services/backend-formatter.service.js';
+import { generateEntityResponse } from '@/services/entity-component-metadata.service.js';
 import { createEntityDeleteEndpoint } from '@/lib/entity-delete-route-factory.js';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
@@ -946,7 +946,7 @@ try {
 | Document | Path | Description |
 |----------|------|-------------|
 | Entity Metadata Caching | `docs/caching-backend/ENTITY_METADATA_CACHING.md` | Redis caching for metadata |
-| Backend Formatter Service | `docs/services/backend-formatter.service.md` | Metadata generation |
+| Entity Component Metadata Service | `docs/services/entity-component-metadata.service.md` | Metadata generation |
 | RBAC Infrastructure | `docs/rbac/RBAC_INFRASTRUCTURE.md` | Full RBAC details |
 | Unified Cache Architecture | `docs/caching-frontend/NORMALIZED_CACHE_ARCHITECTURE.md` | TanStack Query + Dexie unified cache |
 | State Management | `docs/state_management/STATE_MANAGEMENT.md` | Frontend state management overview |

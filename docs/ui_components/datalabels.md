@@ -170,7 +170,7 @@ datalabel:
     renderType: badge
     behavior: { visible: true, filterable: true, sortable: true }
     style: { colorFromData: true }
-  # lookupField is auto-set by backend-formatter.service.ts
+  # lookupField is auto-set by entity-component-metadata.service.ts
 ```
 
 ### YAML Configuration (edit-type-mapping.yaml)
@@ -183,10 +183,10 @@ datalabel:
     inputType: component                 # ← MUST be "component" when component is specified
     component: DataLabelSelect
     behavior: { editable: true, filterable: true }
-  # lookupField is auto-set by backend-formatter.service.ts
+  # lookupField is auto-set by entity-component-metadata.service.ts
 ```
 
-### Backend Auto-Population (backend-formatter.service.ts)
+### Backend Auto-Population (entity-component-metadata.service.ts)
 
 ```typescript
 // v12.0.0: Auto-set lookupField for datalabel fields
@@ -524,7 +524,7 @@ if (editMeta?.inputType === 'component' && editMeta?.component) {
 | `apps/api/src/services/pattern-mapping.yaml` | Field pattern → fieldBusinessType |
 | `apps/api/src/services/view-type-mapping.yaml` | viewType metadata (renderType, lookupField) |
 | `apps/api/src/services/edit-type-mapping.yaml` | editType metadata (inputType, lookupSourceTable, lookupField) |
-| `apps/api/src/services/backend-formatter.service.ts` | Generates API response metadata, auto-sets lookupField |
+| `apps/api/src/services/entity-component-metadata.service.ts` | Generates API response metadata, auto-sets lookupField |
 | `apps/web/src/db/cache/hooks/useDatalabel.ts` | TanStack Query hooks for datalabel access |
 | `apps/web/src/db/tanstack-index.ts` | Exports `getDatalabelSync()`, `prefetchAllMetadata()` |
 | `apps/web/src/lib/formatters/valueFormatters.ts` | `formatBadge()` uses lookupField for color |

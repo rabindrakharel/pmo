@@ -74,7 +74,7 @@ import { db, client } from '@/db/index.js';
 import { sql, SQL } from 'drizzle-orm';
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../services/entity-infrastructure.service.js';
 import { buildAutoFilters } from './universal-filter-builder.js';
-import { generateEntityResponse, getCachedMetadataResponse, cacheMetadataResponse, type ComponentName } from '../services/backend-formatter.service.js';
+import { generateEntityResponse, getCachedMetadataResponse, cacheMetadataResponse, type ComponentName } from '../services/entity-component-metadata.service.js';
 import { getEntityLimit } from './pagination.js';
 
 // ============================================================================

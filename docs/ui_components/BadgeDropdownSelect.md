@@ -374,7 +374,7 @@ datalabel:
   entityInstanceFormContainer:
     inputType: component
     component: DataLabelSelect
-  # lookupField auto-set by backend-formatter.service.ts
+  # lookupField auto-set by entity-component-metadata.service.ts
 
 # DAG datalabels (stage/state/status with parent-child)
 datalabel_dag:
@@ -386,7 +386,7 @@ datalabel_dag:
   entityInstanceFormContainer:
     inputType: component           # MUST be 'component' when component is specified
     component: BadgeDropdownSelect
-  # lookupField auto-set by backend-formatter.service.ts
+  # lookupField auto-set by entity-component-metadata.service.ts
 ```
 
 ---
