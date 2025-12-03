@@ -165,7 +165,3 @@ INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instanc
 SELECT 'form', id, name, code
 FROM app.form;
 
--- Register reports entities
-INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
-SELECT 'reports', id, name, code
-FROM app.reports;

@@ -266,19 +266,6 @@ VALUES (
   110
 );
 
--- Reports entity type (leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
-VALUES (
-  'reports',
-  'Reports',
-  'Reports',
-  'BarChart',
-  'reports',
-  'd',
-  '[]'::jsonb,
-  130
-);
-
 -- Calendar entity type (leaf node - no children)
 INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
@@ -1002,7 +989,7 @@ WHERE d.code = 'communication_interaction'
   AND e.code IN ('message_schema', 'message', 'interaction');
 
 -- DOMAIN 7: KNOWLEDGE & DOCUMENTATION
--- Purpose: Wikis, forms, artifacts, reports
+-- Purpose: Wikis, forms, artifacts
 UPDATE app.entity e SET
     domain_id = d.domain_id,
     domain_code = d.code,
@@ -1010,7 +997,7 @@ UPDATE app.entity e SET
     updated_ts = now()
 FROM app.d_domain d
 WHERE d.code = 'knowledge_documentation'
-  AND e.code IN ('wiki', 'wiki_data', 'artifact', 'form', 'form_data', 'reports');
+  AND e.code IN ('wiki', 'wiki_data', 'artifact', 'form', 'form_data');
 
 -- DOMAIN 8: IDENTITY & ACCESS CONTROL
 -- Purpose: RBAC, entity definitions, polymorphism, IDs

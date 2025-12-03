@@ -1171,9 +1171,6 @@ APIFactory.register('message_schema', createEntityAPI('/api/v1/message-schema'))
 APIFactory.register('workflow', createEntityAPI('/api/v1/workflow'));
 APIFactory.register('workflow_automation', createEntityAPI('/api/v1/workflow-automation'));
 
-// Reports
-APIFactory.register('reports', createEntityAPI('/api/v1/reports'));
-
 /**
  * Export the APIFactory for use in components
  */

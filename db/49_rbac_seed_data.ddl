@@ -48,7 +48,7 @@ CROSS JOIN (VALUES
   ('employee'), ('event'), ('expense'), ('form'), ('interaction'),
   ('inventory'), ('invoice'), ('message'), ('message_schema'), ('office'),
   ('office_hierarchy'), ('order'), ('product'), ('product_hierarchy'), ('project'),
-  ('quote'), ('reports'), ('revenue'), ('role'), ('service'),
+  ('quote'), ('revenue'), ('role'), ('service'),
   ('shipment'), ('task'), ('wiki'), ('workflow'), ('workflow_automation'),
   ('work_order'), ('worksite')
 ) AS entities(entity_type)
@@ -86,7 +86,7 @@ SELECT
   'role', r.id, entity_type, '11111111-1111-1111-1111-111111111111', 4  -- Level 4 = Share
 FROM app.role r
 CROSS JOIN (VALUES
-  ('worksite'), ('cust'), ('form'), ('reports'), ('inventory'), ('service'), ('product')
+  ('worksite'), ('cust'), ('form'), ('inventory'), ('service'), ('product')
 ) AS entities(entity_type)
 WHERE r.role_code IN ('DEPT-MGR', 'MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
 
@@ -157,13 +157,13 @@ SELECT
 FROM app.role r
 WHERE r.role_code IN ('SUP-FIELD', 'TECH-SR');
 
--- Supervisors - View reports and inventory (level 0)
+-- Supervisors - View inventory and products (level 0)
 INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission)
 SELECT
   'role', r.id, entity_type, '11111111-1111-1111-1111-111111111111', 0  -- Level 0 = View
 FROM app.role r
 CROSS JOIN (VALUES
-  ('reports'), ('inventory'), ('product'), ('service')
+  ('inventory'), ('product'), ('service')
 ) AS entities(entity_type)
 WHERE r.role_code IN ('SUP-FIELD', 'TECH-SR');
 
@@ -198,7 +198,7 @@ SELECT
   'role', r.id, entity_type, '11111111-1111-1111-1111-111111111111', 0  -- Level 0 = View
 FROM app.role r
 CROSS JOIN (VALUES
-  ('cust'), ('worksite'), ('inventory'), ('product'), ('service'), ('reports')
+  ('cust'), ('worksite'), ('inventory'), ('product'), ('service')
 ) AS entities(entity_type)
 WHERE r.role_code IN ('TECH-FIELD');
 
@@ -228,13 +228,13 @@ CROSS JOIN (VALUES
 ) AS entities(entity_type)
 WHERE r.role_code IN ('COORD-PROJ', 'COORD-HR');
 
--- Coordinators - Share projects, customers, and reports (level 4)
+-- Coordinators - Share projects, customers, and wikis (level 4)
 INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission)
 SELECT
   'role', r.id, entity_type, '11111111-1111-1111-1111-111111111111', 4  -- Level 4 = Share
 FROM app.role r
 CROSS JOIN (VALUES
-  ('project'), ('cust'), ('reports'), ('wiki'), ('calendar')
+  ('project'), ('cust'), ('wiki'), ('calendar')
 ) AS entities(entity_type)
 WHERE r.role_code IN ('COORD-PROJ', 'COORD-HR');
 
@@ -274,7 +274,7 @@ CROSS JOIN (VALUES
   ('employee'), ('event'), ('expense'), ('form'), ('interaction'),
   ('inventory'), ('invoice'), ('message'), ('message_schema'), ('office'),
   ('office_hierarchy'), ('order'), ('product'), ('product_hierarchy'), ('project'),
-  ('quote'), ('reports'), ('revenue'), ('role'), ('service'),
+  ('quote'), ('revenue'), ('role'), ('service'),
   ('shipment'), ('task'), ('wiki'), ('workflow'), ('workflow_automation'),
   ('work_order'), ('worksite')
 ) AS entities(entity_type)
