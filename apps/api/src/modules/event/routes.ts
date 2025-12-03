@@ -3,13 +3,24 @@
  * EVENT ROUTES MODULE - Universal Entity Pattern with Factory
  * ============================================================================
  *
- * REFACTORED: Uses Universal CRUD Factory for GET (list), GET (single), and UPDATE endpoints.
- * Custom endpoints remain for specialized event functionality.
+ * ⚠️ CUSTOM POST DECISION (USING skip: { post: true })
+ * ──────────────────────────────────────────────────────
+ * This module uses createUniversalEntityRoutes with skip: { post: true } because
+ * the POST handler requires complex multi-table operations:
+ *
+ * 1. ATTENDEE CREATION: POST creates event + attendee mappings in
+ *    d_entity_event_person_calendar table for each attendee in the request.
+ *
+ * 2. AUTO-ORGANIZER: Automatically adds the organizer as an attendee with
+ *    'accepted' RSVP status.
+ *
+ * 3. MULTI-TABLE INSERTS: Creates entries in event, entity_instance, and
+ *    entity_event_person_calendar tables - too complex for factory hooks.
  *
  * ENDPOINTS:
  *   GET    /api/v1/event              - List events (FACTORY)
  *   GET    /api/v1/event/:id          - Get single event (FACTORY)
- *   POST   /api/v1/event              - Create event (CUSTOM)
+ *   POST   /api/v1/event              - Create event (CUSTOM - with attendees)
  *   PATCH  /api/v1/event/:id          - Update event (FACTORY)
  *   PUT    /api/v1/event/:id          - Update event alias (FACTORY)
  *   DELETE /api/v1/event/:id          - Delete event (DELETE FACTORY)
@@ -109,7 +120,9 @@ export async function eventRoutes(fastify: FastifyInstance) {
     entityCode: ENTITY_CODE,
     tableName: 'event',
     tableAlias: 'e',
-    searchFields: ['name', 'code', 'descr', 'event_type', 'event_platform_provider_name']
+    searchFields: ['name', 'code', 'descr', 'event_type', 'event_platform_provider_name'],
+    // Skip POST - custom POST handler below handles attendee creation and event-person mappings
+    skip: { post: true }
   });
 
   /**
@@ -383,13 +396,13 @@ export async function eventRoutes(fastify: FastifyInstance) {
       const result = await insertQuery;
       const newEvent = result[0];
 
-      // Register in entity_instance_id
+      // Register in entity_instance registry (using correct column names)
       await client`
-        INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code)
+        INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
         VALUES ('event', ${newEvent.id}::uuid, ${newEvent.name}, ${newEvent.code})
-        ON CONFLICT (entity_type, entity_id) DO UPDATE
-        SET entity_name = EXCLUDED.entity_name,
-            entity_code = EXCLUDED.entity_code,
+        ON CONFLICT (entity_code, entity_instance_id) DO UPDATE
+        SET entity_instance_name = EXCLUDED.entity_instance_name,
+            code = EXCLUDED.code,
             updated_ts = now()
       `;
 
@@ -465,13 +478,13 @@ export async function eventRoutes(fastify: FastifyInstance) {
           const attendeeResult = await attendeeQuery;
           attendees.push(attendeeResult[0]);
 
-          // Register in entity_instance_id
+          // Register in entity_instance registry (using correct column names)
           await client`
-            INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code)
+            INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
             VALUES ('event_person_calendar', ${attendeeResult[0].id}::uuid, ${attendeeCode}, ${attendeeCode})
-            ON CONFLICT (entity_type, entity_id) DO UPDATE
-            SET entity_name = EXCLUDED.entity_name,
-                entity_code = EXCLUDED.entity_code,
+            ON CONFLICT (entity_code, entity_instance_id) DO UPDATE
+            SET entity_instance_name = EXCLUDED.entity_instance_name,
+                code = EXCLUDED.code,
                 updated_ts = now()
           `;
         }

@@ -183,8 +183,10 @@ export async function businessRoutes(fastify: FastifyInstance) {
     entityCode: ENTITY_CODE,
     tableName: 'business',
     tableAlias: 'e',
-    searchFields: ['name', 'descr', 'code', 'operational_status']
+    searchFields: ['name', 'descr', 'code', 'operational_status'],
+    requiredFields: ['code', 'name']
   });
+  // All CRUD endpoints (LIST, GET, POST, PATCH, PUT, DELETE) are created by createUniversalEntityRoutes above
 
   // ============================================================================
   // NOTE: /api/v1/business/:id/project endpoint REMOVED
@@ -280,84 +282,4 @@ export async function businessRoutes(fastify: FastifyInstance) {
 
 
   // ============================================================================
-  // Create Business Unit
-  // ============================================================================
-  // URL: POST /api/v1/business
-  // URL: POST /api/v1/business?parent_entity_code=office&parent_entity_instance_id={id}
-  // ============================================================================
-
-  fastify.post('/api/v1/business', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      querystring: Type.Object({
-        parent_entity_code: Type.Optional(Type.String()),
-        parent_entity_instance_id: Type.Optional(Type.String({ format: 'uuid' }))
-      }),
-      body: CreateBizSchema,
-      response: {
-        201: BizSchema,
-        403: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
-    const userId = (request as any).user?.sub;
-    const { parent_entity_code, parent_entity_instance_id } = request.query as any;
-    const bizData = request.body as any;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    try {
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK 1
-      // Check: Can user CREATE business units?
-      // ═══════════════════════════════════════════════════════════════
-      const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE);
-      if (!canCreate) {
-        return reply.status(403).send({ error: 'No permission to create business units' });
-      }
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK 2
-      // Check: If linking to parent, can user EDIT parent?
-      // ═══════════════════════════════════════════════════════════════
-      if (parent_entity_code && parent_entity_instance_id) {
-        const canEditParent = await entityInfra.check_entity_rbac(userId, parent_entity_code, parent_entity_instance_id, Permission.EDIT);
-        if (!canEditParent) {
-          return reply.status(403).send({ error: `No permission to link business to this ${parent_entity_code}` });
-        }
-      }
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - TRANSACTIONAL CREATE
-      // All 4 steps (INSERT + registry + RBAC + linkage) in ONE transaction
-      // ═══════════════════════════════════════════════════════════════
-      const result = await entityInfra.create_entity({
-        entity_code: ENTITY_CODE,
-        creator_id: userId,
-        parent_entity_code: parent_entity_code,
-        parent_entity_id: parent_entity_instance_id,
-        primary_table: 'app.business',
-        primary_data: {
-          code: bizData.code,
-          name: bizData.name,
-          descr: bizData.descr || null,
-          metadata: bizData.metadata || null,
-          office_id: bizData.office_id || null,
-          current_headcount: bizData.current_headcount || null,
-          operational_status: bizData.operational_status || null,
-          active_flag: bizData.active_flag !== undefined ? bizData.active_flag : true
-        }
-      });
-
-      return reply.status(201).send(result.entity);
-    } catch (error) {
-      fastify.log.error('Error creating business:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
-
-  // DELETE endpoint is automatically created by createUniversalEntityRoutes above
 }

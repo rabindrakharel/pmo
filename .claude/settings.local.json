@@ -267,7 +267,10 @@
       "Bash(git -C /home/rabin/projects/pmo mv:*)",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzY0NzI4OTUxLCJleHAiOjE3NjQ4MTUzNTF9.GnVZDko6o3WchAVbjJeR3o59ig3q2Z43TyXYFf29CNc\" curl -s \"http://localhost:4000/api/v1/project?limit=1\" -H \"Authorization: Bearer $TOKEN\")",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzY0NzI4OTUxLCJleHAiOjE3NjQ4MTUzNTF9.GnVZDko6o3WchAVbjJeR3o59ig3q2Z43TyXYFf29CNc\")",
-      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzY0NzI4OTUxLCJleHAiOjE3NjQ4MTUzNTF9.GnVZDko6o3WchAVbjJeR3o59ig3q2Z43TyXYFf29CNc\" curl -s \"http://localhost:4000/api/v1/project?content=metadata\" -H \"Authorization: Bearer $TOKEN\")"
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzY0NzI4OTUxLCJleHAiOjE3NjQ4MTUzNTF9.GnVZDko6o3WchAVbjJeR3o59ig3q2Z43TyXYFf29CNc\" curl -s \"http://localhost:4000/api/v1/project?content=metadata\" -H \"Authorization: Bearer $TOKEN\")",
+      "Bash(do echo \"=== $module ===\" if [ -f \"/home/rabin/projects/pmo/apps/api/src/modules/$module/routes.ts\" ])",
+      "Bash(then grep -n \"createUniversalEntityRoutes\\|fastify.post\\|fastify.patch\\|fastify.put\" \"/home/rabin/projects/pmo/apps/api/src/modules/$module/routes.ts\")",
+      "Bash(do echo '=== $module ===' grep -n \"createUniversalEntityRoutes\\|fastify\\.post.*api/v1/$module''''\" /home/rabin/projects/pmo/apps/api/src/modules/$module/routes.ts)"
     ],
     "deny": [],
     "ask": [],

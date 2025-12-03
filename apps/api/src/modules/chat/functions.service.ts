@@ -339,10 +339,10 @@ export async function createCustomer(args: {
 
     const result = await query;
 
-    // Register in entity_instance_id
+    // Register in entity_instance registry (using correct column names)
     await client`
-      INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code)
-      VALUES ('cust', ${customerId}::uuid, ${args.name}, ${customerCode})
+      INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+      VALUES ('customer', ${customerId}::uuid, ${args.name}, ${customerCode})
     `;
 
     console.log(`✅ Created customer: ${customerCode}`);
@@ -460,16 +460,16 @@ export async function createTask(args: {
 
     const result = await query;
 
-    // Register in entity_instance_id
+    // Register in entity_instance registry (using correct column names)
     await client`
-      INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code)
+      INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
       VALUES ('task', ${taskId}::uuid, ${args.title}, ${taskCode})
     `;
 
-    // Link task to customer
+    // Link task to customer (using correct column names)
     await client`
-      INSERT INTO app.entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
-      VALUES ('cust', ${args.customer_id}::uuid, 'task', ${taskId}::uuid)
+      INSERT INTO app.entity_instance_link (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id)
+      VALUES ('customer', ${args.customer_id}::uuid, 'task', ${taskId}::uuid)
     `;
 
     console.log(`✅ Created task: ${taskCode} for customer`);

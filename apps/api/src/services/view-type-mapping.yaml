@@ -784,22 +784,20 @@ fieldBusinessTypes:
   timestamp_readonly:
     dtype: timestamp
     entityListOfInstancesTable:
-      <<: *table_default
+      <<: *hidden
       renderType: timestamp
-      behavior: { visible: true, sortable: true, filterable: false }
       style: { width: "140px", format: relative }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: timestamp
+      behavior: { editable: false }
       style: { showAbsolute: true, format: relative }
     kanbanView:
+      <<: *hidden
       renderType: timestamp
-      behavior: { visible: true }
-      style: { format: relative }
     gridView:
+      <<: *hidden
       renderType: timestamp
-      behavior: { visible: true }
-      style: { format: relative }
 
   time:
     dtype: str
@@ -1672,10 +1670,13 @@ fieldBusinessTypes:
       <<: *hidden
       renderType: timestamp
     entityInstanceFormContainer:
-      <<: *hidden
+      visible: true
+      sortable: false
+      filterable: false
+      searchable: false
       renderType: timestamp
     kanbanView:
-      <<: *hidden
+      visible: false
     gridView:
       <<: *hidden
     calendarView:

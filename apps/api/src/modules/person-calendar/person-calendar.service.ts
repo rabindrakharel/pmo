@@ -173,13 +173,13 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
 
     console.log(`✅ Created event: ${event.code} (${eventId})`);
 
-    // Register in entity_instance_id
+    // Register in entity_instance registry (using correct column names)
     await client`
-      INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code)
+      INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
       VALUES ('event', ${eventId}::uuid, ${event.name}, ${event.code})
-      ON CONFLICT (entity_type, entity_id) DO UPDATE
-      SET entity_name = EXCLUDED.entity_name,
-          entity_code = EXCLUDED.entity_code,
+      ON CONFLICT (entity_code, entity_instance_id) DO UPDATE
+      SET entity_instance_name = EXCLUDED.entity_instance_name,
+          code = EXCLUDED.code,
           updated_ts = now()
     `;
 
@@ -293,16 +293,16 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
       });
     }
 
-    // Insert entity linkages
+    // Insert entity linkages (using correct column names)
     for (const link of entityLinks) {
       await client`
         INSERT INTO app.entity_instance_link (
-          parent_entity_type, parent_entity_id,
-          child_entity_type, child_entity_id
+          entity_code, entity_instance_id,
+          child_entity_code, child_entity_instance_id
         ) VALUES (
-          ${link.parent_entity_type},
+          ${link.parent_entity_code},
           ${link.parent_entity_id}::uuid,
-          ${link.child_entity_type},
+          ${link.child_entity_code},
           ${link.child_entity_id}::uuid
         )
       `;
@@ -525,11 +525,10 @@ export async function cancelPersonCalendar(eventId: string, cancellationReason?:
       WHERE event_id = ${eventId}::uuid AND active_flag = true
     `;
 
-    // Soft delete entity linkages
+    // Delete entity linkages (entity_instance_link is hard delete, no active_flag)
     await client`
-      UPDATE app.entity_instance_link
-      SET active_flag = false, to_ts = now(), updated_ts = now()
-      WHERE parent_entity_type = 'event' AND parent_entity_id = ${eventId}::uuid
+      DELETE FROM app.entity_instance_link
+      WHERE entity_code = 'event' AND entity_instance_id = ${eventId}::uuid
     `;
 
     // Update RSVP status to cancelled

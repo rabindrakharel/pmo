@@ -60,7 +60,7 @@ export function LinkagePage() {
   // Helper function to map entity types to API endpoints
   const getApiEndpoint = (entityCode: string): string => {
     if (entityCode === 'business') return 'biz';
-    if (entityCode === 'client') return 'cust';
+    if (entityCode === 'client') return 'customer';
     return entityCode;
   };
 

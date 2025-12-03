@@ -1,3 +1,32 @@
+/**
+ * ============================================================================
+ * WIKI ROUTES MODULE - Custom Routes with Unified Data Gate
+ * ============================================================================
+ *
+ * ⚠️ CUSTOM ROUTES DECISION (NOT USING FACTORY PATTERN)
+ * ──────────────────────────────────────────────────────
+ * This module intentionally uses custom routes instead of createUniversalEntityRoutes
+ * factory for the following reasons:
+ *
+ * 1. NESTED DATA TABLE (wiki_data): Wikis have a child content table (d_wiki_data)
+ *    that stores content_markdown, content_html with revision history. The GET
+ *    endpoint performs a LEFT JOIN LATERAL to get the latest saved version.
+ *
+ * 2. CONTENT VERSIONING: Updates may insert new rows into d_wiki_data instead of
+ *    updating in place, creating a version history for content changes.
+ *
+ * 3. HIERARCHICAL STRUCTURE: Wikis support parent-child relationships via
+ *    parent__wiki_id for building wiki trees/navigation.
+ *
+ * 4. COMPLEX FIELD HANDLING: Arrays (keywords, read_access_groups, edit_access_groups)
+ *    require special PostgreSQL array casting (::varchar[]) not handled by factory.
+ *
+ * 5. PUBLICATION WORKFLOW: Publication status, visibility, and access group
+ *    management require custom validation logic.
+ *
+ * ============================================================================
+ */
+
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
@@ -423,14 +452,12 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       const wiki = wikiResult[0] as any;
 
       // Register the wiki in entity_instance for global entity operations
-      await db.execute(sql`
-        INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code)
-        VALUES ('wiki', ${wiki.id}::uuid, ${wiki.name}, ${wiki.code})
-        ON CONFLICT (entity_type, entity_id) DO UPDATE
-        SET entity_name = EXCLUDED.entity_name,
-            entity_code = EXCLUDED.entity_code,
-            updated_ts = NOW()
-      `);
+      await entityInfra.set_entity_instance_registry({
+        entity_code: ENTITY_CODE,
+        entity_id: wiki.id,
+        entity_name: wiki.name,
+        instance_code: wiki.code
+      });
 
       // Insert into d_wiki_data (content table) if content provided
       if (data.content_markdown || data.content_html) {
@@ -591,13 +618,10 @@ export async function wikiRoutes(fastify: FastifyInstance) {
 
       // Sync with entity_instance registry when name/code changes
       if (data.name !== undefined || data.code !== undefined) {
-        await db.execute(sql`
-          UPDATE app.entity_instance
-          SET entity_name = ${updatedWiki.name},
-              entity_code = ${updatedWiki.code},
-              updated_ts = NOW()
-          WHERE entity_type = 'wiki' AND entity_id = ${id}::uuid
-        `);
+        await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
+          entity_name: updatedWiki.name,
+          instance_code: updatedWiki.code
+        });
       }
 
       // Update or insert content in d_wiki_data if provided

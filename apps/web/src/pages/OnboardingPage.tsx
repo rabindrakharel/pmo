@@ -101,7 +101,7 @@ export function OnboardingPage() {
       category: 'People Management',
     },
     {
-      id: 'cust',
+      id: 'customer',
       name: 'Customers',
       icon: Users,
       description: 'Track customer relationships and data',

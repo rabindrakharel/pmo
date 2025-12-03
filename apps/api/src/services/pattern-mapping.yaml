@@ -235,12 +235,12 @@ patterns:
 # ============================================================================
 # TIMESTAMP FIELDS
 # ============================================================================
-  - { pattern: "created_ts", exact: true, fieldBusinessType: timestamp_readonly }
-  - { pattern: "updated_ts", exact: true, fieldBusinessType: timestamp_readonly }
-  - { pattern: "created_at", exact: true, fieldBusinessType: timestamp_readonly }
-  - { pattern: "updated_at", exact: true, fieldBusinessType: timestamp_readonly }
-  - { pattern: "deleted_ts", exact: true, fieldBusinessType: timestamp_readonly }
-  - { pattern: "archived_ts", exact: true, fieldBusinessType: timestamp_readonly }
+  - { pattern: "created_ts", exact: true, fieldBusinessType: systemInternal_ts }
+  - { pattern: "updated_ts", exact: true, fieldBusinessType: systemInternal_ts }
+  - { pattern: "created_at", exact: true, fieldBusinessType: systemInternal_ts }
+  - { pattern: "updated_at", exact: true, fieldBusinessType: systemInternal_ts }
+  - { pattern: "deleted_ts", exact: true, fieldBusinessType: systemInternal_ts }
+  - { pattern: "archived_ts", exact: true, fieldBusinessType: systemInternal_ts }
 
   - { pattern: "from_ts", exact: true, fieldBusinessType: systemInternal_ts }
   - { pattern: "to_ts", exact: true, fieldBusinessType: systemInternal_ts }

@@ -1,3 +1,31 @@
+/**
+ * ============================================================================
+ * TASK-DATA ROUTES MODULE - Custom Routes for Task Updates/Comments
+ * ============================================================================
+ *
+ * ⚠️ CUSTOM ROUTES DECISION (NOT USING FACTORY PATTERN)
+ * ──────────────────────────────────────────────────────
+ * This module intentionally uses custom routes instead of createUniversalEntityRoutes
+ * factory for the following reasons:
+ *
+ * 1. NESTED URL PATTERN: Task data uses /api/v1/task/:taskId/data pattern where
+ *    the parent task ID is part of the URL. This is fundamentally different from
+ *    the standard /api/v1/{entity} pattern the factory generates.
+ *
+ * 2. PARENT ENTITY RBAC: Permission checks are done against the parent TASK entity,
+ *    not the task_data entity itself. Users with VIEW on task can view task data;
+ *    users with EDIT on task can create task data entries.
+ *
+ * 3. NOT A STANDALONE ENTITY: Task data (d_task_data) is a child/detail table of
+ *    task, not a registered entity in the entity system. It doesn't have its own
+ *    RBAC entries or entity_instance records.
+ *
+ * 4. ACTIVITY LOG PATTERN: Task data represents an append-only activity log with
+ *    comments, status changes, and time entries - not a traditional CRUD entity.
+ *
+ * ============================================================================
+ */
+
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';

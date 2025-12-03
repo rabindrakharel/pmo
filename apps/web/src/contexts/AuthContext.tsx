@@ -82,7 +82,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         'business',
         'office',
         'role',
-        'cust',
+        'customer',
       ]);
     } catch (error) {
       console.error('Login failed:', error);
@@ -142,7 +142,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         'business',
         'office',
         'role',
-        'cust',
+        'customer',
       ]);
     } catch (error) {
       console.error('Failed to refresh user:', error);

@@ -255,13 +255,13 @@ export async function eventPersonCalendarRoutes(fastify: FastifyInstance) {
       const result = await insertQuery;
       const newMapping = result[0];
 
-      // Register in entity_instance_id
+      // Register in entity_instance registry (using correct column names)
       await client`
-        INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code)
+        INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
         VALUES ('event_person_calendar', ${newMapping.id}::uuid, ${mapping.name || mapping.code}, ${mapping.code})
-        ON CONFLICT (entity_type, entity_id) DO UPDATE
-        SET entity_name = EXCLUDED.entity_name,
-            entity_code = EXCLUDED.entity_code,
+        ON CONFLICT (entity_code, entity_instance_id) DO UPDATE
+        SET entity_instance_name = EXCLUDED.entity_instance_name,
+            code = EXCLUDED.code,
             updated_ts = now()
       `;
 

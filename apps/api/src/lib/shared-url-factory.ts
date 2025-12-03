@@ -27,7 +27,7 @@ export const ENTITY_TABLE_MAP: Record<string, string> = {
   biz: 'business',
   office: 'office',
   employee: 'employee',
-  client: 'cust',
+  client: 'customer',
   worksite: 'worksite',
   role: 'role',
   position: 'position',

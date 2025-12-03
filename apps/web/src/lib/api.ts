@@ -278,36 +278,39 @@ export const employeeApi = {
     return response.data;
   }};
 
-export const custApi = {
+export const customerApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; type?: string }) {
-    const response = await apiClient.get('/api/v1/cust', { params });
+    const response = await apiClient.get('/api/v1/customer', { params });
     return response.data;
   },
 
   async get(id: string) {
-    const response = await apiClient.get(`/api/v1/cust/${id}`);
+    const response = await apiClient.get(`/api/v1/customer/${id}`);
     return response.data;
   },
 
   async getHierarchy(id: string) {
-    const response = await apiClient.get(`/api/v1/cust/${id}/hierarchy`);
+    const response = await apiClient.get(`/api/v1/customer/${id}/hierarchy`);
     return response.data;
   },
 
   async create(data: any) {
-    const response = await apiClient.post('/api/v1/cust', data);
+    const response = await apiClient.post('/api/v1/customer', data);
     return response.data;
   },
 
   async update(id: string, data: any) {
-    const response = await apiClient.put(`/api/v1/cust/${id}`, data);
+    const response = await apiClient.put(`/api/v1/customer/${id}`, data);
     return response.data;
   },
 
   async delete(id: string) {
-    const response = await apiClient.delete(`/api/v1/cust/${id}`);
+    const response = await apiClient.delete(`/api/v1/customer/${id}`);
     return response.data;
   }};
+
+// Alias for backwards compatibility
+export const custApi = customerApi;
 
 export const businessApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; level?: string }) {
@@ -1092,7 +1095,7 @@ APIFactory.register('office', officeApi);
 
 // People & roles
 APIFactory.register('employee', employeeApi);
-APIFactory.register('cust', custApi);
+APIFactory.register('customer', customerApi);
 APIFactory.register('role', roleApi);
 APIFactory.register('position', positionApi);
 

@@ -260,7 +260,7 @@ export async function prefetchRefDataEntityInstances(
 if (typeof window !== 'undefined') {
   (window as any).__debugRefDataEntityInstance = () => {
     console.log('%c[ref_data_entityInstance DEBUG] Inspecting cache...', 'color: #be4bdb; font-weight: bold');
-    const entityCodes = ['employee', 'project', 'business', 'office', 'role', 'cust', 'task', 'worksite'];
+    const entityCodes = ['employee', 'project', 'business', 'office', 'role', 'customer', 'task', 'worksite'];
     entityCodes.forEach((entityCode) => {
       // v11.0.0: Use unified key for consistency
       const queryKey = ['entityInstanceNames', entityCode] as const;

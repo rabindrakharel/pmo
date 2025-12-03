@@ -142,8 +142,57 @@ export async function customerRoutes(fastify: FastifyInstance) {
     entityCode: ENTITY_CODE,
     tableName: 'customer',
     tableAlias: 'e',
-    searchFields: ['name', 'descr', 'cust_number', 'primary_contact_name', 'primary_email', 'code']
+    searchFields: ['name', 'descr', 'cust_number', 'primary_contact_name', 'primary_email', 'code'],
+    requiredFields: ['name'],
+    createDefaults: {
+      cust_type: 'residential',
+      cust_status: 'active',
+      province: 'ON',
+      country: 'Canada'
+    },
+    hooks: {
+      beforeCreate: async (ctx) => {
+        const data = ctx.data;
+
+        // Transform request data if needed
+        if (typeof data.tags === 'string') {
+          data.tags = data.tags.split(',').map((t: string) => t.trim());
+        }
+
+        // Auto-generate code from name if not provided
+        if (!data.code) {
+          data.code = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || `cust-${Date.now()}`;
+        }
+
+        // Auto-generate cust_number if not provided
+        if (!data.cust_number) {
+          if (data.primary_phone) {
+            data.cust_number = data.primary_phone.replace(/\D/g, '');
+          } else {
+            data.cust_number = `CUST${Date.now()}`;
+          }
+        }
+
+        // Set primary_contact_name from name if not provided
+        if (!data.primary_contact_name && data.name) {
+          data.primary_contact_name = data.name;
+        }
+
+        // Check for unique customer number
+        const existingCust = await db.execute(sql`
+          SELECT id FROM app.customer
+          WHERE cust_number = ${data.cust_number}
+          AND active_flag = true
+        `);
+        if (existingCust.length > 0) {
+          throw new Error('Customer with this customer number already exists');
+        }
+
+        return data;
+      }
+    }
   });
+  // All CRUD endpoints (LIST, GET, POST, PATCH, PUT, DELETE) are created by createUniversalEntityRoutes above
 
   // Get customer hierarchy (parent and children)
   fastify.get('/api/v1/customer/:id/hierarchy', {
@@ -220,172 +269,4 @@ export async function customerRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Create customer
-  fastify.post('/api/v1/customer', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      body: CreateCustSchema,
-      querystring: Type.Object({
-        parent_entity_code: Type.Optional(Type.String()),
-        parent_entity_instance_id: Type.Optional(Type.String({ format: 'uuid' }))}),
-      response: {
-        201: CustSchema,
-        403: Type.Object({ error: Type.String() }),
-        400: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
-    const userId = (request as any).user?.sub;
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    const { parent_entity_code, parent_entity_instance_id } = request.query as any;
-
-    // Transform request data (tags string → array, etc.)
-    const data = transformRequestBody(request.body as any);
-
-    // Auto-generate code from name if not provided
-    if (!data.code) {
-      data.code = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || `cust-${Date.now()}`;
-    }
-
-    // Auto-generate cust_number if not provided
-    if (!data.cust_number) {
-      if (data.primary_phone) {
-        // Use phone number as cust_number (remove non-digits)
-        data.cust_number = data.primary_phone.replace(/\D/g, '');
-      } else {
-        // Generate from timestamp
-        data.cust_number = `CUST${Date.now()}`;
-      }
-    }
-
-    // Set primary_contact_name from name if not provided
-    if (!data.primary_contact_name && data.name) {
-      data.primary_contact_name = data.name;
-    }
-
-    try {
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK 1
-      // Check: Can user CREATE customers?
-      // ═══════════════════════════════════════════════════════════════
-      const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE);
-      if (!canCreate) {
-        return reply.status(403).send({ error: 'No permission to create customers' });
-      }
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK 2
-      // Check: If linking to parent, can user EDIT parent?
-      // ═══════════════════════════════════════════════════════════════
-      if (parent_entity_code && parent_entity_instance_id) {
-        const canEditParent = await entityInfra.check_entity_rbac(userId, parent_entity_code, parent_entity_instance_id, Permission.EDIT);
-        if (!canEditParent) {
-          return reply.status(403).send({ error: `No permission to link customer to this ${parent_entity_code}` });
-        }
-      }
-
-      // Check for unique customer number
-      const existingCust = await db.execute(sql`
-        SELECT id FROM app.customer
-        WHERE cust_number = ${data.cust_number}
-        AND active_flag = true
-      `);
-      if (existingCust.length > 0) {
-        return reply.status(400).send({ error: 'Customer with this customer number already exists' });
-      }
-
-      // ✅ Route owns INSERT query
-      const result = await db.execute(sql`
-        INSERT INTO app.customer (
-          code, name, "descr", cust_number, cust_type, cust_status,
-          primary_address, city, province, postal_code, country, geo_coordinates,
-          business_legal_name, business_type, gst_hst_number, business_number,
-          dl__customer_opportunity_funnel, dl__industry_sector, dl__acquisition_channel, dl__customer_tier,
-          primary_contact_name, primary_email, primary_phone,
-          secondary_contact_name, secondary_email, secondary_phone,
-          entities, metadata, active_flag
-        )
-        VALUES (
-          ${data.code},
-          ${data.name},
-          ${data.descr || null},
-          ${data.cust_number},
-          ${data.cust_type || 'residential'},
-          ${data.cust_status || 'active'},
-          ${data.primary_address || null},
-          ${data.city || null},
-          ${data.province || 'ON'},
-          ${data.postal_code || null},
-          ${data.country || 'Canada'},
-          ${data.geo_coordinates ? JSON.stringify(data.geo_coordinates) : null}::jsonb,
-          ${data.business_legal_name || null},
-          ${data.business_type || null},
-          ${data.gst_hst_number || null},
-          ${data.business_number || null},
-          ${data.dl__customer_opportunity_funnel || null},
-          ${data.dl__industry_sector || null},
-          ${data.dl__acquisition_channel || null},
-          ${data.dl__customer_tier || null},
-          ${data.primary_contact_name || null},
-          ${data.primary_email || null},
-          ${data.primary_phone || null},
-          ${data.secondary_contact_name || null},
-          ${data.secondary_email || null},
-          ${data.secondary_phone || null},
-          ${data.entities ? sql`${data.entities}::text[]` : sql`ARRAY[]::text[]`},
-          ${data.metadata ? JSON.stringify(data.metadata) : '{}'}::jsonb,
-          ${data.active_flag !== false}
-        )
-        RETURNING *
-      `);
-
-      if (result.length === 0) {
-        return reply.status(500).send({ error: 'Failed to create customer' });
-      }
-
-      const newCustomer = result[0] as any;
-      const custId = newCustomer.id;
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - Register instance in registry
-      // ═══════════════════════════════════════════════════════════════
-      await entityInfra.set_entity_instance_registry({
-        entity_code: ENTITY_CODE,
-        entity_id: custId,
-        entity_name: newCustomer.name,
-        instance_code: newCustomer.code
-      });
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - Grant ownership to creator
-      // ═══════════════════════════════════════════════════════════════
-      await entityInfra.set_entity_rbac_owner(userId, ENTITY_CODE, custId);
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - Link to parent (if provided)
-      // ═══════════════════════════════════════════════════════════════
-      if (parent_entity_code && parent_entity_instance_id) {
-        await entityInfra.set_entity_instance_link({
-          parent_entity_code: parent_entity_code,
-          parent_entity_id: parent_entity_instance_id,
-          child_entity_code: ENTITY_CODE,
-          child_entity_id: custId,
-          relationship_type: 'contains'
-        });
-      }
-
-      const userPermissions = {
-        canSeePII: true,
-        canSeeFinancial: true,
-        canSeeSystemFields: true};
-
-      return reply.status(201).send(filterUniversalColumns(newCustomer, userPermissions));
-    } catch (error) {
-      fastify.log.error('Error creating customer:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
-
-  // DELETE endpoint is automatically created by createUniversalEntityRoutes above
 }

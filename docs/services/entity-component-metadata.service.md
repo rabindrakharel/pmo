@@ -2,9 +2,9 @@
 
 > Complete reference for field metadata generation, YAML pattern matching, and API response formatting. Backend is the single source of truth for all field rendering.
 
-**Version**: 4.0.0
+**Version**: 4.5.0
 **Location**: `apps/api/src/services/entity-component-metadata.service.ts`
-**Last Updated**: 2025-11-30
+**Last Updated**: 2025-12-03
 **Status**: Production Ready
 
 ---
@@ -12,6 +12,7 @@
 ## Table of Contents
 
 1. [Architecture Overview](#architecture-overview)
+   - [Complete Metadata Resolution Chain](#complete-metadata-resolution-chain)
 2. [End-to-End Data Flow](#end-to-end-data-flow)
 3. [Pattern Detection System](#pattern-detection-system)
 4. [Response Generation](#response-generation)
@@ -19,6 +20,8 @@
 6. [Use Case Matrix](#use-case-matrix)
 7. [API Reference](#api-reference)
 8. [YAML Configuration](#yaml-configuration)
+   - [Three-File Architecture](#three-file-architecture)
+   - [Per-Component Visibility Matrix](#per-component-visibility-matrix)
 9. [Integration Patterns](#integration-patterns)
 10. [Caching Layer](#caching-layer)
 
@@ -103,6 +106,185 @@
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+### Complete Metadata Resolution Chain
+
+This diagram shows the **end-to-end flow** from a database column name to the final rendered UI component:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                           COMPLETE METADATA RESOLUTION CHAIN                                     │
+│                                                                                                  │
+│  Example: Column "created_ts" in EntitySpecificInstancePage header                               │
+├─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                  │
+│  ╔═══════════════════════════════════════════════════════════════════════════════════════════╗  │
+│  ║  STEP 1: DATABASE → COLUMN NAME                                                            ║  │
+│  ╚═══════════════════════════════════════════════════════════════════════════════════════════╝  │
+│                                                                                                  │
+│    PostgreSQL Table: app.project                                                                 │
+│    ┌────────────────────────────────────────────────────────────────────────────────────────┐   │
+│    │ id | name | code | budget_allocated_amt | dl__project_stage | created_ts | updated_ts │   │
+│    └────────────────────────────────────────────────────────────────────────────────────────┘   │
+│                                                           │                                      │
+│                                                           ▼                                      │
+│  ╔═══════════════════════════════════════════════════════════════════════════════════════════╗  │
+│  ║  STEP 2: PATTERN MATCHING → fieldBusinessType                                              ║  │
+│  ╚═══════════════════════════════════════════════════════════════════════════════════════════╝  │
+│                                                                                                  │
+│    File: apps/api/src/services/pattern-mapping.yaml                                              │
+│    ┌────────────────────────────────────────────────────────────────────────────────────────┐   │
+│    │  patterns:                                                                              │   │
+│    │    - { pattern: "created_ts", exact: true, fieldBusinessType: systemInternal_ts }      │   │
+│    │    - { pattern: "updated_ts", exact: true, fieldBusinessType: systemInternal_ts }      │   │
+│    │    - { pattern: "*_ts", exact: false, fieldBusinessType: timestamp }  # generic        │   │
+│    └────────────────────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                                  │
+│    Result: "created_ts" → fieldBusinessType: "systemInternal_ts"                                │
+│                                                           │                                      │
+│                                                           ▼                                      │
+│  ╔═══════════════════════════════════════════════════════════════════════════════════════════╗  │
+│  ║  STEP 3: VIEW TYPE MAPPING → Per-Component viewType                                        ║  │
+│  ╚═══════════════════════════════════════════════════════════════════════════════════════════╝  │
+│                                                                                                  │
+│    File: apps/api/src/services/view-type-mapping.yaml                                            │
+│    ┌────────────────────────────────────────────────────────────────────────────────────────┐   │
+│    │  systemInternal_ts:                                                                     │   │
+│    │    dtype: timestamp                                                                     │   │
+│    │    entityListOfInstancesTable:        # List/Table view                                 │   │
+│    │      visible: false                   # ← HIDDEN in tables                              │   │
+│    │      renderType: timestamp                                                              │   │
+│    │    entityInstanceFormContainer:       # Detail page form                                │   │
+│    │      visible: true                    # ← VISIBLE in forms                              │   │
+│    │      renderType: timestamp                                                              │   │
+│    │    kanbanView:                                                                          │   │
+│    │      visible: false                   # ← HIDDEN in kanban                              │   │
+│    └────────────────────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                                  │
+│    Result for entityInstanceFormContainer:                                                       │
+│      { visible: true, renderType: "timestamp", dtype: "timestamp" }                             │
+│                                                           │                                      │
+│                                                           ▼                                      │
+│  ╔═══════════════════════════════════════════════════════════════════════════════════════════╗  │
+│  ║  STEP 4: EDIT TYPE MAPPING → Per-Component editType                                        ║  │
+│  ╚═══════════════════════════════════════════════════════════════════════════════════════════╝  │
+│                                                                                                  │
+│    File: apps/api/src/services/edit-type-mapping.yaml                                            │
+│    ┌────────────────────────────────────────────────────────────────────────────────────────┐   │
+│    │  systemInternal_ts:                                                                     │   │
+│    │    dtype: timestamp                                                                     │   │
+│    │    entityListOfInstancesTable:                                                          │   │
+│    │      inputType: readonly                                                                │   │
+│    │      behavior: { editable: false, visible: false }                                      │   │
+│    │    entityInstanceFormContainer:                                                         │   │
+│    │      inputType: readonly              # ← NOT EDITABLE                                  │   │
+│    │      behavior: { editable: false, visible: false }                                      │   │
+│    └────────────────────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                                  │
+│    Result for entityInstanceFormContainer:                                                       │
+│      { inputType: "readonly", editable: false }                                                 │
+│                                                           │                                      │
+│                                                           ▼                                      │
+│  ╔═══════════════════════════════════════════════════════════════════════════════════════════╗  │
+│  ║  STEP 5: API RESPONSE → metadata object                                                    ║  │
+│  ╚═══════════════════════════════════════════════════════════════════════════════════════════╝  │
+│                                                                                                  │
+│    GET /api/v1/project?content=metadata                                                          │
+│    ┌────────────────────────────────────────────────────────────────────────────────────────┐   │
+│    │  {                                                                                      │   │
+│    │    "metadata": {                                                                        │   │
+│    │      "entityInstanceFormContainer": {                                                   │   │
+│    │        "viewType": {                                                                    │   │
+│    │          "created_ts": {                                                                │   │
+│    │            "dtype": "timestamp",                                                        │   │
+│    │            "label": "Created",                                                          │   │
+│    │            "renderType": "timestamp",                                                   │   │
+│    │            "visible": true              ← Frontend reads this                           │   │
+│    │          }                                                                              │   │
+│    │        },                                                                               │   │
+│    │        "editType": { ... }                                                              │   │
+│    │      }                                                                                  │   │
+│    │    }                                                                                    │   │
+│    │  }                                                                                      │   │
+│    └────────────────────────────────────────────────────────────────────────────────────────┘   │
+│                                                           │                                      │
+│                                                           ▼                                      │
+│  ╔═══════════════════════════════════════════════════════════════════════════════════════════╗  │
+│  ║  STEP 6: FRONTEND HOOK → useEntityInstanceMetadata()                                       ║  │
+│  ╚═══════════════════════════════════════════════════════════════════════════════════════════╝  │
+│                                                                                                  │
+│    File: apps/web/src/pages/shared/EntitySpecificInstancePage.tsx                                │
+│    ┌────────────────────────────────────────────────────────────────────────────────────────┐   │
+│    │  const {                                                                                │   │
+│    │    viewType: formViewType,    // ← Contains created_ts.visible = true                   │   │
+│    │    editType: formEditType,                                                              │   │
+│    │  } = useEntityInstanceMetadata(entityCode, 'entityInstanceFormContainer');              │   │
+│    └────────────────────────────────────────────────────────────────────────────────────────┘   │
+│                                                           │                                      │
+│                                                           ▼                                      │
+│  ╔═══════════════════════════════════════════════════════════════════════════════════════════╗  │
+│  ║  STEP 7: COMPONENT RENDER → Conditional visibility                                         ║  │
+│  ╚═══════════════════════════════════════════════════════════════════════════════════════════╝  │
+│                                                                                                  │
+│    File: apps/web/src/pages/shared/EntitySpecificInstancePage.tsx (lines 1075-1087)              │
+│    ┌────────────────────────────────────────────────────────────────────────────────────────┐   │
+│    │  {/* Created - metadata-aware: respects formViewType?.created_ts?.visible */}          │   │
+│    │  {data.created_ts && formViewType?.created_ts?.visible !== false && (                  │   │
+│    │    <>                                                                                   │   │
+│    │      <span>created:</span>                                                              │   │
+│    │      <span>{formatRelativeTime(data.created_ts)}</span>  ← RENDERED!                    │   │
+│    │    </>                                                                                  │   │
+│    │  )}                                                                                     │   │
+│    └────────────────────────────────────────────────────────────────────────────────────────┘   │
+│                                                           │                                      │
+│                                                           ▼                                      │
+│  ╔═══════════════════════════════════════════════════════════════════════════════════════════╗  │
+│  ║  FINAL OUTPUT: UI Display                                                                  ║  │
+│  ╚═══════════════════════════════════════════════════════════════════════════════════════════╝  │
+│                                                                                                  │
+│    ┌────────────────────────────────────────────────────────────────────────────────────────┐   │
+│    │                                                                                         │   │
+│    │   Project Details                                                                       │   │
+│    │   ─────────────────────────────────────────────────────────────────────────────────    │   │
+│    │   name: Kitchen Renovation  |  code: PROJ-001  |  id: abc-123  |  created: 2 days ago  │   │
+│    │                                                                     ▲                   │   │
+│    │                                                                     │                   │   │
+│    │                                                          visible: true from YAML       │   │
+│    │                                                                                         │   │
+│    └────────────────────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Resolution Chain Summary
+
+| Step | Location | Input | Output |
+|------|----------|-------|--------|
+| 1 | PostgreSQL | Table DDL | Column name: `created_ts` |
+| 2 | pattern-mapping.yaml | Column name | fieldBusinessType: `systemInternal_ts` |
+| 3 | view-type-mapping.yaml | fieldBusinessType + component | viewType: `{ visible: true, renderType: timestamp }` |
+| 4 | edit-type-mapping.yaml | fieldBusinessType + component | editType: `{ inputType: readonly, editable: false }` |
+| 5 | API endpoint | YAML config | JSON metadata response |
+| 6 | useEntityInstanceMetadata | API response | React state: `formViewType` |
+| 7 | Component JSX | `formViewType?.created_ts?.visible` | Conditional render |
+
+### Changing Field Visibility
+
+To change visibility of `created_ts` in different components, edit `view-type-mapping.yaml`:
+
+```yaml
+# To HIDE created_ts in forms:
+systemInternal_ts:
+  entityInstanceFormContainer:
+    visible: false  # ← Change this
+
+# To SHOW created_ts in tables:
+systemInternal_ts:
+  entityListOfInstancesTable:
+    visible: true   # ← Change this
+```
+
+No frontend code changes required - the component reads `formViewType?.created_ts?.visible` and respects whatever the YAML says.
 
 ---
 
@@ -748,6 +930,60 @@ export async function clearAllFieldCache(): Promise<void>;
 
 ## YAML Configuration
 
+### Three-File Architecture
+
+The field metadata system uses three YAML files that work together:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         THREE-FILE ARCHITECTURE                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  FILE 1: pattern-mapping.yaml                                                │
+│  ───────────────────────────────────────────────────────────────────────────│
+│  PURPOSE: Map column names → fieldBusinessType                               │
+│                                                                              │
+│  "created_ts"  →  systemInternal_ts                                         │
+│  "budget_amt"  →  currency                                                   │
+│  "dl__status"  →  datalabel                                                 │
+│                                                                              │
+│  FILE 2: view-type-mapping.yaml                                              │
+│  ───────────────────────────────────────────────────────────────────────────│
+│  PURPOSE: Define VIEW behavior per fieldBusinessType, per component          │
+│                                                                              │
+│  systemInternal_ts:                                                          │
+│    entityListOfInstancesTable: { visible: false, renderType: timestamp }    │
+│    entityInstanceFormContainer: { visible: true, renderType: timestamp }    │
+│    kanbanView: { visible: false }                                           │
+│                                                                              │
+│  FILE 3: edit-type-mapping.yaml                                              │
+│  ───────────────────────────────────────────────────────────────────────────│
+│  PURPOSE: Define EDIT behavior per fieldBusinessType, per component          │
+│                                                                              │
+│  systemInternal_ts:                                                          │
+│    entityListOfInstancesTable: { inputType: readonly, editable: false }     │
+│    entityInstanceFormContainer: { inputType: readonly, editable: false }    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Per-Component Visibility Matrix
+
+Each `fieldBusinessType` has **independent settings per component**. This allows the same field type to behave differently depending on where it's rendered:
+
+| fieldBusinessType | entityListOfInstancesTable | entityInstanceFormContainer | kanbanView | calendarView |
+|-------------------|---------------------------|----------------------------|------------|--------------|
+| `systemInternal_ts` | visible: **false** | visible: **true** | visible: **false** | visible: **false** |
+| `systemInternal_flag` | visible: **false** | visible: **false** | visible: **false** | visible: **false** |
+| `currency` | visible: true | visible: true | visible: true | visible: false |
+| `datalabel` | visible: true | visible: true | visible: true | visible: false |
+| `datalabel_dag` | visible: true | visible: true | visible: true | visible: false |
+| `entityInstance_Id` | visible: true | visible: true | visible: true | visible: false |
+| `date` | visible: true | visible: true | visible: true | visible: true |
+| `timestamp` | visible: true | visible: true | visible: false | visible: false |
+
+**Key Insight**: `systemInternal_ts` (created_ts, updated_ts) is hidden in tables but visible in forms. This allows detail pages to show timestamps in the form section while hiding them from list views.
+
 ### pattern-mapping.yaml
 
 ```yaml
@@ -1097,8 +1333,8 @@ Metadata Request Arrives
 
 ---
 
-**Document Version**: 4.2.0
-**Last Updated**: 2025-12-01
+**Document Version**: 4.5.0
+**Last Updated**: 2025-12-03
 **Status**: Production Ready
 
 ### Version History
@@ -1112,3 +1348,5 @@ Metadata Request Arrives
 | 4.1.0 | 2025-12-01 | Updated frontend cache references to unified tanstack-index.ts |
 | 4.2.0 | 2025-12-01 | **v9.7.0 Note**: Added clarification that `content=metadata` mode is critical for frontend's two-query architecture. Child entity tabs fetch data + metadata separately (data endpoints return `metadata: {}` by design). |
 | 4.3.0 | 2025-12-01 | **v9.8.0**: Standardized entity reference component naming - VIEW: `renderType: component` + `component: EntityInstanceName/EntityInstanceNames`, EDIT: `inputType: EntityInstanceNameSelect/EntityInstanceNameMultiSelect`. Removed legacy `entityInstanceId` renderType. |
+| 4.4.0 | 2025-12-03 | Added "Three-File Architecture" diagram and "Per-Component Visibility Matrix" showing how each fieldBusinessType has independent view/edit settings per component. Updated `systemInternal_ts` to be visible in `entityInstanceFormContainer`. |
+| 4.5.0 | 2025-12-03 | Added "Complete Metadata Resolution Chain" - comprehensive 7-step diagram showing end-to-end flow from database column to rendered UI component, with `created_ts` as concrete example. |

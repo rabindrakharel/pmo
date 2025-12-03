@@ -49,10 +49,10 @@ export function useEntityInstancePicker({
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
   const token = localStorage.getItem('auth_token');
 
-  // Map entity types to API endpoints (same as UnifiedLinkageModal.tsx:57-61)
+  // Map entity types to API endpoints
   const getApiEndpoint = (type: string): string => {
     if (type === 'business') return 'biz';
-    if (type === 'client' || type === 'customer') return 'cust';
+    if (type === 'client') return 'customer';
     return type;
   };
 

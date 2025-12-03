@@ -107,7 +107,7 @@ export function CalendarView({
           fetch(`${apiBaseUrl}/api/v1/employee?page=1&limit=100`, {
             headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
           }),
-          fetch(`${apiBaseUrl}/api/v1/cust?page=1&limit=100`, {
+          fetch(`${apiBaseUrl}/api/v1/customer?page=1&limit=100`, {
             headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
           }).catch(() => ({ ok: false }))
         ]);

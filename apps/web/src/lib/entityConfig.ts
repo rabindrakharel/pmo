@@ -575,11 +575,11 @@ export const entityConfigs: Record<string, EntityConfig> = {
   // --------------------------------------------------------------------------
   // CUSTOMER
   // --------------------------------------------------------------------------
-  cust: {
-    name: 'cust',
+  customer: {
+    name: 'customer',
     displayName: 'Customer',
     pluralName: 'Customers',
-    apiEndpoint: '/api/v1/cust',
+    apiEndpoint: '/api/v1/customer',
 
     columns: [], // Auto-generated (v4.0)
 

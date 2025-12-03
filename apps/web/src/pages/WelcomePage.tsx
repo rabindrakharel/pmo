@@ -149,7 +149,7 @@ const domainModules: DomainModule[] = [
     summary: 'Unify customers, worksites, and every interaction for a living 360° view.',
     focus: 'Customer',
     icon: MapPin,
-    entities: ['cust', 'worksite', 'interaction']
+    entities: ['customer', 'worksite', 'interaction']
   },
   {
     id: 'operations',
@@ -206,7 +206,7 @@ const entityRouteMap: Record<string, string | null> = {
   business: '/business',
   project: '/project',
   task: '/task',
-  cust: '/cust',
+  customer: '/customer',
   role: '/role',
   form: '/form',
   employee: '/employee',
@@ -251,7 +251,7 @@ const baseEntityCatalog: Omit<EntityCatalogItem, 'path'>[] = [
   { code: 'business', name: 'Business Unit', uiLabel: 'Businesses', domainId: 'organization', description: 'Divisions and business units that own outcomes and metrics.', order: 20 },
   { code: 'project', name: 'Project', uiLabel: 'Projects', domainId: 'operations', description: 'Strategic initiatives with budgets, timelines, and semantic deliverables.', order: 30 },
   { code: 'task', name: 'Task', uiLabel: 'Tasks', domainId: 'operations', description: 'Atomic units of work that AI can create, tag, and route.', order: 40 },
-  { code: 'cust', name: 'Customer', uiLabel: 'Customers', domainId: 'customer', description: 'Accounts, households, or facilities you serve across industries.', order: 50 },
+  { code: 'customer', name: 'Customer', uiLabel: 'Customers', domainId: 'customer', description: 'Accounts, households, or facilities you serve across industries.', order: 50 },
   { code: 'role', name: 'Role', uiLabel: 'Roles', domainId: 'organization', description: 'Capabilities and permissions available to human or digital workers.', order: 60 },
   { code: 'form', name: 'Form', uiLabel: 'Forms', domainId: 'knowledge', description: 'Structured intake that feeds the semantic graph and workflows.', order: 70 },
   { code: 'employee', name: 'Employee', uiLabel: 'Employees', domainId: 'organization', description: 'Humans that collaborate with AI agents in the same workspace.', order: 80 },

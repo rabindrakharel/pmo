@@ -3,9 +3,28 @@
  * FORM ROUTES MODULE - Universal Entity Pattern with Unified Data Gate
  * ============================================================================
  *
- * SEMANTICS & PURPOSE:
- * This module implements CRUD operations for the Form entity following the
- * PMO platform's Universal Entity System architecture.
+ * ⚠️ CUSTOM ROUTES DECISION (NOT USING FACTORY PATTERN)
+ * ──────────────────────────────────────────────────────
+ * This module intentionally uses custom routes instead of createUniversalEntityRoutes
+ * factory for the following reasons:
+ *
+ * 1. VERSIONING PATTERN: Form schema changes trigger version increment (same ID,
+ *    version++) which requires custom PATCH/PUT logic that detects schema changes
+ *    and conditionally increments version.
+ *
+ * 2. NESTED DATA TABLE (form_data): Forms have a child data table for submissions
+ *    with custom endpoints like /api/v1/form/:id/data and /api/v1/form/:id/submit
+ *    that don't fit the standard entity pattern.
+ *
+ * 3. PUBLIC ENDPOINTS: Public form access (/api/v1/public/form/:id) requires
+ *    bypassing authentication, which the factory pattern doesn't support.
+ *
+ * 4. VERSION HISTORY: GET /api/v1/form/versions/:id returns all versions of a
+ *    form, which is a form-specific requirement.
+ *
+ * ============================================================================
+ * SEMANTICS & PURPOSE
+ * ============================================================================
  *
  * Forms represent multi-step data collection instruments with versioning,
  * approval workflows, and submission tracking. Forms support both authenticated
@@ -529,14 +548,12 @@ export async function formRoutes(fastify: FastifyInstance) {
       const created = result[0];
 
       // Register in entity_instance for global entity operations
-      await db.execute(sql`
-        INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code)
-        VALUES ('form', ${created.id}::uuid, ${created.name}, ${created.code})
-        ON CONFLICT (entity_type, entity_id) DO UPDATE
-        SET entity_name = EXCLUDED.entity_name,
-            entity_code = EXCLUDED.entity_code,
-            updated_ts = NOW()
-      `);
+      await entityInfra.set_entity_instance_registry({
+        entity_code: ENTITY_CODE,
+        entity_id: created.id,
+        entity_name: created.name,
+        instance_code: created.code
+      });
 
       // ═══════════════════════════════════════════════════════════════
       // ✅ ENTITY INFRASTRUCTURE SERVICE - Grant OWNER permission to creator

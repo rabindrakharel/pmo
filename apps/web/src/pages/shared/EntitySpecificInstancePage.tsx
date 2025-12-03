@@ -1072,11 +1072,10 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                   />
                 )}
 
-                <EntityMetadataSeparator show={!!(data.created_ts || data.updated_ts)} />
-
-                {/* Created */}
-                {data.created_ts && (
+                {/* Created - metadata-aware: respects formViewType?.created_ts?.visible */}
+                {data.created_ts && formViewType?.created_ts?.visible !== false && (
                   <>
+                    <EntityMetadataSeparator show={true} />
                     <span className="text-gray-400 font-normal text-xs flex-shrink-0">created:</span>
                     <span
                       className="text-gray-700 font-medium text-sm"
@@ -1087,11 +1086,10 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                   </>
                 )}
 
-                <EntityMetadataSeparator show={!!(data.created_ts && data.updated_ts)} />
-
-                {/* Updated */}
-                {data.updated_ts && (
+                {/* Updated - metadata-aware: respects formViewType?.updated_ts?.visible */}
+                {data.updated_ts && formViewType?.updated_ts?.visible !== false && (
                   <>
+                    <EntityMetadataSeparator show={true} />
                     <span className="text-gray-400 font-normal text-xs flex-shrink-0">updated:</span>
                     <span
                       className="text-gray-700 font-medium text-sm"

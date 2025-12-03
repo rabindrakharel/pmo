@@ -34,7 +34,7 @@ export const ENTITY_ICONS: Record<string, LucideIcon> = {
   project: FolderOpen,
   office: MapPin,
   client: Users,
-  cust: Users,
+  customer: Users,
   role: UserCheck,
   employee: Users,
   wiki: BookOpen,
