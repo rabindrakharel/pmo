@@ -116,16 +116,17 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
-import { sql, SQL } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
+
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
-// ✨ Universal auto-filter builder - zero-config query filtering
-import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
-// ✨ Backend Formatter Service - component-aware metadata generation
-import { generateEntityResponse } from '../../services/backend-formatter.service.js';
-// ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
+
+// ✨ Universal CRUD Factory - generates standardized endpoints
+import { createUniversalEntityRoutes } from '../../lib/universal-crud-factory.js';
+
 // ✅ Delete factory for cascading soft deletes
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+
 // ✅ Child entity factory for parent-child relationships
 import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 
@@ -147,13 +148,6 @@ const BizSchema = Type.Object({
   version: Type.Number(),
 });
 
-// Response schema for metadata-driven endpoints (single entity)
-const BizWithMetadataSchema = Type.Object({
-  data: BizSchema,
-  fields: Type.Array(Type.String()),  // Field names list
-  metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
-});
-
 const CreateBizSchema = Type.Object({
   code: Type.String({ minLength: 1 }),
   name: Type.String({ minLength: 1 }),
@@ -165,8 +159,6 @@ const CreateBizSchema = Type.Object({
   active_flag: Type.Optional(Type.Boolean()),
 });
 
-const UpdateBizSchema = Type.Partial(CreateBizSchema);
-
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
@@ -177,187 +169,27 @@ export async function businessRoutes(fastify: FastifyInstance) {
   // ✨ Initialize Entity Infrastructure Service
   const entityInfra = getEntityInfrastructure(db);
 
-  // ============================================================================
-  // List Business Units (Main Page or Child Tab)
-  // ============================================================================
-  // URL: GET /api/v1/business
-  // URL: GET /api/v1/business?parent_entity_code=office&parent_entity_instance_id={id}
-  // ============================================================================
+  // ════════════════════════════════════════════════════════════════════════════
+  // UNIVERSAL CRUD ENDPOINTS (FACTORY)
+  // ════════════════════════════════════════════════════════════════════════════
+  // Creates:
+  // - GET /api/v1/business         - List with RBAC, pagination, auto-filters, metadata
+  // - GET /api/v1/business/:id     - Single entity with RBAC, ref_data_entityInstance
+  // - PATCH /api/v1/business/:id   - Update with RBAC, registry sync
+  // - PUT /api/v1/business/:id     - Update alias
+  //
+  // Features:
+  // - content=metadata support for metadata-only responses
+  // - ref_data_entityInstance for entity reference resolution
+  // - Universal auto-filters from query parameters
+  // - Parent-child filtering via entity_instance_link
+  // ════════════════════════════════════════════════════════════════════════════
 
-  fastify.get('/api/v1/business', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      querystring: Type.Object({
-        // Parent filtering (create-link-edit pattern)
-        parent_entity_code: Type.Optional(Type.String()),
-        parent_entity_instance_id: Type.Optional(Type.String({ format: 'uuid' })),
-
-        // Standard filters
-        active_flag: Type.Optional(Type.Boolean()),
-        search: Type.Optional(Type.String()),
-        operational_status: Type.Optional(Type.String()),
-
-        // Pagination
-        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
-        offset: Type.Optional(Type.Number({ minimum: 0 })),
-        page: Type.Optional(Type.Number({ minimum: 1 })),
-
-        // Component-aware metadata
-        view: Type.Optional(Type.String()),  // 'entityListOfInstancesTable,kanbanView' or 'entityInstanceFormContainer'
-      }),
-      response: {
-        200: Type.Object({
-          data: Type.Array(BizSchema),
-          fields: Type.Array(Type.String()),
-          metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
-          total: Type.Number(),
-          limit: Type.Number(),
-          offset: Type.Number(),
-          appliedFilters: Type.Optional(Type.Object({
-            rbac: Type.Boolean(),
-            parent: Type.Boolean(),
-            search: Type.Boolean(),
-            active: Type.Boolean()
-          }))
-        }),
-        403: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
-    const userId = (request as any).user?.sub;
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    const {
-      parent_entity_code,
-      parent_entity_instance_id,
-      active_flag,
-      search,
-      operational_status,
-      limit: queryLimit,
-      offset: queryOffset,
-      page,
-      view
-    } = request.query as any;
-
-    // Calculate pagination with defaults
-    const limit = queryLimit || 50;
-    const offset = page ? (page - 1) * limit : (queryOffset || 0);
-
-    try {
-      // ═══════════════════════════════════════════════════════════════
-      // NEW PATTERN: Route builds SQL, gates augment it
-      // ═══════════════════════════════════════════════════════════════
-
-      // Build WHERE conditions array
-      const conditions: SQL[] = [];
-
-      // GATE 1: RBAC - Apply security filtering (REQUIRED)
-      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
-      );
-      conditions.push(rbacWhereClause);
-
-      // ✅ DEFAULT FILTER: Only show active records (not soft-deleted)
-      // Can be overridden with ?active=false to show inactive records
-      if (!('active' in (request.query as any))) {
-        conditions.push(sql`${sql.raw(TABLE_ALIAS)}.active_flag = true`);
-      }
-
-      // ✨ UNIVERSAL AUTO-FILTER SYSTEM
-      // Automatically builds filters from ANY query parameter based on field naming conventions
-      // Supports: ?name=X, ?operational_status=Y, ?active_flag=true, ?search=Z, etc.
-      // See: apps/api/src/lib/universal-filter-builder.ts
-      const autoFilters = buildAutoFilters(TABLE_ALIAS, request.query as any, {
-        overrides: {
-          active: { column: 'active_flag', type: 'boolean' }
-        }
-      });
-      conditions.push(...autoFilters);
-
-      // Build JOINs array
-      const joins: SQL[] = [];
-
-      // GATE 2: PARENT-CHILD FILTERING (OPTIONAL when parent context provided)
-      if (parent_entity_code && parent_entity_instance_id) {
-        const parentJoin = sql`
-          INNER JOIN app.entity_instance_link eil
-            ON eil.child_entity_code = ${ENTITY_CODE}
-            AND eil.child_entity_instance_id = ${sql.raw(TABLE_ALIAS)}.id
-            AND eil.entity_code = ${parent_entity_code}
-            AND eil.entity_instance_id = ${parent_entity_instance_id}
-        `;
-        joins.push(parentJoin);
-      }
-
-      // Build WHERE clause
-      const whereClause = conditions.length > 0
-        ? sql`WHERE ${sql.join(conditions, sql` AND `)}`
-        : sql``;
-
-      // Build JOINs clause
-      const joinsClause = joins.length > 0
-        ? sql.join(joins, sql` `)
-        : sql``;
-
-      // Count query
-      const countQuery = sql`
-        SELECT COUNT(DISTINCT ${sql.raw(TABLE_ALIAS)}.id) as total
-        FROM app.${sql.raw(ENTITY_CODE)} ${sql.raw(TABLE_ALIAS)}
-        ${joinsClause}
-        ${whereClause}
-      `;
-
-      // Data query (route owns this!)
-      const dataQuery = sql`
-        SELECT DISTINCT ${sql.raw(TABLE_ALIAS)}.*
-        FROM app.${sql.raw(ENTITY_CODE)} ${sql.raw(TABLE_ALIAS)}
-        ${joinsClause}
-        ${whereClause}
-        ORDER BY ${sql.raw(TABLE_ALIAS)}.created_ts DESC
-        LIMIT ${limit}
-        OFFSET ${offset}
-      `;
-
-      // Execute queries in parallel
-      const [countResult, dataResult] = await Promise.all([
-        db.execute(countQuery),
-        db.execute(dataQuery)
-      ]);
-
-      const total = Number(countResult[0]?.total || 0);
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
-      // Parse requested view (convert view names to component names)
-      // ═══════════════════════════════════════════════════════════════
-      const requestedComponents = view
-        ? view.split(',').map((v: string) => v.trim())
-        : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
-
-      // Generate response with metadata for requested components only
-      const response = await generateEntityResponse(ENTITY_CODE, dataResult, {
-        components: requestedComponents,
-        total,
-        limit,
-        offset
-      });
-
-      // Add applied filters for debugging
-      (response as any).appliedFilters = {
-        rbac: true,
-        parent: Boolean(parent_entity_code && parent_entity_instance_id),
-        search: Boolean(search),
-        active: Boolean(active_flag)
-      };
-
-      return reply.send(response);
-    } catch (error) {
-      fastify.log.error('Error fetching business units:', error as any);
-      console.error('Full error details:', error);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
+  createUniversalEntityRoutes(fastify, {
+    entityCode: ENTITY_CODE,
+    tableName: 'business',
+    tableAlias: 'e',
+    searchFields: ['name', 'descr', 'code', 'operational_status']
   });
 
   // ============================================================================
@@ -452,90 +284,6 @@ export async function businessRoutes(fastify: FastifyInstance) {
     });
   });
 
-  // ============================================================================
-  // Get Single Business Unit
-  // ============================================================================
-
-  fastify.get('/api/v1/business/:id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })
-      }),
-      querystring: Type.Object({
-        view: Type.Optional(Type.String()),  // 'entityInstanceFormContainer' or 'entityListOfInstancesTable'
-      }),
-      response: {
-        200: BizWithMetadataSchema,  // ✅ Fixed: Use metadata-driven schema
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
-    const userId = (request as any).user?.sub;
-    const { id } = request.params as { id: string };
-    const { view } = request.query as any;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    try {
-      // ═══════════════════════════════════════════════════════════════
-      // NEW PATTERN: RBAC gate check, then simple SELECT
-      // ═══════════════════════════════════════════════════════════════
-
-      // GATE: RBAC - Check permission
-      const canView = await entityInfra.check_entity_rbac(
-        userId,
-        ENTITY_CODE,
-        id,
-        Permission.VIEW
-      );
-
-      if (!canView) {
-        return reply.status(403).send({ error: 'No permission to view this business' });
-      }
-
-      // Route owns the query
-      const result = await db.execute(sql`
-        SELECT *
-        FROM app.business
-        WHERE id = ${id}::uuid
-          AND active_flag = true
-      `);
-
-      if (result.length === 0) {
-        return reply.status(404).send({ error: 'Business not found' });
-      }
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
-      // Parse requested view (default to formContainer)
-      // ═══════════════════════════════════════════════════════════════
-      const requestedComponents = view
-        ? view.split(',').map((v: string) => v.trim())
-        : ['entityInstanceFormContainer'];
-
-      const response = await generateEntityResponse(ENTITY_CODE, [result[0]], {
-        components: requestedComponents,
-        total: 1,
-        limit: 1,
-        offset: 0
-      });
-
-      // Return first item (single entity)
-      return reply.send({
-        data: response.data[0],
-        fields: response.fields,
-        metadata: response.metadata,
-      });
-    } catch (error) {
-      fastify.log.error('Error fetching business:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
 
   // ============================================================================
   // Create Business Unit
@@ -617,185 +365,10 @@ export async function businessRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // ============================================================================
-  // Update Business Unit
-  // ============================================================================
+  // ════════════════════════════════════════════════════════════════════════════
+  // DELETE ENDPOINT (FACTORY)
+  // ════════════════════════════════════════════════════════════════════════════
 
-  fastify.patch('/api/v1/business/:id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })
-      }),
-      body: UpdateBizSchema,
-      response: {
-        200: BizSchema,
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
-    const userId = (request as any).user?.sub;
-    const { id } = request.params as { id: string };
-    const updates = request.body as any;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    try {
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
-      // Check: Can user EDIT this business?
-      // ═══════════════════════════════════════════════════════════════
-      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.EDIT);
-      if (!canEdit) {
-        return reply.status(403).send({ error: 'No permission to edit this business' });
-      }
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✅ ROUTE OWNS: Update business in primary table
-      // ═══════════════════════════════════════════════════════════════
-      // Build update fields
-      const updateFields: any[] = [];
-      if (updates.code !== undefined) updateFields.push(sql`code = ${updates.code}`);
-      if (updates.name !== undefined) updateFields.push(sql`name = ${updates.name}`);
-      if (updates.descr !== undefined) updateFields.push(sql`"descr" = ${updates.descr}`);
-      if (updates.metadata !== undefined) updateFields.push(sql`metadata = ${updates.metadata}`);
-      if (updates.office_id !== undefined) updateFields.push(sql`office_id = ${updates.office_id}`);
-      if (updates.current_headcount !== undefined) updateFields.push(sql`current_headcount = ${updates.current_headcount}`);
-      if (updates.operational_status !== undefined) updateFields.push(sql`operational_status = ${updates.operational_status}`);
-      if (updates.active_flag !== undefined) updateFields.push(sql`active_flag = ${updates.active_flag}`);
-
-      if (updateFields.length === 0) {
-        return reply.status(400).send({ error: 'No fields to update' });
-      }
-
-      updateFields.push(sql`updated_ts = now()`);
-      updateFields.push(sql`version = version + 1`);
-
-      // Update business
-      const updated = await db.execute(sql`
-        UPDATE app.business
-        SET ${sql.join(updateFields, sql`, `)}
-        WHERE id = ${id}
-        RETURNING *
-      `);
-
-      if (updated.length === 0) {
-        return reply.status(404).send({ error: 'Business not found' });
-      }
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
-      // ═══════════════════════════════════════════════════════════════
-      if (updates.name !== undefined || updates.code !== undefined) {
-        await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
-          entity_name: updates.name,
-          instance_code: updates.code
-        });
-      }
-
-      return reply.send(updated[0]);
-    } catch (error) {
-      fastify.log.error('Error updating business:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
-
-  // ============================================================================
-  // Update Business Unit (PUT - alias to PATCH for frontend compatibility)
-  // ============================================================================
-
-  fastify.put('/api/v1/business/:id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })
-      }),
-      body: UpdateBizSchema,
-      response: {
-        200: BizSchema,
-        400: Type.Object({ error: Type.String() }),
-        401: Type.Object({ error: Type.String() }),
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
-    const userId = (request as any).user?.sub;
-    const { id } = request.params as { id: string };
-    const updates = request.body as any;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    try {
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
-      // Check: Can user EDIT this business?
-      // ═══════════════════════════════════════════════════════════════
-      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.EDIT);
-      if (!canEdit) {
-        return reply.status(403).send({ error: 'No permission to edit this business' });
-      }
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✅ ROUTE OWNS: Update business in primary table
-      // ═══════════════════════════════════════════════════════════════
-      // Build update fields
-      const updateFields: any[] = [];
-      if (updates.code !== undefined) updateFields.push(sql`code = ${updates.code}`);
-      if (updates.name !== undefined) updateFields.push(sql`name = ${updates.name}`);
-      if (updates.descr !== undefined) updateFields.push(sql`"descr" = ${updates.descr}`);
-      if (updates.metadata !== undefined) updateFields.push(sql`metadata = ${updates.metadata}`);
-      if (updates.office_id !== undefined) updateFields.push(sql`office_id = ${updates.office_id}`);
-      if (updates.current_headcount !== undefined) updateFields.push(sql`current_headcount = ${updates.current_headcount}`);
-      if (updates.operational_status !== undefined) updateFields.push(sql`operational_status = ${updates.operational_status}`);
-      if (updates.active_flag !== undefined) updateFields.push(sql`active_flag = ${updates.active_flag}`);
-
-      if (updateFields.length === 0) {
-        return reply.status(400).send({ error: 'No fields to update' });
-      }
-
-      updateFields.push(sql`updated_ts = now()`);
-      updateFields.push(sql`version = version + 1`);
-
-      // Update business
-      const updated = await db.execute(sql`
-        UPDATE app.business
-        SET ${sql.join(updateFields, sql`, `)}
-        WHERE id = ${id}
-        RETURNING *
-      `);
-
-      if (updated.length === 0) {
-        return reply.status(404).send({ error: 'Business not found' });
-      }
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
-      // ═══════════════════════════════════════════════════════════════
-      if (updates.name !== undefined || updates.code !== undefined) {
-        await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
-          entity_name: updates.name,
-          instance_code: updates.code
-        });
-      }
-
-      return reply.send(updated[0]);
-    } catch (error) {
-      fastify.log.error('Error updating business:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
-
-  // ============================================================================
-  // Delete Business Unit (Soft Delete via Factory)
-  // ============================================================================
   createEntityDeleteEndpoint(fastify, ENTITY_CODE);
 
   // ============================================================================
