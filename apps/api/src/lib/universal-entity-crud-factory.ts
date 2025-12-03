@@ -90,21 +90,13 @@ import { getEntityLimit } from './pagination.js';
  * DO NOT add entries where entity_code === table_name.
  */
 export const ENTITY_TABLE_MAP: Record<string, string> = {
-  // Fact/transactional entities with f_ prefix
-  expense: 'f_expense',
-  revenue: 'f_revenue',
-  quote: 'fact_quote',
-  work_order: 'fact_work_order',
-  interaction: 'f_customer_interaction',
-  invoice: 'f_invoice',
-  order: 'f_order',
-  shipment: 'f_shipment',
-
-  // Entities with different naming
+  // Entity codes where table name differs from entity code
+  // These mappings match the db_table column in app.entity table
+  // NOTE: Most entities have entity_code === table_name (no entry needed)
   message: 'message_data',
-  calendar: 'entity_person_calendar',
-  event_person_calendar: 'entity_event_person_calendar',
   rbac: 'entity_rbac',
+  calendar: 'person_calendar',
+  booking: 'entity_event_person_calendar',
 };
 
 /**

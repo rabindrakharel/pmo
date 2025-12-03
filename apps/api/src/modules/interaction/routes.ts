@@ -29,13 +29,13 @@ export async function interactionRoutes(fastify: FastifyInstance) {
     tableAlias: 'i',
 
     // Search across interaction content fields
-    searchFields: ['interaction_number', 'content_text', 'transcript_text', 'content_summary'],
+    searchFields: ['code', 'name', 'content_text', 'transcript_text', 'content_summary'],
 
     // Order by most recent interaction first
     defaultOrderBy: 'interaction_ts DESC NULLS LAST',
 
     // Required fields for creation
-    requiredFields: ['interaction_number', 'interaction_type', 'channel'],
+    requiredFields: ['code', 'interaction_type', 'channel_name'],
 
     // Default values for new interactions
     createDefaults: {
@@ -44,9 +44,9 @@ export async function interactionRoutes(fastify: FastifyInstance) {
       interaction_person_entities: []
     },
 
-    // Name field for entity registry (interactions use interaction_number)
-    nameField: 'interaction_number',
-    codeField: 'interaction_number',
+    // Name field for entity registry
+    nameField: 'name',
+    codeField: 'code',
 
     // Hooks for custom logic
     hooks: {

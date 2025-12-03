@@ -1,5 +1,5 @@
 -- =====================================================
--- Customer Interaction Fact Table (f_customer_interaction)
+-- Customer Interaction Table (interaction)
 -- =====================================================
 --
 -- SEMANTICS:
@@ -46,17 +46,21 @@
 --
 -- =====================================================
 
-DROP TABLE IF EXISTS app.customer_interaction CASCADE;
+DROP TABLE IF EXISTS app.interaction CASCADE;
 
-CREATE TABLE app.customer_interaction (
+CREATE TABLE app.interaction (
     -- Primary Key
     id uuid DEFAULT gen_random_uuid(),
 
+    -- Standard Entity Fields
+    code varchar(50) UNIQUE,                     -- Human-readable ID (e.g., INT-2025-00123)
+    name varchar(255),                           -- Display name for the interaction
+    descr text,                                  -- Description
+
     -- Interaction Identification
-    interaction_number varchar(50),      -- Human-readable ID (e.g., INT-2025-00123)
     interaction_type varchar(50),                -- 'voice_call', 'chat', 'email', 'sms', 'video_call', 'social_media', 'in_person'
-    interaction_subtype varchar(50),                      -- 'inbound', 'outbound', 'follow_up', 'escalation'
-    channel varchar(50),                         -- 'phone', 'live_chat', 'whatsapp', 'email', 'facebook', 'twitter', 'zoom', 'in_store'
+    interaction_subtype varchar(50),             -- 'inbound', 'outbound', 'follow_up', 'escalation'
+    channel_name varchar(50),                    -- 'phone', 'live_chat', 'whatsapp', 'email', 'facebook', 'twitter', 'zoom', 'in_store'
 
     -- Chunking Support (for multi-part interactions)
     chunk_number integer DEFAULT 1,                       -- Sequence number for chunked content
@@ -127,12 +131,14 @@ CREATE TABLE app.customer_interaction (
 
     metadata jsonb DEFAULT '{}'::jsonb,                   -- Additional metadata
 
-    -- Audit Fields
-    created_by__employee_id uuid,                          -- Who created this record
+    -- SCD Type 2 + Audit Fields
+    active_flag boolean DEFAULT true,                     -- Current record flag
+    from_ts timestamptz DEFAULT now(),                    -- Record valid from
+    to_ts timestamptz,                                    -- Record valid until (NULL = current)
+    created_by__employee_id uuid,                         -- Who created this record
     created_ts timestamptz DEFAULT now(),                 -- When created
     updated_ts timestamptz DEFAULT now(),                 -- Last updated
-    deleted_ts timestamptz,                               -- When soft deleted
-    archived_ts timestamptz                               -- When archived
+    version integer DEFAULT 1                             -- Version number
 );
 
 -- =====================================================
@@ -147,9 +153,18 @@ CREATE TABLE app.customer_interaction (
 -- =====================================================
 
 -- Automatically update updated_ts timestamp
+CREATE OR REPLACE FUNCTION app.update_interaction_updated_ts()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_ts = now();
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_interaction_updated_ts
+    BEFORE UPDATE ON app.interaction
+    FOR EACH ROW
+    EXECUTE FUNCTION app.update_interaction_updated_ts();
 
 
 -- =====================================================
@@ -157,11 +172,12 @@ $$ LANGUAGE plpgsql;
 -- =====================================================
 
 -- Sample Customer Interactions (Voice Calls)
-INSERT INTO app.customer_interaction (
-    interaction_number,
+INSERT INTO app.interaction (
+    code,
+    name,
     interaction_type,
     interaction_subtype,
-    channel,
+    channel_name,
     interaction_ts,
     duration_seconds,
     wait_time_seconds,
@@ -188,6 +204,7 @@ INSERT INTO app.customer_interaction (
 -- Call 1: Service inquiry from premium customer
 (
     'INT-2025-00001',
+    'Service Inquiry - Landscaping Package',
     'voice_call',
     'inbound',
     'phone',
@@ -219,6 +236,7 @@ INSERT INTO app.customer_interaction (
 -- Call 2: Technical support escalation
 (
     'INT-2025-00002',
+    'Technical Support - Irrigation Malfunction',
     'voice_call',
     'inbound',
     'phone',
@@ -248,11 +266,12 @@ INSERT INTO app.customer_interaction (
 );
 
 -- Chat Interactions
-INSERT INTO app.customer_interaction (
-    interaction_number,
+INSERT INTO app.interaction (
+    code,
+    name,
     interaction_type,
     interaction_subtype,
-    channel,
+    channel_name,
     interaction_ts,
     duration_seconds,
     interaction_person_entities,
@@ -270,6 +289,7 @@ INSERT INTO app.customer_interaction (
 -- Chat 1: Quick billing question
 (
     'INT-2025-00003',
+    'Billing Question - January Invoice',
     'chat',
     'inbound',
     'live_chat',
@@ -294,6 +314,7 @@ INSERT INTO app.customer_interaction (
 -- Chat 2: Sales inquiry from new prospect
 (
     'INT-2025-00004',
+    'Sales Inquiry - Townhouse Landscaping',
     'chat',
     'inbound',
     'live_chat',
@@ -320,18 +341,19 @@ INSERT INTO app.customer_interaction (
 -- COMMENTS
 -- =====================================================
 
-COMMENT ON TABLE app.customer_interaction IS 'Customer interaction fact table capturing omnichannel customer communications with S3 storage for multimedia content. Uses JSONB for polymorphic person entity references.';
-COMMENT ON COLUMN app.customer_interaction.interaction_number IS 'Human-readable unique identifier (e.g., INT-2025-00123)';
-COMMENT ON COLUMN app.customer_interaction.interaction_person_entities IS 'JSONB array of person entities involved: [{"person_entity_type": "customer|employee|client", "person_id": "uuid"}]';
-COMMENT ON COLUMN app.customer_interaction.interaction_intention_entity IS 'What entity type should be created from this interaction (task, project, quote, etc.)';
-COMMENT ON COLUMN app.customer_interaction.chunk_number IS 'Sequence number for multi-part interactions (e.g., long calls split into segments)';
-COMMENT ON COLUMN app.customer_interaction.parent__interaction_id IS 'Links to primary chunk for multi-part interactions';
-COMMENT ON COLUMN app.customer_interaction.content_object_key IS 'S3 object key path for voice, video, or image content storage';
-COMMENT ON COLUMN app.customer_interaction.transcript_text IS 'Speech-to-text transcript for voice/video interactions';
-COMMENT ON COLUMN app.customer_interaction.sentiment_score IS 'AI-generated sentiment score ranging from -100 (very negative) to +100 (very positive)';
-COMMENT ON COLUMN app.customer_interaction.emotion_tags IS 'AI-detected emotions array (e.g., [frustrated, satisfied, confused])';
-COMMENT ON COLUMN app.customer_interaction.attachment_ids IS 'Array of artifact UUIDs for related documents/files';
-COMMENT ON COLUMN app.customer_interaction.metadata IS 'Flexible JSONB for additional context (project_id, task_id, meeting details, etc.)';
+COMMENT ON TABLE app.interaction IS 'Customer interaction fact table capturing omnichannel customer communications with S3 storage for multimedia content. Uses JSONB for polymorphic person entity references.';
+COMMENT ON COLUMN app.interaction.code IS 'Human-readable unique identifier (e.g., INT-2025-00123)';
+COMMENT ON COLUMN app.interaction.name IS 'Display name describing the interaction';
+COMMENT ON COLUMN app.interaction.interaction_person_entities IS 'JSONB array of person entities involved: [{"person_entity_type": "customer|employee|client", "person_id": "uuid"}]';
+COMMENT ON COLUMN app.interaction.interaction_intention_entity IS 'What entity type should be created from this interaction (task, project, quote, etc.)';
+COMMENT ON COLUMN app.interaction.chunk_number IS 'Sequence number for multi-part interactions (e.g., long calls split into segments)';
+COMMENT ON COLUMN app.interaction.parent__interaction_id IS 'Links to primary chunk for multi-part interactions';
+COMMENT ON COLUMN app.interaction.content_object_key IS 'S3 object key path for voice, video, or image content storage';
+COMMENT ON COLUMN app.interaction.transcript_text IS 'Speech-to-text transcript for voice/video interactions';
+COMMENT ON COLUMN app.interaction.sentiment_score IS 'AI-generated sentiment score ranging from -100 (very negative) to +100 (very positive)';
+COMMENT ON COLUMN app.interaction.emotion_tags IS 'AI-detected emotions array (e.g., [frustrated, satisfied, confused])';
+COMMENT ON COLUMN app.interaction.attachment_ids IS 'Array of artifact UUIDs for related documents/files';
+COMMENT ON COLUMN app.interaction.metadata IS 'Flexible JSONB for additional context (project_id, task_id, meeting details, etc.)';
 
 -- =====================================================
 -- VERIFICATION QUERIES
