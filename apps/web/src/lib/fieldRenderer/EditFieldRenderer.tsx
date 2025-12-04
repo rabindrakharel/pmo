@@ -35,9 +35,9 @@ export function renderEditField(props: ComponentRendererProps): ReactElement {
 
   // Shared input props
   // v12.3.0: Added text-sm to match view mode font size (prevents font size jump on edit)
-  const baseInputClass = `w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm
-    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-    disabled:bg-gray-100 disabled:cursor-not-allowed
+  const baseInputClass = `w-full px-3 py-2 text-sm border border-dark-300 rounded-md shadow-sm
+    focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500
+    disabled:bg-dark-100 disabled:cursor-not-allowed
     ${className || ''}`;
 
   const handleChange = (newValue: any) => {
@@ -51,7 +51,7 @@ export function renderEditField(props: ComponentRendererProps): ReactElement {
   // ========================================================================
   if (inputType === 'readonly' || readonly) {
     return (
-      <span className={`text-sm text-gray-600 ${style?.monospace ? 'font-mono' : ''} ${className || ''}`}>
+      <span className={`text-sm text-dark-600 ${style?.monospace ? 'font-mono' : ''} ${className || ''}`}>
         {value !== null && value !== undefined ? String(value) : '—'}
       </span>
     );
@@ -121,7 +121,7 @@ export function renderEditField(props: ComponentRendererProps): ReactElement {
       return (
         <div className="relative">
           {style?.symbol && (
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-dark-500">
               {style.symbol}
             </span>
           )}
@@ -142,7 +142,7 @@ export function renderEditField(props: ComponentRendererProps): ReactElement {
             className={`${baseInputClass} ${style?.symbol ? 'pl-7' : ''} ${style?.unit ? 'pr-12' : ''}`}
           />
           {style?.unit && (
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-dark-500 text-sm">
               {style.unit}
             </span>
           )}
@@ -210,10 +210,10 @@ export function renderEditField(props: ComponentRendererProps): ReactElement {
             checked={Boolean(value)}
             onChange={(e) => handleChange(e.target.checked)}
             disabled={disabled}
-            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            className="h-4 w-4 rounded border-dark-300 text-slate-600 focus:ring-slate-500"
           />
           {style?.label && (
-            <span className="text-sm text-gray-700">
+            <span className="text-sm text-dark-700">
               {value ? (style.trueLabel || 'Yes') : (style.falseLabel || 'No')}
             </span>
           )}
@@ -232,7 +232,7 @@ export function renderEditField(props: ComponentRendererProps): ReactElement {
             value={value ?? '#000000'}
             onChange={(e) => handleChange(e.target.value)}
             disabled={disabled}
-            className="h-8 w-12 p-1 border border-gray-300 rounded cursor-pointer"
+            className="h-8 w-12 p-1 border border-dark-300 rounded cursor-pointer"
           />
           <input
             type="text"
@@ -261,8 +261,8 @@ export function renderEditField(props: ComponentRendererProps): ReactElement {
           disabled={disabled}
           accept={style?.accept}
           className={`${baseInputClass} file:mr-4 file:py-2 file:px-4 file:rounded file:border-0
-            file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700
-            hover:file:bg-blue-100`}
+            file:text-sm file:font-semibold file:bg-slate-50 file:text-slate-700
+            hover:file:bg-slate-100`}
         />
       );
 
@@ -281,10 +281,10 @@ export function renderEditField(props: ComponentRendererProps): ReactElement {
             min={style?.min ?? validation?.min ?? 0}
             max={style?.max ?? validation?.max ?? 100}
             step={style?.step ?? 1}
-            className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+            className="flex-1 h-2 bg-dark-200 rounded-lg appearance-none cursor-pointer"
           />
           {style?.showValue !== false && (
-            <span className="text-sm font-medium text-gray-700 w-12 text-right">
+            <span className="text-sm font-medium text-dark-700 w-12 text-right">
               {value ?? 0}%
             </span>
           )}

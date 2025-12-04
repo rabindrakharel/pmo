@@ -53,7 +53,7 @@ export function EntityInstancePicker({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder={displayPlaceholder}
-          className="w-full pl-7 pr-2 py-1.5 text-xs border border-dark-400 rounded bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          className="w-full pl-7 pr-2 py-1.5 text-xs border border-dark-400 rounded bg-white focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500/30"
         />
       </div>
 
@@ -69,7 +69,7 @@ export function EntityInstancePicker({
       <div className="border border-dark-400 rounded-md overflow-hidden" style={{ maxHeight, overflowY: 'auto' }}>
         {loading ? (
           <div className="text-center py-8 text-dark-700">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-600 mx-auto"></div>
             <p className="text-xs mt-2">Loading {entityCode} instances...</p>
           </div>
         ) : filteredInstances.length === 0 && !showAllOption ? (
@@ -93,8 +93,8 @@ export function EntityInstancePicker({
               {/* "All instances" option row */}
               {showAllOption && (
                 <tr
-                  className={`transition-colors hover:bg-blue-50 cursor-pointer ${
-                    selectedInstanceId === 'all' ? 'bg-blue-100' : ''
+                  className={`transition-colors hover:bg-slate-50 cursor-pointer ${
+                    selectedInstanceId === 'all' ? 'bg-slate-100' : ''
                   }`}
                   onClick={() => onSelect('all')}
                 >
@@ -106,7 +106,7 @@ export function EntityInstancePicker({
                   </td>
                   <td className="px-3 py-2 text-center">
                     {selectedInstanceId === 'all' ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-800">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-800">
                         <Check className="h-3 w-3 mr-1" />
                         Selected
                       </span>
@@ -116,7 +116,7 @@ export function EntityInstancePicker({
                           e.stopPropagation();
                           onSelect('all');
                         }}
-                        className="text-xs text-blue-600 hover:text-blue-800"
+                        className="text-xs text-slate-600 hover:text-slate-800"
                       >
                         Select
                       </button>
@@ -129,8 +129,8 @@ export function EntityInstancePicker({
               {filteredInstances.map((instance) => (
                 <tr
                   key={instance.id}
-                  className={`transition-colors hover:bg-blue-50 cursor-pointer ${
-                    selectedInstanceId === instance.id ? 'bg-blue-100' : ''
+                  className={`transition-colors hover:bg-slate-50 cursor-pointer ${
+                    selectedInstanceId === instance.id ? 'bg-slate-100' : ''
                   }`}
                   onClick={() => onSelect(instance.id)}
                 >
@@ -148,7 +148,7 @@ export function EntityInstancePicker({
                   </td>
                   <td className="px-3 py-2 text-center">
                     {selectedInstanceId === instance.id ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-800">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-800">
                         <Check className="h-3 w-3 mr-1" />
                         Selected
                       </span>
@@ -158,7 +158,7 @@ export function EntityInstancePicker({
                           e.stopPropagation();
                           onSelect(instance.id);
                         }}
-                        className="text-xs text-blue-600 hover:text-blue-800"
+                        className="text-xs text-slate-600 hover:text-slate-800"
                       >
                         Select
                       </button>

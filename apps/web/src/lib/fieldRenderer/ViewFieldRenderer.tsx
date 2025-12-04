@@ -69,7 +69,7 @@ export function renderViewField(props: ComponentRendererProps): ReactElement {
   if (value === null || value === undefined || value === '') {
     const emptyValue = style?.emptyValue || '—';
     return (
-      <span className={`text-gray-400 ${className || ''}`}>
+      <span className={`text-dark-400 ${className || ''}`}>
         {emptyValue}
       </span>
     );
@@ -147,7 +147,7 @@ export function renderViewField(props: ComponentRendererProps): ReactElement {
     // --------------------------------------------------------------------
     case 'boolean':
       return (
-        <span className={`${value ? 'text-green-600' : 'text-gray-500'} ${className || ''}`}>
+        <span className={`${value ? 'text-green-600' : 'text-dark-500'} ${className || ''}`}>
           {formatBoolean(value, style)}
         </span>
       );
@@ -158,7 +158,7 @@ export function renderViewField(props: ComponentRendererProps): ReactElement {
     case 'badge':
       return (
         <span
-          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 ${className || ''}`}
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-dark-200 text-dark-700 ${className || ''}`}
         >
           {String(value)}
         </span>
@@ -192,7 +192,7 @@ export function renderViewField(props: ComponentRendererProps): ReactElement {
       }
 
       return (
-        <span className={`text-blue-600 ${className || ''}`}>
+        <span className={`text-slate-600 ${className || ''}`}>
           {displayName}
         </span>
       );
@@ -232,13 +232,13 @@ export function renderViewField(props: ComponentRendererProps): ReactElement {
           {resolvedNames.map((name: string, i: number) => (
             <span
               key={i}
-              className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700"
+              className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-slate-50 text-slate-700"
             >
               {name}
             </span>
           ))}
           {remaining > 0 && (
-            <span className="text-xs text-gray-500">+{remaining} more</span>
+            <span className="text-xs text-dark-500">+{remaining} more</span>
           )}
         </span>
       );
@@ -258,13 +258,13 @@ export function renderViewField(props: ComponentRendererProps): ReactElement {
             {tags.map((tag: string, i: number) => (
               <span
                 key={i}
-                className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700"
+                className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-dark-200 text-dark-700"
               >
                 {tag}
               </span>
             ))}
             {remaining > 0 && (
-              <span className="text-xs text-gray-500">+{remaining}</span>
+              <span className="text-xs text-dark-500">+{remaining}</span>
             )}
           </span>
         );
@@ -276,7 +276,7 @@ export function renderViewField(props: ComponentRendererProps): ReactElement {
     // --------------------------------------------------------------------
     case 'file':
       return (
-        <span className={`text-blue-600 underline ${className || ''}`}>
+        <span className={`text-slate-600 underline ${className || ''}`}>
           {typeof value === 'string' ? value.split('/').pop() : 'File'}
         </span>
       );
@@ -298,7 +298,7 @@ export function renderViewField(props: ComponentRendererProps): ReactElement {
       return (
         <span className={`flex items-center gap-2 ${className || ''}`}>
           <span
-            className="w-4 h-4 rounded border border-gray-200"
+            className="w-4 h-4 rounded border border-dark-300"
             style={{ backgroundColor: String(value) }}
           />
           {style?.showHex && (
@@ -312,7 +312,7 @@ export function renderViewField(props: ComponentRendererProps): ReactElement {
     // --------------------------------------------------------------------
     case 'json':
       return (
-        <pre className={`text-xs font-mono bg-gray-50 p-2 rounded overflow-auto max-h-32 ${className || ''}`}>
+        <pre className={`text-xs font-mono bg-dark-50 p-2 rounded overflow-auto max-h-32 ${className || ''}`}>
           {JSON.stringify(value, null, 2)}
         </pre>
       );

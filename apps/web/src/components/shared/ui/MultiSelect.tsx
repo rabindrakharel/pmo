@@ -126,13 +126,13 @@ export function MultiSelect({
           {values.map(value => (
             <span
               key={value}
-              className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800"
+              className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-slate-100 text-slate-800"
             >
               {getLabel(value)}
               {!disabled && (
                 <button
                   onClick={() => handleRemove(value)}
-                  className="ml-1.5 text-blue-600 hover:text-blue-900 focus:outline-none"
+                  className="ml-1.5 text-slate-600 hover:text-slate-800 focus:outline-none"
                   type="button"
                 >
                   ×
@@ -150,7 +150,7 @@ export function MultiSelect({
             ref={buttonRef}
             onClick={() => setIsOpen(!isOpen)}
             type="button"
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+            className="px-3 py-1.5 text-sm border border-dark-300 rounded-md hover:bg-dark-50 focus:outline-none focus:ring-2 focus:ring-slate-500/30 transition-colors"
           >
             + Add {placeholder}
           </button>
@@ -160,7 +160,7 @@ export function MultiSelect({
             <div
               ref={dropdownRef}
               data-dropdown-portal=""
-              className="bg-white border border-gray-200 rounded-md overflow-auto"
+              className="bg-white border border-dark-300 rounded-md overflow-auto"
               style={{
                 position: 'absolute',
                 top: `${dropdownPosition.top}px`,
@@ -178,7 +178,7 @@ export function MultiSelect({
                   key={opt.value}
                   onClick={() => handleAdd(String(opt.value))}
                   type="button"
-                  className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm transition-colors focus:outline-none focus:bg-gray-100"
+                  className="w-full text-left px-3 py-2 hover:bg-dark-100 text-sm transition-colors focus:outline-none focus:bg-dark-100"
                 >
                   {opt.label}
                 </button>

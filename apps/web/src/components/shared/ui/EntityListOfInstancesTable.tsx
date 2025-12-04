@@ -1915,8 +1915,8 @@ export function EntityListOfInstancesTable<T = any>({
                         <td
                           key={column.key}
                           className={`px-6 py-2.5 flex-shrink-0 ${getStickyClassName(colIndex)} ${
-                            fieldEditable && inlineEditable ? 'cursor-text hover:bg-blue-50/30' : ''
-                          } ${isCellBeingEdited ? 'bg-blue-50/50' : ''}`}
+                            fieldEditable && inlineEditable ? 'cursor-text hover:bg-slate-50/30' : ''
+                          } ${isCellBeingEdited ? 'bg-slate-50/50' : ''}`}
                           style={columnStylesMap.get(column.key)}
                           onClick={(e) => {
                             if (isEditing) {
@@ -2172,8 +2172,8 @@ export function EntityListOfInstancesTable<T = any>({
                         <td
                           key={column.key}
                           className={`px-6 py-2.5 ${getStickyClassName(colIndex)} ${
-                            fieldEditable && inlineEditable ? 'cursor-text hover:bg-blue-50/30' : ''
-                          } ${isCellBeingEdited ? 'bg-blue-50/50' : ''}`}
+                            fieldEditable && inlineEditable ? 'cursor-text hover:bg-slate-50/30' : ''
+                          } ${isCellBeingEdited ? 'bg-slate-50/50' : ''}`}
                           style={columnStylesMap.get(column.key)}
                           onClick={(e) => {
                             if (isEditing) {

@@ -186,10 +186,10 @@ export function LandingPage() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <div className="flex-shrink-0 flex items-center">
-                <div className="h-8 w-8 bg-gradient-to-r from-blue-600 to-purple-700 rounded-md flex items-center justify-center">
+                <div className="h-8 w-8 bg-gradient-to-br from-slate-700 to-slate-800 rounded-md flex items-center justify-center shadow-sm">
                   <Brain className="h-5 w-5 text-white" />
                 </div>
-                <span className="ml-2 text-xl font-bold text-dark-600">OperationOS</span>
+                <span className="ml-2 text-xl font-semibold text-dark-700">OperationOS</span>
               </div>
             </div>
             <div className="hidden md:flex items-center space-x-8">
@@ -210,10 +210,10 @@ export function LandingPage() {
               </Link>
               <Link
                 to="/signup"
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gradient-to-r from-blue-600 to-purple-700 hover:from-blue-700 hover:to-purple-800 transition-all shadow-sm hover:shadow-sm"
+                className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-slate-600 hover:bg-slate-700 transition-all shadow-sm"
               >
                 Get Started
-                <ArrowRight className="ml-2 h-4 w-4" />
+                <ArrowRight className="ml-2 h-3.5 w-3.5" />
               </Link>
             </div>
           </div>
@@ -224,14 +224,14 @@ export function LandingPage() {
       <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-dark-100 via-dark-100 to-dark-200">
         <div className="max-w-7xl mx-auto">
           <div className="text-center">
-            <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-50 to-purple-50 rounded-full text-blue-700 text-sm font-medium mb-6 border border-blue-200">
-              <Sparkles className="h-4 w-4 mr-2 text-purple-600" />
+            <div className="inline-flex items-center px-4 py-2 bg-slate-100 rounded-full text-slate-700 text-sm font-medium mb-6 border border-slate-200">
+              <Sparkles className="h-4 w-4 mr-2 text-slate-600" />
               AI-First Operations Platform
             </div>
-            <h1 className="text-5xl md:text-6xl font-bold text-dark-600 mb-6 leading-tight">
+            <h1 className="text-5xl md:text-6xl font-bold text-dark-700 mb-6 leading-tight">
               Reimagine Operations with
               <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-700">
+              <span className="text-slate-700">
                 AI-First Intelligence
               </span>
             </h1>
@@ -242,14 +242,14 @@ export function LandingPage() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 to="/signup"
-                className="inline-flex items-center justify-center px-8 py-4 border border-transparent text-base font-medium rounded-md text-white bg-gradient-to-r from-blue-600 to-purple-700 hover:from-blue-700 hover:to-purple-800 transition-all shadow-lg hover:shadow-xl"
+                className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-slate-700 hover:bg-slate-800 transition-all shadow-md hover:shadow-lg"
               >
                 Get Started
-                <ArrowRight className="ml-2 h-5 w-5" />
+                <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
               <a
                 href="#vision"
-                className="inline-flex items-center justify-center px-8 py-4 border border-dark-400 text-base font-medium rounded-md text-dark-600 bg-dark-100 hover:bg-dark-100 transition-all shadow-sm hover:shadow-sm"
+                className="inline-flex items-center justify-center px-6 py-3 border border-dark-300 text-base font-medium rounded-md text-dark-700 bg-white hover:bg-dark-50 hover:border-dark-400 transition-all"
               >
                 Book a Demo
               </a>
@@ -277,20 +277,20 @@ export function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             <div className="text-center">
-              <div className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-700">75%</div>
-              <div className="text-dark-700 mt-2">Time Saved via AI</div>
+              <div className="text-4xl font-bold text-slate-700">75%</div>
+              <div className="text-dark-600 mt-2">Time Saved via AI</div>
             </div>
             <div className="text-center">
-              <div className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-700">10M+</div>
-              <div className="text-dark-700 mt-2">Tasks Automated</div>
+              <div className="text-4xl font-bold text-slate-700">10M+</div>
+              <div className="text-dark-600 mt-2">Tasks Automated</div>
             </div>
             <div className="text-center">
-              <div className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-700">2500+</div>
-              <div className="text-dark-700 mt-2">Organizations</div>
+              <div className="text-4xl font-bold text-slate-700">2500+</div>
+              <div className="text-dark-600 mt-2">Organizations</div>
             </div>
             <div className="text-center">
-              <div className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-700">99.9%</div>
-              <div className="text-dark-700 mt-2">Uptime SLA</div>
+              <div className="text-4xl font-bold text-slate-700">99.9%</div>
+              <div className="text-dark-600 mt-2">Uptime SLA</div>
             </div>
           </div>
         </div>
@@ -300,12 +300,12 @@ export function LandingPage() {
       <section id="vision" className="py-20 bg-gradient-to-br from-dark-100 to-dark-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-50 to-purple-50 rounded-full text-purple-700 text-sm font-medium mb-6 border border-purple-200">
-              <Lightbulb className="h-4 w-4 mr-2" />
+            <div className="inline-flex items-center px-4 py-2 bg-slate-100 rounded-full text-slate-700 text-sm font-medium mb-6 border border-slate-200">
+              <Lightbulb className="h-4 w-4 mr-2 text-slate-600" />
               Our Vision
             </div>
-            <h2 className="text-3xl md:text-4xl font-bold text-dark-600 mb-6">
-              The Future of Work is <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-700">AI-First</span>
+            <h2 className="text-3xl md:text-4xl font-bold text-dark-700 mb-6">
+              The Future of Work is <span className="text-slate-700">AI-First</span>
             </h2>
             <div className="max-w-4xl mx-auto space-y-6 text-lg text-dark-700 leading-relaxed">
               <p>
@@ -338,13 +338,13 @@ export function LandingPage() {
             {coreValues.map((value, index) => (
               <div
                 key={index}
-                className="bg-dark-100 p-8 rounded-xl shadow-sm hover:shadow-lg transition-all border border-dark-300 hover:border-purple-300"
+                className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all border border-dark-300 hover:border-slate-400"
               >
-                <div className="h-12 w-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-md flex items-center justify-center mb-4">
+                <div className="h-12 w-12 bg-gradient-to-br from-slate-600 to-slate-700 rounded-lg flex items-center justify-center mb-4">
                   <value.icon className="h-6 w-6 text-white" />
                 </div>
-                <h3 className="text-xl font-semibold text-dark-600 mb-2">{value.title}</h3>
-                <p className="text-dark-700">{value.description}</p>
+                <h3 className="text-lg font-semibold text-dark-700 mb-2">{value.title}</h3>
+                <p className="text-sm text-dark-600">{value.description}</p>
               </div>
             ))}
           </div>
@@ -366,13 +366,13 @@ export function LandingPage() {
             {capabilities.map((capability, index) => (
               <div
                 key={index}
-                className="bg-dark-100 p-8 rounded-xl shadow-sm hover:shadow-sm transition-all border border-dark-300"
+                className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all border border-dark-300 hover:border-slate-400"
               >
-                <div className="h-12 w-12 bg-gradient-to-r from-purple-400 to-blue-500 rounded-md flex items-center justify-center mb-4">
+                <div className="h-12 w-12 bg-gradient-to-br from-slate-600 to-slate-700 rounded-lg flex items-center justify-center mb-4">
                   <capability.icon className="h-6 w-6 text-white" />
                 </div>
-                <h3 className="text-xl font-semibold text-dark-600 mb-2">{capability.title}</h3>
-                <p className="text-dark-700">{capability.description}</p>
+                <h3 className="text-lg font-semibold text-dark-700 mb-2">{capability.title}</h3>
+                <p className="text-sm text-dark-600">{capability.description}</p>
               </div>
             ))}
           </div>
@@ -387,33 +387,33 @@ export function LandingPage() {
               Why OperationOS?
             </h2>
           </div>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="text-center p-8 bg-dark-100 rounded-xl border border-dark-300 hover:border-slate-400 transition-all">
-              <div className="inline-flex h-16 w-16 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full items-center justify-center mb-6">
-                <Cpu className="h-8 w-8 text-white" />
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="text-center p-6 bg-white rounded-xl border border-dark-300 hover:border-slate-400 hover:shadow-md transition-all">
+              <div className="inline-flex h-14 w-14 bg-gradient-to-br from-slate-600 to-slate-700 rounded-xl items-center justify-center mb-5">
+                <Cpu className="h-7 w-7 text-white" />
               </div>
-              <h3 className="text-xl font-bold text-dark-600 mb-3">AI-First by Design</h3>
-              <p className="text-dark-700">
+              <h3 className="text-lg font-semibold text-dark-700 mb-2">AI-First by Design</h3>
+              <p className="text-sm text-dark-600">
                 Unlike legacy tools that bolt on AI, OperationOS is built AI-first from the ground up,
                 enabling proactive, predictive, and adaptive automation.
               </p>
             </div>
-            <div className="text-center p-8 bg-dark-100 rounded-xl border border-dark-300 hover:border-purple-400 transition-all">
-              <div className="inline-flex h-16 w-16 bg-gradient-to-r from-purple-500 to-purple-600 rounded-full items-center justify-center mb-6">
-                <Rocket className="h-8 w-8 text-white" />
+            <div className="text-center p-6 bg-white rounded-xl border border-dark-300 hover:border-slate-400 hover:shadow-md transition-all">
+              <div className="inline-flex h-14 w-14 bg-gradient-to-br from-slate-600 to-slate-700 rounded-xl items-center justify-center mb-5">
+                <Rocket className="h-7 w-7 text-white" />
               </div>
-              <h3 className="text-xl font-bold text-dark-600 mb-3">Designed for Workforce Productivity</h3>
-              <p className="text-dark-700">
+              <h3 className="text-lg font-semibold text-dark-700 mb-2">Designed for Workforce Productivity</h3>
+              <p className="text-sm text-dark-600">
                 Empower your teams to do more with less — by automating workflows, surfacing insights,
                 and enabling focus on high-impact work.
               </p>
             </div>
-            <div className="text-center p-8 bg-dark-100 rounded-xl border border-dark-300 hover:border-indigo-400 transition-all">
-              <div className="inline-flex h-16 w-16 bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-full items-center justify-center mb-6">
-                <Shield className="h-8 w-8 text-white" />
+            <div className="text-center p-6 bg-white rounded-xl border border-dark-300 hover:border-slate-400 hover:shadow-md transition-all">
+              <div className="inline-flex h-14 w-14 bg-gradient-to-br from-slate-600 to-slate-700 rounded-xl items-center justify-center mb-5">
+                <Shield className="h-7 w-7 text-white" />
               </div>
-              <h3 className="text-xl font-bold text-dark-600 mb-3">Enterprise-Grade Simplicity</h3>
-              <p className="text-dark-700">
+              <h3 className="text-lg font-semibold text-dark-700 mb-2">Enterprise-Grade Simplicity</h3>
+              <p className="text-sm text-dark-600">
                 Secure, scalable, and intuitive. Built for organizations that want to innovate fast without complexity.
               </p>
             </div>
@@ -432,26 +432,34 @@ export function LandingPage() {
               From customer service to sales, operations to product teams — OperationOS powers every department.
             </p>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-dark-100 p-6 rounded-xl border border-dark-300 hover:border-slate-400 transition-all text-center">
-              <UserCircle className="h-12 w-12 text-blue-600 mx-auto mb-4" />
-              <h3 className="text-lg font-bold text-dark-600 mb-2">Customer Service Teams</h3>
-              <p className="text-sm text-dark-700">Transform service ops with autonomous workflows and AI insights.</p>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="bg-white p-5 rounded-xl border border-dark-300 hover:border-slate-400 hover:shadow-md transition-all text-center">
+              <div className="h-12 w-12 bg-slate-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+                <UserCircle className="h-6 w-6 text-slate-600" />
+              </div>
+              <h3 className="text-base font-semibold text-dark-700 mb-2">Customer Service Teams</h3>
+              <p className="text-sm text-dark-600">Transform service ops with autonomous workflows and AI insights.</p>
             </div>
-            <div className="bg-dark-100 p-6 rounded-xl border border-dark-300 hover:border-purple-400 transition-all text-center">
-              <Target className="h-12 w-12 text-purple-600 mx-auto mb-4" />
-              <h3 className="text-lg font-bold text-dark-600 mb-2">Sales & CRM Leaders</h3>
-              <p className="text-sm text-dark-700">Build adaptive customer journeys with full context.</p>
+            <div className="bg-white p-5 rounded-xl border border-dark-300 hover:border-slate-400 hover:shadow-md transition-all text-center">
+              <div className="h-12 w-12 bg-slate-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+                <Target className="h-6 w-6 text-slate-600" />
+              </div>
+              <h3 className="text-base font-semibold text-dark-700 mb-2">Sales & CRM Leaders</h3>
+              <p className="text-sm text-dark-600">Build adaptive customer journeys with full context.</p>
             </div>
-            <div className="bg-dark-100 p-6 rounded-xl border border-dark-300 hover:border-indigo-400 transition-all text-center">
-              <Briefcase className="h-12 w-12 text-indigo-600 mx-auto mb-4" />
-              <h3 className="text-lg font-bold text-dark-600 mb-2">Operations & Strategy Teams</h3>
-              <p className="text-sm text-dark-700">Gain end-to-end visibility and decision intelligence.</p>
+            <div className="bg-white p-5 rounded-xl border border-dark-300 hover:border-slate-400 hover:shadow-md transition-all text-center">
+              <div className="h-12 w-12 bg-slate-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+                <Briefcase className="h-6 w-6 text-slate-600" />
+              </div>
+              <h3 className="text-base font-semibold text-dark-700 mb-2">Operations & Strategy Teams</h3>
+              <p className="text-sm text-dark-600">Gain end-to-end visibility and decision intelligence.</p>
             </div>
-            <div className="bg-dark-100 p-6 rounded-xl border border-dark-300 hover:border-cyan-400 transition-all text-center">
-              <Code className="h-12 w-12 text-cyan-600 mx-auto mb-4" />
-              <h3 className="text-lg font-bold text-dark-600 mb-2">Tech & Product Teams</h3>
-              <p className="text-sm text-dark-700">Reduce silos between projects and streamline releases.</p>
+            <div className="bg-white p-5 rounded-xl border border-dark-300 hover:border-slate-400 hover:shadow-md transition-all text-center">
+              <div className="h-12 w-12 bg-slate-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+                <Code className="h-6 w-6 text-slate-600" />
+              </div>
+              <h3 className="text-base font-semibold text-dark-700 mb-2">Tech & Product Teams</h3>
+              <p className="text-sm text-dark-600">Reduce silos between projects and streamline releases.</p>
             </div>
           </div>
         </div>
@@ -460,11 +468,11 @@ export function LandingPage() {
       {/* AI-First Future */}
       <section className="py-20 bg-dark-100">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-50 to-purple-50 rounded-full text-purple-700 text-sm font-medium mb-6 border border-purple-200">
-            <Sparkles className="h-4 w-4 mr-2" />
+          <div className="inline-flex items-center px-4 py-2 bg-slate-100 rounded-full text-slate-700 text-sm font-medium mb-6 border border-slate-200">
+            <Sparkles className="h-4 w-4 mr-2 text-slate-600" />
             The Future is Here
           </div>
-          <h2 className="text-3xl md:text-4xl font-bold text-dark-600 mb-6">
+          <h2 className="text-3xl md:text-4xl font-bold text-dark-700 mb-6">
             The AI-First Future of Operations
           </h2>
           <p className="text-xl text-dark-700 mb-8 leading-relaxed">
@@ -491,45 +499,45 @@ export function LandingPage() {
               Cancel anytime with no questions asked.
             </p>
           </div>
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-6">
             {plans.map((plan, index) => (
               <div
                 key={index}
-                className={`relative bg-dark-100 rounded-2xl shadow-lg border-2 p-8 ${
+                className={`relative bg-white rounded-xl shadow-sm border-2 p-6 hover:shadow-md transition-all ${
                   plan.popular
-                    ? 'border-purple-400 ring-4 ring-purple-100'
+                    ? 'border-slate-400 ring-4 ring-slate-100'
                     : 'border-dark-300'
                 }`}
               >
                 {plan.popular && (
                   <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                    <div className="bg-gradient-to-r from-blue-600 to-purple-700 text-white px-4 py-1 rounded-full text-sm font-medium">
+                    <div className="bg-slate-700 text-white px-4 py-1 rounded-full text-sm font-medium">
                       Most Popular
                     </div>
                   </div>
                 )}
-                <div className="text-center mb-8">
-                  <h3 className="text-2xl font-bold text-dark-600 mb-2">{plan.name}</h3>
-                  <div className="mb-4">
-                    <span className="text-4xl font-bold text-dark-600">{plan.price}</span>
-                    <span className="text-dark-700">{plan.period}</span>
+                <div className="text-center mb-6">
+                  <h3 className="text-xl font-semibold text-dark-700 mb-2">{plan.name}</h3>
+                  <div className="mb-3">
+                    <span className="text-3xl font-bold text-slate-700">{plan.price}</span>
+                    <span className="text-dark-600">{plan.period}</span>
                   </div>
-                  <p className="text-dark-700">{plan.description}</p>
+                  <p className="text-sm text-dark-600">{plan.description}</p>
                 </div>
-                <ul className="space-y-4 mb-8">
+                <ul className="space-y-3 mb-6">
                   {plan.features.map((feature, idx) => (
                     <li key={idx} className="flex items-start">
-                      <CheckCircle className="h-5 w-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                      <span className="text-dark-600">{feature}</span>
+                      <CheckCircle className="h-4 w-4 text-green-600 mr-2 mt-0.5 flex-shrink-0" />
+                      <span className="text-sm text-dark-600">{feature}</span>
                     </li>
                   ))}
                 </ul>
                 <Link
                   to="/signup"
-                  className={`block w-full text-center px-6 py-3 rounded-md font-medium transition-all ${
+                  className={`block w-full text-center px-4 py-2.5 rounded-md text-sm font-medium transition-all ${
                     plan.popular
-                      ? 'bg-gradient-to-r from-blue-600 to-purple-700 text-white hover:from-blue-700 hover:to-purple-800 shadow-sm hover:shadow-lg'
-                      : 'bg-dark-100 text-dark-600 hover:bg-dark-200'
+                      ? 'bg-slate-700 text-white hover:bg-slate-800 shadow-sm'
+                      : 'bg-white text-dark-700 border border-dark-300 hover:border-dark-400'
                   }`}
                 >
                   {plan.cta}
@@ -551,26 +559,26 @@ export function LandingPage() {
               See how organizations are transforming their operations with AI-first intelligence.
             </p>
           </div>
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-6">
             {testimonials.map((testimonial, index) => (
               <div
                 key={index}
-                className="bg-dark-100 p-8 rounded-xl shadow-sm hover:shadow-sm transition-all border border-dark-300"
+                className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all border border-dark-300"
               >
-                <div className="flex items-center mb-4">
+                <div className="flex items-center mb-3">
                   {[...Array(testimonial.rating)].map((_, i) => (
-                    <Star key={i} className="h-5 w-5 text-yellow-400 fill-current" />
+                    <Star key={i} className="h-4 w-4 text-amber-400 fill-current" />
                   ))}
                 </div>
-                <p className="text-dark-600 mb-6 italic">"{testimonial.quote}"</p>
+                <p className="text-sm text-dark-600 mb-5 italic leading-relaxed">"{testimonial.quote}"</p>
                 <div className="flex items-center">
-                  <div className="h-12 w-12 bg-gradient-to-r from-slate-400 to-dark-100 rounded-full flex items-center justify-center mr-4">
-                    <Users className="h-6 w-6 text-slate-700" />
+                  <div className="h-10 w-10 bg-slate-100 rounded-full flex items-center justify-center mr-3">
+                    <Users className="h-5 w-5 text-slate-600" />
                   </div>
                   <div>
-                    <div className="font-semibold text-dark-600">{testimonial.name}</div>
-                    <div className="text-sm text-dark-700">{testimonial.role}</div>
-                    <div className="text-sm text-dark-700">{testimonial.company}</div>
+                    <div className="text-sm font-medium text-dark-700">{testimonial.name}</div>
+                    <div className="text-xs text-dark-600">{testimonial.role}</div>
+                    <div className="text-xs text-dark-500">{testimonial.company}</div>
                   </div>
                 </div>
               </div>
@@ -580,25 +588,25 @@ export function LandingPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-blue-700 via-purple-700 to-indigo-800">
+      <section className="py-16 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
+          <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
             Let's Redefine How Your Organization Works
           </h2>
-          <p className="text-xl text-blue-50 mb-10">
+          <p className="text-base text-slate-200 mb-8 max-w-2xl mx-auto">
             Experience AI-first operations today. Transform your workflows, empower your teams, and unlock unprecedented efficiency.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
               to="/signup"
-              className="inline-flex items-center justify-center px-8 py-4 border border-transparent text-base font-medium rounded-md text-purple-700 bg-white hover:bg-gray-50 transition-all shadow-lg hover:shadow-xl"
+              className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 transition-all shadow-sm"
             >
               Get Started
-              <ArrowRight className="ml-2 h-5 w-5" />
+              <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
             <a
               href="#pricing"
-              className="inline-flex items-center justify-center px-8 py-4 border-2 border-white text-base font-medium rounded-md text-white bg-transparent hover:bg-white/10 transition-all"
+              className="inline-flex items-center justify-center px-6 py-3 border border-slate-400 text-sm font-medium rounded-md text-white bg-transparent hover:bg-white/10 transition-all"
             >
               View Pricing
             </a>
@@ -607,49 +615,49 @@ export function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-dark-900 text-dark-600 py-12">
+      <footer className="bg-slate-800 text-slate-300 py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div>
               <div className="flex items-center mb-4">
-                <div className="h-8 w-8 bg-gradient-to-r from-blue-600 to-purple-700 rounded-md flex items-center justify-center">
+                <div className="h-8 w-8 bg-slate-700 rounded-md flex items-center justify-center">
                   <Brain className="h-5 w-5 text-white" />
                 </div>
-                <span className="ml-2 text-xl font-bold text-white">OperationOS</span>
+                <span className="ml-2 text-lg font-semibold text-white">OperationOS</span>
               </div>
-              <p className="text-sm">
+              <p className="text-sm text-slate-400">
                 AI-first operations platform for modern enterprises. Automate, orchestrate, and elevate your workflows.
               </p>
             </div>
             <div>
-              <h4 className="text-white font-semibold mb-4">Product</h4>
+              <h4 className="text-white font-medium mb-4 text-sm">Product</h4>
               <ul className="space-y-2 text-sm">
-                <li><a href="#vision" className="hover:text-white transition-colors">Vision</a></li>
-                <li><a href="#capabilities" className="hover:text-white transition-colors">Capabilities</a></li>
-                <li><a href="#pricing" className="hover:text-white transition-colors">Pricing</a></li>
-                <li><Link to="/signup" className="hover:text-white transition-colors">Get Started</Link></li>
+                <li><a href="#vision" className="text-slate-400 hover:text-white transition-colors">Vision</a></li>
+                <li><a href="#capabilities" className="text-slate-400 hover:text-white transition-colors">Capabilities</a></li>
+                <li><a href="#pricing" className="text-slate-400 hover:text-white transition-colors">Pricing</a></li>
+                <li><Link to="/signup" className="text-slate-400 hover:text-white transition-colors">Get Started</Link></li>
               </ul>
             </div>
             <div>
-              <h4 className="text-white font-semibold mb-4">Company</h4>
+              <h4 className="text-white font-medium mb-4 text-sm">Company</h4>
               <ul className="space-y-2 text-sm">
-                <li><a href="#" className="hover:text-white transition-colors">About</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Contact</a></li>
+                <li><a href="#" className="text-slate-400 hover:text-white transition-colors">About</a></li>
+                <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Blog</a></li>
+                <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Careers</a></li>
+                <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Contact</a></li>
               </ul>
             </div>
             <div>
-              <h4 className="text-white font-semibold mb-4">Resources</h4>
+              <h4 className="text-white font-medium mb-4 text-sm">Resources</h4>
               <ul className="space-y-2 text-sm">
-                <li><a href="#" className="hover:text-white transition-colors">Documentation</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">API Reference</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Help Center</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Status</a></li>
+                <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Documentation</a></li>
+                <li><a href="#" className="text-slate-400 hover:text-white transition-colors">API Reference</a></li>
+                <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Help Center</a></li>
+                <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Status</a></li>
               </ul>
             </div>
           </div>
-          <div className="border-t border-dark-400 pt-8 text-center text-sm">
+          <div className="border-t border-slate-700 pt-6 text-center text-sm text-slate-400">
             <p>&copy; 2025 OperationOS. All rights reserved.</p>
           </div>
         </div>
