@@ -71,7 +71,7 @@ export class OpenAIService {
         model: config.model,
         messages: args.messages,
         temperature: args.temperature ?? config.temperature,
-        max_tokens: args.maxTokens ?? config.maxTokens,
+        max_completion_tokens: args.maxTokens ?? config.maxTokens,
         response_format: args.jsonMode ? { type: 'json_object' } : undefined,
         stream: true, // Enable streaming
       };
@@ -182,7 +182,7 @@ export class OpenAIService {
         model: config.model,
         messages: args.messages,
         temperature: args.temperature ?? config.temperature,
-        max_tokens: args.maxTokens ?? config.maxTokens,
+        max_completion_tokens: args.maxTokens ?? config.maxTokens,
         response_format: args.jsonMode ? { type: 'json_object' } : undefined,
       };
 

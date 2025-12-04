@@ -28,7 +28,7 @@ export async function workOrderRoutes(fastify: FastifyInstance) {
   // ═══════════════════════════════════════════════════════════════
   createUniversalEntityRoutes(fastify, {
     entityCode: ENTITY_CODE,
-    tableName: 'fact_work_order',
+    tableName: 'work_order',
     tableAlias: 'w',
     searchFields: ['name', 'descr', 'code', 'customer_name'],
     defaultOrderBy: 'scheduled_date DESC NULLS LAST, created_ts DESC',

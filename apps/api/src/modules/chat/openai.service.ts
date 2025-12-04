@@ -447,7 +447,7 @@ async function callOpenAI(
     tools: formattedTools,
     tool_choice: 'auto',
     temperature: 0.7,
-    max_tokens: 1000
+    max_completion_tokens: 1000
   };
 
   const response = await fetch(OPENAI_API_URL, {

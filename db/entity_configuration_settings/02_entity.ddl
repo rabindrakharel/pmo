@@ -26,7 +26,7 @@
 -- =====================================================
 
 CREATE TABLE app.entity (
-    code varchar(50),
+    code varchar(50) PRIMARY KEY,
     name varchar(100),
     ui_label varchar(100),
     ui_icon varchar(50),
@@ -266,17 +266,38 @@ VALUES (
   110
 );
 
--- Calendar entity type (leaf node - no children)
+-- Chat entity type (AI chat sessions - leaf node - no children)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+VALUES (
+  'chat',
+  'Chat',
+  'Chat',
+  'MessageSquare',
+  'interaction',
+  'f',
+  '[]'::jsonb,
+  35
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  db_table = EXCLUDED.db_table,
+  db_model_type = EXCLUDED.db_model_type,
+  child_entity_codes = EXCLUDED.child_entity_codes,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
+
+-- Calendar entity type (person availability/booking - leaf node - no children)
 INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'calendar',
   'Calendar',
-  'Calendars',
   'Calendar',
-  'person_calendar',
+  'Calendar',
+  'd_entity_person_calendar',
   'd',
   '[]'::jsonb,
-  135
+  45
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
   ui_label = EXCLUDED.ui_label,
@@ -784,8 +805,8 @@ VALUES (
 -- CONFIGURATION ENTITIES (Settings & Lookup Tables)
 -- =====================================================
 
--- Domain entity type (domain definitions for entity grouping)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+-- Domain entity type (domain definitions for entity grouping) - DEACTIVATED (meta-entity)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order, active_flag)
 VALUES (
   'domain',
   'Domain',
@@ -794,7 +815,8 @@ VALUES (
   'd_domain',
   'd',
   '[]'::jsonb,
-  895
+  895,
+  false
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
   ui_label = EXCLUDED.ui_label,
@@ -803,10 +825,11 @@ VALUES (
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
   display_order = EXCLUDED.display_order,
+  active_flag = EXCLUDED.active_flag,
   updated_ts = now();
 
--- Datalabel entity type (settings/lookup labels)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+-- Datalabel entity type (settings/lookup labels) - DEACTIVATED (meta-entity)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order, active_flag)
 VALUES (
   'datalabel',
   'Data Label',
@@ -815,7 +838,8 @@ VALUES (
   'datalabel',
   'd',
   '[]'::jsonb,
-  896
+  896,
+  false
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
   ui_label = EXCLUDED.ui_label,
@@ -824,6 +848,7 @@ VALUES (
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
   display_order = EXCLUDED.display_order,
+  active_flag = EXCLUDED.active_flag,
   updated_ts = now();
 
 -- =====================================================
@@ -832,8 +857,8 @@ VALUES (
 -- Infrastructure tables registered as entities themselves
 -- Creates self-describing entity system where d_entity describes itself
 
--- Entity meta-entity (represents the concept of 'entity' itself)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+-- Entity meta-entity (represents the concept of 'entity' itself) - DEACTIVATED (meta-entity)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order, active_flag)
 VALUES (
   'entity',
   'Entity',
@@ -842,7 +867,8 @@ VALUES (
   'entity',
   'd',
   '[]'::jsonb,
-  900
+  900,
+  false
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
   ui_label = EXCLUDED.ui_label,
@@ -851,10 +877,11 @@ VALUES (
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
   display_order = EXCLUDED.display_order,
+  active_flag = EXCLUDED.active_flag,
   updated_ts = now();
 
--- Entity Instance meta-entity (renamed from entity_instance_registry)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+-- Entity Instance meta-entity (renamed from entity_instance_registry) - DEACTIVATED (meta-entity)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order, active_flag)
 VALUES (
   'entity_instance',
   'Entity Instance',
@@ -863,7 +890,8 @@ VALUES (
   'entity_instance',
   'f',
   '[]'::jsonb,
-  910
+  910,
+  false
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
   ui_label = EXCLUDED.ui_label,
@@ -872,10 +900,11 @@ VALUES (
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
   display_order = EXCLUDED.display_order,
+  active_flag = EXCLUDED.active_flag,
   updated_ts = now();
 
--- Entity Instance Link meta-entity
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+-- Entity Instance Link meta-entity - DEACTIVATED (meta-entity)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order, active_flag)
 VALUES (
   'entity_instance_link',
   'Entity Instance Link',
@@ -884,7 +913,8 @@ VALUES (
   'entity_instance_link',
   'f',
   '[]'::jsonb,
-  920
+  920,
+  false
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
   ui_label = EXCLUDED.ui_label,
@@ -893,10 +923,11 @@ VALUES (
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
   display_order = EXCLUDED.display_order,
+  active_flag = EXCLUDED.active_flag,
   updated_ts = now();
 
--- Entity RBAC meta-entity
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+-- Entity RBAC meta-entity - DEACTIVATED (meta-entity)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order, active_flag)
 VALUES (
   'entity_rbac',
   'Entity RBAC',
@@ -905,7 +936,8 @@ VALUES (
   'entity_rbac',
   'f',
   '[]'::jsonb,
-  930
+  930,
+  false
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
   ui_label = EXCLUDED.ui_label,
@@ -914,6 +946,7 @@ VALUES (
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
   display_order = EXCLUDED.display_order,
+  active_flag = EXCLUDED.active_flag,
   updated_ts = now();
 
 -- =====================================================
@@ -978,7 +1011,7 @@ WHERE d.code = 'financial_management'
   AND e.code IN ('expense', 'revenue');
 
 -- DOMAIN 6: COMMUNICATION & INTERACTION
--- Purpose: Messaging, engagement, interaction logs
+-- Purpose: Messaging, engagement, interaction logs, chat sessions
 UPDATE app.entity e SET
     domain_id = d.domain_id,
     domain_code = d.code,
@@ -986,7 +1019,7 @@ UPDATE app.entity e SET
     updated_ts = now()
 FROM app.d_domain d
 WHERE d.code = 'communication_interaction'
-  AND e.code IN ('message_schema', 'message', 'interaction');
+  AND e.code IN ('message_schema', 'message', 'interaction', 'chat');
 
 -- DOMAIN 7: KNOWLEDGE & DOCUMENTATION
 -- Purpose: Wikis, forms, artifacts

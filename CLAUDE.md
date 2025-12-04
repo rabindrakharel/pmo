@@ -707,12 +707,17 @@ CREATE TABLE app.d_entity (
 ### Adding New Entity
 
 1. **Database**: Create `db/[entity].ddl`
-2. **Entity Metadata**: Add to `entity` table
+2. **Entity Metadata**: Add INSERT statement to `db/entity_configuration_settings/02_entity.ddl`
+   - Set `code`, `name`, `ui_label`, `ui_icon` (Lucide icon name), `db_table`, `display_order`
+   - Use `ON CONFLICT (code) DO UPDATE` for idempotency
+   - Add to appropriate domain mapping UPDATE statement (e.g., `communication_interaction`, `event_calendar`)
 3. **API Module**: Create `apps/api/src/modules/[entity]/routes.ts`
    - Use transactional `create_entity()`, `update_entity()`, `delete_entity()`
 4. **Frontend**: Add to `apps/web/src/lib/entityConfig.ts`
 5. **Import**: Run `./tools/db-import.sh`
 6. **Test**: `./tools/test-api.sh GET /api/v1/[entity]`
+
+**Note**: Sidebar navigation is auto-generated from `app.entity` table. Active entities with `active_flag=true` appear in sidebar sorted by `display_order`.
 
 ### Anti-Patterns (Avoid)
 

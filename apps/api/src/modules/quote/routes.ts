@@ -28,7 +28,7 @@ export async function quoteRoutes(fastify: FastifyInstance) {
   // ═══════════════════════════════════════════════════════════════
   createUniversalEntityRoutes(fastify, {
     entityCode: ENTITY_CODE,
-    tableName: 'fact_quote',
+    tableName: 'quote',
     tableAlias: 'q',
     searchFields: ['name', 'descr', 'code', 'customer_name'],
     defaultOrderBy: 'created_ts DESC',

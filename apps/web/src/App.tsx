@@ -159,13 +159,17 @@ function AppRoutes() {
         element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>}
       />
 
+      {/* Special Routes - Chat (AI Assistant Widget) - MUST be before auto-generated routes */}
+      <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
+      <Route path="/voice-chat" element={<ProtectedRoute><VoiceChatPage /></ProtectedRoute>} />
+
       {/* Auto-Generated Entity Routes */}
       {generateEntityRoutes()}
 
-      {/* Special Routes - Calendar (defaults to calendar view) */}
-      <Route path="/calendar" element={<ProtectedRoute><EntityListOfInstancesPage entityCode="event" defaultView="calendar" /></ProtectedRoute>} />
-      <Route path="/calendar/new" element={<ProtectedRoute><EntityCreatePage entityCode="event" /></ProtectedRoute>} />
-      <Route path="/calendar/:id" element={<ProtectedRoute><EntitySpecificInstancePage entityCode="event" /></ProtectedRoute>} />
+      {/* Special Routes - Calendar (person availability/booking calendar) */}
+      <Route path="/calendar" element={<ProtectedRoute><EntityListOfInstancesPage entityCode="calendar" defaultView="calendar" /></ProtectedRoute>} />
+      <Route path="/calendar/new" element={<ProtectedRoute><EntityCreatePage entityCode="calendar" /></ProtectedRoute>} />
+      <Route path="/calendar/:id" element={<ProtectedRoute><EntitySpecificInstancePage entityCode="calendar" /></ProtectedRoute>} />
 
       {/* Special Routes - Wiki (custom create/edit pages) */}
       <Route path="/wiki" element={<ProtectedRoute><EntityListOfInstancesPage entityCode="wiki" /></ProtectedRoute>} />
@@ -194,10 +198,6 @@ function AppRoutes() {
 
       {/* Special Routes - Marketing (email designer) */}
       <Route path="/marketing/:id/design" element={<ProtectedRoute><EmailDesignerPage /></ProtectedRoute>} />
-
-      {/* Special Routes - Chat (AI Assistant Widget) */}
-      <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
-      <Route path="/voice-chat" element={<ProtectedRoute><VoiceChatPage /></ProtectedRoute>} />
 
       {/* Guide Pages */}
       <Route path="/userguide" element={<ProtectedRoute><UserGuidePage /></ProtectedRoute>} />

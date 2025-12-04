@@ -280,7 +280,9 @@
       "Bash(/tmp/test-attachments.sh)",
       "Bash(pnpm -F @pmo/web run type-check:*)",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzY0NzI4OTUxLCJleHAiOjE3NjQ4MTUzNTF9.GnVZDko6o3WchAVbjJeR3o59ig3q2Z43TyXYFf29CNc\" curl -s \"http://localhost:4000/api/v1/cust?limit=1\" -H \"Authorization: Bearer $TOKEN\")",
-      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzY0ODc1NTM3LCJleHAiOjE3NjQ5NjE5Mzd9.Dq9grh9zQbmMatwZGFmVuYuvjSO7yGV-BFgbKp-hONk\" curl -s \"http://localhost:4000/api/v1/entity/types\" -H \"Authorization: Bearer $TOKEN\")"
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzY0ODc1NTM3LCJleHAiOjE3NjQ5NjE5Mzd9.Dq9grh9zQbmMatwZGFmVuYuvjSO7yGV-BFgbKp-hONk\" curl -s \"http://localhost:4000/api/v1/entity/types\" -H \"Authorization: Bearer $TOKEN\")",
+      "Bash(do timeout 2 curl -s http://localhost:4000/api/v1/health)",
+      "Bash(break)"
     ],
     "deny": [],
     "ask": [],

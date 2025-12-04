@@ -2563,4 +2563,121 @@ const handleClickOutside = (event: MouseEvent) => {
 
 ---
 
-The document is currently **~1200 lines**. Would you like me to continue expanding sections 6-10 and the appendices, or would you like to review what's been written so far first?
+## Section 7: Inline Editing Patterns
+
+### 7.1 Form Inline Edit (Long-Press Pattern)
+
+**Purpose**: Enable quick field editing in forms without entering full edit mode
+
+**Trigger**: Long-press field for 500ms
+
+**Pattern**:
+```typescript
+// EntityInstanceFormContainer.tsx
+
+const [inlineEditingField, setInlineEditingField] = useState<string | null>(null);
+const [inlineEditValue, setInlineEditValue] = useState<any>(null);
+const [pressTimer, setPressTimer] = useState<NodeJS.Timeout | null>(null);
+const editingFieldRef = useRef<HTMLDivElement | null>(null);
+
+// Long-press detection
+const handleFieldMouseDown = (fieldKey: string, currentValue: any, target: HTMLElement) => {
+  const timer = setTimeout(() => {
+    setInlineEditingField(fieldKey);
+    setInlineEditValue(currentValue);
+    editingFieldRef.current = target.closest('[data-field-container]');
+  }, 500); // 500ms threshold
+
+  setPressTimer(timer);
+};
+
+const handleFieldMouseUp = () => {
+  if (pressTimer) {
+    clearTimeout(pressTimer);
+    setPressTimer(null);
+  }
+};
+
+// Portal-aware click-outside
+useEffect(() => {
+  if (!inlineEditingField) return;
+
+  const handleClickOutside = (event: MouseEvent) => {
+    const target = event.target as Node;
+
+    // Check 1: Inside editing field?
+    if (editingFieldRef.current?.contains(target)) return;
+
+    // Check 2: Inside ANY portal dropdown?
+    if ((target as Element).closest?.('[data-dropdown-portal]')) {
+      console.log('🎯 Click inside dropdown portal, ignoring');
+      return;
+    }
+
+    // Truly outside - save and close
+    console.log('🚪 Click outside detected, saving');
+    handleInlineSave();
+  };
+
+  // Use mousedown (fires BEFORE click)
+  document.addEventListener('mousedown', handleClickOutside);
+  return () => document.removeEventListener('mousedown', handleClickOutside);
+}, [inlineEditingField, handleInlineSave]);
+
+// Save handler
+const handleInlineSave = useCallback(() => {
+  if (!inlineEditingField) return;
+
+  const currentValue = formData[inlineEditingField];
+
+  // Only save if changed
+  if (inlineEditValue !== currentValue) {
+    onInlineSave(inlineEditingField, inlineEditValue);
+  }
+
+  // Clear edit state
+  setInlineEditingField(null);
+  setInlineEditValue(null);
+  editingFieldRef.current = null;
+}, [inlineEditingField, inlineEditValue, formData, onInlineSave]);
+```
+
+**Flow**:
+```
+User Action: Long-press field (500ms)
+  ↓
+enterInlineEditMode(fieldKey)
+  ├─ Set inlineEditingField = fieldKey
+  ├─ Set inlineEditValue = currentValue
+  └─ editingFieldRef.current = field container
+  ↓
+FieldRenderer renders with isEditing=true
+  └─ EditComponentRegistry resolves component
+  ↓
+User interacts → onChange(newValue) → setInlineEditValue(newValue)
+  ↓
+User clicks outside → handleInlineSave()
+  ├─ Compare inlineEditValue vs formData[fieldKey]
+  ├─ If different → onInlineSave(fieldKey, inlineEditValue)
+  └─ Clear inlineEditingField
+```
+
+### 7.2 Table Cell Edit (Click Pattern)
+
+See FRONTEND_COMPONENT_ARCHITECTURE.md Section 7.2 for complete table cell editing implementation.
+
+### 7.3 Optimistic Update Strategy
+
+**Purpose**: Instant UI feedback with automatic rollback on error
+
+See Section 3.3 for complete optimistic update implementation with three-phase pattern (onMutate, onSuccess, onError).
+
+### 7.4 Error Handling & Rollback
+
+See Section 7.3 for three-tier error handling (optimistic rollback, validation errors, network errors with retry).
+
+### 7.5 Validation Patterns
+
+See FRONTEND_COMPONENT_ARCHITECTURE.md Section 7.5 for field-level and form-level validation patterns.
+
+---

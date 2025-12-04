@@ -122,7 +122,7 @@ export interface OpenAIChatCompletionRequest {
   tools?: Array<{ type: 'function'; function: OpenAIFunction }>; // New format
   tool_choice?: 'auto' | 'none' | 'required' | { type: 'function'; function: { name: string } }; // New format
   temperature?: number;
-  max_tokens?: number;
+  max_completion_tokens?: number; // Updated parameter name for newer models
 }
 
 export interface OpenAIFunction {
