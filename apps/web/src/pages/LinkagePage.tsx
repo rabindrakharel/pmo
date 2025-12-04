@@ -465,7 +465,7 @@ export function LinkagePage() {
     try {
       setLoading(true);
       const token = localStorage.getItem('auth_token');
-      let url = `${API_BASE_URL}/api/v1/linkage?parent_entity_type=${selectedParentTypes[0]}&child_entity_type=${selectedChildType}`;
+      let url = `${API_BASE_URL}/api/v1/entity_instance_link?parent_entity_type=${selectedParentTypes[0]}&child_entity_type=${selectedChildType}`;
       if (selectedParentId) {
         url += `&parent_entity_id=${selectedParentId}`;
       }
@@ -556,7 +556,7 @@ export function LinkagePage() {
 
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${API_BASE_URL}/api/v1/linkage`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/entity_instance_link`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -601,7 +601,7 @@ export function LinkagePage() {
 
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${API_BASE_URL}/api/v1/linkage/${linkage.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/entity_instance_link/${linkage.id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

@@ -1,6 +1,6 @@
 # Cache Lifecycle
 
-**Version:** 12.0.0 | **Updated:** 2025-12-02
+**Version:** 12.1.0 | **Updated:** 2025-12-03
 
 ---
 
@@ -32,6 +32,7 @@ The PMO frontend uses a two-tier caching architecture:
 │  │                     CUSTOM HOOKS LAYER                                   │    │
 │  │  useDatalabel(), useEntityCodes(), useEntityInstanceData()              │    │
 │  │  useEntityInstanceMetadata(), useDraft(), useOptimisticMutation()       │    │
+│  │  useInlineAddRow()                                                      │    │
 │  └─────────────────────────┬───────────────────────────────────────────────┘    │
 │                            │                                                     │
 │                            ▼                                                     │
@@ -447,6 +448,126 @@ interface DraftRecord {
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
+### Flow 6: Inline Add Row Cache Operations (v11.3.1)
+
+The `useInlineAddRow` hook implements TanStack Query's single source of truth pattern
+for inline editing. The cache is the ONLY data store - no local state copying.
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                    INLINE ADD ROW CACHE FLOW                                  │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  User clicks "Add new row"                                                    │
+│       │                                                                       │
+│       ▼                                                                       │
+│  handleAddRow(newRow)                                                         │
+│       │                                                                       │
+│       ▼                                                                       │
+│  queryClient.getQueryCache().findAll({                                        │
+│    queryKey: ['entityInstanceData', entityCode]                               │
+│  })                                                                           │
+│       │                                                                       │
+│       ▼                                                                       │
+│  For each matching query:                                                     │
+│    queryClient.setQueryData(query.queryKey, (oldData) => ({                  │
+│      ...oldData,                                                              │
+│      data: [...oldData.data, { id: 'temp_123', _isNew: true, ...newRow }],   │
+│      total: oldData.total + 1,                                                │
+│    }))                                                                        │
+│       │                                                                       │
+│       ▼                                                                       │
+│  Component re-renders with temp row visible in table                          │
+│       │                                                                       │
+│       ▼                                                                       │
+│  User fills fields, clicks Save                                               │
+│       │                                                                       │
+│       ▼                                                                       │
+│  handleSave() → createEntity(data, { existingTempId: 'temp_123' })           │
+│       │                                                                       │
+│       ▼                                                                       │
+│  useOptimisticMutation.onMutate():                                            │
+│    • SKIPS adding temp row (existingTempId provided)                          │
+│    • Captures allPreviousListData for rollback                                │
+│       │                                                                       │
+│       ▼                                                                       │
+│  API POST → Server returns { id: 'real-uuid-456', ... }                       │
+│       │                                                                       │
+│       ▼                                                                       │
+│  useOptimisticMutation.onSuccess():                                           │
+│    • REPLACES temp_123 with real-uuid-456 in all list caches                  │
+│    • Updates Dexie with new entity                                            │
+│    • Skips refetch (skipRefetch: true when existingTempId used)               │
+│       │                                                                       │
+│       ▼                                                                       │
+│  Component re-renders with real entity data                                   │
+│                                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Cancel Flow:**
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                    INLINE ADD ROW CANCEL FLOW                                 │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  User clicks Cancel (while editing temp row)                                  │
+│       │                                                                       │
+│       ▼                                                                       │
+│  handleCancel()                                                               │
+│       │                                                                       │
+│       ▼                                                                       │
+│  if (isAddingRow && editingRow) {                                             │
+│    removeRowFromCache(editingRow)  // 'temp_123'                              │
+│  }                                                                            │
+│       │                                                                       │
+│       ▼                                                                       │
+│  For each matching query:                                                     │
+│    queryClient.setQueryData(query.queryKey, (oldData) => ({                  │
+│      ...oldData,                                                              │
+│      data: oldData.data.filter(item => item.id !== 'temp_123'),              │
+│      total: oldData.total - 1,                                                │
+│    }))                                                                        │
+│       │                                                                       │
+│       ▼                                                                       │
+│  Component re-renders without temp row                                        │
+│                                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Error Flow:**
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                    INLINE ADD ROW ERROR FLOW                                  │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  API POST fails with error                                                    │
+│       │                                                                       │
+│       ▼                                                                       │
+│  useOptimisticMutation.onError():                                             │
+│    • Removes temp row from all list caches                                    │
+│    • Shows error toast                                                        │
+│       │                                                                       │
+│       ▼                                                                       │
+│  For each query in allPreviousListData:                                       │
+│    queryClient.setQueryData(queryKey, previousData)                          │
+│       │                                                                       │
+│       ▼                                                                       │
+│  Component re-renders with original data (temp row removed)                   │
+│                                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Implementation Details:**
+
+| Aspect | Implementation |
+|--------|----------------|
+| Temp row ID | `temp_${Date.now()}` - always starts with `temp_` |
+| Cache manipulation | `queryClient.setQueryData()` - direct sync writes |
+| Query discovery | `queryClient.getQueryCache().findAll()` - finds all matching caches |
+| Duplicate prevention | `existingTempId` option skips `onMutate` temp row creation |
+| Navigation blocking | `shouldBlockNavigation(rowId)` - blocks clicks on temp rows |
+
 ---
 
 ## Component ↔ Cache Interaction
@@ -516,6 +637,47 @@ function EmployeeDropdown() {
 
   // Sync access (for formatters)
   const name = getEntityInstanceNameSync('employee', 'uuid-1');
+}
+
+// ============================================================================
+// INLINE ADD ROW - Reusable inline editing with cache as single source (v11.3.1)
+// ============================================================================
+function EntityTableWithInlineEdit() {
+  const { createEntity, updateEntity } = useOptimisticMutation('project');
+
+  const {
+    editingRow,       // Currently editing row ID (null if not editing)
+    editedData,       // Accumulated field changes
+    isAddingRow,      // True if adding new row (vs editing existing)
+    isSaving,         // Save in progress
+    handleAddRow,     // Add temp row to cache + enter edit mode
+    handleEditRow,    // Enter edit mode for existing row
+    handleFieldChange,// Update field in editedData
+    handleSave,       // Save to server (uses existingTempId for new rows)
+    handleCancel,     // Cancel edit + remove temp row from cache
+    isRowEditing,     // Check if specific row is being edited
+    isTempRow,        // Check if row ID is temp (not saved yet)
+  } = useInlineAddRow({
+    entityCode: 'project',
+    createEntity,
+    updateEntity,
+    debug: false,
+  });
+
+  // Add new row button
+  const handleAddClick = () => {
+    const newRow = createTempRow<Project>({
+      defaults: { dl__project_stage: 'planning' },
+      generateName: () => 'New Project',
+    });
+    handleAddRow(newRow);
+  };
+
+  // Block navigation to temp rows
+  const handleRowClick = (row: Project) => {
+    if (shouldBlockNavigation(row.id)) return; // temp_ rows can't navigate
+    navigate(`/project/${row.id}`);
+  };
 }
 ```
 

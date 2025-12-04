@@ -166,6 +166,7 @@ export function BadgeDropdownSelect({
       {dropdownOpen && createPortal(
         <div
           ref={dropdownRef}
+          data-dropdown-portal=""
           className="bg-dark-100 border border-dark-300 rounded-md overflow-auto"
           style={{
             position: 'absolute',

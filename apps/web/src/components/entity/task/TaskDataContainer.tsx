@@ -102,6 +102,11 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
   // Image preview modal
   const [imagePreview, setImagePreview] = useState<{ url: string; name: string } | null>(null);
 
+  // Handle image click for preview modal
+  const handleImageClick = useCallback((url: string, filename: string) => {
+    setImagePreview({ url, name: filename });
+  }, []);
+
   const isValidTaskId = taskId && taskId !== 'undefined';
   const currentUserId = localStorage.getItem('user_id') || '';
 
@@ -534,6 +539,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
                         repliesLoading={loadingReplies[update.id]}
                         employeeNames={employeeNames}
                         getPresignedUrl={getDownloadUrl}
+                        onImageClick={handleImageClick}
                       />
                       {replyingTo === update.id && (
                         <div className="mt-3 ml-11">
@@ -570,6 +576,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
                     repliesLoading={loadingReplies[update.id]}
                     employeeNames={employeeNames}
                     getPresignedUrl={getDownloadUrl}
+                    onImageClick={handleImageClick}
                   />
                   {replyingTo === update.id && (
                     <div className="mt-3 ml-11">

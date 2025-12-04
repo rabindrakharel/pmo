@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   MessageSquare,
   Pin,
@@ -9,6 +9,8 @@ import {
   Image as ImageIcon,
   FileText,
   Paperclip,
+  Loader2,
+  ExternalLink,
 } from 'lucide-react';
 import { ReactionBar } from './ReactionBar';
 
@@ -70,7 +72,8 @@ interface ThreadedCommentProps {
   onLoadReplies?: (parentId: string) => void;
   replies?: TaskUpdate[];
   repliesLoading?: boolean;
-  getPresignedUrl?: (s3Key: string) => Promise<string>;
+  getPresignedUrl?: (s3Key: string) => Promise<string | null>;
+  onImageClick?: (url: string, filename: string) => void;
   employeeNames?: Record<string, string>;
 }
 
@@ -112,10 +115,48 @@ export function ThreadedComment({
   replies = [],
   repliesLoading = false,
   getPresignedUrl,
+  onImageClick,
   employeeNames = {},
 }: ThreadedCommentProps) {
   const [showReplies, setShowReplies] = useState(false);
   const [showActions, setShowActions] = useState(false);
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+  const [loadingImages, setLoadingImages] = useState<Record<string, boolean>>({});
+
+  // Load presigned URLs for image attachments
+  useEffect(() => {
+    if (!getPresignedUrl || !update.attachments) return;
+
+    // Parse attachments if string
+    let atts = update.attachments;
+    if (typeof atts === 'string') {
+      try {
+        atts = JSON.parse(atts);
+      } catch {
+        return;
+      }
+    }
+
+    const images = atts.filter((a: S3Attachment) => a.content_type?.startsWith('image/'));
+    if (images.length === 0) return;
+
+    // Fetch presigned URLs for each image
+    images.forEach(async (att: S3Attachment) => {
+      if (imageUrls[att.s3_key] || loadingImages[att.s3_key]) return;
+
+      setLoadingImages(prev => ({ ...prev, [att.s3_key]: true }));
+      try {
+        const url = await getPresignedUrl(att.s3_key);
+        if (url) {
+          setImageUrls(prev => ({ ...prev, [att.s3_key]: url }));
+        }
+      } catch (err) {
+        console.error('Failed to get presigned URL for image:', err);
+      } finally {
+        setLoadingImages(prev => ({ ...prev, [att.s3_key]: false }));
+      }
+    });
+  }, [update.attachments, getPresignedUrl]);
 
   // Parse rich text content
   const renderRichText = (richtext: any) => {
@@ -183,17 +224,46 @@ export function ThreadedComment({
         {/* Image attachments */}
         {images.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {images.map((att, idx) => (
-              <div key={idx} className="relative group">
-                {/* For now, show placeholder - in real impl, fetch presigned URL */}
-                <div className="w-40 h-32 bg-dark-100 border border-dark-300 rounded-lg flex items-center justify-center">
-                  <ImageIcon className="w-8 h-8 text-dark-400" />
+            {images.map((att, idx) => {
+              const imageUrl = imageUrls[att.s3_key];
+              const isLoading = loadingImages[att.s3_key];
+
+              return (
+                <div key={idx} className="relative group cursor-pointer">
+                  {isLoading ? (
+                    // Loading state
+                    <div className="w-40 h-32 bg-dark-100 border border-dark-300 rounded-lg flex items-center justify-center">
+                      <Loader2 className="w-6 h-6 text-dark-400 animate-spin" />
+                    </div>
+                  ) : imageUrl ? (
+                    // Actual image
+                    <div
+                      onClick={() => onImageClick?.(imageUrl, att.filename)}
+                      className="relative overflow-hidden rounded-lg border border-dark-300 hover:border-blue-400 transition-colors"
+                    >
+                      <img
+                        src={imageUrl}
+                        alt={att.filename}
+                        className="w-40 h-32 object-cover"
+                        loading="lazy"
+                      />
+                      {/* Hover overlay */}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                        <ExternalLink className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+                      </div>
+                    </div>
+                  ) : (
+                    // Fallback placeholder
+                    <div className="w-40 h-32 bg-dark-100 border border-dark-300 rounded-lg flex items-center justify-center">
+                      <ImageIcon className="w-8 h-8 text-dark-400" />
+                    </div>
+                  )}
+                  <div className="absolute bottom-0 left-0 right-0 p-1 bg-gradient-to-t from-black/50 to-transparent rounded-b-lg pointer-events-none">
+                    <span className="text-xs text-white truncate block">{att.filename}</span>
+                  </div>
                 </div>
-                <div className="absolute bottom-0 left-0 right-0 p-1 bg-gradient-to-t from-black/50 to-transparent rounded-b-lg">
-                  <span className="text-xs text-white truncate block">{att.filename}</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -379,6 +449,7 @@ export function ThreadedComment({
                     onResolve={onResolve}
                     employeeNames={employeeNames}
                     getPresignedUrl={getPresignedUrl}
+                    onImageClick={onImageClick}
                   />
                 ))
               )}

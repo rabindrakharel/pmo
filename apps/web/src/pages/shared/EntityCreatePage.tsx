@@ -268,7 +268,7 @@ export function EntityCreatePage({ entityCode }: EntityCreatePageProps) {
       // Add assignees via linkage API
       const results = await Promise.all(
         assigneeIds.map(async (employeeId) => {
-          const response = await fetch(`${apiUrl}/api/v1/linkage`, {
+          const response = await fetch(`${apiUrl}/api/v1/entity_instance_link`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -323,7 +323,7 @@ export function EntityCreatePage({ entityCode }: EntityCreatePageProps) {
 
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
-      const response = await fetch(`${apiUrl}/api/v1/linkage`, {
+      const response = await fetch(`${apiUrl}/api/v1/entity_instance_link`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,6 +1,6 @@
 # EntityListOfInstancesPage
 
-**Version:** 9.4.0 | **Location:** `apps/web/src/pages/shared/EntityListOfInstancesPage.tsx` | **Updated:** 2025-12-03
+**Version:** 11.3.1 | **Location:** `apps/web/src/pages/shared/EntityListOfInstancesPage.tsx` | **Updated:** 2025-12-03
 
 ---
 
@@ -167,13 +167,303 @@ const {
 ### 5. Optimistic Mutations
 
 ```typescript
-const { mutate: optimisticUpdate } = useOptimisticMutation(entityCode);
-
-// Usage in row actions
-optimisticUpdate({
-  entityId: row.id,
-  updates: { status: 'completed' }
+const {
+  updateEntity,
+  createEntity,
+  deleteEntity,
+} = useOptimisticMutation(entityCode, {
+  listQueryParams: queryParams,
+  refetchOnSuccess: true,
 });
+```
+
+---
+
+## Inline Edit State Management (v11.3.1)
+
+### Industry Standard Pattern
+
+**Used by:** Notion, Linear, Airtable, Figma, Google Sheets
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  SINGLE SOURCE OF TRUTH: TanStack Query Cache                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │  Add Row Click                                                          ││
+│  │       │                                                                 ││
+│  │       ▼                                                                 ││
+│  │  queryClient.setQueryData(queryKey, old => ({                          ││
+│  │    ...old,                                                              ││
+│  │    data: [...old.data, { id: temp_id, _isNew: true }]                  ││
+│  │  }))                                                                    ││
+│  │       │                                                                 ││
+│  │       ▼                                                                 ││
+│  │  UI re-renders instantly (row appears in table)                         ││
+│  │       │                                                                 ││
+│  │       ▼                                                                 ││
+│  │  User edits → editedData state (local form values only)                 ││
+│  │       │                                                                 ││
+│  │       ▼                                                                 ││
+│  │  Save → createEntity({ existingTempId }) → skip onMutate temp row      ││
+│  │       │                                                                 ││
+│  │       ▼                                                                 ││
+│  │  Cancel → queryClient.setQueryData() removes temp row                   ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                              │
+│  KEY PRINCIPLE: NO separate local state for data rows                       │
+│                 Local state ONLY for form input values                      │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Reusable Hook: useInlineAddRow (v11.3.1)
+
+The `useInlineAddRow` hook encapsulates the entire inline add row pattern for reuse:
+
+```typescript
+import {
+  useInlineAddRow,
+  createTempRow,
+  shouldBlockNavigation,
+} from '@/db/cache/hooks';
+import { useOptimisticMutation } from '@/db/tanstack-index';
+
+function EntityListOfInstancesPage({ entityCode }: Props) {
+  const { createEntity, updateEntity } = useOptimisticMutation(entityCode);
+
+  const {
+    // State
+    editingRow,
+    editedData,
+    isAddingRow,
+    isSaving,
+
+    // Actions
+    handleAddRow,
+    handleEditRow,
+    handleFieldChange,
+    handleSave,
+    handleCancel,
+
+    // Utilities
+    isRowEditing,
+    isTempRow,
+    getFieldValue,
+  } = useInlineAddRow({
+    entityCode,
+    createEntity,
+    updateEntity,
+    transformForApi,
+    transformFromApi,
+    onSaveSuccess: (data, isNew) => toast.success(isNew ? 'Created' : 'Updated'),
+    onSaveError: (error) => toast.error(error.message),
+  });
+
+  // Create a temp row on "Add" button click
+  const handleStartAddRow = useCallback(() => {
+    const newRow = createTempRow({
+      defaults: { dl__status: 'draft', active_flag: true },
+      generateName: () => 'New Item',
+    });
+    handleAddRow(newRow);
+  }, [handleAddRow]);
+
+  // Block navigation for temp rows
+  const handleRowClick = useCallback((item) => {
+    if (shouldBlockNavigation(item.id)) return;
+    navigate(`/${entityCode}/${item.id}`);
+  }, [entityCode, navigate]);
+
+  return (
+    <EntityListOfInstancesTable
+      data={formattedData}
+      editingRow={editingRow}
+      onAddRow={handleStartAddRow}
+      onSave={handleSave}
+      onCancel={handleCancel}
+      onRowClick={handleRowClick}
+    />
+  );
+}
+```
+
+### What Each Layer Owns
+
+| Layer | Owns | Example |
+|-------|------|---------|
+| **TanStack Query Cache** | What rows exist | `[{id: 1}, {id: 2}, {id: temp_3}]` |
+| **useInlineAddRow** | Edit state + cache ops | `editingRow`, `handleAddRow`, `handleSave` |
+| **Component** | Event handlers | `onClick`, `onSubmit` |
+
+### existingTempId Pattern (Critical)
+
+The key innovation in v11.3.1 is the `existingTempId` option passed to `createEntity()`:
+
+```typescript
+// When saving a new row that already exists in cache:
+await createEntity(transformedData, { existingTempId: 'temp_123' });
+
+// In useOptimisticMutation:
+onMutate: async ({ data, existingTempId }) => {
+  if (existingTempId) {
+    // Row already in cache - DO NOT create another temp row
+    // Just capture state for rollback
+    return { entityId: existingTempId };
+  }
+  // Original flow: create temp row
+};
+
+onSuccess: (serverData, variables, context) => {
+  // Replace temp row with real server data
+  updateAllListCaches((list) =>
+    list.map(item => item.id === context.entityId ? serverData : item)
+  );
+  // v11.3.1: SKIP refetch when existingTempId (prevents race condition)
+};
+```
+
+### Manual Implementation (Alternative)
+
+If not using the hook, implement manually:
+
+```typescript
+// UI mode state (local)
+const [editingRow, setEditingRow] = useState<string | null>(null);
+const [editedData, setEditedData] = useState<any>({});
+const [isAddingRow, setIsAddingRow] = useState(false);
+
+// Data comes from TanStack Query cache (single source of truth)
+const { data: rawData } = useEntityInstanceData(entityCode, queryParams);
+```
+
+### Add Row Handler
+
+```typescript
+const handleAddRow = useCallback((newRow: any) => {
+  // Add temp row directly to TanStack Query cache
+  const queryCache = queryClient.getQueryCache();
+  const matchingQueries = queryCache.findAll({
+    queryKey: QUERY_KEYS.entityInstanceDataByCode(entityCode),
+  });
+
+  for (const query of matchingQueries) {
+    queryClient.setQueryData(query.queryKey, (old: any) => {
+      if (!old?.data) return old;
+      return {
+        ...old,
+        data: [...old.data, { ...newRow, _isNew: true }],
+        total: (old.total || 0) + 1,
+      };
+    });
+  }
+
+  setEditingRow(newRow.id);
+  setEditedData(newRow);
+  setIsAddingRow(true);
+}, [entityCode, queryClient]);
+```
+
+### Cancel Handler (removes temp row from cache)
+
+```typescript
+const handleCancelInlineEdit = useCallback(() => {
+  if (isAddingRow && editingRow) {
+    // Remove temp row from ALL matching TanStack Query caches
+    const queryCache = queryClient.getQueryCache();
+    const matchingQueries = queryCache.findAll({
+      queryKey: QUERY_KEYS.entityInstanceDataByCode(entityCode),
+    });
+
+    for (const query of matchingQueries) {
+      queryClient.setQueryData(query.queryKey, (old: any) => {
+        if (!old?.data) return old;
+        return {
+          ...old,
+          data: old.data.filter((row: any) => row.id !== editingRow),
+          total: Math.max(0, (old.total || 0) - 1),
+        };
+      });
+    }
+  }
+  setEditingRow(null);
+  setEditedData({});
+  setIsAddingRow(false);
+}, [isAddingRow, editingRow, entityCode, queryClient]);
+```
+
+### Save Handler (with existingTempId)
+
+```typescript
+const handleSaveInlineEdit = useCallback(async (record: any) => {
+  const rawRecord = record.raw || record;
+  const recordId = rawRecord.id;
+  const isNewRow = isAddingRow || recordId?.startsWith('temp_') || rawRecord._isNew;
+
+  const transformedData = transformForApi(editedData, rawRecord);
+  delete transformedData._isNew;
+  delete transformedData._isOptimistic;
+  if (isNewRow) delete transformedData.id;
+
+  try {
+    if (isNewRow) {
+      // v11.3.1: Pass existingTempId to skip duplicate temp row in onMutate
+      await createEntity(transformedData, { existingTempId: recordId });
+    } else {
+      await updateEntity(recordId, transformedData);
+    }
+  } finally {
+    setEditingRow(null);
+    setEditedData({});
+    setIsAddingRow(false);
+  }
+}, [editedData, isAddingRow, createEntity, updateEntity]);
+```
+
+### Anti-Pattern (Avoided)
+
+```typescript
+// ❌ WRONG: Two competing data sources (causes duplicate rows)
+const [localData, setLocalData] = useState([]);           // Local state
+const { data: rawData } = useEntityInstanceData(...);     // Cache
+
+const data = localData.length > 0 ? localData : rawData;  // Which one wins?
+
+// ❌ WRONG: No existingTempId (causes duplicate temp rows)
+handleAddRow → adds temp_123 to cache
+createEntity() → onMutate adds temp_456 to cache  // DUPLICATE!
+
+// ✅ CORRECT: Single source of truth + existingTempId
+const { data: rawData } = useEntityInstanceData(...);     // Cache is THE source
+handleAddRow → adds temp_123 to cache
+createEntity(data, { existingTempId: 'temp_123' }) → skips onMutate temp row
+```
+
+### Data Flow Comparison
+
+| Operation | Anti-Pattern (broken) | Industry Standard (v11.3.1) |
+|-----------|----------------------|----------------------------|
+| Add row | `setLocalData([...])` | `queryClient.setQueryData(...)` |
+| Cancel | `setLocalData(filter(...))` | `queryClient.setQueryData(filter(...))` |
+| Save | `createEntity()` adds 2nd temp | `createEntity({ existingTempId })` replaces temp |
+| Edit existing | Copy to local, edit, save | Edit form state, `updateEntity()` updates cache |
+
+### Navigation Blocking for Temp Rows
+
+```typescript
+import { shouldBlockNavigation } from '@/db/cache/hooks';
+
+const handleRowClick = (item) => {
+  // Prevent navigation to temp rows (they don't exist on server)
+  if (shouldBlockNavigation(item.id)) {
+    return;  // Blocked - row not yet saved
+  }
+  navigate(`/${entityCode}/${item.id}`);
+};
+
+// shouldBlockNavigation('temp_123') → true
+// shouldBlockNavigation('real-uuid') → false
 ```
 
 ---
@@ -258,6 +548,8 @@ const rowActions: RowAction[] = [
 
 | Version | Date | Changes |
 |---------|------|---------|
+| v11.3.1 | 2025-12-03 | **useInlineAddRow hook** - Reusable pattern with `existingTempId` to prevent duplicate temp rows. Skip refetch on save to prevent race conditions. Added `createTempRow()` factory and `shouldBlockNavigation()` utility. |
+| v12.4.0 | 2025-12-03 | **Industry-standard inline edit pattern** - Single source of truth via TanStack Query cache. Removed `localData` anti-pattern. Temp rows added directly to cache. |
 | v9.4.0 | 2025-12-03 | Two-query architecture |
 | v9.0.0 | 2025-11-28 | TanStack Query integration |
 | v1.0.0 | 2025-10-01 | Initial release |

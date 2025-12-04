@@ -406,6 +406,355 @@ User holds 500ms → Edit mode activated → User modifies value
 
 ---
 
+## Inline Add Row Pattern (v11.3.1)
+
+### Overview
+
+The inline add row pattern allows users to add new rows directly in the table without navigating to a separate form page. This uses TanStack Query cache as the **single source of truth** - no local state copying.
+
+### Design Pattern: Single Source of Truth
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                   INLINE ADD ROW PATTERN (v11.3.1)                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  CORE PRINCIPLE: TanStack Query cache is the ONLY data store                │
+│  ─────────────────────────────────────────────────────────────              │
+│                                                                              │
+│  ✅ CORRECT: Add temp row directly to cache → Edit in place → Save          │
+│  ❌ WRONG: Copy all data to localData state → Add temp → Sync back          │
+│                                                                              │
+│  DATA FLOW:                                                                  │
+│  ───────────                                                                 │
+│  1. User clicks "Add Row" → createTempRow() → handleAddRow()                │
+│  2. handleAddRow() → queryClient.setQueryData() → Temp row in cache         │
+│  3. Component re-renders → Temp row visible at end of table                 │
+│  4. User fills fields → handleFieldChange() → editedData updated            │
+│  5. User clicks Save → createEntity(data, { existingTempId })               │
+│  6. onMutate: SKIP temp row creation (already exists)                       │
+│  7. API POST → Server returns real entity with UUID                         │
+│  8. onSuccess: Replace temp row with real data in cache                     │
+│                                                                              │
+│  ANTI-PATTERN (causes duplicate rows):                                      │
+│  ─────────────────────────────────────                                      │
+│  handleAddRow → adds temp_123 to localData                                  │
+│  handleSave → createEntity()                                                │
+│  onMutate → adds ANOTHER temp_456 to cache  ← DUPLICATE!                   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Using the useInlineAddRow Hook
+
+The `useInlineAddRow` hook encapsulates the entire pattern for reuse across components.
+
+```typescript
+import {
+  useInlineAddRow,
+  createTempRow,
+  shouldBlockNavigation,
+} from '@/db/cache/hooks';
+import { useOptimisticMutation } from '@/db/tanstack-index';
+
+function ProjectListPage() {
+  const { createEntity, updateEntity } = useOptimisticMutation('project');
+
+  const {
+    // State
+    editingRow,
+    editedData,
+    isAddingRow,
+    isSaving,
+
+    // Actions
+    handleAddRow,
+    handleEditRow,
+    handleFieldChange,
+    handleSave,
+    handleCancel,
+    resetEditState,
+
+    // Utilities
+    isRowEditing,
+    isTempRow,
+    getFieldValue,
+  } = useInlineAddRow({
+    entityCode: 'project',
+    createEntity,
+    updateEntity,
+    transformForApi: (editedData, originalRecord) => ({
+      ...originalRecord,
+      ...editedData,
+      // Convert display values to API format
+    }),
+    transformFromApi: (record) => ({
+      ...record,
+      // Convert API values to display format
+    }),
+    onSaveSuccess: (data, isNewRow) => {
+      toast.success(isNewRow ? 'Created successfully' : 'Updated successfully');
+    },
+    onSaveError: (error, isNewRow) => {
+      toast.error(`Failed to ${isNewRow ? 'create' : 'update'}: ${error.message}`);
+    },
+    debug: false,
+  });
+
+  // Create a new temp row
+  const handleStartAddRow = useCallback(() => {
+    const newRow = createTempRow({
+      defaults: {
+        dl__project_stage: 'planning',
+        active_flag: true,
+      },
+      generateName: () => 'New Project',
+    });
+    handleAddRow(newRow);
+  }, [handleAddRow]);
+
+  // Block navigation for temp rows
+  const handleRowClick = useCallback((item) => {
+    if (shouldBlockNavigation(item.id)) {
+      return; // Temp row - don't navigate
+    }
+    navigate(`/project/${item.id}`);
+  }, [navigate]);
+
+  return (
+    <EntityListOfInstancesTable
+      data={formattedData}
+      editingRow={editingRow}
+      onAddRow={handleStartAddRow}
+      onEditRow={handleEditRow}
+      onFieldChange={handleFieldChange}
+      onSave={handleSave}
+      onCancel={handleCancel}
+      onRowClick={handleRowClick}
+      isRowEditing={isRowEditing}
+    />
+  );
+}
+```
+
+### Hook API Reference
+
+#### UseInlineAddRowOptions
+
+```typescript
+interface UseInlineAddRowOptions<T> {
+  /** Entity code for cache key lookup */
+  entityCode: string;
+
+  /** Create entity function from useOptimisticMutation */
+  createEntity: (data: Partial<T>, options?: { existingTempId?: string }) => Promise<T>;
+
+  /** Update entity function from useOptimisticMutation */
+  updateEntity: (entityId: string, changes: Partial<T>) => Promise<T>;
+
+  /** Transform data for API (e.g., convert display values to API format) */
+  transformForApi?: (editedData: Partial<T>, originalRecord: T) => Partial<T>;
+
+  /** Transform data from API (e.g., convert API format to display values) */
+  transformFromApi?: (record: T) => Partial<T>;
+
+  /** Callback when save succeeds */
+  onSaveSuccess?: (data: T, isNewRow: boolean) => void;
+
+  /** Callback when save fails */
+  onSaveError?: (error: Error, isNewRow: boolean) => void;
+
+  /** Callback when cancel is triggered */
+  onCancel?: () => void;
+
+  /** Enable debug logging */
+  debug?: boolean;
+}
+```
+
+#### UseInlineAddRowResult
+
+```typescript
+interface UseInlineAddRowResult<T> {
+  // State
+  editingRow: string | null;     // Currently editing row ID
+  editedData: Partial<T>;        // Accumulated field changes
+  isAddingRow: boolean;          // Whether adding a new row
+  isSaving: boolean;             // Whether save is in progress
+
+  // Actions
+  handleAddRow: (newRow: T) => void;                    // Add temp row to cache
+  handleEditRow: (record: T | { raw: T }) => void;      // Enter edit mode
+  handleFieldChange: (field: string, value: unknown) => void;  // Update field
+  handleSave: (record: T | { raw: T }) => Promise<void>; // Save (create or update)
+  handleCancel: () => void;                              // Cancel edit
+  resetEditState: () => void;                            // Clear all edit state
+
+  // Utilities
+  isRowEditing: (rowId: string) => boolean;  // Check if row is being edited
+  isTempRow: (rowId: string) => boolean;     // Check if row is temp
+  getFieldValue: (field: string, originalValue: unknown) => unknown;
+}
+```
+
+### Factory Function: createTempRow
+
+```typescript
+import { createTempRow } from '@/db/cache/hooks';
+
+// Create a temp row with defaults
+const newRow = createTempRow<Project>({
+  defaults: {
+    dl__project_stage: 'planning',
+    active_flag: true,
+    budget_allocated_amt: 0,
+  },
+  generateName: () => `Project ${Date.now()}`,
+});
+
+// Result:
+// {
+//   id: 'temp_1701609600000',
+//   name: 'Project 1701609600000',
+//   _isNew: true,
+//   dl__project_stage: 'planning',
+//   active_flag: true,
+//   budget_allocated_amt: 0,
+// }
+```
+
+### Navigation Blocking Utility
+
+```typescript
+import { shouldBlockNavigation } from '@/db/cache/hooks';
+
+const handleRowClick = (item) => {
+  // Prevent navigation for temp rows (they don't exist on server)
+  if (shouldBlockNavigation(item.id)) {
+    return;
+  }
+  navigate(`/project/${item.id}`);
+};
+
+// shouldBlockNavigation('temp_123') → true
+// shouldBlockNavigation('uuid-here') → false
+// shouldBlockNavigation(null) → false
+```
+
+### Cache Lifecycle
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    INLINE ADD ROW - CACHE LIFECYCLE                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  STEP 1: ADD TEMP ROW                                                        │
+│  ─────────────────────                                                       │
+│  handleAddRow(newRow) →                                                      │
+│    queryClient.getQueryCache().findAll({ queryKey: ['entityInstanceData', 'project'] })│
+│    for each matchingQuery:                                                   │
+│      queryClient.setQueryData(query.queryKey, {                              │
+│        ...oldData,                                                           │
+│        data: [...oldData.data, { id: 'temp_123', _isNew: true, ... }],      │
+│        total: oldData.total + 1                                              │
+│      })                                                                      │
+│                                                                              │
+│  STEP 2: SAVE (CREATE)                                                       │
+│  ─────────────────────                                                       │
+│  handleSave() → createEntity(data, { existingTempId: 'temp_123' })          │
+│    onMutate: SKIP temp row creation (existingTempId provided)               │
+│              Capture previous state for rollback                             │
+│    API POST: /api/v1/project { name: 'New Project', ... }                   │
+│    Response: { id: 'real-uuid', name: 'New Project', ... }                  │
+│    onSuccess: Replace temp_123 with real-uuid in cache                      │
+│                                                                              │
+│  STEP 3: CANCEL                                                              │
+│  ─────────────────                                                           │
+│  handleCancel() →                                                            │
+│    for each matchingQuery:                                                   │
+│      queryClient.setQueryData(query.queryKey, {                              │
+│        ...oldData,                                                           │
+│        data: oldData.data.filter(item => item.id !== 'temp_123'),           │
+│        total: oldData.total - 1                                              │
+│      })                                                                      │
+│                                                                              │
+│  STEP 4: ERROR ROLLBACK                                                      │
+│  ─────────────────────                                                       │
+│  API fails → onError:                                                        │
+│    Remove temp row from cache (same as cancel)                              │
+│    Restore previous state from context.allPreviousListData                  │
+│    toast.error('Failed to create')                                          │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### existingTempId Integration
+
+The `existingTempId` option in `useOptimisticMutation.createEntity()` is critical:
+
+```typescript
+// In useOptimisticMutation.ts
+const createMutation = useMutation({
+  mutationFn: async ({ data, existingTempId }) => {
+    return apiClient.post(`/api/v1/${entityCode}`, data);
+  },
+
+  onMutate: async ({ data, existingTempId }) => {
+    await queryClient.cancelQueries({ queryKey: [...] });
+
+    if (existingTempId) {
+      // ROW ALREADY IN CACHE - just capture state for rollback
+      // DO NOT create another temp row
+      return { entityId: existingTempId, allPreviousListData: capturedState };
+    }
+
+    // Original flow: create temp row in cache
+    const tempId = `temp_${Date.now()}`;
+    addTempRowToCache({ id: tempId, ...data });
+    return { entityId: tempId, allPreviousListData: capturedState };
+  },
+
+  onSuccess: async (serverData, variables, context) => {
+    // Replace temp row (context.entityId) with real server data
+    updateAllListCaches(queryClient, entityCode, (listData) =>
+      listData.map((item) =>
+        item.id === context.entityId ? serverData : item
+      )
+    );
+
+    // v11.3.1: SKIP refetch for inline add row
+    // Data is already correct in cache, no need to refetch
+    if (context?.existingTempId) {
+      // Skip invalidation - prevents race condition
+    } else {
+      queryClient.invalidateQueries({ queryKey: [...] });
+    }
+  },
+
+  onError: (error, variables, context) => {
+    if (context?.existingTempId) {
+      // Remove temp row that was added by handleAddRow
+      removeTempRowFromCache(context.existingTempId);
+    } else {
+      // Original rollback flow
+      rollbackFromCapturedState(context.allPreviousListData);
+    }
+  },
+});
+```
+
+### Anti-Patterns
+
+| Anti-Pattern | Problem | Correct Approach |
+|--------------|---------|------------------|
+| Copying all data to `localData` state | Dual source of truth, sync issues | Use cache directly |
+| Creating temp row in both handleAddRow AND onMutate | Duplicate rows | Pass `existingTempId` to skip onMutate temp creation |
+| Refetching immediately after save | Race condition, stale data | Skip refetch when `existingTempId` used |
+| Navigating to temp row URL | 404 error, invalid page | Block navigation with `shouldBlockNavigation()` |
+| Storing edit state in table component | Component coupling | Use `useInlineAddRow` hook |
+
+---
+
 ## Virtualization
 
 ### Performance Optimizations

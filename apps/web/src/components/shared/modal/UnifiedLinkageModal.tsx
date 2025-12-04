@@ -164,7 +164,7 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
       if (mode === 'assign-parent' && childEntityType) {
         // Get valid parent types for this child
         const response = await fetch(
-          `${apiUrl}/api/v1/linkage/parents/${childEntityType}`,
+          `${apiUrl}/api/v1/entity_instance_link/parents/${childEntityType}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
 
@@ -180,7 +180,7 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
       } else if (mode === 'manage-children' && parentEntityType) {
         // Get valid child types for this parent
         const response = await fetch(
-          `${apiUrl}/api/v1/linkage/children/${parentEntityType}`,
+          `${apiUrl}/api/v1/entity_instance_link/children/${parentEntityType}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
 
@@ -206,7 +206,7 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
 
   const loadExistingLinkages = async () => {
     try {
-      let url = `${apiUrl}/api/v1/linkage?`;
+      let url = `${apiUrl}/api/v1/entity_instance_link?`;
 
       if (mode === 'assign-parent' && childEntityType && childEntityId) {
         // Get all linkages where this entity is the child
@@ -256,7 +256,7 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
             relationship_type: 'contains'
           };
 
-      const response = await fetch(`${apiUrl}/api/v1/linkage`, {
+      const response = await fetch(`${apiUrl}/api/v1/entity_instance_link`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -295,7 +295,7 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
         return;
       }
 
-      const response = await fetch(`${apiUrl}/api/v1/linkage/${linkage.id}`, {
+      const response = await fetch(`${apiUrl}/api/v1/entity_instance_link/${linkage.id}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${token}`

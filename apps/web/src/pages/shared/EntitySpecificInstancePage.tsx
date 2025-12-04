@@ -18,6 +18,7 @@ import { useSidebar } from '../../contexts/SidebarContext';
 // v9.1.0: Use canonical hooks from @/db/tanstack-index (no wrapper layer)
 // v9.5.0: Added useOptimisticMutation for instant UI feedback
 // v9.6.0: Added useEntityInstanceMetadata for form metadata (content=metadata API)
+// v11.3.1: Added useInlineAddRow for child entity inline editing
 import {
   useEntity,
   useEntityInstanceData,
@@ -25,6 +26,8 @@ import {
   useDraft,
   useOptimisticMutation,
   invalidateEntityQueries,
+  useInlineAddRow,
+  shouldBlockNavigation,
 } from '../../db/tanstack-index';
 import { formatRow, formatDataset, type ComponentMetadata } from '../../lib/formatters';
 import { useKeyboardShortcuts, useShortcutHints } from '../../lib/hooks/useKeyboardShortcuts';
@@ -275,7 +278,6 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   // The hook returns a stable frozen empty state when disabled, preventing infinite loops
   const {
     data: childData,  // Use directly - no intermediate state needed
-    refData: childRefData,
     total: childTotal,
     isLoading: childLoading,
     refetch: refetchChild,
@@ -304,38 +306,137 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   }, [childViewType, childEditType]);
 
   // ============================================================================
-  // CHILD ENTITY INLINE EDIT STATE
+  // v11.3.1: CHILD ENTITY INLINE EDITING (useInlineAddRow Pattern)
   // ============================================================================
-  // Local state for inline editing operations ONLY (not for sync)
-  // The problematic useEffect sync pattern was REMOVED - it caused infinite loops
-  const [childEditingRow, setChildEditingRow] = useState<string | null>(null);
-  const [childEditedData, setChildEditedData] = useState<any>({});
-  const [childIsAddingRow, setChildIsAddingRow] = useState(false);
-  // Local data for optimistic add row (temp rows before API save)
-  const [childLocalAdditions, setChildLocalAdditions] = useState<any[]>([]);
+  // Uses TanStack Query cache as single source of truth.
+  // No local state for data - cache is the only data store.
+  // Custom createEntity/updateEntity handle entity + linkage in single flow.
+  // ============================================================================
 
-  // Clear local additions when switching tabs or when child entity changes
+  // Custom createEntity: Creates child entity AND links to parent
+  const createChildEntity = useCallback(async (
+    data: any,
+    _options?: { existingTempId?: string }
+  ): Promise<any> => {
+    if (!childConfig || !currentChildEntity) {
+      throw new Error('Child entity configuration not available');
+    }
+
+    const token = localStorage.getItem('auth_token');
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` })
+    };
+
+    // Step 1: Create child entity
+    const createResponse = await fetch(
+      `${API_CONFIG.BASE_URL}${childConfig.apiEndpoint}`,
+      { method: 'POST', headers, body: JSON.stringify(data) }
+    );
+
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      throw new Error(`Failed to create ${currentChildEntity}: ${errorText}`);
+    }
+
+    const newEntity = await createResponse.json();
+
+    // Step 2: Create linkage to parent
+    const linkResponse = await fetch(
+      `${API_CONFIG.BASE_URL}/api/v1/entity_instance_link`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          parent_entity_type: entityCode,
+          parent_entity_id: id,
+          child_entity_type: currentChildEntity,
+          child_entity_id: newEntity.id,
+          relationship_type: 'contains'
+        })
+      }
+    );
+
+    if (!linkResponse.ok) {
+      console.error(`Linkage failed for ${currentChildEntity}:${newEntity.id} -> ${entityCode}:${id}`);
+      // Entity was created but linkage failed - still return entity for cache update
+      // The entity exists but won't appear in child tab until manually linked
+    }
+
+    return newEntity;
+  }, [childConfig, currentChildEntity, entityCode, id]);
+
+  // Custom updateEntity: Updates child entity via PATCH
+  const updateChildEntity = useCallback(async (
+    entityId: string,
+    data: any
+  ): Promise<any> => {
+    if (!childConfig || !currentChildEntity) {
+      throw new Error('Child entity configuration not available');
+    }
+
+    const token = localStorage.getItem('auth_token');
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` })
+    };
+
+    const response = await fetch(
+      `${API_CONFIG.BASE_URL}${childConfig.apiEndpoint}/${entityId}`,
+      { method: 'PATCH', headers, body: JSON.stringify(data) }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to update ${currentChildEntity}: ${errorText}`);
+    }
+
+    return response.json();
+  }, [childConfig, currentChildEntity]);
+
+  // useInlineAddRow hook - manages cache and edit state
+  const {
+    editingRow: childEditingRow,
+    editedData: childEditedData,
+    handleAddRow: handleChildAddRow,
+    handleEditRow: handleChildEditRow,
+    handleFieldChange: handleChildFieldChange,
+    handleSave: handleChildSave,
+    handleCancel: handleChildCancel,
+    resetEditState: resetChildEditState,
+  } = useInlineAddRow({
+    entityCode: currentChildEntity || '',
+    createEntity: createChildEntity,
+    updateEntity: updateChildEntity,
+    transformForApi: (data, original) => {
+      const transformed = transformForApi(data, original);
+      delete transformed._isNew;
+      delete transformed._isOptimistic;
+      return transformed;
+    },
+    transformFromApi: (record) => transformFromApi({ ...record }),
+    onSaveSuccess: () => {
+      // Refetch to get fresh data with proper ref_data
+      refetchChild();
+    },
+    onSaveError: (error) => {
+      alert(`Error: ${error.message}`);
+    },
+    debug: false,
+  });
+
+  // Reset child edit state when switching tabs
   useEffect(() => {
-    setChildLocalAdditions([]);
-    setChildEditingRow(null);
-    setChildEditedData({});
-    setChildIsAddingRow(false);
-  }, [currentChildEntity]);
-
-  // Combine server data with local additions for display
-  // Note: childData is stable (frozen empty array when disabled)
-  const childRawData = useMemo(() => {
-    if (childLocalAdditions.length === 0) return childData;
-    return [...childData, ...childLocalAdditions];
-  }, [childData, childLocalAdditions]);
+    resetChildEditState();
+  }, [currentChildEntity, resetChildEditState]);
 
   // v12.3.0: Format child data for display (same as EntityListOfInstancesPage)
   // This transforms raw API data into FormattedRow structure with display/styles
   // Required for badge rendering and other styled view modes
   const childDisplayData = useMemo(() => {
-    if (!childRawData || childRawData.length === 0) return [];
-    return formatDataset(childRawData, childMetadata as ComponentMetadata | undefined);
-  }, [childRawData, childMetadata]);
+    if (!childData || childData.length === 0) return [];
+    return formatDataset(childData, childMetadata as ComponentMetadata | null);
+  }, [childData, childMetadata]);
 
   // Child pagination
   const childPagination = useMemo(() => ({
@@ -345,109 +446,26 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
     showSizeChanger: false,
   }), [childTotal]);
 
-  // Child inline edit handlers
+  // Child inline edit handler (field change)
   const handleChildInlineEdit = useCallback((_rowId: string, field: string, value: any) => {
-    setChildEditedData((prev: any) => ({ ...prev, [field]: value }));
-  }, []);
+    handleChildFieldChange(field, value);
+  }, [handleChildFieldChange]);
 
-  const handleChildSaveInlineEdit = useCallback(async (record: any) => {
-    if (!childConfig || !currentChildEntity) return;
-
-    try {
-      const token = localStorage.getItem('auth_token');
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = `Bearer ${token}`;
-
-      const isNewRow = childIsAddingRow || record.id?.toString().startsWith('temp_') || record._isNew;
-      const transformedData = transformForApi(childEditedData, record);
-
-      delete transformedData._isNew;
-      if (isNewRow) delete transformedData.id;
-
-      let response;
-      if (isNewRow) {
-        // Create child entity and link to parent
-        response = await fetch(`${API_CONFIG.BASE_URL}${childConfig.apiEndpoint}`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(transformedData)
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          // Create linkage to parent
-          await fetch(`${API_CONFIG.BASE_URL}/api/v1/linkage`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              parent_entity_type: entityCode,
-              parent_entity_id: id,
-              child_entity_type: currentChildEntity,
-              child_entity_id: result.id,
-              relationship_type: 'contains'
-            })
-          });
-          await refetchChild();
-          // Clear local additions after successful save - server data now includes the new row
-          setChildLocalAdditions([]);
-          setChildEditingRow(null);
-          setChildEditedData({});
-          setChildIsAddingRow(false);
-        } else {
-          alert(`Failed to create ${currentChildEntity}`);
-        }
-      } else {
-        response = await fetch(`${API_CONFIG.BASE_URL}${childConfig.apiEndpoint}/${record.id}`, {
-          method: 'PATCH',
-          headers,
-          body: JSON.stringify(transformedData)
-        });
-
-        if (response.ok) {
-          await refetchChild();
-          setChildEditingRow(null);
-          setChildEditedData({});
-        } else {
-          alert(`Failed to update ${currentChildEntity}`);
-        }
-      }
-    } catch (error) {
-      console.error('Error saving child record:', error);
-      alert('An error occurred while saving.');
-    }
-  }, [childConfig, currentChildEntity, childEditedData, childIsAddingRow, entityCode, id, refetchChild]);
-
-  const handleChildCancelInlineEdit = useCallback(() => {
-    if (childIsAddingRow && childEditingRow) {
-      // Remove the temp row from local additions
-      setChildLocalAdditions(prev => prev.filter(row => row.id !== childEditingRow));
-      setChildIsAddingRow(false);
-    }
-    setChildEditingRow(null);
-    setChildEditedData({});
-  }, [childIsAddingRow, childEditingRow]);
-
-  const handleChildAddRow = useCallback((newRow: any) => {
-    // Add temp row to local additions (will be cleared on successful save + refetch)
-    setChildLocalAdditions(prev => [...prev, newRow]);
-    setChildEditingRow(newRow.id);
-    setChildEditedData(newRow);
-    setChildIsAddingRow(true);
-  }, []);
-
+  // Child delete handler
   const handleChildDelete = useCallback(async (record: any) => {
     if (!childConfig || !currentChildEntity) return;
     if (!window.confirm('Are you sure you want to delete this record?')) return;
 
+    const rawRecord = record.raw || record;
+
     try {
       const token = localStorage.getItem('auth_token');
-      const headers: HeadersInit = {};
-      if (token) headers.Authorization = `Bearer ${token}`;
+      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
 
-      const response = await fetch(`${API_CONFIG.BASE_URL}${childConfig.apiEndpoint}/${record.id}`, {
-        method: 'DELETE',
-        headers
-      });
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}${childConfig.apiEndpoint}/${rawRecord.id}`,
+        { method: 'DELETE', headers }
+      );
 
       if (response.ok) {
         await refetchChild();
@@ -460,17 +478,25 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
     }
   }, [childConfig, currentChildEntity, refetchChild]);
 
+  // Child row click handler - navigate to child entity detail page
   const handleChildRowClick = useCallback((item: any) => {
     if (!currentChildEntity) return;
-    // Handle FormattedRow objects (raw data is inside item.raw)
+
     const rawItem = item.raw || item;
-    const id = rawItem.id;
-    // Guard against undefined id to prevent /entity/undefined URLs
-    if (!id) {
+    const itemId = rawItem.id;
+
+    // Block navigation for temp rows (not yet saved)
+    if (shouldBlockNavigation(itemId)) {
+      return;
+    }
+
+    // Guard against undefined id
+    if (!itemId) {
       console.warn(`[handleChildRowClick] Missing id in ${currentChildEntity} record:`, rawItem);
       return;
     }
-    navigate(`/${currentChildEntity}/${id}`);
+
+    navigate(`/${currentChildEntity}/${itemId}`);
   }, [currentChildEntity, navigate]);
 
   // Child row actions
@@ -480,10 +506,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
       label: 'Edit',
       icon: <Edit className="h-4 w-4" />,
       variant: 'default' as const,
-      onClick: (record: any) => {
-        setChildEditingRow(record.id);
-        setChildEditedData(transformFromApi({ ...record }));
-      }
+      onClick: handleChildEditRow
     },
     {
       key: 'delete',
@@ -492,7 +515,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
       variant: 'danger' as const,
       onClick: handleChildDelete
     }
-  ], [handleChildDelete]);
+  ], [handleChildEditRow, handleChildDelete]);
 
   // Prepare tabs with Overview as first tab - MUST be before any returns
   const allTabs = React.useMemo(() => {
@@ -686,7 +709,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
       if (toRemove.length > 0) {
         const removeResults = await Promise.all(
           toRemove.map(async (assignee: any) => {
-            const response = await fetch(`${apiUrl}/api/v1/linkage/${assignee.linkage_id}`, {
+            const response = await fetch(`${apiUrl}/api/v1/entity_instance_link/${assignee.linkage_id}`, {
               method: 'DELETE',
               headers: { Authorization: `Bearer ${token}` }
             });
@@ -706,7 +729,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
       if (toAdd.length > 0) {
         const addResults = await Promise.all(
           toAdd.map(async (employeeId) => {
-            const response = await fetch(`${apiUrl}/api/v1/linkage`, {
+            const response = await fetch(`${apiUrl}/api/v1/entity_instance_link`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -1421,7 +1444,6 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
             <EntityListOfInstancesTable
               data={childDisplayData}
               metadata={childMetadata}
-              ref_data_entityInstance={childRefData}
               loading={childLoading || childMetadataLoading}
               pagination={childPagination}
               onRowClick={handleChildRowClick}
@@ -1434,8 +1456,8 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
               editingRow={childEditingRow}
               editedData={childEditedData}
               onInlineEdit={handleChildInlineEdit}
-              onSaveInlineEdit={handleChildSaveInlineEdit}
-              onCancelInlineEdit={handleChildCancelInlineEdit}
+              onSaveInlineEdit={handleChildSave}
+              onCancelInlineEdit={handleChildCancel}
               allowAddRow={true}
               onAddRow={handleChildAddRow}
             />

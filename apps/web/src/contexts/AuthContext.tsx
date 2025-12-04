@@ -6,6 +6,7 @@ import { prefetchRefDataEntityInstances } from '../lib/hooks';
 // v9.0.0: TanStack Query + Dexie handles metadata caching
 import {
   clearAllCaches,
+  resetDatabase,
   prefetchAllDatalabels,
   prefetchEntityCodes,
   prefetchGlobalSettings,
@@ -69,6 +70,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isLoading: false,
         isAuthenticated: true,
       });
+
+      // v9.2.0: Reset Dexie database on login for fresh state (delete + recreate)
+      queryClient.clear();
+      await resetDatabase();
 
       // v9.0.0: Load and cache all metadata after successful login (Dexie + TanStack Query)
       await loadMetadata();

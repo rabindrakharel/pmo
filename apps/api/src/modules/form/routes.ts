@@ -65,7 +65,7 @@ import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../serv
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✨ Entity Component Metadata Service - component-aware metadata generation
-import { generateEntityResponse } from '../../services/entity-component-metadata.service.js';
+import { generateEntityResponse, getCachedMetadataResponse, cacheMetadataResponse } from '../../services/entity-component-metadata.service.js';
 // ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
 
 // Response schema matching minimalistic database structure
@@ -127,9 +127,12 @@ export async function formRoutes(fastify: FastifyInstance) {
         form_type: Type.Optional(Type.String()),
         search: Type.Optional(Type.String()),
         page: Type.Optional(Type.Number({ minimum: 1 })),
-        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
+        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100000 })),
         show_all_versions: Type.Optional(Type.Boolean()),
-        view: Type.Optional(Type.String())}),  // 'entityListOfInstancesTable,kanbanView' or 'entityInstanceFormContainer'
+        parent_entity_code: Type.Optional(Type.String()),
+        parent_entity_instance_id: Type.Optional(Type.String({ format: 'uuid' })),
+        view: Type.Optional(Type.String()),  // 'entityListOfInstancesTable,kanbanView' or 'entityInstanceFormContainer'
+        content: Type.Optional(Type.String())}),  // 'metadata' for metadata-only response (no data query)
       response: {
         200: Type.Object({
           data: Type.Array(FormSchema),
@@ -152,13 +155,34 @@ export async function formRoutes(fastify: FastifyInstance) {
         page = 1,
         limit = 20,
         show_all_versions = false,
-        view} = request.query as any;
+        parent_entity_code,
+        parent_entity_instance_id,
+        view,
+        content} = request.query as any;
 
       const offset = (page - 1) * limit;
+
+      // Determine if this is a metadata-only request
+      const metadataOnly = content === 'metadata';
 
       // ═══════════════════════════════════════════════════════════════
       // NEW PATTERN: Route builds SQL, gates augment it
       // ═══════════════════════════════════════════════════════════════
+
+      // Build JOINs array
+      const joins: SQL[] = [];
+
+      // GATE 2: PARENT-CHILD FILTERING (MANDATORY when parent context provided)
+      if (parent_entity_code && parent_entity_instance_id) {
+        const parentJoin = sql`
+        INNER JOIN app.entity_instance_link eil
+          ON eil.child_entity_code = ${ENTITY_CODE}
+          AND eil.child_entity_instance_id = ${sql.raw(TABLE_ALIAS)}.id
+          AND eil.entity_code = ${parent_entity_code}
+          AND eil.entity_instance_id = ${parent_entity_instance_id}
+      `;
+        joins.push(parentJoin);
+      }
 
       // Build WHERE conditions array
       const conditions: SQL[] = [];
@@ -198,11 +222,70 @@ export async function formRoutes(fastify: FastifyInstance) {
         conditions.push(sql`(${sql.join(searchConditions, sql` OR `)})`);
       }
 
+      // Compose JOIN clause
+      const joinClause = joins.length > 0 ? sql.join(joins, sql` `) : sql``;
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
+      // Parse requested view (convert view names to component names)
+      // ═══════════════════════════════════════════════════════════════
+      const requestedComponents = view
+        ? view.split(',').map((v: string) => v.trim())
+        : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
+
+      // ═══════════════════════════════════════════════════════════════
+      // METADATA-ONLY MODE: Redis cached, same query with WHERE 1=0
+      // Cache key: /api/v1/form?content=metadata
+      // ═══════════════════════════════════════════════════════════════
+      if (metadataOnly) {
+        // Build cache key from request URL
+        const cacheKey = `/api/v1/${ENTITY_CODE}?content=metadata`;
+
+        // Check Redis cache first
+        const cachedResponse = await getCachedMetadataResponse(cacheKey);
+        if (cachedResponse) {
+          return reply.send(cachedResponse);
+        }
+
+        // Cache miss - execute query to get column metadata
+        // Build WHERE clause with 1=0 prepended for instant short-circuit
+        // PostgreSQL evaluates 1=0 first, skips all other conditions
+        const metadataWhereClause = conditions.length > 0
+          ? sql`WHERE 1=0 AND ${sql.join(conditions, sql` AND `)}`
+          : sql`WHERE 1=0`;
+
+        // Same query structure as data query, but with 1=0 short-circuit
+        const metadataQuery = sql`
+          SELECT DISTINCT ${sql.raw(TABLE_ALIAS)}.*
+          FROM app.${sql.raw(ENTITY_CODE)} ${sql.raw(TABLE_ALIAS)}
+          ${joinClause}
+          ${metadataWhereClause}
+        `;
+
+        // Execute with drizzle to get columns metadata
+        const columnsResult = await db.execute(metadataQuery);
+        // Access columns from the result (postgres.js exposes this)
+        const resultFields = (columnsResult as any).columns?.map((col: any) => ({ name: col.name })) || [];
+
+        // Generate metadata-only response
+        const response = await generateEntityResponse(ENTITY_CODE, [], {
+          components: requestedComponents,
+          metadataOnly: true,
+          resultFields
+        });
+
+        // Cache the response in Redis
+        await cacheMetadataResponse(cacheKey, response);
+
+        return reply.send(response);
+      }
+
       if (show_all_versions) {
         // Show all versions - simple query
         const countResult = await db.execute(sql`
           SELECT COUNT(*) as total
           FROM app.form f
+          ${joinClause}
           ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         `);
         const total = Number(countResult[0]?.total || 0);
@@ -224,17 +307,11 @@ export async function formRoutes(fastify: FastifyInstance) {
             f.updated_ts,
             f.version
           FROM app.form f
+          ${joinClause}
           ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
           ORDER BY f.code ASC, f.version DESC
           LIMIT ${limit} OFFSET ${offset}
         `);
-
-        // ═══════════════════════════════════════════════════════════════
-        // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
-        // ═══════════════════════════════════════════════════════════════
-        const requestedComponents = view
-          ? view.split(',').map((v: string) => v.trim())
-          : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
 
         const response = await generateEntityResponse(ENTITY_CODE, forms, {
           components: requestedComponents,
@@ -252,6 +329,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           FROM (
             SELECT DISTINCT ON (f.code) f.id
             FROM app.form f
+            ${joinClause}
             ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
             ORDER BY f.code, f.version DESC
           ) subq
@@ -275,17 +353,11 @@ export async function formRoutes(fastify: FastifyInstance) {
             f.updated_ts,
             f.version
           FROM app.form f
+          ${joinClause}
           ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
           ORDER BY f.code, f.version DESC
           LIMIT ${limit} OFFSET ${offset}
         `);
-
-        // ═══════════════════════════════════════════════════════════════
-        // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
-        // ═══════════════════════════════════════════════════════════════
-        const requestedComponents = view
-          ? view.split(',').map((v: string) => v.trim())
-          : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
 
         const response = await generateEntityResponse(ENTITY_CODE, forms, {
           components: requestedComponents,
@@ -956,7 +1028,7 @@ export async function formRoutes(fastify: FastifyInstance) {
         id: Type.String()}),
       querystring: Type.Object({
         page: Type.Optional(Type.Number({ minimum: 1 })),
-        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
+        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100000 })),
         status: Type.Optional(Type.String())}),
       response: {
         200: Type.Object({

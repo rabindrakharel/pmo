@@ -59,7 +59,7 @@ import { hierarchyRoutes } from './meta/hierarchy-routes.js';
 import { singleEntityRoutes } from './entity/single-entity-routes.js';
 import { entityRoutes } from './entity/routes.js';
 import { rbacRoutes } from './rbac/routes.js';
-import { linkageModule } from './linkage/index.js';
+import { entityInstanceLinkRoutes } from './entity/entity-instance-link-routes.js';
 import { sharedRoutes } from './shared/routes.js';
 import { entityInstanceLookupRoutes } from './entity-instance-lookup/routes.js';
 
@@ -110,8 +110,8 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   // RBAC permission checking routes
   await rbacRoutes(fastify);
 
-  // Linkage routes (entity relationship management - both type and instance)
-  await linkageModule(fastify);
+  // Entity Instance Link routes (entity relationship management)
+  await entityInstanceLinkRoutes(fastify);
 
   // Entity-based API routes (all require entity-based RBAC)
   await empRoutes(fastify);

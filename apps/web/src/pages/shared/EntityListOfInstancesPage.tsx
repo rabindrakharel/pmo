@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Plus, ArrowLeft, Edit, Trash2 } from 'lucide-react';
 import { Layout, ViewSwitcher, EntityListOfInstancesTable } from '../../components/shared';
 import { EllipsisBounce } from '../../components/shared/ui/EllipsisBounce';
@@ -13,7 +14,7 @@ import { getEntityConfig, type ViewMode } from '../../lib/entityConfig';
 import { getEntityIcon } from '../../lib/entityIcons';
 import { transformForApi, transformFromApi } from '../../lib/frontEndFormatterService';
 import { useSidebar } from '../../contexts/SidebarContext';
-import { useEntityInstanceData, useEntityInstanceMetadata, useOptimisticMutation } from '@/db/tanstack-index';
+import { useEntityInstanceData, useEntityInstanceMetadata, useOptimisticMutation, QUERY_KEYS } from '@/db/tanstack-index';
 import { formatDataset, type ComponentMetadata } from '../../lib/formatters';
 import type { RowAction } from '../../components/shared/ui/EntityListOfInstancesTable';
 
@@ -21,7 +22,7 @@ import type { RowAction } from '../../components/shared/ui/EntityListOfInstances
 // DEBUG LOGGING - Cache & Data Flow Diagnostics
 // ============================================================================
 // Set to true to enable detailed cache debugging
-const DEBUG_CACHE = false;
+const DEBUG_CACHE = false;  // v11.3.1: Toggle for inline add row debugging
 
 const debugCache = (message: string, data?: Record<string, unknown>) => {
   if (DEBUG_CACHE) {
@@ -49,6 +50,7 @@ interface EntityListOfInstancesPageProps {
 
 export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityListOfInstancesPageProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   // Track previous rawData reference for cache debugging
   const prevRawDataRef = useRef<unknown[] | null>(null);
@@ -161,30 +163,32 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   }, [rawData, metadata, entityCode]);
 
   // ============================================================================
-  // INLINE EDIT STATE MANAGEMENT
+  // v11.3.0: INLINE EDIT STATE MANAGEMENT - TanStack Query Single Source of Truth
+  // ============================================================================
+  // Pattern: Cache is the ONLY data source. No localData copying.
+  // - handleAddRow: adds temp row directly to cache via queryClient.setQueryData
+  // - handleCancelInlineEdit: removes temp row from cache
+  // - handleSaveInlineEdit: passes existingTempId to createEntity (no duplicate)
   // ============================================================================
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [editedData, setEditedData] = useState<any>({});
   const [isAddingRow, setIsAddingRow] = useState(false);
-  const [localData, setLocalData] = useState<any[]>([]);
 
   // Combine raw data with any appended data from pagination
-  const combinedRawData = useMemo(() => {
+  // v11.3.0: No more localData - cache is single source of truth
+  const data = useMemo(() => {
     if (currentPage > 1 && appendedData.length > 0) {
       return [...appendedData, ...(rawData || [])];
     }
     return rawData || [];
   }, [rawData, appendedData, currentPage]);
 
-  // Use localData only when actively editing, otherwise use raw data
-  const data = localData.length > 0 ? localData : combinedRawData;
-
-  // Reset localData when exiting edit mode or entity changes
+  // Clear edit state when entity changes
   useEffect(() => {
-    if (!editingRow && !isAddingRow) {
-      setLocalData([]);
-    }
-  }, [editingRow, isAddingRow, entityCode]);
+    setEditingRow(null);
+    setEditedData({});
+    setIsAddingRow(false);
+  }, [entityCode]);
 
   const hasMore = (rawData?.length || 0) === 20000;
   const error = queryError?.message || null;
@@ -246,16 +250,28 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   }, [data]);
 
   const handleRowClick = useCallback((item: any) => {
+    console.log('%c[ROW CLICK] handleRowClick called', 'color: #8b5cf6; font-weight: bold', { item });
+
     if (!config) return;
     // v8.0.0: Handle FormattedRow objects (raw data is inside item.raw)
     const rawItem = item.raw || item;
     const idField = config.detailPageIdField || 'id';
     const id = rawItem[idField];
-    // Guard against undefined id to prevent /entity/undefined URLs
-    if (!id) {
-      console.warn(`[handleRowClick] Missing ${idField} in record:`, rawItem);
-      return;
+
+    console.log('%c[ROW CLICK] Row ID extracted', 'color: #8b5cf6; font-weight: bold', {
+      id,
+      isTemp: id?.toString().startsWith('temp_')
+    });
+
+    // v11.3.0: Block navigation for temp rows (they don't exist on server yet)
+    if (id?.toString().startsWith('temp_')) {
+      console.log('%c[ROW CLICK] BLOCKED - temp row cannot navigate', 'color: #ef4444; font-weight: bold');
+      return;  // Do nothing - row is still being created
     }
+
+    console.log('%c[ROW CLICK] Navigating to detail page', 'color: #8b5cf6; font-weight: bold', {
+      path: `/${entityCode}/${id}`
+    });
     navigate(`/${entityCode}/${id}`);
   }, [config, entityCode, navigate]);
 
@@ -293,6 +309,11 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   // ============================================================================
 
   const handleInlineEdit = useCallback((_rowId: string, field: string, value: any) => {
+    console.log('%c[INLINE EDIT] Field changed', 'color: #06b6d4; font-weight: bold', {
+      field,
+      value,
+      rowId: _rowId
+    });
     setEditedData((prev: any) => ({
       ...prev,
       [field]: value
@@ -300,6 +321,12 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   }, []);
 
   const handleSaveInlineEdit = useCallback(async (record: any) => {
+    console.log('%c[SAVE] Step 1: handleSaveInlineEdit called', 'color: #3b82f6; font-weight: bold', {
+      record,
+      editedData,
+      isAddingRow
+    });
+
     if (!config) return;
 
     // Handle both FormattedRow and raw data
@@ -307,10 +334,22 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     const recordId = rawRecord.id;
 
     const isNewRow = isAddingRow || recordId?.toString().startsWith('temp_') || rawRecord._isNew;
+    console.log('%c[SAVE] Step 2: Determined row type', 'color: #3b82f6; font-weight: bold', {
+      recordId,
+      isNewRow,
+      isAddingRow,
+      startsWithTemp: recordId?.toString().startsWith('temp_'),
+      hasIsNew: rawRecord._isNew
+    });
+
     const transformedData = transformForApi(editedData, rawRecord);
+    console.log('%c[SAVE] Step 3: Transformed data for API', 'color: #3b82f6; font-weight: bold', {
+      transformedData
+    });
 
     // Remove temporary fields
     delete transformedData._isNew;
+    delete transformedData._isOptimistic;
     if (isNewRow) {
       delete transformedData.id;
     }
@@ -318,50 +357,133 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     try {
       if (isNewRow) {
         // ============================================================================
-        // v9.5.0: OPTIMISTIC CREATE - UI updates immediately, API syncs in background
+        // v11.3.0: OPTIMISTIC CREATE with existingTempId
+        // Row already exists in cache (added by handleAddRow)
+        // Pass existingTempId so onMutate doesn't create duplicate
         // ============================================================================
-        debugCache('Optimistic create: Starting', { entityCode, data: transformedData });
-        await createEntity(transformedData);
-        debugCache('Optimistic create: Completed', { entityCode });
+        console.log('%c[SAVE] Step 4: Calling createEntity with existingTempId', 'color: #3b82f6; font-weight: bold', {
+          data: transformedData,
+          existingTempId: recordId
+        });
+        await createEntity(transformedData, { existingTempId: recordId });
+        console.log('%c[SAVE] Step 5: createEntity SUCCESS', 'color: #10b981; font-weight: bold');
       } else {
         // ============================================================================
         // v9.5.0: OPTIMISTIC UPDATE - UI updates immediately, API syncs in background
         // ============================================================================
-        debugCache('Optimistic update: Starting', { entityCode, recordId, data: transformedData });
+        console.log('%c[SAVE] Step 4: Calling updateEntity', 'color: #3b82f6; font-weight: bold', {
+          recordId,
+          data: transformedData
+        });
         await updateEntity(recordId, transformedData);
-        debugCache('Optimistic update: Completed', { entityCode, recordId });
+        console.log('%c[SAVE] Step 5: updateEntity SUCCESS', 'color: #10b981; font-weight: bold');
       }
 
       // Clear edit state after successful mutation
+      console.log('%c[SAVE] Step 6: Clearing edit state', 'color: #3b82f6; font-weight: bold');
       setEditingRow(null);
       setEditedData({});
       setIsAddingRow(false);
-      setLocalData([]);
     } catch (error) {
+      console.log('%c[SAVE] Step 5: MUTATION FAILED', 'color: #ef4444; font-weight: bold', { error });
       // Error handling is done in onError callback of useOptimisticMutation
-      // Rollback happens automatically - just clear edit state
+      // For new rows, onError removes temp row from cache automatically
       setEditingRow(null);
       setEditedData({});
       setIsAddingRow(false);
-      setLocalData([]);
     }
   }, [config, entityCode, editedData, isAddingRow, createEntity, updateEntity]);
 
   const handleCancelInlineEdit = useCallback(() => {
+    console.log('%c[CANCEL] Step 1: handleCancelInlineEdit called', 'color: #ef4444; font-weight: bold', {
+      isAddingRow,
+      editingRow
+    });
+
     if (isAddingRow && editingRow) {
-      setLocalData(prev => prev.filter(row => row.id !== editingRow));
-      setIsAddingRow(false);
+      console.log('%c[CANCEL] Step 2: Removing temp row from cache', 'color: #ef4444; font-weight: bold', {
+        tempRowId: editingRow
+      });
+
+      // v11.3.0: Remove temp row from cache (single source of truth)
+      const queryCache = queryClient.getQueryCache();
+      const matchingQueries = queryCache.findAll({
+        queryKey: QUERY_KEYS.entityInstanceDataByCode(entityCode),
+      });
+
+      console.log('%c[CANCEL] Step 3: Found matching queries', 'color: #ef4444; font-weight: bold', {
+        queryCount: matchingQueries.length
+      });
+
+      for (const query of matchingQueries) {
+        queryClient.setQueryData(query.queryKey, (oldData: any) => {
+          if (!oldData?.data) return oldData;
+          const newData = oldData.data.filter((item: any) => item.id !== editingRow);
+          console.log('%c[CANCEL] Step 4: Filtered cache data', 'color: #ef4444; font-weight: bold', {
+            oldCount: oldData.data.length,
+            newCount: newData.length
+          });
+          return {
+            ...oldData,
+            data: newData,
+            total: Math.max(0, (oldData.total || 1) - 1),
+          };
+        });
+      }
     }
+
+    // Clear edit state
+    console.log('%c[CANCEL] Step 5: Clearing edit state', 'color: #ef4444; font-weight: bold');
     setEditingRow(null);
     setEditedData({});
-  }, [isAddingRow, editingRow]);
+    setIsAddingRow(false);
+  }, [isAddingRow, editingRow, queryClient, entityCode]);
 
   const handleAddRow = useCallback((newRow: any) => {
-    setLocalData(prev => [...prev, newRow]);
+    console.log('%c[ADD ROW] Step 1: handleAddRow called', 'color: #10b981; font-weight: bold', {
+      newRowId: newRow.id,
+      newRow
+    });
+
+    // v11.3.0: Add temp row DIRECTLY to TanStack Query cache
+    // This is the industry standard pattern - cache is single source of truth
+    const queryCache = queryClient.getQueryCache();
+    const matchingQueries = queryCache.findAll({
+      queryKey: QUERY_KEYS.entityInstanceDataByCode(entityCode),
+    });
+
+    console.log('%c[ADD ROW] Step 2: Found matching queries', 'color: #10b981; font-weight: bold', {
+      queryCount: matchingQueries.length,
+      queryKeys: matchingQueries.map(q => JSON.stringify(q.queryKey))
+    });
+
+    for (const query of matchingQueries) {
+      queryClient.setQueryData(query.queryKey, (oldData: any) => {
+        if (!oldData?.data) {
+          console.log('%c[ADD ROW] Step 3: No oldData, returning unchanged', 'color: #ef4444; font-weight: bold');
+          return oldData;
+        }
+        console.log('%c[ADD ROW] Step 3: Adding temp row to cache', 'color: #10b981; font-weight: bold', {
+          oldDataCount: oldData.data.length,
+          newDataCount: oldData.data.length + 1
+        });
+        return {
+          ...oldData,
+          data: [...oldData.data, newRow],  // Add temp row to END
+          total: (oldData.total || 0) + 1,
+        };
+      });
+    }
+
+    // Enter edit mode for the new row
+    console.log('%c[ADD ROW] Step 4: Setting edit state', 'color: #10b981; font-weight: bold', {
+      editingRow: newRow.id,
+      isAddingRow: true
+    });
     setEditingRow(newRow.id);
     setEditedData(newRow);
     setIsAddingRow(true);
-  }, []);
+  }, [queryClient, entityCode]);
 
   const handleDelete = useCallback(async (record: any) => {
     if (!config) return;
@@ -393,13 +515,14 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
       icon: <Edit className="h-4 w-4" />,
       variant: 'default',
       onClick: (record) => {
-        // v8.0.0: Sync localData with raw data when entering edit mode
-        if (localData.length === 0 && rawData) {
-          setLocalData(rawData);
-        }
-        // Handle both FormattedRow and raw data
+        console.log('%c[EDIT ACTION] Edit button clicked', 'color: #f59e0b; font-weight: bold', { record });
+        // v11.3.0: No localData sync needed - cache is source of truth
         const rawRecord = record.raw || record;
         const recordId = rawRecord.id;
+        console.log('%c[EDIT ACTION] Setting edit state', 'color: #f59e0b; font-weight: bold', {
+          recordId,
+          rawRecord
+        });
         setEditingRow(recordId);
         setEditedData(transformFromApi({ ...rawRecord }));
       }
@@ -414,7 +537,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     });
 
     return actions;
-  }, [handleDelete, localData.length, rawData]);
+  }, [handleDelete]);
 
   if (!config) {
     return (

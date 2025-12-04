@@ -613,3 +613,22 @@ export async function clearStaleData(maxAgeMs: number = 30 * 60 * 1000): Promise
 
   return count;
 }
+
+/**
+ * Reset the entire Dexie database by clearing all tables
+ * Used on login to ensure fresh state with no stale data
+ * Note: Uses table.clear() instead of db.delete() to avoid DatabaseClosedError race conditions
+ */
+export async function resetDatabase(): Promise<void> {
+  await Promise.all([
+    db.globalSettings.clear(),
+    db.datalabel.clear(),
+    db.entityCodes.clear(),
+    db.entityInstanceNames.clear(),
+    db.entityLinkForward.clear(),
+    db.entityLinkReverse.clear(),
+    db.entityInstanceMetadata.clear(),
+    db.entityInstanceData.clear(),
+    db.draft.clear(),
+  ]);
+}

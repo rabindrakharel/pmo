@@ -1,5 +1,5 @@
 // ============================================================================
-// useOptimisticMutation Hook (v11.2.0)
+// useOptimisticMutation Hook (v11.3.1)
 // ============================================================================
 // Industry-standard optimistic update pattern for TanStack Query + Dexie
 //
@@ -9,6 +9,18 @@
 // 3. BACKGROUND: Send API request
 //    - Success: Cache already correct, optionally refetch to sync server state
 //    - Failure: Direct rollback using captured previous state (no network required)
+//
+// v11.3.1 CHANGES:
+// - FIX: Skip refetch entirely for inline add row (existingTempId) to prevent race condition
+// - Previously: 500ms delay still caused refetch that could return stale data
+// - Now: No refetch at all - API response already has the data, it's in the cache
+//
+// v11.3.0 CHANGES:
+// - Added `existingTempId` option to createEntity() for inline add row pattern
+// - When existingTempId provided: skips temp row creation in onMutate (row already in cache)
+// - On success: replaces existing temp row with real server data
+// - On error: removes temp row from cache (rollback)
+// - Enables single source of truth: cache is THE data store, no local state copying
 //
 // v11.2.0 CHANGES:
 // - CRITICAL FIX: Direct rollback using previousListData instead of invalidateQueries()
@@ -50,7 +62,7 @@ import {
 // DEBUG LOGGING - Cache Layer Diagnostics
 // ============================================================================
 // Set to true to enable detailed cache debugging
-const DEBUG_CACHE = false;
+const DEBUG_CACHE = false;  // v11.3.1: Toggle for inline add row debugging
 
 const debugCache = (message: string, data?: Record<string, unknown>) => {
   if (DEBUG_CACHE) {
@@ -90,6 +102,8 @@ export interface OptimisticMutationContext<T = Record<string, unknown>> {
   entityId?: string;
   /** Mutation type */
   mutationType: 'create' | 'update' | 'delete';
+  /** v11.3.0: Existing temp ID when row was pre-added to cache (inline add row pattern) */
+  existingTempId?: string;
 }
 
 export interface UseOptimisticMutationOptions {
@@ -103,11 +117,20 @@ export interface UseOptimisticMutationOptions {
   listQueryParams?: Record<string, unknown>;
 }
 
+/** v11.3.0: Options for createEntity */
+export interface CreateEntityOptions {
+  /**
+   * v11.3.0: Existing temp ID when row was pre-added to cache
+   * Used by inline add row pattern - skips onMutate temp row creation
+   */
+  existingTempId?: string;
+}
+
 export interface UseOptimisticMutationResult<T = Record<string, unknown>> {
   /** Optimistically update an existing entity */
   updateEntity: (entityId: string, changes: Partial<T>) => Promise<T>;
-  /** Optimistically create a new entity */
-  createEntity: (data: Partial<T>) => Promise<T>;
+  /** Optimistically create a new entity (v11.3.0: supports existingTempId for inline add) */
+  createEntity: (data: Partial<T>, options?: CreateEntityOptions) => Promise<T>;
   /** Optimistically delete an entity */
   deleteEntity: (entityId: string) => Promise<void>;
   /** Mutation in progress */
@@ -426,58 +449,99 @@ export function useOptimisticMutation<T extends { id: string } = { id: string } 
   });
 
   // ──────────────────────────────────────────────────────────────────────────
-  // CREATE MUTATION
+  // CREATE MUTATION (v11.3.0: supports existingTempId for inline add row)
   // ──────────────────────────────────────────────────────────────────────────
 
   const createMutation = useMutation<
     T,
     Error,
-    Partial<T>,
+    { data: Partial<T>; existingTempId?: string },
     OptimisticMutationContext<T>
   >({
-    mutationFn: async (data) => {
+    mutationFn: async ({ data }) => {
       const response = await apiClient.post(`/api/v1/${entityCode}`, data);
       return response.data?.data || response.data;
     },
 
-    // For create, we can't do true optimistic update (no ID yet)
-    // Instead, we add a temp placeholder and replace on success
-    onMutate: async (newData) => {
+    // v11.3.0: Modified to support existingTempId (inline add row pattern)
+    // When existingTempId is provided, row is already in cache - skip adding temp row
+    onMutate: async ({ data: newData, existingTempId }) => {
       await queryClient.cancelQueries({
         queryKey: QUERY_KEYS.entityInstanceDataByCode(entityCode),
       });
 
-      const tempId = `temp_${Date.now()}`;
-      const tempEntity = { ...newData, id: tempId, _isOptimistic: true } as T;
+      let allPreviousListData: Map<string, ListCacheData<T>>;
+      let entityId: string;
 
-      // v11.2.0: Capture ALL previous states for rollback
-      const allPreviousListData = updateAllListCaches<T>(
-        queryClient,
-        entityCode,
-        (data) => [tempEntity, ...data]
-      );
-
-      // v9.5.2: Add temp entity to Dexie as well
-      addEntityInstanceDataItem(entityCode, tempEntity, true)
-        .then((count) => debugCache(`✅ onMutate (create): Dexie cache updated`, { entriesUpdated: count }))
-        .catch((err) => {
-          debugCache(`❌ onMutate (create): Failed to update Dexie cache`, { error: String(err) });
-          clearEntityInstanceData(entityCode).catch(() => {});
+      if (existingTempId) {
+        // v11.3.0: Row already exists in cache (added by handleAddRow)
+        // Just capture previous state for rollback - DO NOT add another temp row
+        debugCache(`🔄 onMutate (create): Using existingTempId - skipping temp row creation`, {
+          existingTempId,
         });
+
+        const queryCache = queryClient.getQueryCache();
+        const matchingQueries = queryCache.findAll({
+          queryKey: QUERY_KEYS.entityInstanceDataByCode(entityCode),
+        });
+
+        allPreviousListData = new Map();
+        for (const query of matchingQueries) {
+          const previousData = query.state.data as ListCacheData<T> | undefined;
+          if (previousData?.data) {
+            allPreviousListData.set(JSON.stringify(query.queryKey), { ...previousData });
+          }
+        }
+
+        entityId = existingTempId;
+      } else {
+        // Original flow: create temp row in cache
+        const tempId = `temp_${Date.now()}`;
+        const tempEntity = { ...newData, id: tempId, _isOptimistic: true } as unknown as T;
+
+        // v11.2.0: Capture ALL previous states for rollback
+        allPreviousListData = updateAllListCaches<T>(
+          queryClient,
+          entityCode,
+          (data) => [tempEntity, ...data]
+        );
+
+        // v9.5.2: Add temp entity to Dexie as well
+        addEntityInstanceDataItem(entityCode, tempEntity, true)
+          .then((count) => debugCache(`✅ onMutate (create): Dexie cache updated`, { entriesUpdated: count }))
+          .catch((err) => {
+            debugCache(`❌ onMutate (create): Failed to update Dexie cache`, { error: String(err) });
+            clearEntityInstanceData(entityCode).catch(() => {});
+          });
+
+        entityId = tempId;
+      }
 
       return {
         allPreviousListData,
-        entityId: tempId,
+        entityId,
+        existingTempId,
         mutationType: 'create',
       };
     },
 
-    // v11.2.0: Direct rollback on error (no network required)
+    // v11.3.0: Enhanced error handling for existingTempId case
     onError: (error, _variables, context) => {
-      debugCache(`❌ onError (create): API call failed - triggering direct rollback`);
+      debugCache(`❌ onError (create): API call failed - triggering rollback`, {
+        existingTempId: context?.existingTempId,
+      });
 
-      // v11.2.0: Direct rollback using captured previous states
-      if (context?.allPreviousListData && context.allPreviousListData.size > 0) {
+      if (context?.existingTempId) {
+        // v11.3.0: Remove the temp row that was added by handleAddRow
+        // This is cleaner than full rollback - just remove the failed row
+        updateAllListCaches<T>(queryClient, entityCode, (listData) =>
+          listData.filter((item) => item.id !== context.existingTempId)
+        );
+        debugCache(`🔄 onError (create): Removed temp row from cache`, {
+          existingTempId: context.existingTempId,
+        });
+      } else if (context?.allPreviousListData && context.allPreviousListData.size > 0) {
+        // v11.2.0: Direct rollback using captured previous states
         rollbackAllListCaches(queryClient, context.allPreviousListData);
         debugCache(`🔄 onError (create): Rolled back ${context.allPreviousListData.size} list caches`);
       }
@@ -488,8 +552,15 @@ export function useOptimisticMutation<T extends { id: string } = { id: string } 
     },
 
     onSuccess: async (data, _variables, context) => {
+      debugCache(`🎉 onSuccess (create): API returned new entity`, {
+        newEntityId: (data as any)?.id,
+        tempEntityId: context?.entityId,
+        existingTempId: context?.existingTempId,
+      });
+
       // Replace temp entity with real one in ALL list caches
       if (context?.entityId) {
+        debugCache(`🔄 onSuccess (create): Replacing temp row with real data in cache`);
         updateAllListCaches<T>(queryClient, entityCode, (listData) =>
           listData.map((item) => (item.id === context.entityId ? data : item))
         );
@@ -512,9 +583,17 @@ export function useOptimisticMutation<T extends { id: string } = { id: string } 
       }
 
       if (refetchOnSuccess) {
-        queryClient.invalidateQueries({
-          queryKey: QUERY_KEYS.entityInstanceDataByCode(entityCode),
-        });
+        // v11.3.1: SKIP refetch for inline add row (existingTempId) - we already have the data!
+        // The API response contains the full entity, which is already in the cache.
+        // Refetching would cause a race condition and potential data loss.
+        if (context?.existingTempId) {
+          debugCache(`🔄 onSuccess (create): SKIPPING refetch for inline add row - data already in cache`);
+        } else {
+          debugCache(`🔄 onSuccess (create): Triggering refetch`);
+          queryClient.invalidateQueries({
+            queryKey: QUERY_KEYS.entityInstanceDataByCode(entityCode),
+          });
+        }
       }
 
       onSuccess?.(data, {});
@@ -627,8 +706,8 @@ export function useOptimisticMutation<T extends { id: string } = { id: string } 
   );
 
   const createEntity = useCallback(
-    async (data: Partial<T>): Promise<T> => {
-      return createMutation.mutateAsync(data);
+    async (data: Partial<T>, options?: CreateEntityOptions): Promise<T> => {
+      return createMutation.mutateAsync({ data, existingTempId: options?.existingTempId });
     },
     [createMutation]
   );
@@ -657,8 +736,4 @@ export function useOptimisticMutation<T extends { id: string } = { id: string } 
   };
 }
 
-// ============================================================================
-// Exports
-// ============================================================================
-
-export type { OptimisticMutationContext };
+// All types are exported inline above

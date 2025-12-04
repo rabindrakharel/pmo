@@ -759,14 +759,20 @@ export function EntityListOfInstancesTable<T = any>({
     if (!activeEditingCell) return;
 
     const handleClickOutside = (event: MouseEvent) => {
-      if (editingCellRef.current && !editingCellRef.current.contains(event.target as Node)) {
-        // Find the record for the editing cell
-        const record = paginatedData.find((r, idx) => getRowKey(r, idx) === activeEditingCell.rowId);
-        if (record) {
-          handleCellSave(activeEditingCell.rowId, activeEditingCell.columnKey, record);
-        } else {
-          handleCellCancel();
-        }
+      const target = event.target as HTMLElement;
+
+      // Skip if click is inside the editing cell
+      if (editingCellRef.current?.contains(target)) return;
+
+      // Skip if click is inside a portal dropdown (data-dropdown-portal marker)
+      if (target.closest?.('[data-dropdown-portal]')) return;
+
+      // Click is truly outside - save and close
+      const record = paginatedData.find((r, idx) => getRowKey(r, idx) === activeEditingCell.rowId);
+      if (record) {
+        handleCellSave(activeEditingCell.rowId, activeEditingCell.columnKey, record);
+      } else {
+        handleCellCancel();
       }
     };
 

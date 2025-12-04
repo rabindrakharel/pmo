@@ -276,7 +276,8 @@
       "Bash(/tmp/test-activity-feed-flow.sh)",
       "Bash(ls:*)",
       "Bash(/tmp/test-pin-resolve.sh)",
-      "Bash(mcp__ide__getDiagnostics)"
+      "Bash(mcp__ide__getDiagnostics)",
+      "Bash(/tmp/test-attachments.sh)"
     ],
     "deny": [],
     "ask": [],

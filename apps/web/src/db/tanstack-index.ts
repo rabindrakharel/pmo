@@ -127,6 +127,7 @@ export {
   deleteEntityInstanceDataItem,
   addEntityInstanceDataItem,
   replaceEntityInstanceDataItem,
+  resetDatabase,
 } from './persistence/operations';
 
 export {

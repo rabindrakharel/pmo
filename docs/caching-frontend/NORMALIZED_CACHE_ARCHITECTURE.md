@@ -1,8 +1,8 @@
 # Unified Cache Architecture
 
-> **Version:** 4.0.0 | PMO Enterprise Platform
+> **Version:** 4.1.0 | PMO Enterprise Platform
 > **Status:** Implementation Complete
-> **Date:** 2025-12-02
+> **Date:** 2025-12-03
 
 ## Executive Summary
 
@@ -87,6 +87,7 @@ apps/web/src/db/
 │       ├── useEntityInstanceNames.ts # Entity name resolution
 │       ├── useEntityLinks.ts # Parent-child relationships
 │       ├── useGlobalSettings.ts # App settings
+│       ├── useInlineAddRow.ts # Inline add row pattern (v11.3.1)
 │       ├── useOfflineEntity.ts # Offline-only access
 │       └── useOptimisticMutation.ts # Dual-cache optimistic updates
 │
@@ -260,13 +261,46 @@ const { data, isStale } = useOfflineEntity<Project>('project', projectId);
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Optimistic mutations with dual-cache (TanStack + Dexie)
-const { updateEntity, deleteEntity, isUpdating, isDeleting } = useOptimisticMutation<Project>('project');
+const { createEntity, updateEntity, deleteEntity, isUpdating, isDeleting } = useOptimisticMutation<Project>('project');
+
+// Create: Supports existingTempId for inline add row pattern
+createEntity(data, { existingTempId: 'temp_123' }); // Skip duplicate temp row
 
 // Update: Immediate UI + IndexedDB update, then API call
 updateEntity({ entityId: projectId, changes: { name: 'New Name' } });
 
 // Delete: Immediate removal from both caches, then API call
 deleteEntity({ entityId: projectId });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INLINE ADD ROW HOOK (v11.3.1 - cache as single source of truth)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Reusable inline editing pattern
+const {
+  editingRow,        // Currently editing row ID
+  editedData,        // Accumulated field changes
+  isAddingRow,       // True if adding new row
+  handleAddRow,      // Add temp row to cache + enter edit mode
+  handleEditRow,     // Enter edit mode for existing row
+  handleFieldChange, // Update field in editedData
+  handleSave,        // Save to server (uses existingTempId for new rows)
+  handleCancel,      // Cancel edit + remove temp row from cache
+} = useInlineAddRow({
+  entityCode: 'project',
+  createEntity,
+  updateEntity,
+});
+
+// Factory for creating temp rows
+const newRow = createTempRow<Project>({
+  defaults: { dl__project_stage: 'planning' },
+  generateName: () => 'New Project',
+});
+handleAddRow(newRow);
+
+// Block navigation to temp rows
+if (shouldBlockNavigation(row.id)) return;
 ```
 
 ---
@@ -513,6 +547,9 @@ import {
   useDraft,                 // Form drafts with undo/redo
   useOfflineEntity,         // Offline-only access
   useOptimisticMutation,    // Dual-cache optimistic updates
+  useInlineAddRow,          // Inline add row pattern (v11.3.1)
+  createTempRow,            // Factory for temp rows
+  shouldBlockNavigation,    // Block navigation to temp rows
 
   // ═══════════════════════════════════════════════════════════════════════════
   // SYNC ACCESSORS (v11.0.0: read from queryClient.getQueryData())
@@ -653,8 +690,8 @@ const name = getEntityInstanceNameSync('employee', uuid);
 
 ---
 
-**Version:** 4.0.0
-**Last Updated:** 2025-12-02
+**Version:** 4.1.0
+**Last Updated:** 2025-12-03
 **Status:** Implementation Complete
 
 ### Version History
@@ -666,3 +703,4 @@ const name = getEntityInstanceNameSync('employee', uuid);
 | 3.0.0 | 2025-12-01 | Unified architecture with single entry point |
 | 3.3.0 | 2025-12-01 | Dual-cache optimistic updates, granular Dexie operations |
 | 4.0.0 | 2025-12-02 | **v11.0.0: Removed sync stores** - TanStack Query cache is single source of truth. Sync accessors now read from queryClient.getQueryData() instead of separate Map-based stores. |
+| 4.1.0 | 2025-12-03 | **v11.3.1: Inline add row pattern** - Added `useInlineAddRow` hook, `createTempRow()` factory, `shouldBlockNavigation()` utility. Cache is single source of truth for inline editing - no local state copying. `existingTempId` option prevents duplicate temp rows. |

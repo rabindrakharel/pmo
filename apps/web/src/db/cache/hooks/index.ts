@@ -57,7 +57,18 @@ export {
   type OptimisticMutationContext,
   type UseOptimisticMutationOptions,
   type UseOptimisticMutationResult,
+  type CreateEntityOptions,
 } from './useOptimisticMutation';
+
+// Inline Add Row (v11.3.1) - Reusable pattern for optimistic inline editing
+export {
+  useInlineAddRow,
+  createTempRow,
+  shouldBlockNavigation,
+  type UseInlineAddRowOptions,
+  type UseInlineAddRowResult,
+  type TempRowOptions,
+} from './useInlineAddRow';
 
 // Offline Entity (Dexie-only)
 export {

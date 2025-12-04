@@ -1,12 +1,16 @@
 # State Management Architecture
 
-**Version:** 11.1.0 | **Updated:** 2025-12-02
+**Version:** 11.3.1 | **Updated:** 2025-12-03
 
 ---
 
 ## Overview
 
 The PMO frontend uses **TanStack Query + Dexie** for state management. TanStack Query manages server state with automatic background refetching, while Dexie (IndexedDB) provides offline-first persistent storage.
+
+### v11.3.1 Key Changes
+
+**Inline Add Row Pattern:** Added `useInlineAddRow` hook implementing TanStack Query's single source of truth pattern for inline editing. Temp rows are added directly to cache, and `existingTempId` prevents duplicate rows during mutation. See Flow 6 in Cache_lifecycle.md.
 
 ### v11.1.0 Key Changes
 
@@ -41,6 +45,7 @@ The PMO frontend uses **TanStack Query + Dexie** for state management. TanStack 
 |   |  useEntityList()     |         |  entityInstanceNames   |          |
 |   |  useDatalabel()      |         |  datalabel             |          |
 |   |  useDraft()          |         |  draft                 |          |
+|   |  useInlineAddRow()   |         |                        |          |
 |   +-----------------------+         +------------------------+          |
 |                                                                          |
 |   WebSocket Manager                                                     |
@@ -114,6 +119,16 @@ import {
 import { useDraft, useRecoverDrafts } from '@/db/tanstack-index';
 ```
 
+### Inline Add Row Hook (v11.3.1)
+
+```typescript
+import {
+  useInlineAddRow,     // Reusable inline editing pattern
+  createTempRow,       // Factory for creating temp rows
+  shouldBlockNavigation, // Block navigation to temp rows
+} from '@/db/cache/hooks';
+```
+
 ---
 
 ## useEntityList Example
@@ -183,6 +198,91 @@ function ProjectEditor({ projectId }: { projectId: string }) {
   );
 }
 ```
+
+---
+
+## useInlineAddRow Example (v11.3.1)
+
+The `useInlineAddRow` hook implements TanStack Query's single source of truth pattern for inline editing. Cache is the ONLY data store - no local state copying.
+
+```typescript
+function ProjectTable() {
+  const { createEntity, updateEntity } = useOptimisticMutation('project');
+
+  const {
+    editingRow,        // Currently editing row ID (null if not editing)
+    editedData,        // Accumulated field changes
+    isAddingRow,       // True if adding new row (vs editing existing)
+    isSaving,          // Save in progress
+    handleAddRow,      // Add temp row to cache + enter edit mode
+    handleEditRow,     // Enter edit mode for existing row
+    handleFieldChange, // Update field in editedData
+    handleSave,        // Save to server (uses existingTempId for new rows)
+    handleCancel,      // Cancel edit + remove temp row from cache
+    isRowEditing,      // Check if specific row is being edited
+    isTempRow,         // Check if row ID is temp (not saved yet)
+  } = useInlineAddRow({
+    entityCode: 'project',
+    createEntity,
+    updateEntity,
+    transformForApi: (edited, original) => ({
+      ...edited,
+      // Transform display values to API format
+    }),
+  });
+
+  // Add new row
+  const handleAddClick = () => {
+    const newRow = createTempRow<Project>({
+      defaults: { dl__project_stage: 'planning' },
+      generateName: () => 'New Project',
+    });
+    handleAddRow(newRow);
+  };
+
+  // Block navigation to temp rows
+  const handleRowClick = (row: Project) => {
+    if (shouldBlockNavigation(row.id)) return; // temp_ rows can't navigate
+    navigate(`/project/${row.id}`);
+  };
+
+  return (
+    <Table>
+      {data?.map(row => (
+        <TableRow key={row.id} editing={isRowEditing(row.id)}>
+          {isRowEditing(row.id) ? (
+            // Render edit inputs
+            <EditableRow
+              data={editedData}
+              onFieldChange={handleFieldChange}
+              onSave={() => handleSave(row)}
+              onCancel={handleCancel}
+            />
+          ) : (
+            // Render display row
+            <DisplayRow data={row} onClick={() => handleRowClick(row)} />
+          )}
+        </TableRow>
+      ))}
+      <Button onClick={handleAddClick}>Add Row</Button>
+    </Table>
+  );
+}
+```
+
+**Key Pattern: `existingTempId`**
+
+When saving a new row, the hook passes `existingTempId` to `createEntity()`:
+
+```typescript
+// Inside handleSave for new rows
+await createEntity(transformedData, { existingTempId: 'temp_1234567890' });
+```
+
+This tells `useOptimisticMutation.onMutate()` to:
+1. **SKIP** adding a new temp row (one already exists in cache)
+2. **CAPTURE** previous state for rollback
+3. On success: **REPLACE** temp row with real server data
 
 ---
 
@@ -630,7 +730,7 @@ App ready for use
 
 ---
 
-**Version:** 11.1.0 | **Updated:** 2025-12-02 | **Status:** Production
+**Version:** 11.3.1 | **Updated:** 2025-12-03 | **Status:** Production
 
 ---
 
