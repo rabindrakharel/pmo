@@ -44,8 +44,8 @@ export interface FormDesignerProps {
 
 export function FormDesigner({ formData, onSave, onSaveDraft, onExit, actions = [] }: FormDesignerProps) {
   // Form state
-  const [title, setTitle] = useState(formData?.name || '');
-  const [description, setDescription] = useState(formData?.descr || '');
+  const [name, setName] = useState(formData?.name || '');
+  const [descr, setDescr] = useState(formData?.descr || '');
   const [steps, setSteps] = useState<FormStep[]>(() => {
     if (formData?.form_schema?.steps && formData.form_schema.steps.length > 0) {
       return formData.form_schema.steps.map((step, idx) => ({
@@ -250,8 +250,8 @@ export function FormDesigner({ formData, onSave, onSaveDraft, onExit, actions = 
       };
 
       const payload = {
-        name: title || 'Untitled Form (Draft)',
-        descr: description || undefined,
+        name: name || 'Untitled Form (Draft)',
+        descr: descr || undefined,
         form_type: 'multi_step',
         form_schema: multiStepSchema,
         isMultiStep: steps.length > 1,
@@ -283,8 +283,8 @@ export function FormDesigner({ formData, onSave, onSaveDraft, onExit, actions = 
       };
 
       const payload = {
-        name: title,
-        descr: description || undefined,
+        name: name,
+        descr: descr || undefined,
         form_type: 'multi_step',
         form_schema: multiStepSchema,
         isMultiStep: steps.length > 1,
@@ -307,8 +307,8 @@ export function FormDesigner({ formData, onSave, onSaveDraft, onExit, actions = 
       return (
         <div className="max-w-4xl mx-auto">
           <div className="bg-dark-100 rounded-xl shadow-sm p-12">
-            <h1 className="text-3xl font-bold text-dark-600 mb-3">{title || 'Untitled Form'}</h1>
-            {description && <p className="text-base text-dark-700 mb-8">{description}</p>}
+            <h1 className="text-3xl font-bold text-dark-600 mb-3">{name || 'Untitled Form'}</h1>
+            {descr && <p className="text-base text-dark-700 mb-8">{descr}</p>}
 
             {/* Step Progress Indicator */}
             <div className="mb-8">
@@ -395,9 +395,9 @@ export function FormDesigner({ formData, onSave, onSaveDraft, onExit, actions = 
         <div className="px-16 pt-12 pb-6 border-b border-dark-300">
           <input
             type="text"
-            value={title}
+            value={name}
             onChange={(e) => {
-              setTitle(e.target.value);
+              setName(e.target.value);
               setUpdatedDate(new Date().toISOString());
             }}
             placeholder="Untitled Form"
@@ -405,9 +405,9 @@ export function FormDesigner({ formData, onSave, onSaveDraft, onExit, actions = 
           />
           <input
             type="text"
-            value={description}
+            value={descr}
             onChange={(e) => {
-              setDescription(e.target.value);
+              setDescr(e.target.value);
               setUpdatedDate(new Date().toISOString());
             }}
             placeholder="Optional description"
@@ -538,12 +538,10 @@ export function FormDesigner({ formData, onSave, onSaveDraft, onExit, actions = 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragEnd={handleDragEnd}>
       <UniversalDesigner
-        // Header
-        title={title || 'Untitled Form'}
+        // Header - name displayed but editing is in the canvas
+        title={name || 'Untitled Form'}
         subtitle={`Last updated ${new Date(updatedDate).toLocaleDateString()}`}
         icon={<FileText className="h-6 w-6" />}
-        titleEditable
-        onTitleChange={setTitle}
 
         // View Modes
         currentViewMode={viewMode}
@@ -565,13 +563,13 @@ export function FormDesigner({ formData, onSave, onSaveDraft, onExit, actions = 
         properties={
           viewMode === 'design' ? (
             <FormPropertiesPanel
-              title={title}
-              description={description}
+              name={name}
+              descr={descr}
               currentStep={currentStep}
               steps={steps}
               selectedField={selectedField}
-              onUpdateTitle={setTitle}
-              onUpdateDescription={setDescription}
+              onUpdateName={setName}
+              onUpdateDescr={setDescr}
               onUpdateStep={updateStep}
               onUpdateField={(updates) => selectedField && handleUpdateField(selectedField.id, updates)}
             />
@@ -587,7 +585,7 @@ export function FormDesigner({ formData, onSave, onSaveDraft, onExit, actions = 
             label: isSavingDraft ? 'Saving...' : 'Save Draft',
             icon: <Save className="h-4 w-4" />,
             onClick: handleSaveDraft,
-            disabled: isSavingDraft || !title.trim(),
+            disabled: isSavingDraft || !name.trim(),
             loading: isSavingDraft,
             variant: 'secondary' as const,
           }] : []),
@@ -598,7 +596,7 @@ export function FormDesigner({ formData, onSave, onSaveDraft, onExit, actions = 
           label: isSaving ? 'Publishing...' : 'Publish Form',
           icon: <Save className="h-4 w-4" />,
           onClick: handleSave,
-          disabled: isSaving || !title.trim() || fields.length === 0,
+          disabled: isSaving || !name.trim() || fields.length === 0,
           loading: isSaving,
         }}
         trailingActions={

@@ -3,25 +3,25 @@ import { Tag, Hash, Type, Calendar, User, Settings } from 'lucide-react';
 import type { BuilderField, FormStep } from '../FormBuilder';
 
 interface FormPropertiesPanelProps {
-  title: string;
-  description: string;
+  name: string;
+  descr: string;
   currentStep: FormStep;
   steps: FormStep[];
   selectedField?: BuilderField;
-  onUpdateTitle: (title: string) => void;
-  onUpdateDescription: (description: string) => void;
+  onUpdateName: (name: string) => void;
+  onUpdateDescr: (descr: string) => void;
   onUpdateStep: (updates: Partial<FormStep>) => void;
   onUpdateField?: (updates: Partial<BuilderField>) => void;
 }
 
 export function FormPropertiesPanel({
-  title,
-  description,
+  name,
+  descr,
   currentStep,
   steps,
   selectedField,
-  onUpdateTitle,
-  onUpdateDescription,
+  onUpdateName,
+  onUpdateDescr,
   onUpdateStep,
   onUpdateField,
 }: FormPropertiesPanelProps) {
@@ -214,18 +214,18 @@ export function FormPropertiesPanel({
   // Otherwise show step properties
   return (
     <div className="space-y-6">
-      {/* Form Title */}
+      {/* Form Name */}
       <div>
         <label className="block text-xs font-medium text-dark-700 mb-2 flex items-center">
           <Type className="h-3 w-3 mr-1" />
-          Form Title
+          Form Name
         </label>
         <input
           type="text"
-          value={title}
-          onChange={(e) => onUpdateTitle(e.target.value)}
+          value={name}
+          onChange={(e) => onUpdateName(e.target.value)}
           className="w-full px-3 py-2 border border-dark-400 rounded-md text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
-          placeholder="Enter form title"
+          placeholder="Enter form name"
         />
       </div>
 
@@ -236,8 +236,8 @@ export function FormPropertiesPanel({
           Description
         </label>
         <textarea
-          value={description}
-          onChange={(e) => onUpdateDescription(e.target.value)}
+          value={descr}
+          onChange={(e) => onUpdateDescr(e.target.value)}
           className="w-full px-3 py-2 border border-dark-400 rounded-md text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
           placeholder="Optional form description"
           rows={3}

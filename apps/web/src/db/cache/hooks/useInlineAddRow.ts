@@ -33,7 +33,7 @@
 // See: docs/design_pattern/INLINE_ADD_ROW_PATTERN.md
 // ============================================================================
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '../keys';
 import type { CreateEntityOptions } from './useOptimisticMutation';
@@ -200,7 +200,8 @@ export function useInlineAddRow<T extends { id: string } = Record<string, unknow
   } = options;
 
   const queryClient = useQueryClient();
-  const log = createDebugger(debug, 'INLINE_ADD_ROW');
+  // Memoize log to prevent useCallback deps from changing on every render
+  const log = useMemo(() => createDebugger(debug, 'INLINE_ADD_ROW'), [debug]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // State

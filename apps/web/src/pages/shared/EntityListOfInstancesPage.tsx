@@ -320,8 +320,69 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     }));
   }, []);
 
+  // ============================================================================
+  // v12.5.0: CELL-LEVEL SAVE (Pattern-Compliant)
+  // ============================================================================
+  // Uses onCellSave callback instead of _changedField markers.
+  // Value is passed directly, avoiding React async state batching issues.
+  // ============================================================================
+  const handleCellSave = useCallback(async (rowId: string, columnKey: string, value: any, record: any) => {
+    console.log('%c[CELL SAVE] handleCellSave called', 'color: #3b82f6; font-weight: bold', {
+      rowId,
+      columnKey,
+      value,
+      record
+    });
+
+    if (!config) return;
+
+    // Handle both FormattedRow and raw data
+    const rawRecord = record.raw || record;
+    const isNewRow = isAddingRow || rowId?.toString().startsWith('temp_') || rawRecord._isNew;
+
+    // Build change data directly from parameters (no stale state issues)
+    const changeData = { [columnKey]: value };
+    const transformedData = transformForApi(changeData, rawRecord);
+
+    console.log('%c[CELL SAVE] Transformed data', 'color: #3b82f6; font-weight: bold', {
+      changeData,
+      transformedData,
+      isNewRow
+    });
+
+    // Remove temporary fields
+    delete transformedData._isNew;
+    delete transformedData._isOptimistic;
+    if (isNewRow) {
+      delete transformedData.id;
+    }
+
+    try {
+      if (isNewRow) {
+        console.log('%c[CELL SAVE] Creating new entity', 'color: #3b82f6; font-weight: bold');
+        await createEntity(transformedData, { existingTempId: rowId });
+      } else {
+        console.log('%c[CELL SAVE] Updating entity', 'color: #3b82f6; font-weight: bold');
+        await updateEntity(rowId, transformedData);
+      }
+
+      console.log('%c[CELL SAVE] SUCCESS', 'color: #10b981; font-weight: bold');
+
+      // Clear edit state after successful mutation
+      setEditingRow(null);
+      setEditedData({});
+      setIsAddingRow(false);
+    } catch (error) {
+      console.log('%c[CELL SAVE] FAILED', 'color: #ef4444; font-weight: bold', { error });
+      setEditingRow(null);
+      setEditedData({});
+      setIsAddingRow(false);
+    }
+  }, [config, isAddingRow, createEntity, updateEntity]);
+
+  // Row-level save (for explicit Save button clicks, not cell-level auto-save)
   const handleSaveInlineEdit = useCallback(async (record: any) => {
-    console.log('%c[SAVE] Step 1: handleSaveInlineEdit called', 'color: #3b82f6; font-weight: bold', {
+    console.log('%c[SAVE] handleSaveInlineEdit called', 'color: #3b82f6; font-weight: bold', {
       record,
       editedData,
       isAddingRow
@@ -334,18 +395,8 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     const recordId = rawRecord.id;
 
     const isNewRow = isAddingRow || recordId?.toString().startsWith('temp_') || rawRecord._isNew;
-    console.log('%c[SAVE] Step 2: Determined row type', 'color: #3b82f6; font-weight: bold', {
-      recordId,
-      isNewRow,
-      isAddingRow,
-      startsWithTemp: recordId?.toString().startsWith('temp_'),
-      hasIsNew: rawRecord._isNew
-    });
 
     const transformedData = transformForApi(editedData, rawRecord);
-    console.log('%c[SAVE] Step 3: Transformed data for API', 'color: #3b82f6; font-weight: bold', {
-      transformedData
-    });
 
     // Remove temporary fields
     delete transformedData._isNew;
@@ -356,43 +407,22 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
 
     try {
       if (isNewRow) {
-        // ============================================================================
-        // v11.3.0: OPTIMISTIC CREATE with existingTempId
-        // Row already exists in cache (added by handleAddRow)
-        // Pass existingTempId so onMutate doesn't create duplicate
-        // ============================================================================
-        console.log('%c[SAVE] Step 4: Calling createEntity with existingTempId', 'color: #3b82f6; font-weight: bold', {
-          data: transformedData,
-          existingTempId: recordId
-        });
         await createEntity(transformedData, { existingTempId: recordId });
-        console.log('%c[SAVE] Step 5: createEntity SUCCESS', 'color: #10b981; font-weight: bold');
       } else {
-        // ============================================================================
-        // v9.5.0: OPTIMISTIC UPDATE - UI updates immediately, API syncs in background
-        // ============================================================================
-        console.log('%c[SAVE] Step 4: Calling updateEntity', 'color: #3b82f6; font-weight: bold', {
-          recordId,
-          data: transformedData
-        });
         await updateEntity(recordId, transformedData);
-        console.log('%c[SAVE] Step 5: updateEntity SUCCESS', 'color: #10b981; font-weight: bold');
       }
 
-      // Clear edit state after successful mutation
-      console.log('%c[SAVE] Step 6: Clearing edit state', 'color: #3b82f6; font-weight: bold');
+      console.log('%c[SAVE] SUCCESS', 'color: #10b981; font-weight: bold');
       setEditingRow(null);
       setEditedData({});
       setIsAddingRow(false);
     } catch (error) {
-      console.log('%c[SAVE] Step 5: MUTATION FAILED', 'color: #ef4444; font-weight: bold', { error });
-      // Error handling is done in onError callback of useOptimisticMutation
-      // For new rows, onError removes temp row from cache automatically
+      console.log('%c[SAVE] FAILED', 'color: #ef4444; font-weight: bold', { error });
       setEditingRow(null);
       setEditedData({});
       setIsAddingRow(false);
     }
-  }, [config, entityCode, editedData, isAddingRow, createEntity, updateEntity]);
+  }, [config, editedData, isAddingRow, createEntity, updateEntity]);
 
   const handleCancelInlineEdit = useCallback(() => {
     console.log('%c[CANCEL] Step 1: handleCancelInlineEdit called', 'color: #ef4444; font-weight: bold', {
@@ -582,6 +612,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
           editingRow={editingRow}
           editedData={editedData}
           onInlineEdit={handleInlineEdit}
+          onCellSave={handleCellSave}
           onSaveInlineEdit={handleSaveInlineEdit}
           onCancelInlineEdit={handleCancelInlineEdit}
           allowAddRow={true}

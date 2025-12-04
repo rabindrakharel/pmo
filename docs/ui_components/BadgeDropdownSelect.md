@@ -1,6 +1,6 @@
 # BadgeDropdownSelect Component
 
-**Version:** 12.2.0 | **Location:** `apps/web/src/components/shared/ui/BadgeDropdownSelect.tsx`
+**Version:** 12.5.0 | **Location:** `apps/web/src/components/shared/ui/BadgeDropdownSelect.tsx`
 
 > **Note:** As of v12.2.0, BadgeDropdownSelect is registered in the **EditComponentRegistry** and resolved automatically by FieldRenderer when `inputType='component'` with `component='BadgeDropdownSelect'`.
 
@@ -452,6 +452,116 @@ export function colorCodeToTailwindClass(colorCode: string): string {
 
 ---
 
+## Inline Table Editing Pattern (v12.5.0)
+
+### The Problem: React Async State Batching
+
+When using BadgeDropdownSelect for inline table editing, a common pitfall is stale state due to React's async state batching:
+
+```typescript
+// ❌ WRONG: Stale state issue
+const handleDropdownChange = (value) => {
+  setEditedData({ field: value });  // Scheduled (async)
+  handleSave(record);               // Called immediately - editedData is STALE!
+};
+```
+
+The `handleSave` function reads from `editedData` state, but React hasn't applied the state update yet.
+
+### The Solution: onCellSave Callback
+
+Use the table's `onCellSave` callback which passes the value directly as a parameter:
+
+```typescript
+// ✅ CORRECT: Value passed directly (no stale state)
+// EntityListOfInstancesPage.tsx (v12.5.0)
+
+const handleCellSave = useCallback(async (
+  rowId: string,
+  columnKey: string,
+  value: any,          // Value passed directly - no stale state issues
+  record: any
+) => {
+  const rawRecord = record.raw || record;
+  const changeData = { [columnKey]: value };  // Build from parameter
+  const transformedData = transformForApi(changeData, rawRecord);
+
+  await updateEntity(rowId, transformedData);
+}, [updateEntity]);
+
+// Pass to table
+<EntityListOfInstancesTable
+  onCellSave={handleCellSave}      // ✅ Cell-level save (preferred)
+  onSaveInlineEdit={handleSave}    // Row-level save (fallback)
+  // ...
+/>
+```
+
+### Data Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  INLINE EDIT FLOW (v12.5.0 - onCellSave Pattern)                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  User Action: Select "In Progress" from dropdown                            │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │ BadgeDropdownSelect                                                     ││
+│  │   onChange(value)  ───────────────────────────────────────────────────► ││
+│  └────────────────────────────────────────────────────────────────────────┘│
+│                                           │                                  │
+│                                           ▼                                  │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │ EntityListOfInstancesTable.handleCellSave()                             ││
+│  │   • Captures value immediately                                          ││
+│  │   • Checks: onCellSave exists? → YES                                    ││
+│  │   • Calls: onCellSave(rowId, columnKey, value, record)  ────────────► ││
+│  └────────────────────────────────────────────────────────────────────────┘│
+│                                           │                                  │
+│                                           ▼                                  │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │ EntityListOfInstancesPage.handleCellSave()                              ││
+│  │   • value is parameter (NOT from state - no stale data!)               ││
+│  │   • transformForApi({ [columnKey]: value }, rawRecord)                  ││
+│  │   • await updateEntity(rowId, transformedData)                          ││
+│  └────────────────────────────────────────────────────────────────────────┘│
+│                                           │                                  │
+│                                           ▼                                  │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │ useOptimisticMutation                                                   ││
+│  │   • Optimistic update to TanStack Query cache                          ││
+│  │   • API call in background                                              ││
+│  │   • UI updates instantly                                                ││
+│  └────────────────────────────────────────────────────────────────────────┘│
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Table Component Support
+
+EntityListOfInstancesTable supports two save modes:
+
+| Mode | Callback | Use Case |
+|------|----------|----------|
+| **Cell-level** | `onCellSave(rowId, key, value, record)` | Dropdowns, immediate save on change |
+| **Row-level** | `onSaveInlineEdit(record)` | Text fields, explicit Save button |
+
+The table checks `onCellSave` first, falling back to `onSaveInlineEdit`:
+
+```typescript
+// EntityListOfInstancesTable.tsx (line 495-503)
+if (onCellSave) {
+  // Parent-controlled mode - value passed directly
+  onCellSave(rowId, columnKey, valueToSave, record);
+} else if (onSaveInlineEdit) {
+  // Fallback to row-level save
+  onSaveInlineEdit(updatedRecord);
+}
+```
+
+---
+
 ## Anti-Patterns
 
 | Anti-Pattern | Correct Approach |
@@ -461,6 +571,7 @@ export function colorCodeToTailwindClass(colorCode: string): string {
 | Hardcoded color strings | Use `colorCodeToTailwindClass()` |
 | Fetch options on every render | Read from datalabel cache synchronously |
 | Fixed dropdown position | Dynamic positioning based on viewport |
+| Reading `editedData` state in immediate save | Use `onCellSave` with value parameter |
 
 ---
 
@@ -490,12 +601,45 @@ export function colorCodeToTailwindClass(colorCode: string): string {
 
 **Fix:** Use `colorCodeToTailwindClass(opt.color_code)` to convert database values
 
+### Dropdown Value Not Saving (v12.5.0)
+
+**Symptom:** Selecting dropdown value shows console logs but value doesn't persist
+
+**Cause:** React async state batching - `editedData` state is stale when `handleSave` reads it
+
+**Fix:** Use `onCellSave` callback instead of `onSaveInlineEdit`:
+
+```typescript
+// EntityListOfInstancesPage.tsx
+const handleCellSave = useCallback(async (rowId, columnKey, value, record) => {
+  // value is passed directly - no stale state!
+  const changeData = { [columnKey]: value };
+  await updateEntity(rowId, transformForApi(changeData, record.raw || record));
+}, [updateEntity]);
+
+<EntityListOfInstancesTable
+  onCellSave={handleCellSave}  // ✅ Use this for dropdowns
+  // ...
+/>
+```
+
+### Infinite Re-render Loop
+
+**Symptom:** Console shows "Maximum update depth exceeded" error
+
+**Cause:** Unstable function references in `useCallback` dependencies or misuse of `useMemo` for side effects
+
+**Fix:**
+1. Memoize logger functions: `const log = useMemo(() => createDebugger(debug, 'PREFIX'), [debug]);`
+2. Never call `setState` inside `useMemo` - use `useEffect` for side effects
+
 ---
 
 ## Version History
 
 | Version | Date | Changes |
 |---------|------|---------|
+| v12.5.0 | 2025-12-03 | Added `onCellSave` pattern for inline table editing (fixes React async state batching) |
 | v12.2.0 | 2025-12-02 | Registered in EditComponentRegistry, FieldRenderer integration |
 | v8.3.2 | 2025-11-27 | Renamed from ColoredDropdown to BadgeDropdownSelect |
 | v8.3.0 | 2025-11-25 | Extracted as shared component (DRY) |
@@ -503,7 +647,7 @@ export function colorCodeToTailwindClass(colorCode: string): string {
 
 ---
 
-**Last Updated:** 2025-12-02 | **Version:** 12.2.0 | **Status:** Production Ready
+**Last Updated:** 2025-12-03 | **Version:** 12.5.0 | **Status:** Production Ready
 
 **Related Documentation:**
 - [EntityInstanceFormContainer.md](./EntityInstanceFormContainer.md) - Form field rendering

@@ -1,6 +1,11 @@
 /**
  * DAGVisualizer - ReactFlow-based DAG graph visualization component
  *
+ * v2.1.0: Fixed infinite re-render loop by using CONTROLLED MODE
+ * - Removed useNodesState/useEdgesState (uncontrolled mode)
+ * - Pass computed nodes/edges directly to ReactFlow
+ * - No-op handlers for onNodesChange/onEdgesChange (read-only graph)
+ *
  * v2.0.0: Replaced custom SVG with ReactFlow for better:
  * - Auto-layout via dagre
  * - Touch/zoom support
@@ -18,8 +23,6 @@ import {
   Edge,
   Position,
   Handle,
-  useNodesState,
-  useEdgesState,
   Background,
   BackgroundVariant,
   MarkerType,
@@ -183,9 +186,9 @@ export function DAGVisualizer({
   // ReactFlow nodes/edges are computed only when dagNodes change
   // ============================================================================
 
-  const { initialNodes, initialEdges } = useMemo(() => {
+  const { nodes, edges } = useMemo(() => {
     if (!dagNodes || dagNodes.length === 0) {
-      return { initialNodes: [], initialEdges: [] };
+      return { nodes: [] as Node[], edges: [] as Edge[] };
     }
 
     // Find completed nodes (ancestors of current node)
@@ -266,18 +269,8 @@ export function DAGVisualizer({
     );
 
     console.log('[DAGVisualizer] Layouted nodes:', layoutedNodes.length, 'edges:', layoutedEdges.length);
-    return { initialNodes: layoutedNodes, initialEdges: layoutedEdges };
+    return { nodes: layoutedNodes, edges: layoutedEdges };
   }, [dagNodes, currentNodeId]);
-
-  // ReactFlow state
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-
-  // Update nodes/edges when props change
-  useMemo(() => {
-    setNodes(initialNodes);
-    setEdges(initialEdges);
-  }, [initialNodes, initialEdges, setNodes, setEdges]);
 
   // Handle node click
   const handleNodeClick = useCallback(
@@ -319,8 +312,8 @@ export function DAGVisualizer({
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
+        onNodesChange={() => {}} // No-op: read-only graph
+        onEdgesChange={() => {}} // No-op: read-only graph
         onNodeClick={handleNodeClick}
         nodeTypes={nodeTypes}
         fitView

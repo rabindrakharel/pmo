@@ -472,8 +472,9 @@ export function EntityListOfInstancesTable<T = any>({
   }, [onInlineEdit]);
 
   // Handle cell save (Enter key or blur)
-  const handleCellSave = useCallback((rowId: string, columnKey: string, record: T) => {
-    const valueToSave = localCellValue ?? editedData[columnKey];
+  // valueOverride: Pass value directly to avoid stale state from React's async batching
+  const handleCellSave = useCallback((rowId: string, columnKey: string, record: T, valueOverride?: unknown) => {
+    const valueToSave = valueOverride !== undefined ? valueOverride : (localCellValue ?? editedData[columnKey]);
 
     // Get original value for undo stack
     const formattedRecord = record as FormattedRow<any>;
@@ -497,7 +498,8 @@ export function EntityListOfInstancesTable<T = any>({
       } else if (onSaveInlineEdit) {
         // Fallback to row-level save for compatibility
         // FIX: Update record with new value before saving
-        const updatedRecord = { ...rawRecord, [columnKey]: valueToSave };
+        // Add _changedField marker so parent knows which field changed (for stale editedData case)
+        const updatedRecord = { ...rawRecord, [columnKey]: valueToSave, _changedField: columnKey, _changedValue: valueToSave };
         onSaveInlineEdit(updatedRecord as T);
       }
     }
@@ -1722,12 +1724,12 @@ export function EntityListOfInstancesTable<T = any>({
         </div>
       )}
 
-      <div className="relative flex flex-col" style={{ maxHeight: 'calc(100vh - 400px)' }}>
+      <div className="relative flex flex-col flex-1" style={{ maxHeight: 'calc(100vh - 200px)', minHeight: '400px' }}>
         <div
           ref={tableContainerRef}
-          className="overflow-y-auto overflow-x-auto scrollbar-elegant"
+          className="overflow-y-auto overflow-x-auto scrollbar-elegant flex-1"
           style={{
-            maxHeight: 'calc(100% - 100px)'}}
+            maxHeight: '100%'}}
           onScroll={handleTableScroll}
         >
           <table
@@ -1985,7 +1987,8 @@ export function EntityListOfInstancesTable<T = any>({
                                 onChange={(value) => {
                                   handleCellValueChange(recordId, column.key, value);
                                   if (isCellBeingEdited) {
-                                    setTimeout(() => handleCellSave(recordId, column.key, record), 0);
+                                    // Pass value directly to avoid stale state from React's async batching
+                                    setTimeout(() => handleCellSave(recordId, column.key, record, value), 0);
                                   }
                                 }}
                                 onClick={(e) => e.stopPropagation()}
@@ -2257,8 +2260,9 @@ export function EntityListOfInstancesTable<T = any>({
                                   onChange={(value) => {
                                     handleCellValueChange(recordId, column.key, value);
                                     // Auto-save on select change (Airtable behavior)
+                                    // Pass value directly to avoid stale state from React's async batching
                                     if (isCellBeingEdited) {
-                                      setTimeout(() => handleCellSave(recordId, column.key, record), 0);
+                                      setTimeout(() => handleCellSave(recordId, column.key, record, value), 0);
                                     }
                                   }}
                                   onClick={(e) => e.stopPropagation()}

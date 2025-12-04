@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Search, Check } from 'lucide-react';
 import { useRefDataEntityInstanceOptions } from '@/lib/hooks/useRefDataEntityInstance';
 // v11.0.0: Use queryClient-based sync accessor for immediate resolution
@@ -51,6 +52,12 @@ export function EntityInstanceNameSelect({
   const [isOpen, setIsOpen] = useState(autoFocus);
   const [searchTerm, setSearchTerm] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [dropdownPosition, setDropdownPosition] = useState({
+    top: 0,
+    left: 0,
+    width: 0,
+    openUpward: false
+  });
 
   // ============================================================================
   // LOCAL-FIRST CONTROLLED COMPONENT PATTERN
@@ -64,6 +71,8 @@ export function EntityInstanceNameSelect({
   const [localLabel, setLocalLabel] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const optionsRef = useRef<HTMLDivElement>(null);
 
@@ -88,10 +97,15 @@ export function EntityInstanceNameSelect({
   const cachedName = localValue ? getEntityInstanceNameSync(entityCode, localValue) : null;
   const displayLabel = localLabel || selectedOption?.label || cachedName || currentLabel || '';
 
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking outside (includes portal-rendered dropdown)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
         setSearchTerm('');
         setHighlightedIndex(-1);
@@ -101,6 +115,50 @@ export function EntityInstanceNameSelect({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Update dropdown position when it opens or on scroll/resize
+  useEffect(() => {
+    if (isOpen && triggerRef.current) {
+      const updatePosition = () => {
+        if (triggerRef.current) {
+          const rect = triggerRef.current.getBoundingClientRect();
+          const maxDropdownHeight = 400;
+          const viewportHeight = window.innerHeight;
+          const spaceBelow = viewportHeight - rect.bottom - 20;
+          const spaceAbove = rect.top - 20;
+
+          const estimatedItemHeight = 40;
+          const estimatedContentHeight = Math.min(options.length * estimatedItemHeight, maxDropdownHeight);
+
+          const shouldOpenUpward = spaceBelow < estimatedContentHeight && spaceAbove > spaceBelow;
+
+          let top: number;
+          if (shouldOpenUpward) {
+            const availableHeight = Math.min(estimatedContentHeight, spaceAbove);
+            top = rect.top + window.scrollY - availableHeight - 4;
+          } else {
+            top = rect.bottom + window.scrollY + 4;
+          }
+
+          setDropdownPosition({
+            top,
+            left: rect.left + window.scrollX,
+            width: rect.width,
+            openUpward: shouldOpenUpward,
+          });
+        }
+      };
+
+      updatePosition();
+      window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('resize', updatePosition);
+
+      return () => {
+        window.removeEventListener('scroll', updatePosition, true);
+        window.removeEventListener('resize', updatePosition);
+      };
+    }
+  }, [isOpen, options.length]);
 
   // Focus search input when dropdown opens
   useEffect(() => {
@@ -199,6 +257,7 @@ export function EntityInstanceNameSelect({
     >
       {/* Trigger button */}
       <div
+        ref={triggerRef}
         onClick={() => !disabled && setIsOpen(!isOpen)}
         className={`
           min-h-[32px] w-full border border-gray-300 rounded bg-white px-2.5 py-1
@@ -231,9 +290,24 @@ export function EntityInstanceNameSelect({
         </div>
       </div>
 
-      {/* Dropdown menu */}
-      {isOpen && !disabled && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-[400px] overflow-hidden">
+      {/* Dropdown menu - rendered via portal to avoid overflow clipping */}
+      {isOpen && !disabled && createPortal(
+        <div
+          ref={dropdownRef}
+          data-dropdown-portal=""
+          className="bg-white border border-gray-200 rounded-md overflow-hidden"
+          style={{
+            position: 'absolute',
+            top: `${dropdownPosition.top}px`,
+            left: `${dropdownPosition.left}px`,
+            width: `${dropdownPosition.width}px`,
+            maxHeight: '400px',
+            zIndex: 9999,
+            boxShadow: dropdownPosition.openUpward
+              ? '0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06)'
+              : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+          }}
+        >
           {/* Search input */}
           <div className="p-2 border-b border-gray-200 bg-gray-50">
             <div className="relative">
@@ -284,7 +358,8 @@ export function EntityInstanceNameSelect({
               })
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
