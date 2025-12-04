@@ -207,7 +207,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       // Get total count
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as count
-        FROM app.artifact ${sql.raw(TABLE_ALIAS)}
+        FROM app.${sql.raw(ENTITY_CODE)} ${sql.raw(TABLE_ALIAS)}
         ${whereClause}
       `);
       const total = Number(countResult[0]?.count || 0);
@@ -222,7 +222,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
           ${sql.raw(TABLE_ALIAS)}.dl__artifact_security_classification as security_classification,
           ${sql.raw(TABLE_ALIAS)}.latest_version_flag, ${sql.raw(TABLE_ALIAS)}.version, ${sql.raw(TABLE_ALIAS)}.active_flag,
           ${sql.raw(TABLE_ALIAS)}.from_ts, ${sql.raw(TABLE_ALIAS)}.to_ts, ${sql.raw(TABLE_ALIAS)}.created_ts, ${sql.raw(TABLE_ALIAS)}.updated_ts
-        FROM app.artifact ${sql.raw(TABLE_ALIAS)}
+        FROM app.${sql.raw(ENTITY_CODE)} ${sql.raw(TABLE_ALIAS)}
         ${whereClause}
         ORDER BY ${sql.raw(TABLE_ALIAS)}.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}

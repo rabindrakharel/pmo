@@ -303,7 +303,7 @@ export class UnifiedGoalAgent {
       for await (const chunk of openaiService.callAgentStream({
         agentType: 'unified_goal',
         messages: conversation.messages,  // ✅ Incremental context building!
-        temperature: 0.7,
+        // temperature: 0.7,  // Removed - some models only support default (1)
         jsonMode: true,  // Enable JSON response format
         sessionId: state.sessionId,
       })) {
@@ -445,7 +445,7 @@ export class UnifiedGoalAgent {
     const result = await openaiService.callAgent({
       agentType: 'unified_goal',
       messages: conversation.messages,  // ✅ Incremental context building!
-      temperature: 0.7,
+      // temperature: 0.7,  // Removed - some models only support default (1)
       jsonMode: true,  // Enable JSON response format
       sessionId: state.sessionId,
     });

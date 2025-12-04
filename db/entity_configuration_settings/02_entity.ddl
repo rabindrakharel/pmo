@@ -290,11 +290,11 @@ VALUES (
 -- Calendar entity type (person availability/booking - leaf node - no children)
 INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
-  'calendar',
+  'entity_person_calendar',
   'Calendar',
   'Calendar',
   'Calendar',
-  'd_entity_person_calendar',
+  'entity_person_calendar',
   'd',
   '[]'::jsonb,
   45
@@ -481,7 +481,7 @@ VALUES (
   'Calendar',
   'event',
   'f',
-  '["booking", "task", "project", "service", "cust", "employee", "business"]'::jsonb,
+  '["entity_event_person_calendar", "task", "project", "service", "cust", "employee", "business"]'::jsonb,
   215
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
@@ -737,9 +737,9 @@ VALUES (
 -- Booking entity type (event RSVP/booking records)
 INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
-  'booking',
+  'entity_event_person_calendar',
   'Booking',
-  'Bookings',
+  'Booking',
   'CalendarCheck',
   'entity_event_person_calendar',
   'f',
@@ -1063,7 +1063,7 @@ UPDATE app.entity e SET
     updated_ts = now()
 FROM app.d_domain d
 WHERE d.code = 'event_calendar'
-  AND e.code IN ('event', 'calendar', 'booking');
+  AND e.code IN ('event', 'entity_person_calendar', 'entity_event_person_calendar');
 
 -- Handle hierarchies (assign to Customer 360 as organizational structures)
 UPDATE app.entity e SET

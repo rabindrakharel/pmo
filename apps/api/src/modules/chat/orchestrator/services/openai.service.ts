@@ -67,10 +67,12 @@ export class OpenAIService {
     console.log(`   Streaming: ENABLED`);
 
     try {
+      const temperature = args.temperature ?? config.temperature;
       const apiParams: any = {
         model: config.model,
         messages: args.messages,
-        temperature: args.temperature ?? config.temperature,
+        // Only include temperature if it's not 1 (default), since some models reject custom values
+        ...(temperature !== undefined && temperature !== 1 ? { temperature } : {}),
         max_completion_tokens: args.maxTokens ?? config.maxTokens,
         response_format: args.jsonMode ? { type: 'json_object' } : undefined,
         stream: true, // Enable streaming
@@ -178,10 +180,12 @@ export class OpenAIService {
     console.log(`   Messages: ${args.messages.length} message(s)`);
 
     try {
+      const temperature = args.temperature ?? config.temperature;
       const apiParams: any = {
         model: config.model,
         messages: args.messages,
-        temperature: args.temperature ?? config.temperature,
+        // Only include temperature if it's not 1 (default), since some models reject custom values
+        ...(temperature !== undefined && temperature !== 1 ? { temperature } : {}),
         max_completion_tokens: args.maxTokens ?? config.maxTokens,
         response_format: args.jsonMode ? { type: 'json_object' } : undefined,
       };

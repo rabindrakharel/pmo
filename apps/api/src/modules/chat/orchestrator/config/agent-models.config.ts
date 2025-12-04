@@ -55,7 +55,7 @@ export const AGENT_MODEL_CONFIG: Record<string, AgentModelConfig> = {
    */
   worker: {
     model: process.env.WORKER_MODEL || 'gpt-4o-mini',
-    temperature: 0.7,
+    temperature: 1,  // Changed to 1 - some models only support default value
     maxTokens: 1500,
     costPer1KTokens: 0.0004,
     rationale: 'Needs good natural language and tool calling capabilities'
