@@ -266,21 +266,21 @@ export async function searchCustomer(args: {
     if (args.phone) {
       query = client`
         SELECT id::text, code, name, primary_email, primary_phone, primary_address, city, province
-        FROM app.cust
+        FROM app.customer
         WHERE primary_phone = ${args.phone} AND active_flag = true
         LIMIT 1
       `;
     } else if (args.email) {
       query = client`
         SELECT id::text, code, name, primary_email, primary_phone, primary_address, city, province
-        FROM app.cust
+        FROM app.customer
         WHERE primary_email = ${args.email} AND active_flag = true
         LIMIT 1
       `;
     } else if (args.address) {
       query = client`
         SELECT id::text, code, name, primary_email, primary_phone, primary_address, city, province
-        FROM app.cust
+        FROM app.customer
         WHERE primary_address ILIKE ${`%${args.address}%`} AND active_flag = true
         LIMIT 1
       `;
@@ -314,7 +314,7 @@ export async function createCustomer(args: {
     const custNumber = await generateCustomerCode(); // cust_number required
 
     const query = client`
-      INSERT INTO app.cust (
+      INSERT INTO app.customer (
         id, code, name, cust_number, cust_type, cust_status,
         primary_email, primary_phone, primary_contact_name,
         primary_address, city, province,
@@ -399,7 +399,7 @@ export async function updateCustomer(args: {
       console.log(`⚠️ No fields to update for customer: ${args.customer_id}`);
       return await client`
         SELECT id::text, code, name, primary_email, primary_phone, primary_address, city, province
-        FROM app.cust
+        FROM app.customer
         WHERE id = ${args.customer_id}::uuid AND active_flag = true
       `.then(r => r[0]);
     }
@@ -485,7 +485,7 @@ export async function createTask(args: {
  */
 async function generateCustomerCode(): Promise<string> {
   const query = client`
-    SELECT code FROM app.cust
+    SELECT code FROM app.customer
     WHERE code LIKE 'CL-%'
     ORDER BY code DESC
     LIMIT 1

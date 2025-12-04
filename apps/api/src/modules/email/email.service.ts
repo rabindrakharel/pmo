@@ -274,7 +274,7 @@ export async function sendEventInviteToCustomer(args: {
     // Get customer email
     const custResult = await client`
       SELECT primary_email, secondary_email, primary_contact_name, name
-      FROM app.cust
+      FROM app.customer
       WHERE id = ${args.customerId}::uuid AND active_flag = true
     `;
 

@@ -364,19 +364,35 @@ Fallback: PostgreSQL result columns via postgres.js 'columns' property
 | 2 | Data Row | Cache miss + data exists |
 | 3 | PostgreSQL Columns | Cache miss + data empty |
 
-### Pattern Detection Rules
+### Pattern Detection Rules (YAML-Based v11.0.0+)
 
-| Pattern | renderType | inputType | Example |
-|---------|------------|-----------|---------|
-| `*_amt`, `*_price`, `*_cost` | `currency` | `currency` | Budget field |
-| `dl__*` | `badge` | `select` | Status dropdown |
-| `*_date` | `date` | `date` | Date picker |
-| `*_ts`, `*_at` | `timestamp` | `datetime` | DateTime picker |
-| `is_*`, `*_flag` | `boolean` | `checkbox` | Toggle |
-| `*__employee_id` | `reference` | `select` | Entity dropdown |
-| `metadata` | `json` | `json` | JSON editor |
-| `*_pct` | `percentage` | `number` | Percentage |
-| `tags` | `array` | `tags` | Tag input |
+**Architecture**: Column name → YAML pattern-mapping.yaml → fieldBusinessType → YAML view/edit-type-mapping.yaml → Metadata
+
+**100+ Patterns** defined in `apps/api/src/services/pattern-mapping.yaml`:
+
+| Column Pattern | fieldBusinessType | VIEW renderType | EDIT inputType | Example Use |
+|----------------|-------------------|-----------------|----------------|-------------|
+| `*_amt`, `*_price`, `*_cost` | `currency` | `currency` | `number` | Budget field |
+| `dl__*_stage`, `dl__*_state`, `dl__*_status` | `datalabel_dag` | `badge` | `component: BadgeDropdownSelect` | Workflow stages |
+| `dl__*` | `datalabel` | `badge` | `component: DataLabelSelect` | Status dropdown |
+| `*_date` | `date` | `date` | `date` | Date picker |
+| `created_ts`, `updated_ts` | `systemInternal_ts` | `timestamp` | `readonly` | System timestamps |
+| `*_ts`, `*_at` | `timestamp` | `timestamp` | `datetime-local` | DateTime picker |
+| `is_*` | `boolean` | `boolean` | `checkbox` | Toggle |
+| `active_flag` | `systemInternal_flag` | `boolean` | `readonly` | Active flag |
+| `*_flag` | `boolean` | `boolean` | `checkbox` | Boolean flags |
+| `*__*_id` (e.g., `manager__employee_id`) | `entityInstance_Id` | `component: EntityInstanceName` | `EntityInstanceNameSelect` | Entity reference |
+| `*_id` | `entityInstance_Id` | `component: EntityInstanceName` | `EntityInstanceNameSelect` | Simple reference |
+| `metadata` | `json` | `component: MetadataTable` | `component: MetadataTable` | JSON editor |
+| `*_pct`, `*_percent` | `percentage` | `percentage` | `range` | Percentage |
+| `tags` | `tags` | `tags` | `component: EditableTags` | Tag input |
+
+**Full Pattern List**: See `docs/design_pattern/YAML_PATTERN_DETECTION_SYSTEM.md` for all 100+ patterns and 80+ fieldBusinessTypes.
+
+**Key Changes from Legacy System**:
+- ❌ **Removed**: ~900 lines of hardcoded TypeScript pattern rules
+- ✅ **Added**: 3 YAML configuration files (pattern-mapping.yaml, view-type-mapping.yaml, edit-type-mapping.yaml)
+- ✅ **Benefit**: Add new field types by editing YAML, no code changes required
 
 ### Usage in Routes (async - v9.2.0)
 

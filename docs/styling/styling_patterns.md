@@ -671,8 +671,209 @@ className="group-hover:scale-110 transition-transform"   // Icon animations
 
 ---
 
+## 10. Form Layout Patterns - MINIMALISTIC DESIGN
+
+### 10.1 Form Submission Editor Layout
+
+**Header Section (Metadata + Actions)**
+```jsx
+// Form edit header with title and action buttons
+<div className="bg-dark-100 border border-dark-300 rounded-lg p-5 shadow-sm
+               flex flex-col gap-4 md:flex-row md:items-center md:justify-between
+               transition-all hover:shadow-md">
+  {/* Title Section */}
+  <div className="space-y-1">
+    <h2 className="text-base font-medium text-dark-700">
+      Edit Form Submission
+    </h2>
+    <p className="text-xs text-dark-600 tracking-tight">
+      {form?.name || 'Form'}
+      <span className="text-dark-500 mx-2">·</span>
+      <span className="font-mono text-dark-500">
+        #{submissionId?.substring(0, 8)}…
+      </span>
+    </p>
+  </div>
+
+  {/* Action Buttons */}
+  <div className="flex items-center gap-2">
+    {/* Loading Indicator */}
+    {isRefreshing && (
+      <span className="inline-flex items-center gap-1.5 text-xs text-dark-600
+                     px-3 py-2 rounded-md bg-dark-50">
+        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+        <span>Refreshing…</span>
+      </span>
+    )}
+
+    {/* Secondary Buttons */}
+    <button className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium
+                     transition-all bg-white text-dark-600 border border-dark-300
+                     hover:border-dark-400 hover:shadow-sm">
+      <RefreshCw className="h-3.5 w-3.5" />
+      <span>Refresh</span>
+    </button>
+  </div>
+</div>
+```
+
+### 10.2 Metadata Grid (Form Details)
+
+**Enhanced metadata display with icon containers**
+```jsx
+<div className="bg-dark-100 border border-dark-300 rounded-lg p-5 shadow-sm">
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+    {/* Metadata Item with Icon Container */}
+    <div className="flex items-start gap-3 group">
+      {/* Icon Container - Rounded with hover effect */}
+      <div className="p-2 rounded-lg bg-dark-50 group-hover:bg-slate-50
+                    transition-colors flex-shrink-0">
+        <Hash className="h-4 w-4 text-dark-600 group-hover:text-slate-600
+                       transition-colors" />
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        {/* Label - Uppercase with tracking */}
+        <p className="text-[10px] font-medium uppercase tracking-wider
+                     text-dark-500 mb-1">
+          Form ID
+        </p>
+        {/* Value - Monospace for IDs/codes */}
+        <p className="text-sm font-mono text-dark-700 break-all leading-tight">
+          {formId.substring(0, 8)}…
+        </p>
+      </div>
+    </div>
+
+    {/* Status Badge Example */}
+    <div className="flex items-start gap-3 group">
+      <div className="p-2 rounded-lg bg-dark-50 group-hover:bg-green-50
+                    transition-colors flex-shrink-0">
+        <CheckCircle className="h-4 w-4 text-dark-600 group-hover:text-green-600
+                              transition-colors" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] font-medium uppercase tracking-wider
+                     text-dark-500 mb-1">
+          Status
+        </p>
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full
+                       text-xs font-medium bg-green-100 text-green-800 capitalize">
+          {status}
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+```
+
+### 10.3 Entity Form Container (Field Layout)
+
+**Two-column field layout with labels and values**
+```jsx
+<div className="bg-dark-100 rounded-xl shadow-sm overflow-hidden border border-dark-300
+               transition-all hover:shadow-md">
+  <div className="p-6">
+    <div className="space-y-0">
+      {fields.map((field, index) => (
+        <div key={field.key}>
+          {/* Field Separator (not for first item) */}
+          {index > 0 && (
+            <div className="h-px my-3 bg-gradient-to-r from-transparent via-dark-300 to-transparent" />
+          )}
+
+          {/* Field Row */}
+          <div className="group transition-all duration-200 ease-out py-1">
+            <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-4 items-start">
+              {/* Label Column */}
+              <label className="text-xs font-medium text-dark-600 pt-2.5 flex items-center gap-2 uppercase tracking-wider">
+                <span className="opacity-70 group-hover:opacity-100 transition-opacity duration-200">
+                  {field.label}
+                </span>
+                {field.required && (
+                  <span className="text-red-500 text-xs font-bold">*</span>
+                )}
+              </label>
+
+              {/* Value Column */}
+              <div className={`
+                relative break-words rounded-lg px-3 py-2.5 -ml-3
+                transition-all duration-200 ease-out
+                ${isEditing
+                  ? 'bg-dark-50 hover:bg-dark-200 shadow-sm focus-within:bg-dark-100 focus-within:shadow-md focus-within:ring-2 focus-within:ring-slate-500/30 focus-within:border-slate-500'
+                  : 'hover:bg-dark-50 group-hover:bg-dark-200'
+                }
+                text-sm text-dark-700 leading-relaxed
+              `}>
+                {/* Field content */}
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</div>
+```
+
+### 10.4 Form Field Patterns
+
+**Common field element styles**
+```jsx
+// Text Input (consistent with form pattern)
+<input
+  type="text"
+  className="w-full px-3 py-2 text-sm border border-dark-300 rounded-lg bg-dark-100
+             text-dark-700 placeholder-dark-400
+             focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500
+             transition-colors"
+  placeholder="Enter value..."
+/>
+
+// Select Dropdown
+<select className="w-full px-3 py-2 text-sm border border-dark-300 rounded-lg bg-dark-100
+                   text-dark-700 focus:outline-none focus:ring-2 focus:ring-slate-500/30
+                   focus:border-slate-500 cursor-pointer transition-colors">
+  <option value="">Select option...</option>
+</select>
+
+// Textarea
+<textarea
+  className="w-full px-3 py-2 text-sm border border-dark-300 rounded-lg bg-dark-100
+             text-dark-700 placeholder-dark-400 resize-none
+             focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500
+             transition-colors"
+  rows={4}
+  placeholder="Enter description..."
+/>
+```
+
+### 10.5 Responsive Form Breakpoints
+
+| Breakpoint | Layout | Padding | Gap |
+|------------|--------|---------|-----|
+| `< 640px` (mobile) | 1 column, stacked labels | `p-4` | `gap-4` |
+| `640px - 768px` (sm) | 2 columns (160px + 1fr) | `p-5` | `gap-5` |
+| `768px - 1024px` (md) | 2 columns (160px + 1fr) | `p-5` | `gap-6` |
+| `> 1024px` (lg) | 2 columns (160px + 1fr) | `p-5` | `gap-6` |
+
+```jsx
+// Responsive field layout
+<div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-4 items-start">
+  {/* Adapts to single column on mobile */}
+</div>
+
+// Responsive metadata grid
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+  {/* 1 column mobile, 2 columns tablet, 4 columns desktop */}
+</div>
+```
+
+---
+
 **This document is the single source of truth for all UI/UX decisions. Follow these patterns exactly.**
 
 **Maintained by:** PMO Platform Team
-**Version:** 11.0 - SLATE-600 BUTTON MANDATE
-**Last Updated:** 2025-11-12
+**Version:** 12.0 - MINIMALISTIC DESIGN SYSTEM + FORM LAYOUTS
+**Last Updated:** 2025-12-04

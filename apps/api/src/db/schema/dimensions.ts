@@ -153,7 +153,7 @@ export const dEmployee = pgTable('employee', {
   emergencyContact: jsonb('emergency_contact').default('{}')});
 
 // Customer
-export const dCust = pgTable('d_cust', {
+export const dCust = pgTable('customer', {
   id: uuid('id').primaryKey().defaultRandom(),
 
   // Standard fields
@@ -189,7 +189,7 @@ export const dCust = pgTable('d_cust', {
   custStatus: text('cust_status').default('active'), // active, inactive, prospect, suspended
 
   // Hierarchy support (for corporate customers)
-  parentCustId: uuid('parent_cust_id'),
+  parentCustomerId: uuid('parent_customer_id'),
   
   // Service preferences
   preferredServiceDays: jsonb('preferred_service_days').default('[]'),
@@ -333,7 +333,7 @@ export const dScopeHrRelations = relations(dScopeHr, ({ one, many }) => ({
 
 export const dCustRelations = relations(dCust, ({ one, many }) => ({
   parent: one(dCust, {
-    fields: [dCust.parentCustId],
+    fields: [dCust.parentCustomerId],
     references: [dCust.id]}),
   children: many(dCust),
   accountManagerEmp: one(dEmployee, {

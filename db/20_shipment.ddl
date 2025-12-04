@@ -55,7 +55,7 @@ CREATE TABLE app.shipment (
     delivery_datetime TIMESTAMP,                        -- Precise delivery timestamp
 
     -- Customer Dimension
-    cust_id UUID,                              -- Link to d_cust (REQUIRED)
+    customer_id UUID,                          -- Link to customer (REQUIRED)
     client_name VARCHAR(255),                           -- Denormalized for query performance
     client_type VARCHAR(50),                            -- 'residential', 'commercial', 'government'
 

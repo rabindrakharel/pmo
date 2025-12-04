@@ -14,7 +14,7 @@
 -- - Foundation for AR reporting and collections
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- - Links to cust via cust_id (no FK, loose coupling)
+-- - Links to customer via customer_id (no FK, loose coupling)
 -- - Links to project via project_id (no FK, loose coupling)
 -- - Links to invoice_data via invoice_number (no FK)
 -- - Links to attachment via attachment_id (no FK)
@@ -40,7 +40,7 @@ CREATE TABLE app.invoice (
     service_period_end_date date,
 
     -- Customer Dimension
-    cust_id uuid,
+    customer_id uuid,
     client_name varchar(255),
     client_type varchar(50),                            -- 'residential', 'commercial', 'government'
     client_tier varchar(50),

@@ -33,7 +33,7 @@ import { getEntityInfrastructure, Permission } from '../../services/entity-infra
  */
 export interface CreatePersonCalendarRequest {
   // Customer details
-  customerId?: string; // d_cust.id (optional - may be new customer)
+  customerId?: string; // customer.id (optional - may be new customer)
   customerName: string;
   customerEmail?: string;
   customerPhone: string;
@@ -507,7 +507,7 @@ export async function cancelPersonCalendar(eventId: string, cancellationReason?:
         END as person_phone
       FROM app.d_entity_event_person_calendar epc
       LEFT JOIN app.employee emp ON emp.id = epc.person_id AND epc.person_entity_type = 'employee'
-      LEFT JOIN app.cust cust ON cust.id = epc.person_id AND epc.person_entity_type = 'customer'
+      LEFT JOIN app.customer cust ON cust.id = epc.person_id AND epc.person_entity_type = 'customer'
       WHERE epc.event_id = ${eventId}::uuid AND epc.active_flag = true
     `;
 

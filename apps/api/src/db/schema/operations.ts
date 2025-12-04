@@ -174,7 +174,7 @@ export const opsTasklogHead = pgTable('ops_tasklog_head', {
 
   // Worksite reference
   worksiteId: uuid('worksite_id').references(() => dScopeWorksite.id, { onDelete: 'set null' }),
-  custId: uuid('cust_id').references(() => dCust.id, { onDelete: 'set null' }),
+  customerId: uuid('customer_id').references(() => dCust.id, { onDelete: 'set null' }),
   clients: jsonb('clients').notNull().default('[]'),
 
   tags: jsonb('tags').notNull().default('[]'),

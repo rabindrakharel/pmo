@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS app.person (
     -- Role References (person references specialized role entities - NO FKs for loose coupling)
     -- ─────────────────────────────────────────────────────────────────────────
     employee_id uuid, -- If this person is an employee (references employee.id)
-    cust_id uuid,     -- If this person is a customer (references d_cust.id)
+    customer_id uuid,     -- If this person is a customer (references customer.id)
     supplier_id uuid, -- If this person is a supplier (references supplier.id)
 
     -- ─────────────────────────────────────────────────────────────────────────

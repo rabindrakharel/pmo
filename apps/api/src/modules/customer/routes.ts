@@ -31,7 +31,7 @@ import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../serv
 // ✨ Universal Entity CRUD Factory - consolidated endpoint generation
 import { createUniversalEntityRoutes } from '../../lib/universal-entity-crud-factory.js';
 
-// Schema based on actual d_cust table structure from db/14_d_cust.ddl
+// Schema based on actual customer table structure from db/08_customer.ddl
 const CustSchema = Type.Object({
   id: Type.String(),
   code: Type.String(),
@@ -44,7 +44,7 @@ const CustSchema = Type.Object({
   created_ts: Type.String(),
   updated_ts: Type.String(),
   version: Type.Number(),
-  // Customer-specific fields - match actual d_cust table
+  // Customer-specific fields - match actual customer table
   cust_number: Type.String(),
   cust_type: Type.String(),
   cust_status: Type.String(),

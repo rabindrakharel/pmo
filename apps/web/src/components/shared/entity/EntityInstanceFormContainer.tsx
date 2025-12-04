@@ -440,7 +440,8 @@ function EntityInstanceFormContainerInner({
   // ============================================================================
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-200">
+    <div className="bg-dark-100 rounded-xl shadow-sm overflow-hidden border border-dark-300
+                   transition-all hover:shadow-md">
       <div className="p-6">
         <div className="space-y-0">
           {visibleFields.map((field, index) => {
@@ -493,17 +494,12 @@ function EntityInstanceFormContainerInner({
             return (
               <div key={field.key}>
                 {index > 0 && (
-                  <div
-                    className="h-px my-1.5 opacity-60"
-                    style={{
-                      backgroundImage: 'linear-gradient(90deg, transparent, rgba(209, 213, 219, 0.2) 50%, transparent)'
-                    }}
-                  />
+                  <div className="h-px my-3 bg-gradient-to-r from-transparent via-dark-300 to-transparent" />
                 )}
-                <div className="group transition-all duration-300 ease-out py-1">
-                  <div className="grid grid-cols-[160px_1fr] gap-4 items-start">
-                    <label className="text-2xs font-medium text-dark-700 pt-2 flex items-center gap-1.5 uppercase tracking-wide">
-                      <span className="opacity-50 group-hover:opacity-100 transition-all duration-300 group-hover:text-dark-700">
+                <div className="group transition-all duration-200 ease-out py-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-4 items-start">
+                    <label className="text-xs font-medium text-dark-600 pt-2.5 flex items-center gap-2 uppercase tracking-wider">
+                      <span className="opacity-70 group-hover:opacity-100 transition-opacity duration-200">
                         {/* Date Range label */}
                         {(() => {
                           const rangeLabel = getDateRangeLabel(field.key);
@@ -512,20 +508,20 @@ function EntityInstanceFormContainerInner({
                         })()}
                       </span>
                       {field.required && mode === 'create' && (
-                        <span className="text-rose-400 text-xs animate-pulse">*</span>
+                        <span className="text-red-500 text-xs font-bold">*</span>
                       )}
                     </label>
                     <div
                       ref={isInlineEditing ? editingFieldRef : undefined}
                       className={`
-                        relative break-words rounded-md px-3 py-2 -ml-3
-                        transition-all duration-300 ease-out
+                        relative break-words rounded-lg px-3 py-2.5 -ml-3
+                        transition-all duration-200 ease-out
                         ${effectiveIsEditing
-                          ? 'bg-gray-50 hover:bg-gray-100 hover:shadow-sm focus-within:bg-white focus-within:shadow-sm focus-within:border focus-within:border-blue-200'
-                          : 'hover:bg-gray-50'
+                          ? 'bg-dark-50 hover:bg-dark-200 shadow-sm focus-within:bg-dark-100 focus-within:shadow-md focus-within:ring-2 focus-within:ring-slate-500/30 focus-within:border-slate-500'
+                          : 'hover:bg-dark-50 group-hover:bg-dark-200'
                         }
                         ${!isEditing && inlineEditable && isFieldEditable ? 'cursor-text' : ''}
-                        text-sm text-gray-700 tracking-tight leading-normal
+                        text-sm text-dark-700 leading-relaxed
                       `}
                       // v12.3.0: Long-press handlers for inline editing
                       onMouseDown={(e) => handleFieldMouseDown(e, field.key, isFieldEditable)}
