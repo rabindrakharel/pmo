@@ -117,8 +117,8 @@ export const STORE_STALE_TIMES = {
 
 export const STORE_GC_TIMES = {
   globalSettings: SESSION_STORE_CONFIG.gcTime,
-  datalabel: SESSION_STORE_CONFIG.gcTime,
-  entityCodes: SESSION_STORE_CONFIG.gcTime,
+  datalabel: Infinity,  // NEVER garbage collect - badge colors must persist
+  entityCodes: Infinity,  // NEVER garbage collect - entity type definitions rarely change
   entityInstanceNames: SESSION_STORE_CONFIG.gcTime,
   entityLinks: SESSION_STORE_CONFIG.gcTime,
   entityInstanceMetadata: SESSION_STORE_CONFIG.gcTime,

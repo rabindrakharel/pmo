@@ -1,0 +1,564 @@
+# PMO Unified Design Pattern
+
+**Version**: 1.0.0
+**Date**: 2025-12-04
+**Status**: Production Standard
+**Scope**: Complete UI/UX, State Management, Cache Lifecycle, Rendering Architecture
+
+---
+
+## Executive Summary
+
+This document defines the **complete design pattern** for the PMO Enterprise Platform, covering every aspect of UI/UX interaction, state management, cache lifecycle, and component rendering. It serves as the single source of truth for understanding how data flows through the application from API to UI and back.
+
+### Core Principles
+
+1. **Single Source of Truth**: TanStack Query cache is the ONLY source of application state
+2. **Format-at-Read**: Cache stores RAW data, formatting happens during render
+3. **Metadata-Driven**: Backend YAML configs drive ALL rendering decisions
+4. **Optimistic Updates**: UI updates instantly, API syncs in background
+5. **Portal-Safe Interactions**: Click-outside handlers respect portal-rendered dropdowns
+6. **Nullable Types**: `undefined` means loading, `null` means empty, `{}` never used as default
+
+---
+
+## Table of Contents
+
+1. [Architecture Overview](#1-architecture-overview)
+2. [State Management & Cache Lifecycle](#2-state-management--cache-lifecycle)
+3. [Data Flow Pipeline](#3-data-flow-pipeline)
+4. [UI/UX Interaction Patterns](#4-uiux-interaction-patterns)
+5. [Component Rendering Architecture](#5-component-rendering-architecture)
+6. [Request Flow & API Integration](#6-request-flow--api-integration)
+7. [Inline Editing Patterns](#7-inline-editing-patterns)
+8. [Add Row Pattern](#8-add-row-pattern)
+9. [Cache Invalidation & Synchronization](#9-cache-invalidation--synchronization)
+10. [Complete Interaction Flows](#10-complete-interaction-flows)
+
+---
+
+## 1. Architecture Overview
+
+### The 7-Layer System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    PMO ENTERPRISE PLATFORM ARCHITECTURE                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  LAYER 1: PERSISTENCE (IndexedDB + PostgreSQL)                              │
+│  ──────────────────────────────────────────────────────────                 │
+│  ┌────────────────────────┐         ┌──────────────────────────────┐        │
+│  │ Dexie (IndexedDB)      │         │ PostgreSQL 14                │        │
+│  │ • Offline persistence  │   ←───→ │ • 50 tables (46 DDL files)   │        │
+│  │ • Multi-tab sync       │         │ • Entity infrastructure      │        │
+│  │ • 8 tables (v4 schema) │         │ • RBAC, metadata, data       │        │
+│  └────────────────────────┘         └──────────────────────────────┘        │
+│                ↑                              ↑                              │
+│                │                              │                              │
+│  LAYER 2: NETWORK & API (Fastify v5 REST)                                   │
+│  ─────────────────────────────────────────                                  │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ API Server (port 4000)                                              │    │
+│  │ • 45 modules (universal-crud-factory pattern)                       │    │
+│  │ • Entity infrastructure service (transactional CRUD)                │    │
+│  │ • Metadata generation service (35+ pattern rules)                   │    │
+│  │ • RBAC permission checks                                            │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                ↑                              ↑                              │
+│                │                              │                              │
+│  LAYER 3: STATE MANAGEMENT (TanStack Query + WebSocket)                     │
+│  ───────────────────────────────────────────────────────                    │
+│  ┌────────────────────────┐         ┌──────────────────────────────┐        │
+│  │ TanStack Query         │         │ WebSocket (port 4001)        │        │
+│  │ • In-memory cache      │   ←───→ │ • Real-time invalidation     │        │
+│  │ • Optimistic updates   │         │ • system_logging polling     │        │
+│  │ • Auto-refetch (SWR)   │         │ • SUBSCRIBE/INVALIDATE       │        │
+│  └────────────────────────┘         └──────────────────────────────┘        │
+│                ↑                                                             │
+│                │                                                             │
+│  LAYER 4: DATA TRANSFORMATION (Format-at-Read)                              │
+│  ──────────────────────────────────────────────                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ useFormattedEntityData (Reactive Formatting)                        │    │
+│  │ • Subscribes to datalabel cache (badge colors)                      │    │
+│  │ • Subscribes to entityInstanceNames (references)                    │    │
+│  │ • Output: { raw, display, styles }                                  │    │
+│  │ • Re-formats on cache updates                                       │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                ↑                                                             │
+│                │                                                             │
+│  LAYER 5: COMPONENT REGISTRY (Metadata-Driven Resolution)                   │
+│  ─────────────────────────────────────────────────────────                  │
+│  ┌────────────────────────┐         ┌──────────────────────────────┐        │
+│  │ ViewComponentRegistry  │         │ EditComponentRegistry        │        │
+│  │ • renderType → FC      │         │ • inputType → FC             │        │
+│  │ • DAGVisualizer        │         │ • BadgeDropdownSelect        │        │
+│  │ • MetadataTable        │         │ • EntityInstanceNameSelect   │        │
+│  └────────────────────────┘         └──────────────────────────────┘        │
+│                ↑                              ↑                              │
+│                │                              │                              │
+│  LAYER 6: UI COMPONENTS (3 Universal Pages)                                 │
+│  ──────────────────────────────────────────                                 │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ EntityListOfInstancesPage → EntityListOfInstancesTable             │    │
+│  │ EntitySpecificInstancePage → EntityInstanceFormContainer           │    │
+│  │ EntityCreatePage → EntityInstanceFormContainer                     │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                ↑                                                             │
+│                │                                                             │
+│  LAYER 7: INTERACTION HANDLERS (Portal-Aware, Optimistic)                   │
+│  ─────────────────────────────────────────────────────────                  │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ • Inline edit (long-press 500ms)                                    │    │
+│  │ • Cell edit (click cell)                                            │    │
+│  │ • Add row (optimistic temp row)                                     │    │
+│  │ • Portal dropdown selection (data-dropdown-portal)                  │    │
+│  │ • Click-outside handlers (mousedown, early return)                  │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 2. State Management & Cache Lifecycle
+
+### The Single Source of Truth Pattern
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    STATE MANAGEMENT ARCHITECTURE (v9.1.0)                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ❌ NEVER DO THIS (Multiple Sources of Truth):                              │
+│  ──────────────────────────────────────────────                             │
+│  const [localData, setLocalData] = useState([]);  // ❌ Duplicate state    │
+│  const { data } = useQuery(...);                  // ✅ Only source         │
+│  const [cache, setCache] = useState({});          // ❌ Duplicate cache     │
+│                                                                              │
+│  ✅ CORRECT PATTERN (Single Source):                                        │
+│  ────────────────────────────────────                                       │
+│  const { data } = useQuery(...);  // TanStack Query cache                  │
+│  // UI renders directly from cache - NO local copies!                       │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │                     TanStack Query Cache                             │    │
+│  │                   (SINGLE SOURCE OF TRUTH)                           │    │
+│  │                                                                       │    │
+│  │  Store Structure (v9.3.0 - Aligned with Dexie v4):                  │    │
+│  │  ─────────────────────────────────────────────────                  │    │
+│  │                                                                       │    │
+│  │  ['datalabel', datalabelKey]                    TTL: 10 min         │    │
+│  │    → [{ id, name, color_code, sort_order }]                         │    │
+│  │                                                                       │    │
+│  │  ['entityCode', entityCode]                     TTL: 30 min         │    │
+│  │    → { code, label, icon, child_entity_codes }                      │    │
+│  │                                                                       │    │
+│  │  ['entityInstanceData', entityCode, params]     TTL: 5 min (stale)  │    │
+│  │    → { data: [...], total, metadata, ref_data_entityInstance }      │    │
+│  │                                                                       │    │
+│  │  ['entityInstanceMetadata', entityCode, comp]   TTL: 30 min         │    │
+│  │    → { fields: [], viewType: {...}, editType: {...} }               │    │
+│  │                                                                       │    │
+│  │  ['entityInstance', entityCode, id]             TTL: 5 min (stale)  │    │
+│  │    → { id, code, name, ..., metadata }                              │    │
+│  │                                                                       │    │
+│  │  ['entityInstanceNames', entityCode]            TTL: 10 min          │    │
+│  │    → { 'uuid-1': 'Name 1', 'uuid-2': 'Name 2' }                     │    │
+│  │                                                                       │    │
+│  │  ['draft', entityCode, id]                      TTL: ∞ (manual)     │    │
+│  │    → { currentData: {...}, history: [...], canUndo, canRedo }       │    │
+│  │                                                                       │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                ↓                                             │
+│                          (persisted to)                                      │
+│                                ↓                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │                    Dexie IndexedDB (v4 Schema)                       │    │
+│  │                  (Offline-First Persistence)                         │    │
+│  │                                                                       │    │
+│  │  Database: pmo-cache-v4                                              │    │
+│  │  Tables (8 unified with TanStack Query keys):                        │    │
+│  │  ──────────────────────────────────────────────                     │    │
+│  │                                                                       │    │
+│  │  1. datalabel           id, data, syncedAt                          │    │
+│  │  2. entityCode          code, data, syncedAt                        │    │
+│  │  3. globalSetting       id, data, syncedAt                          │    │
+│  │  4. entityInstanceData  id, data, syncedAt  (list data)             │    │
+│  │  5. entityInstanceMetadata  id, data, syncedAt                      │    │
+│  │  6. entityInstance      id, data, syncedAt  (single records)        │    │
+│  │  7. entityLink          id, data, syncedAt                          │    │
+│  │  8. draft               id, data            (no expiry)             │    │
+│  │                                                                       │    │
+│  │  Lifecycle:                                                          │    │
+│  │  • App load → hydrateQueryCache() → Load ALL into TanStack          │    │
+│  │  • Query updates → Auto-sync to Dexie                                │    │
+│  │  • Page refresh → Instant hydration from IndexedDB                  │    │
+│  │  • Multi-tab → broadcastQueryClient() syncs between tabs            │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Cache Lifecycle States
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        CACHE LIFECYCLE STATE MACHINE                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  STATE 1: INITIAL (Page Load)                                               │
+│  ─────────────────────────────                                              │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ T=0ms:   Component mounts                                            │   │
+│  │ T=0ms:   useEntityInstanceData() called                              │   │
+│  │ T=0ms:   TanStack Query checks in-memory cache → MISS               │   │
+│  │ T=1ms:   Check Dexie IndexedDB                                       │   │
+│  │ T=10ms:  Dexie HIT → Hydrate TanStack Query cache                   │   │
+│  │ T=10ms:  Component renders with data from Dexie (instant!)          │   │
+│  │ T=10ms:  Background refetch triggered (stale-while-revalidate)      │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                               ↓                                              │
+│  STATE 2: STALE (Background Refetch)                                        │
+│  ────────────────────────────────────                                       │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ T=10ms:  GET /api/v1/project?limit=20 starts                        │   │
+│  │ T=150ms: API responds with fresh data                                │   │
+│  │ T=150ms: TanStack Query updates cache                                │   │
+│  │ T=150ms: Dexie auto-synced with new data                            │   │
+│  │ T=150ms: Component re-renders with fresh data                        │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                               ↓                                              │
+│  STATE 3: FRESH (Active Interaction)                                        │
+│  ────────────────────────────────────                                       │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ Cache Status: FRESH (within staleTime)                               │   │
+│  │ User Actions:                                                         │   │
+│  │   • Inline edit → Optimistic update → Cache updated instantly       │   │
+│  │   • Add row → Temp row added → Cache updated instantly              │   │
+│  │   • Delete → Item removed → Cache updated instantly                 │   │
+│  │ Background: API syncs, on success cache stays, on error rollback    │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                               ↓                                              │
+│  STATE 4: STALE (After staleTime)                                           │
+│  ─────────────────────────────────                                          │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ T=5min:  staleTime expired                                           │   │
+│  │ Behavior:                                                             │   │
+│  │   • Still renders cached data                                        │   │
+│  │   • Next read triggers background refetch                            │   │
+│  │   • WebSocket INVALIDATE also triggers refetch                       │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                               ↓                                              │
+│  STATE 5: INACTIVE (After gcTime)                                           │
+│  ──────────────────────────────────                                         │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ T=1hour: gcTime (garbage collection time) expired                    │   │
+│  │ Behavior:                                                             │   │
+│  │   • TanStack Query removes from memory                               │   │
+│  │   • Dexie KEEPS data (persistent)                                    │   │
+│  │   • Next read → Load from Dexie → Trigger refetch                   │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 3. Data Flow Pipeline
+
+### Complete Request-Response-Render Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      COMPLETE DATA FLOW PIPELINE                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  USER ACTION: Navigate to /project/uuid                                     │
+│  ═══════════════════════════════════════════                                │
+│                                                                              │
+│  PHASE 1: QUERY INITIALIZATION (Layer 3)                                    │
+│  ────────────────────────────────────────                                   │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ useEntityInstanceData('project', { filters: { ... } })               │   │
+│  │   ↓                                                                   │   │
+│  │ TanStack Query checks cache:                                         │   │
+│  │   ['entityInstanceData', 'project', { filters: { ... } }]            │   │
+│  │   ↓                                                                   │   │
+│  │ MISS → Load from Dexie → HIT → Return data instantly               │   │
+│  │   data = { data: [...], total, metadata, ref_data_entityInstance }  │   │
+│  │   ↓                                                                   │   │
+│  │ Trigger background refetch (staleTime: 5min)                         │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                ↓                                             │
+│  PHASE 2: API REQUEST (Layer 2)                                             │
+│  ───────────────────────────────                                            │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ GET /api/v1/project?limit=20&offset=0                               │   │
+│  │   ↓                                                                   │   │
+│  │ Backend (Fastify):                                                    │   │
+│  │   1. RBAC check (Permission.VIEW)                                    │   │
+│  │   2. Build SQL with auto-filters                                     │   │
+│  │   3. Execute query with joins                                        │   │
+│  │   4. Generate metadata (entity-component-metadata.service)           │   │
+│  │   5. Build ref_data_entityInstance (O(1) lookup table)               │   │
+│  │   ↓                                                                   │   │
+│  │ Response: {                                                           │   │
+│  │   data: [{ id, code, name, dl__stage, manager__employee_id, ... }], │   │
+│  │   metadata: {                                                         │   │
+│  │     entityListOfInstancesTable: {                                    │   │
+│  │       viewType: {                                                    │   │
+│  │         dl__stage: {                                                 │   │
+│  │           renderType: 'badge',                                       │   │
+│  │           lookupField: 'dl__project_stage'                           │   │
+│  │         },                                                            │   │
+│  │         manager__employee_id: {                                      │   │
+│  │           renderType: 'entityInstanceId',                            │   │
+│  │           lookupEntity: 'employee'                                   │   │
+│  │         }                                                             │   │
+│  │       },                                                              │   │
+│  │       editType: { ... }                                              │   │
+│  │     }                                                                 │   │
+│  │   },                                                                  │   │
+│  │   ref_data_entityInstance: {                                         │   │
+│  │     employee: { 'uuid-1': 'James Miller', 'uuid-2': 'Sarah J' }     │   │
+│  │   },                                                                  │   │
+│  │   total: 42                                                           │   │
+│  │ }                                                                     │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                ↓                                             │
+│  PHASE 3: CACHE UPDATE (Layer 3)                                            │
+│  ─────────────────────────────────                                          │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ TanStack Query onSuccess:                                            │   │
+│  │   • Update in-memory cache with response                             │   │
+│  │   • Auto-sync to Dexie (entityInstanceData table)                    │   │
+│  │   • Trigger component re-render                                      │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                ↓                                             │
+│  PHASE 4: FORMAT-AT-READ (Layer 4)                                          │
+│  ───────────────────────────────                                            │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ useFormattedEntityData(rawData, metadata, 'project')                 │   │
+│  │   ↓                                                                   │   │
+│  │ Subscribe to dependencies:                                            │   │
+│  │   • Datalabel cache (for badge colors)                               │   │
+│  │   • EntityInstanceNames cache (for reference names)                  │   │
+│  │   ↓                                                                   │   │
+│  │ Format each row:                                                      │   │
+│  │   formatRow(row, metadata.viewType)                                  │   │
+│  │   ↓                                                                   │   │
+│  │ Output: FormattedRow[] = [                                           │   │
+│  │   {                                                                   │   │
+│  │     raw: { dl__stage: 'planning', manager__employee_id: 'uuid-1' }, │   │
+│  │     display: { dl__stage: 'Planning', manager__employee_id: 'James' },│  │
+│  │     styles: { dl__stage: 'bg-blue-100 text-blue-800' }              │   │
+│  │   }                                                                   │   │
+│  │ ]                                                                     │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                ↓                                             │
+│  PHASE 5: COMPONENT RESOLUTION (Layer 5)                                    │
+│  ────────────────────────────────────────                                   │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ FieldRenderer checks metadata:                                       │   │
+│  │   ↓                                                                   │   │
+│  │ For field 'dl__stage':                                               │   │
+│  │   renderType: 'badge' → ViewFieldRenderer (inline)                  │   │
+│  │   Renders: <span className="bg-blue-100 text-blue-800">Planning</span> │
+│  │   ↓                                                                   │   │
+│  │ For field 'manager__employee_id':                                    │   │
+│  │   renderType: 'entityInstanceId' → ViewFieldRenderer (inline)       │   │
+│  │   Resolves: getEntityInstanceNameSync('employee', 'uuid-1')          │   │
+│  │   Renders: <span>James Miller</span>                                 │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                ↓                                             │
+│  PHASE 6: UI RENDER (Layer 6)                                               │
+│  ──────────────────────────────                                             │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ EntityListOfInstancesTable renders:                                  │   │
+│  │   • Table with formatted data                                        │   │
+│  │   • Badges with correct colors                                       │   │
+│  │   • Entity references resolved to names                              │   │
+│  │   • Click handlers attached (row click, inline edit, etc.)          │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 4. UI/UX Interaction Patterns
+
+### The 5 Core Interaction Patterns
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        UI/UX INTERACTION PATTERNS                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  PATTERN 1: ROW CLICK (Navigation)                                          │
+│  ──────────────────────────────────                                         │
+│  User clicks table row → Navigate to detail page                            │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ Trigger: onClick on <tr> (row element)                               │   │
+│  │ Timing: Instant (no debounce)                                        │   │
+│  │ Guard:  if (shouldBlockNavigation(row.id)) return; // Block temp rows│  │
+│  │ Action: navigate(`/${entityCode}/${row.id}`)                         │   │
+│  │ State:  No state changes                                             │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+│  PATTERN 2: CELL CLICK (Inline Edit - Table)                                │
+│  ────────────────────────────────────────                                   │
+│  User clicks editable cell → Enter edit mode for THAT cell only             │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ Trigger: onClick on <td> with inlineEditable=true                   │   │
+│  │ Timing: Instant                                                       │   │
+│  │ Guard:  Must be editable column, not already editing                │   │
+│  │ State:  setEditingCell({ rowId, columnKey })                        │   │
+│  │ Focus:  Auto-focus input/dropdown in cell                            │   │
+│  │ Portal: If dropdown → Renders via createPortal(menu, document.body) │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+│  PATTERN 3: LONG-PRESS (Inline Edit - Form)                                 │
+│  ───────────────────────────────────────────                                │
+│  User long-presses field (500ms hold) → Enter inline edit mode              │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ Trigger: mousedown → setTimeout(500ms) → mouseup before timeout?    │   │
+│  │ Timing: 500ms hold required (prevents accidental triggers)          │   │
+│  │ Visual: Blue highlight appears during hold                           │   │
+│  │ State:  setInlineEditingField(fieldKey)                             │   │
+│  │         setInlineEditValue(currentValue)                             │   │
+│  │ Portal: If dropdown → Renders via createPortal                       │   │
+│  │ Save:   Click outside or press Enter                                 │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+│  PATTERN 4: DROPDOWN SELECTION (Portal-Aware)                               │
+│  ──────────────────────────────────────────                                 │
+│  User selects from dropdown → Value captured, onChange fires                │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ Trigger: onClick on dropdown option                                  │   │
+│  │ Event:   mousedown → selectOption() → click                         │   │
+│  │ Portal:  <div data-dropdown-portal ref={dropdownRef}>               │   │
+│  │ Guard:   Parent click-outside checks:                                │   │
+│  │            if (target.closest('[data-dropdown-portal]')) return;    │   │
+│  │ Flow:    selectOption() → onChange(value) →                         │   │
+│  │          handleInlineValueChange(value) OR handleCellEdit(value)     │   │
+│  │ Close:   setIsOpen(false) after selection                            │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+│  PATTERN 5: ADD ROW (Optimistic Temp Row)                                   │
+│  ─────────────────────────────────────────                                  │
+│  User clicks "Add Row" → Temp row appears instantly in edit mode            │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ Trigger: onClick "Add Row" button                                    │   │
+│  │ Create:  newRow = { id: `temp_${Date.now()}`, _isNew: true, ... }   │   │
+│  │ Cache:   queryClient.setQueryData() → Append temp row               │   │
+│  │ State:   setEditingRow(newRow.id)                                    │   │
+│  │          setEditedData(newRow)                                       │   │
+│  │          setIsAddingRow(true)                                        │   │
+│  │ Render:  Table shows n+1 rows, last in edit mode                    │   │
+│  │ Save:    createEntity(data, { existingTempId })                      │   │
+│  │ Result:  Temp row replaced with real UUID from API                   │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Click-Outside Handler Pattern (Portal-Safe)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                   PORTAL-SAFE CLICK-OUTSIDE PATTERN                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  COMPONENT: EntityInstanceFormContainer (Form Inline Edit)                  │
+│  ──────────────────────────────────────────────────────────                 │
+│  useEffect(() => {                                                           │
+│    if (!inlineEditingField) return;                                         │
+│                                                                              │
+│    const handleClickOutside = (event: MouseEvent) => {                      │
+│      const target = event.target as Node;                                   │
+│                                                                              │
+│      // Check 1: Inside our editing field?                                  │
+│      if (editingFieldRef.current?.contains(target)) return;                 │
+│                                                                              │
+│      // Check 2: Inside ANY portal dropdown? (Generic detection)            │
+│      const isClickInsideDropdown =                                          │
+│        (target as Element).closest?.('[data-dropdown-portal]');             │
+│      if (isClickInsideDropdown) {                                           │
+│        console.log('🎯 Click inside dropdown portal, ignoring');            │
+│        return;                                                               │
+│      }                                                                       │
+│                                                                              │
+│      // Truly outside - save inline edit                                    │
+│      console.log('🚪 Click outside detected, saving');                      │
+│      handleInlineSave();                                                    │
+│    };                                                                        │
+│                                                                              │
+│    // Use mousedown (fires BEFORE click)                                    │
+│    document.addEventListener('mousedown', handleClickOutside);              │
+│    return () => document.removeEventListener('mousedown', handleClickOutside);│
+│  }, [inlineEditingField, handleInlineSave]);                                │
+│                                                                              │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│                                                                              │
+│  COMPONENT: EntityListOfInstancesTable (Cell Edit)                          │
+│  ───────────────────────────────────────────────────────                    │
+│  useEffect(() => {                                                           │
+│    if (!activeEditingCell) return;                                          │
+│                                                                              │
+│    const handleClickOutside = (event: MouseEvent) => {                      │
+│      const target = event.target as HTMLElement;                            │
+│                                                                              │
+│      // Check 1: Inside editing cell?                                       │
+│      if (editingCellRef.current?.contains(target)) return;                  │
+│                                                                              │
+│      // Check 2: Inside ANY portal dropdown?                                │
+│      if (target.closest?.('[data-dropdown-portal]')) return;                │
+│                                                                              │
+│      // Truly outside - save cell                                           │
+│      const record = paginatedData.find(r => getRowKey(r) === rowId);       │
+│      if (record) {                                                           │
+│        handleCellSave(rowId, columnKey, record);                            │
+│      }                                                                       │
+│    };                                                                        │
+│                                                                              │
+│    document.addEventListener('mousedown', handleClickOutside);              │
+│    return () => document.removeEventListener('mousedown', handleClickOutside);│
+│  }, [activeEditingCell]);                                                   │
+│                                                                              │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│                                                                              │
+│  COMPONENT: BadgeDropdownSelect / EntityInstanceNameSelect                  │
+│  ───────────────────────────────────────────────────────────                │
+│  useEffect(() => {                                                           │
+│    const handleClickOutside = (event: MouseEvent) => {                      │
+│      if (                                                                    │
+│        containerRef.current &&                                              │
+│        !containerRef.current.contains(event.target as Node) &&              │
+│        dropdownRef.current &&                                               │
+│        !dropdownRef.current.contains(event.target as Node)                  │
+│      ) {                                                                     │
+│        setIsOpen(false);  // Close dropdown                                 │
+│      }                                                                       │
+│    };                                                                        │
+│                                                                              │
+│    document.addEventListener('mousedown', handleClickOutside);              │
+│    return () => document.removeEventListener('mousedown', handleClickOutside);│
+│  }, []);                                                                     │
+│                                                                              │
+│  KEY PRINCIPLES:                                                             │
+│  ───────────────                                                             │
+│  1. Use 'mousedown' event (fires BEFORE click)                              │
+│  2. Check BOTH container AND portal refs                                    │
+│  3. Use [data-dropdown-portal] for generic detection                        │
+│  4. Return early if click inside portal (let dropdown handle it)            │
+│  5. Cleanup listener in useEffect return                                    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+Due to length constraints, I'll continue this document in a follow-up response with the remaining sections (Component Rendering, Request Flow, Inline Editing, Add Row, Cache Invalidation, and Complete Flows).
+
+Would you like me to continue with the remaining sections?

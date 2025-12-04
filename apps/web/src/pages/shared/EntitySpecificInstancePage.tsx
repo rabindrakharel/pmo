@@ -29,7 +29,8 @@ import {
   useInlineAddRow,
   shouldBlockNavigation,
 } from '../../db/tanstack-index';
-import { formatRow, formatDataset, type ComponentMetadata } from '../../lib/formatters';
+import { formatRow, type ComponentMetadata } from '../../lib/formatters';
+import { useFormattedEntityData } from '../../lib/hooks/useFormattedEntityData';
 import { useKeyboardShortcuts, useShortcutHints } from '../../lib/hooks/useKeyboardShortcuts';
 import { API_CONFIG } from '../../lib/config/api';
 import { EllipsisBounce, InlineSpinner } from '../../components/shared/ui/EllipsisBounce';
@@ -96,9 +97,31 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   // v11.1.0: Use flat { viewType, editType } format - same as EntityListOfInstancesTable
   // Both components now support flat format for consistency
   const formMetadata = useMemo(() => {
-    if (!formViewType || Object.keys(formViewType).length === 0) return null;
-    return { viewType: formViewType, editType: formEditType };
-  }, [formViewType, formEditType]);
+    console.log('[EntitySpecificInstancePage] Constructing formMetadata:', {
+      entityCode,
+      hasFormViewType: !!formViewType,
+      formViewTypeKeys: formViewType ? Object.keys(formViewType).length : 0,
+      hasFormEditType: !!formEditType,
+      formEditTypeKeys: formEditType ? Object.keys(formEditType).length : 0,
+      formViewTypeSample: formViewType ? Object.keys(formViewType).slice(0, 5) : []
+    });
+
+    // Return null if metadata is still loading (undefined) or invalid
+    if (!formViewType) {
+      console.log('[EntitySpecificInstancePage] formViewType is undefined - metadata still loading or error');
+      return null;
+    }
+
+    const metadata = { viewType: formViewType, editType: formEditType };
+    console.log('[EntitySpecificInstancePage] formMetadata constructed:', {
+      hasViewType: !!metadata.viewType,
+      hasEditType: !!metadata.editType,
+      viewTypeKeys: Object.keys(metadata.viewType).length,
+      editTypeKeys: metadata.editType ? Object.keys(metadata.editType).length : 0
+    });
+
+    return metadata;
+  }, [formViewType, formEditType, entityCode]);
 
   // Format data on read (memoized) - formatting happens HERE, not in hook
   const formattedData = useMemo(() => {
@@ -430,13 +453,18 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
     resetChildEditState();
   }, [currentChildEntity, resetChildEditState]);
 
-  // v12.3.0: Format child data for display (same as EntityListOfInstancesPage)
-  // This transforms raw API data into FormattedRow structure with display/styles
-  // Required for badge rendering and other styled view modes
-  const childDisplayData = useMemo(() => {
-    if (!childData || childData.length === 0) return [];
-    return formatDataset(childData, childMetadata as ComponentMetadata | null);
-  }, [childData, childMetadata]);
+  // ============================================================================
+  // v12.6.0: REACTIVE CHILD DATA FORMATTING - Datalabel cache subscription
+  // ============================================================================
+  // Uses useFormattedEntityData hook with cache subscription to fix badge color bug
+  // Automatically re-formats when datalabel cache updates (fixes gray badges)
+  // Pattern: TanStack Query Dependent Queries with enabled: false
+  // ============================================================================
+  const { data: childDisplayData } = useFormattedEntityData(
+    childData,
+    childMetadata as ComponentMetadata | null,
+    currentChildEntity || undefined
+  );
 
   // Child pagination
   const childPagination = useMemo(() => ({
@@ -816,16 +844,31 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   // Triggers optimistic update: TanStack + Dexie updated immediately, API in background
   // ============================================================================
   const handleInlineSave = useCallback(async (fieldKey: string, value: any) => {
-    if (!id) return;
+    console.log('🎯 [EntitySpecificInstancePage] handleInlineSave called:', {
+      entityCode,
+      entityId: id,
+      fieldKey,
+      value,
+      valueType: typeof value
+    });
+
+    if (!id) {
+      console.error('❌ [EntitySpecificInstancePage] No entity ID, cannot save');
+      return;
+    }
 
     try {
+      console.log('🚀 [EntitySpecificInstancePage] Calling optimisticUpdateEntity...');
+
       // Optimistic update: UI updates instantly, API syncs in background
       await optimisticUpdateEntity(id, { [fieldKey]: value });
+
+      console.log('✅ [EntitySpecificInstancePage] Optimistic update completed successfully');
     } catch (err) {
       // Error is handled by useOptimisticMutation's onError callback
-      console.error('Inline save failed:', err);
+      console.error('❌ [EntitySpecificInstancePage] Inline save failed:', err);
     }
-  }, [id, optimisticUpdateEntity]);
+  }, [id, optimisticUpdateEntity, entityCode]);
 
   const handleTabClick = (tabPath: string) => {
     if (tabPath === 'overview') {

@@ -1,6 +1,6 @@
-# Field Renderer Architecture - Future State
+# Field Renderer Architecture
 
-> Version: 12.2.0 | Status: Implementation In Progress
+> Version: 12.6.0 | Status: Production Ready | Updated: 2025-12-04
 
 ## Overview
 
@@ -43,15 +43,15 @@ The Field Renderer system provides a **modular, metadata-driven interface** for 
 │     └─────────────────────────────────────────────────────────────────────────┘ │
 │                                        │                                         │
 │                                        ▼                                         │
-│  3. useQuery with `select` (FORMAT-AT-READ)                                      │
+│  3. Reactive Formatting Hook (v12.6.0 - FORMAT-AT-READ + CACHE SUBSCRIPTION)     │
 │     ┌─────────────────────────────────────────────────────────────────────────┐ │
-│     │ useQuery({                                                               │ │
-│     │   queryKey: ['entity', 'project', id],                                  │ │
-│     │   select: (response) => ({                                              │ │
-│     │     ...response,                                                         │ │
-│     │     formattedData: formatDataset(response.data, response.metadata)      │ │
-│     │   })                                                                     │ │
-│     │ })                                                                       │ │
+│     │ const { data: rawData, metadata } =                                     │ │
+│     │   useEntityInstanceData('project', params);                             │ │
+│     │                                                                          │ │
+│     │ // v12.6.0: Reactive formatting with datalabel cache subscription       │ │
+│     │ const { data: formattedData } =                                         │ │
+│     │   useFormattedEntityData(rawData, metadata, 'project');                │ │
+│     │ // Subscribes to datalabel cache → re-formats on badge color changes    │ │
 │     └─────────────────────────────────────────────────────────────────────────┘ │
 │                                        │                                         │
 │                                        ▼                                         │
@@ -327,9 +327,157 @@ Components being replaced:
 | `textarea` / `richtext` | DebouncedTextareaInputEdit | Debounced textarea |
 | `multiselect` | MultiSelectEdit | Searchable multi-select |
 
+---
+
+## Cache Management Pattern for Session-Scoped Metadata
+
+### Problem
+
+Badge colors and entity metadata disappear after ~1 hour because TanStack Query's garbage collection (gcTime) deletes unused cache entries.
+
+### Solution: Infinity gcTime for Session Data
+
+**Pattern:** Set `gcTime: Infinity` for session-scoped metadata that should persist until logout.
+
+**Implementation:**
+
+```typescript
+// apps/web/src/db/cache/constants.ts
+export const STORE_GC_TIMES = {
+  // Session-scoped metadata - never garbage collect
+  datalabel: Infinity,     // Badge colors, dropdown options
+  entityCodes: Infinity,   // Entity type definitions
+
+  // Transient data - normal garbage collection
+  entityInstanceData: 30 * 60 * 1000,      // 30 minutes
+  entityInstanceNames: 60 * 60 * 1000,     // 1 hour
+  entityLinks: 60 * 60 * 1000,             // 1 hour
+  entityInstanceMetadata: 60 * 60 * 1000,  // 1 hour
+} as const;
+```
+
+### Why This Works
+
+**TanStack Query Timing Concepts:**
+- `staleTime`: How long data is considered fresh (triggers background refetch)
+- `gcTime`: How long unused cache stays in memory before deletion
+
+**Key Insight:** Setting `gcTime: Infinity` prevents cache deletion while still allowing background refetch when queries are active (via `staleTime`).
+
+### When to Use
+
+Use `gcTime: Infinity` for:
+- ✅ **Datalabels** - Badge colors, dropdown options
+- ✅ **Entity codes** - Entity type definitions
+- ✅ **Global settings** - App configuration
+- ✅ **User profile** - Session-scoped user data
+
+Don't use for:
+- ❌ **Entity instance data** - Query results (use 30-min gcTime)
+- ❌ **Search results** - Temporary data (use 5-10 min gcTime)
+- ❌ **Paginated lists** - Transient data (use 10-30 min gcTime)
+
+### Why Background Refetch Doesn't Help
+
+**Misconception:** "Background refetch will keep cache fresh"
+
+**Reality:** Background refetch only works for **active queries** (queries with subscribers). When cache is garbage collected, there's nothing left to refetch.
+
+```typescript
+// Timeline demonstrating the gap
+t=0:      Login → cache populated
+t=10min:  Cache becomes STALE → background refetch works ✓
+t=45min:  User navigates away → queries become INACTIVE
+t=60min:  gcTime expires → Cache DELETED (no subscribers)
+t=65min:  User returns → getDatalabelSync() returns undefined ❌
+```
+
+### Memory Impact
+
+**Safe for session data:**
+- Datalabels: ~50 fields × ~10 options × ~100 bytes = **~50 KB**
+- Entity codes: ~30 entities × ~500 bytes = **~15 KB**
+- **Total: ~65 KB** - negligible (average tab uses 100-500 MB)
+
+### Industry Standard
+
+Production applications use this pattern for session-scoped metadata:
+
+```typescript
+// Vercel Dashboard
+const userSettings = useQuery({
+  queryKey: ['user-settings'],
+  staleTime: 5 * 60 * 1000,  // 5 min
+  gcTime: Infinity,           // Never delete
+});
+
+// AWS Console
+const accountData = useQuery({
+  queryKey: ['account'],
+  staleTime: 10 * 60 * 1000,  // 10 min
+  gcTime: Infinity,            // Never delete
+});
+```
+
+### Cache Lifecycle
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  CACHE LIFECYCLE WITH Infinity gcTime                           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  1. User logs in                                                 │
+│     ↓                                                            │
+│  2. prefetchAllDatalabels() → cache populated                   │
+│     ↓                                                            │
+│  3. staleTime (10 min) → background refetch (if query active)   │
+│     ↓                                                            │
+│  4. User navigates away → queries become INACTIVE               │
+│     ↓                                                            │
+│  5. gcTime (Infinity) → Cache PERSISTS ✓                       │
+│     ↓                                                            │
+│  6. User returns after hours → cache still available ✓          │
+│                                                                  │
+│  Cache only cleared on:                                          │
+│  • User logout                                                   │
+│  • Browser tab close                                             │
+│  • Manual clearAllCaches()                                       │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Related Hooks
+
+**Cache Subscription (Bonus Reactivity):**
+
+While `gcTime: Infinity` solves the deletion problem, you can add subscription for update reactivity:
+
+```typescript
+// useFormattedEntityData.ts
+const datalabelCacheTimestamp = useSyncExternalStore(
+  (callback) => {
+    return queryClient.getQueryCache().subscribe((event) => {
+      if (event?.query?.queryKey?.[0] === 'datalabel') {
+        callback(); // Re-format when datalabel cache UPDATES
+      }
+    });
+  },
+  () => {
+    const state = queryClient.getQueryState(QUERY_KEYS.datalabelAll());
+    return state?.dataUpdatedAt ?? 0;
+  },
+  () => 0
+);
+```
+
+**Important:** `useSyncExternalStore` detects cache **updates** (refetch, invalidation) but NOT cache **deletion** (garbage collection is silent).
+
+---
+
 ## Related Documentation
 
 - [STATE_MANAGEMENT.md](../state_management/STATE_MANAGEMENT.md) - TanStack Query + Dexie architecture
 - [entity-component-metadata.service.md](../services/entity-component-metadata.service.md) - Backend metadata generation
 - [view-type-mapping.yaml](../../apps/api/src/services/view-type-mapping.yaml) - VIEW mode configuration
 - [edit-type-mapping.yaml](../../apps/api/src/services/edit-type-mapping.yaml) - EDIT mode configuration
+- [constants.ts](../../apps/web/src/db/cache/constants.ts) - Cache timing configuration

@@ -184,15 +184,29 @@ export function EntityInstanceNameSelect({
 
   // Handle option selection
   const selectOption = useCallback((optionValue: string, optionLabel: string) => {
+    console.log('🎯 [EntityInstanceNameSelect] selectOption called:', {
+      entityCode,
+      optionValue,
+      optionLabel,
+      previousLocalValue: localValue,
+      previousLocalLabel: localLabel
+    });
+
     // Update local state immediately for instant UI feedback
     setLocalValue(optionValue);
     setLocalLabel(optionLabel);
+
+    console.log('📞 [EntityInstanceNameSelect] Calling parent onChange...');
+
     // Notify parent (may be async if using Dexie drafts)
     onChange(optionValue, optionLabel);
+
+    console.log('✅ [EntityInstanceNameSelect] Parent onChange called, closing dropdown');
+
     setIsOpen(false);
     setSearchTerm('');
     setHighlightedIndex(-1);
-  }, [onChange]);
+  }, [onChange, entityCode, localValue, localLabel]);
 
   // Handle keyboard navigation
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {

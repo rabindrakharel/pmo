@@ -334,10 +334,10 @@ export async function clearEntityInstanceDataCache(
 export interface UseEntityInstanceMetadataResult {
   /** Field names */
   fields: string[];
-  /** View type metadata */
-  viewType: Record<string, unknown>;
-  /** Edit type metadata */
-  editType: Record<string, unknown>;
+  /** View type metadata (undefined during load) */
+  viewType: Record<string, unknown> | undefined;
+  /** Edit type metadata (undefined during load) */
+  editType: Record<string, unknown> | undefined;
   /** Loading state */
   isLoading: boolean;
   /** Error state */
@@ -420,8 +420,8 @@ export function useEntityInstanceMetadata(
 
   return {
     fields: query.data?.fields ?? [],
-    viewType: query.data?.viewType ?? {},
-    editType: query.data?.editType ?? {},
+    viewType: query.data?.viewType,  // Return undefined when loading (not {})
+    editType: query.data?.editType,  // Return undefined when loading (not {})
     isLoading: query.isLoading,
     isError: query.isError,
   };

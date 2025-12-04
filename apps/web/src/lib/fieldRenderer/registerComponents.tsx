@@ -226,8 +226,17 @@ const EntityInstanceNameSelectEdit: React.FC<ComponentRendererProps> = ({
 }) => {
   const entityCode = field.lookupEntity;
 
+  console.log('🎨 [EntityInstanceNameSelectEdit] Rendering:', {
+    fieldKey: field.key,
+    value,
+    entityCode,
+    hasOnChange: !!onChange,
+    disabled,
+    readonly
+  });
+
   if (!entityCode) {
-    console.warn(`[EntityInstanceNameSelect] Missing lookupEntity for field ${field.key}`);
+    console.warn(`[EntityInstanceNameSelectEdit] Missing lookupEntity for field ${field.key}`, field);
     const displayValue = value && typeof value === 'string' && value.length > 8
       ? value.substring(0, 8) + '...'
       : value;
@@ -242,7 +251,22 @@ const EntityInstanceNameSelectEdit: React.FC<ComponentRendererProps> = ({
     <EntityInstanceNameSelect
       entityCode={entityCode}
       value={value ?? ''}
-      onChange={(uuid) => onChange?.(uuid)}
+      onChange={(uuid, label) => {
+        console.log('🔗 [EntityInstanceNameSelectEdit] onChange triggered:', {
+          fieldKey: field.key,
+          uuid,
+          label,
+          hasOnChangeCallback: !!onChange
+        });
+
+        if (onChange) {
+          console.log('📤 [EntityInstanceNameSelectEdit] Calling parent onChange with uuid:', uuid);
+          onChange(uuid);
+          console.log('✅ [EntityInstanceNameSelectEdit] Parent onChange completed');
+        } else {
+          console.error('❌ [EntityInstanceNameSelectEdit] onChange callback is UNDEFINED!');
+        }
+      }}
       disabled={disabled || readonly}
       placeholder={`Select ${entityCode}...`}
     />

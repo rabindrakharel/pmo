@@ -1,6 +1,6 @@
 # EntityListOfInstancesPage
 
-**Version:** 9.4.0 | **Location:** `apps/web/src/pages/shared/EntityListOfInstancesPage.tsx` | **Updated:** 2025-12-03
+**Version:** 12.6.0 | **Location:** `apps/web/src/pages/shared/EntityListOfInstancesPage.tsx` | **Updated:** 2025-12-04
 
 ---
 
@@ -122,18 +122,25 @@ const [view, setView] = useViewMode(entityCode, defaultView);
 // Persists view selection per entity in localStorage
 ```
 
-### 3. Format-at-Read Pattern
+### 3. Reactive Formatting Pattern (v12.6.0)
 
 ```typescript
-const formattedData = useMemo(() => {
-  if (!rawData || !metadata) return [];
-  return formatDataset(rawData, metadata);
-}, [rawData, metadata]);
+// v12.6.0: Uses useFormattedEntityData hook with cache subscription
+// Automatically re-formats when datalabel cache updates (fixes badge color bug)
+const { data: formattedData } = useFormattedEntityData(rawData, metadata, entityCode);
 
 // Returns FormattedRow[] with:
 // - raw: Original values (for editing)
 // - display: Pre-formatted strings
 // - styles: CSS classes (badges)
+//
+// Reactive to:
+// 1. rawData changes (data refetch, WebSocket update)
+// 2. metadata changes (view switch, entity change)
+// 3. datalabel cache updates (badge colors, dropdown options)
+//
+// Pattern: TanStack Query Dependent Queries with Cache Subscription
+// See: docs/BADGE_COLOR_SOLUTION_ARCHITECTURE.md
 ```
 
 ### 4. Sidebar Auto-Collapse
@@ -234,10 +241,11 @@ const { entityCode } = useParams();
 
 | Version | Date | Changes |
 |---------|------|---------|
+| v12.6.0 | 2025-12-04 | Reactive formatting with cache subscription (fixes badge color bug) |
 | v9.4.0 | 2025-12-03 | Two-query architecture (metadata → data separation) |
 | v9.0.0 | 2025-11-28 | TanStack Query + Dexie migration |
 | v8.0.0 | 2025-11-23 | Format-at-read pattern |
 
 ---
 
-**Last Updated:** 2025-12-03 | **Status:** Production Ready
+**Last Updated:** 2025-12-04 | **Status:** Production Ready

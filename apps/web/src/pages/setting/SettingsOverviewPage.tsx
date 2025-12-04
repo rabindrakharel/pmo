@@ -6,7 +6,10 @@ import { AddDatalabelModal } from '../../components/shared/modals/AddDatalabelMo
 import { EntityConfigurationModal } from '../../components/settings/EntityConfigurationModal';
 import { PermissionManagementModal } from '../../components/settings/PermissionManagementModal';
 // v9.1.0: Use canonical hook from @/db/tanstack-index
+// v12.6.0: Use reactive formatting hook
 import { useEntityInstanceData } from '../../db/tanstack-index';
+import { useFormattedEntityData } from '../../lib/hooks';
+import { type ComponentMetadata } from '../../lib/formatters';
 import { API_CONFIG } from '../../lib/config/api';
 import { transformForApi, transformFromApi } from '../../lib/frontEndFormatterService';
 import { Edit, Trash2 } from 'lucide-react';
@@ -115,12 +118,20 @@ export function SettingsOverviewPage() {
   // Fetch RBAC data - v9.1.0: Use canonical useEntityInstanceData
   const rbacQueryParams = useMemo(() => ({ limit: 100, offset: 0 }), []);
   const {
-    data: rbacData,
+    data: rbacRawData,
     metadata: rbacMetadata,
     total: rbacTotal,
     isLoading: rbacLoading,
     refetch: refetchRbac,
   } = useEntityInstanceData('rbac', rbacQueryParams);
+
+  // v12.6.0: Reactive formatting with cache subscription (consistency with EntityListOfInstancesPage)
+  const rbacComponentMetadata = useMemo((): ComponentMetadata | null => {
+    if (!rbacMetadata?.viewType || Object.keys(rbacMetadata.viewType).length === 0) return null;
+    return rbacMetadata as ComponentMetadata;
+  }, [rbacMetadata]);
+
+  const { data: rbacData } = useFormattedEntityData(rbacRawData, rbacComponentMetadata, 'rbac');
 
   const rbacPagination = useMemo(() => ({
     current: 1,
@@ -928,7 +939,7 @@ export function SettingsOverviewPage() {
               ) : (
                 <EntityListOfInstancesTable
                   data={rbacData}
-                  metadata={rbacMetadata}
+                  metadata={rbacComponentMetadata}
                   loading={rbacLoading}
                   pagination={rbacPagination}
                   searchable={true}

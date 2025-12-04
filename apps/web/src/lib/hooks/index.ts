@@ -17,6 +17,10 @@
 export { useColumnVisibility } from './useColumnVisibility';
 export type { UseColumnVisibilityReturn } from './useColumnVisibility';
 
+// Reactive formatting with cache subscription
+export { useFormattedEntityData, useFormattedEntityDataAuto } from './useFormattedEntityData';
+export type { UseFormattedEntityDataResult } from './useFormattedEntityData';
+
 // ============================================================================
 // CANONICAL HOOKS - From @/db/tanstack-index (SINGLE SOURCE OF TRUTH)
 // ============================================================================

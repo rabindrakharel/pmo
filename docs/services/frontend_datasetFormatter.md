@@ -1,14 +1,19 @@
 # Frontend Formatter Service
 
-**Version:** 12.2.0 | **Location:** `apps/web/src/lib/` | **Updated:** 2025-12-02
+**Version:** 12.6.0 | **Location:** `apps/web/src/lib/` | **Updated:** 2025-12-04
 
-> **Note:** As of v12.2.0, the frontend uses a **FieldRenderer architecture** with component registries for modular field rendering. This replaces hardcoded switch statements with metadata-driven component resolution. The formatter service generates `FormattedRow` data via format-at-read, which FieldRenderer consumes for VIEW mode display.
+> **Note:** As of v12.6.0, the frontend uses **reactive formatting with cache subscription** via the `useFormattedEntityData` hook. This ensures badge colors and entity references remain correct even when cache is updated. The FieldRenderer architecture (v12.2.0) provides modular field rendering with component registries.
+>
+> **v12.6.0 Key Changes:**
+> - **useFormattedEntityData** - Reactive formatting hook with datalabel cache subscription
+> - **Cache Subscription Pattern** - TanStack Query dependent queries with `enabled: false`
+> - **Badge Color Fix** - Re-formats when datalabel cache updates (fixes gray badge bug)
+> - **Consistent Pattern** - All pages using `EntityListOfInstancesTable` follow same pattern
 >
 > **v12.2.0 Key Changes:**
 > - **FieldRenderer** - Unified component for VIEW/EDIT rendering via ComponentRegistry
 > - **renderType/inputType** - YAML-aligned property names (not `type`)
 > - **vizContainer** - Component overrides for special renderers (DAGVisualizer, MetadataTable)
-> - **Format-at-read** - TanStack Query `select` transforms raw data to FormattedRow
 
 ---
 
@@ -18,13 +23,16 @@ The frontend formatter is a **pure renderer** that executes backend instructions
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  FRONTEND FORMATTER ARCHITECTURE (v11.0.0)                                   │
+│  FRONTEND FORMATTER ARCHITECTURE (v12.6.0)                                   │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  TWO-QUERY ARCHITECTURE                                                      │
-│  ──────────────────────                                                      │
-│  Query 1: useEntityInstanceData() → { data }  (5-min cache)                 │
+│  TWO-QUERY + REACTIVE FORMATTING ARCHITECTURE (v12.6.0)                      │
+│  ──────────────────────────────────────────────────────                      │
+│  Query 1: useEntityInstanceData() → { rawData }  (5-min cache)              │
 │  Query 2: useEntityInstanceMetadata() → { viewType, editType } (30-min)     │
+│  Hook: useFormattedEntityData(rawData, metadata) → FormattedRow[]           │
+│    ↳ Subscribes to datalabel cache (10-min) via useQuery({ enabled: false })│
+│    ↳ Auto re-formats when badge colors change                               │
 │                                                                              │
 │  ENTITY REFERENCE CACHE (v11.0.0)                                            │
 │  ─────────────────────────────────                                           │
@@ -209,11 +217,11 @@ const options = getDatalabelSync('project_stage');
 
 ## Data Flow
 
-### Format-at-Read Pattern (v11.0.0)
+### Reactive Format-at-Read Pattern (v12.6.0)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  FORMAT-AT-READ FLOW (v11.0.0 - TanStack Query Cache)                        │
+│  REACTIVE FORMATTING FLOW (v12.6.0 - Cache Subscription)                     │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  CASE 1: Main Entity List Page (EntityListOfInstancesPage)                   │
@@ -226,10 +234,11 @@ const options = getDatalabelSync('project_stage');
 │  // QUERY 2: Data (5-min cache)                                              │
 │  const { data: rawData } = useEntityInstanceData(entityCode);               │
 │                                                                              │
-│  // FORMAT-AT-READ (via useMemo)                                             │
-│  const formattedData = useMemo(() => {                                      │
-│    return formatDataset(rawData, metadata);  // v11.0.0: No refData param   │
-│  }, [rawData, metadata]);                                                    │
+│  // v12.6.0: REACTIVE FORMATTING (with cache subscription)                   │
+│  const { data: formattedData } = useFormattedEntityData(                    │
+│    rawData, metadata, entityCode                                            │
+│  );                                                                          │
+│  // ↑ Subscribes to datalabel cache → re-formats when badge colors change   │
 │                                                                              │
 │                                                                              │
 │  CASE 2: Child Entity Tab (EntitySpecificInstancePage)                       │

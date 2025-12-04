@@ -82,9 +82,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function AppRoutes() {
   const { isAuthenticated, isLoading } = useAuth();
-  const { entities, loading: entitiesLoading } = useEntityMetadata();
 
-  if (isLoading || entitiesLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <EllipsisBounce size="lg" text="Processing" />
@@ -95,48 +94,37 @@ function AppRoutes() {
   // Entities that use custom routes (not auto-generated)
   const customRouteEntities = ['artifact', 'form', 'wiki', 'marketing', 'workflow'];
 
-  // Generate routes for all entities from d_entity table
-  // Only generates routes for entities that:
-  // 1. Are active
-  // 2. Not in customRouteEntities list
-  // 3. Have a config in entityConfigs (silently skips entities without configs)
+  // Generate routes from static entityConfigs (not from async API data)
+  // This ensures routes exist immediately at app initialization, fixing:
+  // - Page refresh redirects (no race condition with wildcard route)
+  // - Deep linking works (routes registered before URL evaluation)
+  // - Bookmarks work (routes available on fresh browser load)
+  // Entity metadata (icons, labels, permissions) is still fetched async via useEntityMetadata
   const generateEntityRoutes = () => {
-    const entityCodes = Array.from(entities.values())
-      .filter(entity => {
-        // Filter: active, not custom, and has config
-        const hasConfig = !!entityConfigs[entity.code];
-        const isActive = entity.active_flag;
-        const isNotCustom = !customRouteEntities.includes(entity.code);
-        return isActive && isNotCustom && hasConfig;
-      })
-      .map(entity => entity.code);
+    const entityCodes = Object.keys(entityConfigs)
+      .filter(code => !customRouteEntities.includes(code));
 
-    return entityCodes.map(entityCode => {
-      const config = entityConfigs[entityCode];
-      // Config is guaranteed to exist due to filter above
+    return entityCodes.map(entityCode => (
+      <Fragment key={entityCode}>
+        {/* List Route */}
+        <Route
+          path={`/${entityCode}`}
+          element={<ProtectedRoute><EntityListOfInstancesPage entityCode={entityCode} /></ProtectedRoute>}
+        />
 
-      return (
-        <Fragment key={entityCode}>
-          {/* List Route */}
-          <Route
-            path={`/${entityCode}`}
-            element={<ProtectedRoute><EntityListOfInstancesPage entityCode={entityCode} /></ProtectedRoute>}
-          />
+        {/* Create Route */}
+        <Route
+          path={`/${entityCode}/new`}
+          element={<ProtectedRoute><EntityCreatePage entityCode={entityCode} /></ProtectedRoute>}
+        />
 
-          {/* Create Route */}
-          <Route
-            path={`/${entityCode}/new`}
-            element={<ProtectedRoute><EntityCreatePage entityCode={entityCode} /></ProtectedRoute>}
-          />
-
-          {/* Detail Route - handles both overview and child tabs via URL parsing */}
-          <Route
-            path={`/${entityCode}/:id/*`}
-            element={<ProtectedRoute><EntitySpecificInstancePage entityCode={entityCode} /></ProtectedRoute>}
-          />
-        </Fragment>
-      );
-    });
+        {/* Detail Route - handles both overview and child tabs via URL parsing */}
+        <Route
+          path={`/${entityCode}/:id/*`}
+          element={<ProtectedRoute><EntitySpecificInstancePage entityCode={entityCode} /></ProtectedRoute>}
+        />
+      </Fragment>
+    ));
   };
 
   return (

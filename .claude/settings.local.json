@@ -277,7 +277,8 @@
       "Bash(ls:*)",
       "Bash(/tmp/test-pin-resolve.sh)",
       "Bash(mcp__ide__getDiagnostics)",
-      "Bash(/tmp/test-attachments.sh)"
+      "Bash(/tmp/test-attachments.sh)",
+      "Bash(pnpm -F @pmo/web run type-check:*)"
     ],
     "deny": [],
     "ask": [],

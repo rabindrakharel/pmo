@@ -15,7 +15,8 @@ import { getEntityIcon } from '../../lib/entityIcons';
 import { transformForApi, transformFromApi } from '../../lib/frontEndFormatterService';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useEntityInstanceData, useEntityInstanceMetadata, useOptimisticMutation, QUERY_KEYS } from '@/db/tanstack-index';
-import { formatDataset, type ComponentMetadata } from '../../lib/formatters';
+import { type ComponentMetadata } from '../../lib/formatters';
+import { useFormattedEntityData } from '../../lib/hooks';
 import type { RowAction } from '../../components/shared/ui/EntityListOfInstancesTable';
 
 // ============================================================================
@@ -150,17 +151,14 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   // Combined loading state: show skeleton until metadata is ready
   const loading = metadataLoading;
 
-  // Format data on read (memoized) - formatting happens HERE, not in hook
-  // v11.0.0: refData no longer passed - formatDataset uses TanStack Query cache
-  const formattedData = useMemo(() => {
-    if (!rawData || rawData.length === 0) return [];
-    debugCache('🎨 formatDataset called', {
-      entityCode,
-      rowCount: rawData.length,
-      firstRowManagerId: (rawData[0] as any)?.manager__employee_id,
-    });
-    return formatDataset(rawData, metadata ?? null);
-  }, [rawData, metadata, entityCode]);
+  // ============================================================================
+  // v12.6.0: REACTIVE FORMATTING - Datalabel cache subscription pattern
+  // ============================================================================
+  // Uses useFormattedEntityData hook with cache subscription to fix badge color bug
+  // Automatically re-formats when datalabel cache updates (fixes gray badges)
+  // Pattern: TanStack Query Dependent Queries with enabled: false
+  // ============================================================================
+  const { data: formattedData } = useFormattedEntityData(rawData, metadata, entityCode);
 
   // ============================================================================
   // v11.3.0: INLINE EDIT STATE MANAGEMENT - TanStack Query Single Source of Truth

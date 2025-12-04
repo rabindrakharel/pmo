@@ -99,6 +99,15 @@ function EntityInstanceFormContainerInner({
   onInlineSave,
   entityId: _entityId // Used in arePropsEqual for memoization
 }: EntityInstanceFormContainerProps) {
+  console.log('[EntityInstanceFormContainer] RENDER:', {
+    hasMetadata: !!metadata,
+    metadataType: typeof metadata,
+    hasViewType: !!(metadata as any)?.viewType,
+    hasEditType: !!(metadata as any)?.editType,
+    viewTypeKeys: (metadata as any)?.viewType ? Object.keys((metadata as any).viewType).length : 0,
+    editTypeKeys: (metadata as any)?.editType ? Object.keys((metadata as any).editType).length : 0,
+  });
+
   // Local state for immediate UI feedback
   const [localData, setLocalData] = useState<Record<string, any>>(data);
 
@@ -137,6 +146,11 @@ function EntityInstanceFormContainerInner({
   // Enter inline edit mode for a specific field
   const enterInlineEditMode = useCallback((fieldKey: string) => {
     const currentValue = localData[fieldKey];
+    console.log('🔓 [EntityInstanceFormContainer] ENTERING inline edit mode:', {
+      field: fieldKey,
+      currentValue,
+      valueType: typeof currentValue
+    });
     setInlineEditingField(fieldKey);
     setInlineEditValue(currentValue);
   }, [localData]);
@@ -173,28 +187,70 @@ function EntityInstanceFormContainerInner({
 
   // Handle inline field value change
   const handleInlineValueChange = useCallback((value: any) => {
+    console.log('🔄 [EntityInstanceFormContainer] handleInlineValueChange:', {
+      field: inlineEditingField,
+      newValue: value,
+      previousValue: inlineEditValue,
+      valueType: typeof value
+    });
     setInlineEditValue(value);
-  }, []);
+    console.log('✅ [EntityInstanceFormContainer] inlineEditValue state updated');
+  }, [inlineEditingField, inlineEditValue]);
 
   // Save inline edit (optimistic update)
   const handleInlineSave = useCallback(() => {
-    if (!inlineEditingField) return;
+    console.log('💾 [EntityInstanceFormContainer] handleInlineSave triggered:', {
+      inlineEditingField,
+      inlineEditValue,
+      hasOnInlineSaveCallback: !!onInlineSave
+    });
+
+    if (!inlineEditingField) {
+      console.warn('⚠️  [EntityInstanceFormContainer] No field being edited, returning');
+      return;
+    }
 
     const originalValue = data[inlineEditingField];
     const newValue = inlineEditValue;
 
+    console.log('📊 [EntityInstanceFormContainer] Comparing values:', {
+      field: inlineEditingField,
+      originalValue,
+      newValue,
+      changed: newValue !== originalValue,
+      originalType: typeof originalValue,
+      newType: typeof newValue
+    });
+
     // Only save if value actually changed
     if (newValue !== originalValue) {
+      console.log('✏️  [EntityInstanceFormContainer] Value changed, updating localData');
+
       // Update local data immediately for UI feedback
-      setLocalData(prev => ({ ...prev, [inlineEditingField]: newValue }));
+      setLocalData(prev => {
+        const updated = { ...prev, [inlineEditingField]: newValue };
+        console.log('📝 [EntityInstanceFormContainer] localData updated:', {
+          field: inlineEditingField,
+          from: prev[inlineEditingField],
+          to: newValue
+        });
+        return updated;
+      });
 
       // Trigger optimistic update via callback
       if (onInlineSave) {
+        console.log('🚀 [EntityInstanceFormContainer] Calling onInlineSave callback');
         onInlineSave(inlineEditingField, newValue);
+        console.log('✅ [EntityInstanceFormContainer] onInlineSave callback completed');
+      } else {
+        console.error('❌ [EntityInstanceFormContainer] onInlineSave callback is UNDEFINED!');
       }
+    } else {
+      console.log('ℹ️  [EntityInstanceFormContainer] No change detected, skipping save');
     }
 
     // Exit inline edit mode
+    console.log('🔚 [EntityInstanceFormContainer] Exiting inline edit mode');
     setInlineEditingField(null);
     setInlineEditValue(null);
   }, [inlineEditingField, inlineEditValue, data, onInlineSave]);
@@ -227,9 +283,23 @@ function EntityInstanceFormContainerInner({
     if (!inlineEditingField) return;
 
     const handleClickOutside = (event: MouseEvent) => {
-      if (editingFieldRef.current && !editingFieldRef.current.contains(event.target as Node)) {
-        handleInlineSave();
+      const target = event.target as Node;
+
+      // Don't trigger if clicking inside the editing field
+      if (editingFieldRef.current && editingFieldRef.current.contains(target)) {
+        return;
       }
+
+      // Don't trigger if clicking inside a dropdown portal
+      // EntityInstanceNameSelect renders dropdown via portal with data-dropdown-portal attribute
+      const isClickInsideDropdown = (target as Element).closest?.('[data-dropdown-portal]');
+      if (isClickInsideDropdown) {
+        console.log('🎯 [EntityInstanceFormContainer] Click inside dropdown portal detected, ignoring click-outside');
+        return;
+      }
+
+      console.log('🚪 [EntityInstanceFormContainer] Click outside detected, triggering handleInlineSave');
+      handleInlineSave();
     };
 
     // Delay adding listener to avoid immediate trigger
@@ -399,6 +469,16 @@ function EntityInstanceFormContainerInner({
             const isInlineEditing = inlineEditingField === field.key;
             const isFieldEditable = field.editable !== false;
 
+            if (field.key.includes('employee_id')) {
+              console.log(`🔍 [EntityInstanceFormContainer] Field state for ${field.key}:`, {
+                isInlineEditing,
+                inlineEditingField,
+                isEditing,
+                isFieldEditable,
+                inlineEditValue
+              });
+            }
+
             // v12.3.0: Determine effective editing state (full edit mode OR inline editing this field)
             const effectiveIsEditing = isEditing || isInlineEditing;
 
@@ -466,6 +546,14 @@ function EntityInstanceFormContainerInner({
                           value={displayValue}
                           isEditing={effectiveIsEditing}
                           onChange={(v) => {
+                            console.log('🔀 [EntityInstanceFormContainer] FieldRenderer onChange router:', {
+                              field: field.key,
+                              value: v,
+                              isInlineEditing,
+                              inlineEditingField,
+                              willCall: isInlineEditing ? 'handleInlineValueChange' : 'handleFieldChange'
+                            });
+
                             if (isInlineEditing) {
                               // v12.3.0: Update inline edit value
                               handleInlineValueChange(v);
