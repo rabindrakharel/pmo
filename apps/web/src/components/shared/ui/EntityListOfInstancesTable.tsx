@@ -368,7 +368,6 @@ export function EntityListOfInstancesTable<T = any>({
 
   // Local cell editing state (if parent doesn't control it)
   const [localEditingCell, setLocalEditingCell] = useState<{ rowId: string; columnKey: string } | null>(null);
-  const [localCellValue, setLocalCellValue] = useState<any>(null);
   const [localFocusedRowId, setLocalFocusedRowId] = useState<string | null>(null);
 
   // v8.4.0: Undo stack for cell edits
@@ -408,9 +407,8 @@ export function EntityListOfInstancesTable<T = any>({
       // Parent-controlled mode
       onCellClick(rowId, columnKey, record);
     } else {
-      // Local state mode
+      // Local state mode - v13.0.0: DebouncedInput manages its own value
       setLocalEditingCell({ rowId, columnKey });
-      setLocalCellValue(rawValue);
     }
 
     // Also call onInlineEdit to populate editedData for compatibility
@@ -484,9 +482,11 @@ export function EntityListOfInstancesTable<T = any>({
   }, []);
 
   // Handle cell save (Enter key or blur)
-  // valueOverride: Pass value directly to avoid stale state from React's async batching
+  // v13.0.0: valueOverride is REQUIRED - DebouncedInput always passes value directly
   const handleCellSave = useCallback((rowId: string, columnKey: string, record: T, valueOverride?: unknown) => {
-    const valueToSave = valueOverride !== undefined ? valueOverride : (localCellValue ?? editedData[columnKey]);
+    // v13.0.0: Cell-Isolated State Pattern - value comes from DebouncedInput via valueOverride
+    // Fallback to editedData only for row-level edit mode (not cell-level)
+    const valueToSave = valueOverride !== undefined ? valueOverride : editedData[columnKey];
 
     // Get original value for undo stack
     const formattedRecord = record as FormattedRow<any>;
@@ -518,8 +518,7 @@ export function EntityListOfInstancesTable<T = any>({
 
     // Clear local editing state
     setLocalEditingCell(null);
-    setLocalCellValue(null);
-  }, [localCellValue, editedData, onCellSave, onSaveInlineEdit]);
+  }, [editedData, onCellSave, onSaveInlineEdit]);
 
   // Handle cell cancel (Escape key)
   const handleCellCancel = useCallback(() => {
@@ -530,7 +529,6 @@ export function EntityListOfInstancesTable<T = any>({
 
     // Clear local state
     setLocalEditingCell(null);
-    setLocalCellValue(null);
   }, [editingCell, onCancelInlineEdit]);
 
   // Handle keyboard events for cell editing
@@ -1125,43 +1123,22 @@ export function EntityListOfInstancesTable<T = any>({
     }
 
     // Tab to save and move to next editable cell (Shift+Tab for previous)
+    // v13.0.0: DebouncedInput's onBlur fires before Tab handler, so value is already saved
     if (e.key === 'Tab') {
       e.preventDefault();
-
-      // Save current cell first
-      const valueToSave = localCellValue ?? editedData[columnKey];
-      const formattedRec = record as FormattedRow<any>;
-      const rawRec = formattedRec.raw || record;
-      if (onCellSave) {
-        onCellSave(rowId, columnKey, valueToSave, record);
-      } else if (onSaveInlineEdit) {
-        // FIX: Update record with new value before saving
-        const updatedRecord = { ...rawRec, [columnKey]: valueToSave };
-        onSaveInlineEdit(updatedRecord as T);
-      }
 
       // Find next editable cell
       const nextCell = findNextEditableCell(rowId, columnKey, e.shiftKey);
       if (nextCell) {
-        // Get raw value for next cell
-        const formattedRecord = nextCell.record as FormattedRow<any>;
-        const rawRecord = formattedRecord.raw || nextCell.record;
-        const rawValue = (rawRecord as any)[nextCell.columnKey];
-
-        // Start editing next cell
+        // Start editing next cell - v13.0.0: DebouncedInput manages its own value
         setLocalEditingCell({ rowId: nextCell.rowId, columnKey: nextCell.columnKey });
-        setLocalCellValue(rawValue);
-        if (onInlineEdit) {
-          onInlineEdit(nextCell.rowId, nextCell.columnKey, rawValue);
-        }
       } else {
         // No more cells, just close editing
         setLocalEditingCell(null);
-        setLocalCellValue(null);
       }
       return;
     }
-  }, [handleCellSave, handleCellCancel, findNextEditableCell, localCellValue, editedData, onCellSave, onSaveInlineEdit, onInlineEdit]);
+  }, [handleCellSave, handleCellCancel, findNextEditableCell]);
 
   const handleSort = (field: string) => {
     if (sortField === field) {

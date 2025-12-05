@@ -1519,14 +1519,21 @@ const handleCellSave = useCallback((rowId, columnKey, record, valueOverride?) =>
 │  handleCellSave(rowId, columnKey, record, valueOverride)                    │
 │         │                                                                    │
 │         ▼                                                                    │
-│  Optimistic Update → Cache + API PATCH                                      │
+│  onCellSave → useOptimisticMutation.updateEntity()                          │
+│         │                                                                    │
+│         ├──→ TanStack Query cache (immediate UI update)                     │
+│         ├──→ Dexie IndexedDB (persistence)                                  │
+│         └──→ API PATCH request (background)                                 │
+│                                                                              │
+│  On success: cache already correct                                           │
+│  On error: automatic rollback to previous state                             │
 │                                                                              │
 │  RESULT: 0 re-renders during typing, instant feedback                       │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Key Principle**: Cell components own their local state during editing. Parent is only notified on COMMIT (blur/enter), not during typing.
+**Key Principle**: Cell components own their local state during editing. Parent is only notified on COMMIT (blur/enter), not during typing. **TanStack Query cache is the source of truth**, not local state.
 
 #### 9.4.2 Edit Modes (MUST support both)
 
@@ -1548,7 +1555,8 @@ const handleCellSave = useCallback((rowId, columnKey, record, valueOverride?) =>
 
 | Input Type | Behavior | Save Trigger | Parent Updates During Edit |
 |------------|----------|--------------|---------------------------|
-| **Text/Textarea** | DebouncedInput (300ms local) | Blur or Enter | Only on commit |
+| **Text** | DebouncedInput (local state) | Blur or Enter | Only on commit |
+| **Textarea** | DebouncedTextarea (local state) | Blur or Ctrl+Enter | Only on commit |
 | **Dropdown (BadgeDropdownSelect)** | Immediate | Selection click | Only on commit |
 | **EntityInstanceNameSelect** | Immediate | Selection click | Only on commit |
 | **Date/DateTime** | Immediate | Picker close | Only on commit |
@@ -1557,13 +1565,52 @@ const handleCellSave = useCallback((rowId, columnKey, record, valueOverride?) =>
 
 #### 9.4.4 Implementation
 
-```typescript
-// handleCellValueChange is NO-OP for cell-level edits
-const handleCellValueChange = useCallback((_rowId: string, _columnKey: string, _value: any) => {
-  // NO-OP: Cell component (DebouncedInput) manages its own local state
-  // for instant UI feedback. Parent is only notified on COMMIT (blur/enter).
-}, []);
+**DebouncedInput Component** (`apps/web/src/components/shared/ui/DebouncedInput.tsx`):
 
+```typescript
+// Commit-only pattern - NO parent notification during typing
+export function DebouncedInput({ value, onChange, onKeyDown, ...inputProps }) {
+  const [localValue, setLocalValue] = useState(value ?? '');
+  const latestValueRef = useRef(localValue);
+
+  // Sync local state when external value changes (e.g., after save, undo)
+  useEffect(() => {
+    const externalValue = value ?? '';
+    if (externalValue !== latestValueRef.current) {
+      setLocalValue(externalValue);
+      latestValueRef.current = String(externalValue);
+    }
+  }, [value]);
+
+  // Typing: ONLY updates local state, NO parent notification
+  const handleChange = useCallback((e) => {
+    setLocalValue(e.target.value);
+    latestValueRef.current = e.target.value;
+  }, []);
+
+  // Blur: COMMIT to parent
+  const handleBlur = useCallback(() => {
+    if (String(localValue) !== String(value)) {
+      onChange(String(localValue));
+    }
+  }, [localValue, value, onChange]);
+
+  // Enter: COMMIT to parent
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Enter' && String(localValue) !== String(value)) {
+      onChange(String(localValue));
+    }
+    onKeyDown?.(e);  // Pass through for Tab, Escape handling
+  }, [localValue, value, onChange, onKeyDown]);
+
+  return <input {...inputProps} value={localValue} onChange={handleChange}
+                onBlur={handleBlur} onKeyDown={handleKeyDown} />;
+}
+```
+
+**Usage in EntityListOfInstancesTable**:
+
+```typescript
 // Text fields: DebouncedInput manages local state, calls handleCellSave on commit
 renderEditModeFromMetadata(
   rawValue,  // ← Use rawValue only (DebouncedInput has its own local state)
@@ -1613,14 +1660,13 @@ REQUIREMENT: Dropdown menus render via createPortal to document.body
 • Must NOT trigger handleCellSave when clicking inside portal
 ```
 
-#### 9.4.7 Value Resolution Priority
+#### 9.4.7 Value Resolution
 
 ```typescript
-// handleCellSave value resolution (in order):
-const valueToSave =
-  valueOverride ??      // 1. Passed directly - PREFERRED (avoids stale state)
-  localCellValue ??     // 2. Table's current edit state
-  editedData[columnKey]; // 3. Accumulated changes (row-level only)
+// v13.0.0: handleCellSave value resolution
+// Cell-level: DebouncedInput ALWAYS passes value via valueOverride
+// Row-level: Falls back to editedData (accumulated changes)
+const valueToSave = valueOverride !== undefined ? valueOverride : editedData[columnKey];
 ```
 
 #### 9.4.8 Non-Negotiable Behaviors
