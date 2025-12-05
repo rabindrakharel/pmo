@@ -1161,6 +1161,7 @@ APIFactory.register('product_hierarchy', createEntityAPI('/api/v1/product-hierar
 // Event & Calendar
 APIFactory.register('event', createEntityAPI('/api/v1/event'));
 APIFactory.register('person_calendar', createEntityAPI('/api/v1/person-calendar'));
+APIFactory.register('person-calendar', createEntityAPI('/api/v1/person-calendar')); // hyphenated for route matching
 
 // Interaction & Communication
 APIFactory.register('interaction', createEntityAPI('/api/v1/interaction'));

@@ -4,22 +4,27 @@
  * three independent but interrelated entities: Event, Calendar, and Message
  *
  * SEMANTIC MODEL:
- * - Event (d_event): Independent entity with event details (what/when/where)
+ * - Event (app.event): Independent entity with event details (what/when/where)
  * - Person (employee/customer): Independent entities (who)
  * - Calendar: Construct where Event + Person come together via:
- *   * d_entity_person_calendar: Person availability slots + event link
- *   * d_entity_event_person_calendar: RSVP tracking (who's attending what)
+ *   * app.person_calendar: Person availability slots + event link
+ *   * app.entity_event_person_calendar: RSVP tracking (who's attending what)
  * - Message: Independent entity sent via messaging service (email/SMS)
  * - Ownership: Event owner stored in entity_rbac (permission[5])
  * - Relationships: Event relationships in entity_instance_link (event → service, customer)
  *
  * ORCHESTRATION FLOW:
- * 1. Create event in d_event (event details: from_ts, to_ts, location, etc.)
- * 2. Link attendees in entity table_event_person_calendar (RSVP tracking)
- * 3. Book calendar slots in entity table_person_calendar (mark unavailable, link event_id)
+ * 1. Create event in app.event (event details: from_ts, to_ts, location, etc.)
+ * 2. Link attendees in app.entity_event_person_calendar (RSVP tracking)
+ * 3. Book calendar slots in app.person_calendar (mark unavailable, link event_id)
  * 4. Link entities in entity_instance_link (event → service, customer, project)
  * 5. Grant event ownership in entity_rbac (assigned employee gets permission[5])
  * 6. Send email/SMS notifications via messaging service (calendar invites)
+ *
+ * DATABASE TABLES (DDL is source of truth - NO d_ prefix):
+ * - app.event               (NOT app.d_event)
+ * - app.person_calendar     (NOT app.d_person_calendar)
+ * - app.entity_event_person_calendar (NOT app.d_entity_event_person_calendar)
  *
  * @module person-calendar/person-calendar.service
  */
@@ -92,7 +97,7 @@ async function generateBookingNumber(): Promise<string> {
   // Get the count of events created today
   const result = await client`
     SELECT COUNT(*) as count
-    FROM app.d_event
+    FROM app.event
     WHERE DATE(created_ts) = CURRENT_DATE
   `;
 
@@ -138,7 +143,7 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
     const eventCode = `EVT-${bookingNumber}`;
 
     const eventResult = await client`
-      INSERT INTO app.d_event (
+      INSERT INTO app.event (
         code, name, descr,
         event_type, event_platform_provider_name, event_addr, event_instructions,
         from_ts, to_ts, timezone,
@@ -212,7 +217,7 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
       const attendeeCode = `${eventCode}-ATT-${attendeeIndex.toString().padStart(2, '0')}`;
 
       await client`
-        INSERT INTO app.d_entity_event_person_calendar (
+        INSERT INTO app.entity_event_person_calendar (
           code, person_entity_type, person_id, event_id,
           event_rsvp_status, from_ts, to_ts
         ) VALUES (
@@ -236,7 +241,7 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
     // Find calendar slots for assigned employee in the time range
     const calendarSlotsResult = await client`
       SELECT id::text
-      FROM app.d_entity_person_calendar
+      FROM app.person_calendar
       WHERE person_entity_type = 'employee'
         AND person_id = ${assignedEmployeeId}::uuid
         AND availability_flag = true
@@ -252,7 +257,7 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
     } else {
       // Mark slots as booked
       await client`
-        UPDATE app.d_entity_person_calendar
+        UPDATE app.person_calendar
         SET
           availability_flag = false,
           event_id = ${eventId}::uuid,
@@ -473,7 +478,7 @@ export async function cancelPersonCalendar(eventId: string, cancellationReason?:
     const eventResult = await client`
       SELECT
         name, event_metadata, from_ts
-      FROM app.d_event
+      FROM app.event
       WHERE id = ${eventId}::uuid AND active_flag = true
     `;
 
@@ -505,7 +510,7 @@ export async function cancelPersonCalendar(eventId: string, cancellationReason?:
           WHEN epc.person_entity_type = 'customer' THEN cust.primary_phone
           ELSE NULL
         END as person_phone
-      FROM app.d_entity_event_person_calendar epc
+      FROM app.entity_event_person_calendar epc
       LEFT JOIN app.employee emp ON emp.id = epc.person_id AND epc.person_entity_type = 'employee'
       LEFT JOIN app.customer cust ON cust.id = epc.person_id AND epc.person_entity_type = 'customer'
       WHERE epc.event_id = ${eventId}::uuid AND epc.active_flag = true
@@ -513,14 +518,14 @@ export async function cancelPersonCalendar(eventId: string, cancellationReason?:
 
     // Soft delete event
     await client`
-      UPDATE app.d_event
+      UPDATE app.event
       SET active_flag = false, to_ts = now(), updated_ts = now()
       WHERE id = ${eventId}::uuid
     `;
 
     // Release calendar slots
     await client`
-      UPDATE app.d_entity_person_calendar
+      UPDATE app.person_calendar
       SET availability_flag = true, event_id = NULL, updated_ts = now()
       WHERE event_id = ${eventId}::uuid AND active_flag = true
     `;
@@ -533,7 +538,7 @@ export async function cancelPersonCalendar(eventId: string, cancellationReason?:
 
     // Update RSVP status to cancelled
     await client`
-      UPDATE app.d_entity_event_person_calendar
+      UPDATE app.entity_event_person_calendar
       SET event_rsvp_status = 'cancelled', updated_ts = now()
       WHERE event_id = ${eventId}::uuid AND active_flag = true
     `;
@@ -589,7 +594,7 @@ export async function reschedulePersonCalendar(args: {
       SELECT
         id::text, name, descr, event_type, event_addr, event_instructions,
         from_ts, to_ts, event_metadata
-      FROM app.d_event
+      FROM app.event
       WHERE id = ${eventId}::uuid AND active_flag = true
     `;
 
@@ -609,14 +614,14 @@ export async function reschedulePersonCalendar(args: {
 
     // Release old calendar slots
     await client`
-      UPDATE app.d_entity_person_calendar
+      UPDATE app.person_calendar
       SET availability_flag = true, event_id = NULL, updated_ts = now()
       WHERE event_id = ${eventId}::uuid AND active_flag = true
     `;
 
     // Update event times
     await client`
-      UPDATE app.d_event
+      UPDATE app.event
       SET
         from_ts = ${newStartTime.toISOString()}::timestamptz,
         to_ts = ${newEndTime.toISOString()}::timestamptz,
@@ -627,7 +632,7 @@ export async function reschedulePersonCalendar(args: {
     // Book new calendar slots
     const newSlotsResult = await client`
       SELECT id::text
-      FROM app.d_entity_person_calendar
+      FROM app.person_calendar
       WHERE person_entity_type = 'employee'
         AND person_id = ${assignedEmployeeId}::uuid
         AND availability_flag = true
@@ -640,7 +645,7 @@ export async function reschedulePersonCalendar(args: {
 
     if (newSlotIds.length > 0) {
       await client`
-        UPDATE app.d_entity_person_calendar
+        UPDATE app.person_calendar
         SET
           availability_flag = false,
           event_id = ${eventId}::uuid,
@@ -651,7 +656,7 @@ export async function reschedulePersonCalendar(args: {
 
     // Update RSVP times
     await client`
-      UPDATE app.d_entity_event_person_calendar
+      UPDATE app.entity_event_person_calendar
       SET
         from_ts = ${newStartTime.toISOString()}::timestamptz,
         to_ts = ${newEndTime.toISOString()}::timestamptz,

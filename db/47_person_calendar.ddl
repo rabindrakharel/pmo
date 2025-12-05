@@ -1,5 +1,5 @@
 -- =====================================================
--- PERSON CALENDAR (d_person_calendar)
+-- PERSON CALENDAR (app.person_calendar)
 -- Universal calendar/booking system for employees and customers
 -- =====================================================
 --

@@ -284,7 +284,9 @@
       "Bash(do timeout 2 curl -s http://localhost:4000/api/v1/health)",
       "Bash(break)",
       "Bash(corepack prepare:*)",
-      "Bash(git -C /home/rabin/projects/pmo fetch origin claude/add-design-pattern-docs-01UeEtCJfbRkXSE7HjrMWtJL)"
+      "Bash(git -C /home/rabin/projects/pmo fetch origin claude/add-design-pattern-docs-01UeEtCJfbRkXSE7HjrMWtJL)",
+      "Bash(DATABASE_URL=\"postgresql://app:app@localhost:5434/app\" JWT_SECRET=\"dev-secret-key-change-in-production\" timeout 15 pnpm dev:api:*)",
+      "Bash(DATABASE_URL=\"postgresql://app:app@localhost:5434/app\" JWT_SECRET=\"dev-secret-key-change-in-production\" timeout 20 pnpm -F @pmo/api dev:*)"
     ],
     "deny": [],
     "ask": [],

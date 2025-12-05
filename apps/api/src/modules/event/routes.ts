@@ -343,7 +343,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
       // Create event
       const insertQuery = client`
-        INSERT INTO app.d_event (
+        INSERT INTO app.event (
           id,
           code,
           name,
@@ -418,7 +418,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
         // Also add organizer as an attendee with accepted status
         const organizerAttendeeCode = `EPC-${eventData.code}-ORGANIZER-${organizerEmpId.substring(0, 8)}`;
         await client`
-          INSERT INTO app.d_entity_event_person_calendar (
+          INSERT INTO app.entity_event_person_calendar (
             code,
             name,
             person_entity_type,
@@ -451,7 +451,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
           const attendeeCode = `EPC-${eventData.code}-${attendee.person_entity_type.toUpperCase()}-${attendee.person_id.substring(0, 8)}`;
 
           const attendeeQuery = client`
-            INSERT INTO app.d_entity_event_person_calendar (
+            INSERT INTO app.entity_event_person_calendar (
               code,
               name,
               person_entity_type,

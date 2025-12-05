@@ -70,7 +70,7 @@ export async function eventPersonCalendarRoutes(fastify: FastifyInstance) {
           created_ts::text,
           updated_ts::text,
           version
-        FROM app.d_entity_event_person_calendar
+        FROM app.entity_event_person_calendar
         ${whereConditions}
         ORDER BY from_ts ASC
         LIMIT ${limit}
@@ -79,7 +79,7 @@ export async function eventPersonCalendarRoutes(fastify: FastifyInstance) {
 
       const countQuery = client`
         SELECT COUNT(*) as total
-        FROM app.d_entity_event_person_calendar
+        FROM app.entity_event_person_calendar
         ${whereConditions}
       `;
 
@@ -119,7 +119,7 @@ export async function eventPersonCalendarRoutes(fastify: FastifyInstance) {
           created_ts::text,
           updated_ts::text,
           version
-        FROM app.d_entity_event_person_calendar
+        FROM app.entity_event_person_calendar
         WHERE id = ${id}::uuid AND active_flag = true
       `;
 
@@ -187,8 +187,8 @@ export async function eventPersonCalendarRoutes(fastify: FastifyInstance) {
           epc.event_rsvp_status,
           epc.from_ts::text as person_from_ts,
           epc.to_ts::text as person_to_ts
-        FROM app.d_entity_event_person_calendar epc
-        JOIN app.d_event e ON e.id = epc.event_id
+        FROM app.entity_event_person_calendar epc
+        JOIN app.event e ON e.id = epc.event_id
         ${whereConditions}
         ORDER BY e.from_ts ASC
       `;
@@ -217,7 +217,7 @@ export async function eventPersonCalendarRoutes(fastify: FastifyInstance) {
       const mapping = request.body;
 
       const insertQuery = client`
-        INSERT INTO app.d_entity_event_person_calendar (
+        INSERT INTO app.entity_event_person_calendar (
           code,
           name,
           descr,
@@ -287,7 +287,7 @@ export async function eventPersonCalendarRoutes(fastify: FastifyInstance) {
       const updates = request.body;
 
       const updateQuery = client`
-        UPDATE app.d_entity_event_person_calendar
+        UPDATE app.entity_event_person_calendar
         SET
           name = COALESCE(${updates.name !== undefined ? updates.name : null}, name),
           descr = COALESCE(${updates.descr !== undefined ? updates.descr : null}, descr),
@@ -342,7 +342,7 @@ export async function eventPersonCalendarRoutes(fastify: FastifyInstance) {
       }
 
       const updateQuery = client`
-        UPDATE app.d_entity_event_person_calendar
+        UPDATE app.entity_event_person_calendar
         SET
           event_rsvp_status = ${event_rsvp_status},
           updated_ts = now(),
@@ -387,7 +387,7 @@ export async function eventPersonCalendarRoutes(fastify: FastifyInstance) {
       const { id } = request.params;
 
       const deleteQuery = client`
-        UPDATE app.d_entity_event_person_calendar
+        UPDATE app.entity_event_person_calendar
         SET
           active_flag = false,
           updated_ts = now()

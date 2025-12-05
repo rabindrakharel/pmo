@@ -1,5 +1,5 @@
 -- =====================================================
--- EVENT (d_event)
+-- EVENT (app.event)
 -- Universal parent entity for all event-related linkages
 -- =====================================================
 --

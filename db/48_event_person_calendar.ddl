@@ -1,5 +1,5 @@
 -- =====================================================
--- ENTITY EVENT PERSON CALENDAR (d_entity_event_person_calendar)
+-- ENTITY EVENT PERSON CALENDAR (app.entity_event_person_calendar)
 -- Event-person mapping with RSVP tracking
 -- =====================================================
 --

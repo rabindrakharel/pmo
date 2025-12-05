@@ -1,330 +1,211 @@
 # PMO Calendar & Event Management System
-**Version**: 3.1
-**Last Updated**: 2025-11-13
-**Status**: Production Ready
+**Version**: 5.0 | **Updated**: 2025-12-05 | **Status**: Production
 
 ---
 
-## Table of Contents
-1. [Business Overview](#business-overview)
-2. [Business Semantics](#business-semantics)
-3. [Entity Relationship Model](#entity-relationship-model)
-4. [Data Model](#data-model)
-5. [API Layer](#api-layer)
-6. [UI/UX Layer](#uiux-layer)
-7. [Data Flow Architecture](#data-flow-architecture)
-8. [System Behavior](#system-behavior)
-9. [Integration Points](#integration-points)
+## Executive Summary
+
+The PMO Calendar & Event Management System implements an **Event Sourcing-inspired architecture** where events serve as the central organizing entity linking people, time, and business actions. This design follows industry patterns from leaders like Calendly, Cal.com, and Google Calendar while maintaining the PMO's universal entity infrastructure.
+
+### Key Design Decisions
+
+| Decision | Rationale | Industry Precedent |
+|----------|-----------|-------------------|
+| Event as First-Class Entity | Events can link to ANY business entity via polymorphic relationships | Salesforce Activities, HubSpot Meetings |
+| Separate Availability from Booking | `person_calendar` (availability) vs `event` (booking) | Cal.com, Calendly slot architecture |
+| RSVP as Junction Table | `entity_event_person_calendar` tracks who + status | Google Calendar, Outlook invitations |
+| No Foreign Keys | Polymorphic design with entity codes | Microservices pattern, domain separation |
 
 ---
 
-## Business Overview
+## 1. Business Flow
 
-### Purpose
-The PMO Calendar & Event Management System enables scheduling, tracking, and managing events, meetings, and appointments across the organization. It supports service appointments, project meetings, task discussions, quote reviews, and product demonstrations.
-
-### Key Business Capabilities
-- **Event Scheduling**: Create and manage onsite/virtual events
-- **Attendee Management**: Track who's involved with RSVP status
-- **Organizer Tracking**: Record which employee organized each event
-- **Action Entity Linkage**: Connect events to business entities (services, projects, tasks, quotes, products)
-- **Availability Management**: Track employee availability for scheduling
-- **RBAC Integration**: Permission-based access to events
-
----
-
-## Business Semantics
-
-### Core Concepts
-
-#### 1. Event (d_event)
-**Definition**: A scheduled occurrence at a specific time involving people, related to a business entity.
-
-**Business Purpose**: Events are the primary mechanism for coordinating activities across the organization. Every event answers three critical questions:
-1. **WHAT** is the event about? → `event_action_entity_code` + `event_action_entity_id`, complete event metadata is d_event table
-2. **WHO** organized it? → `organizer_employee_id`
-3. **WHO** is involved? → `d_entity_event_person_calendar` (attendees)
-
-**Event Types**:
-- **Service Appointments**: Customer meetings for service delivery (HVAC, plumbing, electrical)
-- **Project Meetings**: Reviews, kickoffs, milestone discussions
-- **Task Sessions**: Planning, standup, retrospective meetings
-- **Quote Reviews**: Sales meetings to discuss quotes with customers
-- **Product Demos**: Demonstrations of products to potential customers
-
-**Location Types**:
-- **Onsite**: Physical locations (office, customer site, conference hall)
-- **Virtual**: Online meetings (Zoom, Teams, Google Meet)
-
-#### 2. Person Calendar (d_entity_event_person_calendar)
-**Definition**: The association between people (employees/customers) and events, including their RSVP status.
-
-**Business Purpose**: Tracks attendance and commitment. Enables scheduling conflicts detection and capacity planning.
-
-**RSVP States**:
-- `pending`: Invitation sent, awaiting response
-- `accepted`: Confirmed attendance
-- `declined`: Cannot attend
-
-#### 3. Personal Availability (d_person_calendar)
-**Definition**: Employee availability slots for scheduling optimization.
-
-**Business Purpose**: Prevents double-booking and enables smart scheduling suggestions.
-
----
-
-## Entity Relationship Model
-
-### ER Diagram
+### 1.1 Core Business Semantics
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                   EVENT MANAGEMENT SYSTEM                       │
-└─────────────────────────────────────────────────────────────────┘
-
-┌──────────────────┐                ┌──────────────────┐
-│   d_employee     │                │   d_customer     │
-│                  │                │                  │
-│ • id (PK)        │                │ • id (PK)        │
-│ • name           │                │ • name           │
-│ • email          │                │ • email          │
-└────────┬─────────┘                └────────┬─────────┘
-         │                                   │
-         │ organizes                         │ can attend
-         │                                   │
-         │                          ┌────────▼─────────┐
-         │                          │  PERSON ENTITY   │
-         │                          │ (employee/cust)  │
-         │                          └────────┬─────────┘
-         │                                   │
-         ▼                                   │ attends
-┌──────────────────────────────────────┐    │
-│           d_event                    │◄───┤
-│                                      │    │
-│ • id (PK)                            │    │
-│ • code (UNIQUE)                      │    │
-│ • name                               │    │
-│ • descr                              │    │
-│                                      │    │
-│ ACTION ENTITY (what it's about):     │    │
-│ • event_action_entity_code           │    │
-│   ('service','product','project',    │    │
-│    'task','quote')                   │    │
-│ • event_action_entity_id (UUID)      │    │
-│                                      │    │
-│ ORGANIZER:                           │    │
-│ • organizer_employee_id (FK)  ───────┘    │
-│                                      │    │
-│ LOGISTICS:                           │    │
-│ • event_type (onsite/virtual)        │    │
-│ • event_platform_provider_name       │    │
-│ • venue_type                         │    │
-│ • event_addr                         │    │
-│ • event_instructions                 │    │
-│                                      │    │
-│ TIMING:                              │    │
-│ • from_ts                            │    │
-│ • to_ts                              │    │
-│ • timezone                           │    │
-│                                      │    │
-│ METADATA:                            │    │
-│ • event_metadata (JSONB)             │    │
-│ • active_flag                        │    │
-│ • created_ts                         │    │
-│ • updated_ts                         │    │
-│ • version                            │    │
-└───────────────┬──────────────────────┘    │
-                │                           │
-                │ has attendees             │
-                │                           │
-                ▼                           │
-┌───────────────────────────────────────────┴─┐
-│  d_entity_event_person_calendar             │
-│                                             │
-│ • id (PK)                                   │
-│ • event_id (FK → d_event)                   │
-│ • person_entity_code (employee/customer)    │
-│ • person_entity_id (FK → employee/customer) │
-│ • event_rsvp_status (pending/accepted/...)  │
-│ • from_ts                                   │
-│ • to_ts                                     │
-│ • active_flag                               │
-└─────────────────────────────────────────────┘
-
-┌──────────────────────────────────────────────────────────────┐
-│           ACTION ENTITIES (what events are about)            │
-└──────────────────────────────────────────────────────────────┘
-
-┌─────────────┐  ┌─────────────┐  ┌─────────────┐
-│ d_service   │  │ d_product   │  │ d_project   │
-│             │  │             │  │             │
-│ • id (PK)   │  │ • id (PK)   │  │ • id (PK)   │
-│ • name      │  │ • name      │  │ • name      │
-└─────────────┘  └─────────────┘  └─────────────┘
-       ▲                ▲                ▲
-       │                │                │
-       └────────────────┴────────────────┘
-              Referenced by d_event
-           event_action_entity_id
-
-┌─────────────┐  ┌─────────────┐
-│  d_task     │  │  d_quote    │
-│             │  │             │
-│ • id (PK)   │  │ • id (PK)   │
-│ • name      │  │ • name      │
-└─────────────┘  └─────────────┘
-       ▲                ▲
-       │                │
-       └────────────────┘
-         Referenced by d_event
-      event_action_entity_id
-
-┌─────────────────────────────────────────────────────────────┐
-│              PERSONAL AVAILABILITY TRACKING                 │
-└─────────────────────────────────────────────────────────────┘
-
-┌──────────────────┐
-│ d_employee       │
-└────────┬─────────┘
-         │ has availability slots
-         ▼
-┌────────────────────────────────────┐
-│   d_person_calendar                │
-│                                    │
-│ • id (PK)                          │
-│ • person_entity_code (employee)    │
-│ • person_entity_id (FK)            │
-│ • from_ts                          │
-│ • to_ts                            │
-│ • availability_flag (true=avail)   │
-│ • recurring_pattern (JSONB)        │
-│ • active_flag                      │
-└────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────┐
-│                    RBAC INTEGRATION                         │
-└─────────────────────────────────────────────────────────────┘
-
-┌──────────────────┐
-│ d_employee       │
-└────────┬─────────┘
-         │ has permissions on
-         ▼
-┌────────────────────────────────────┐
-│  entity_rbac                │
-│                                    │
-│ • empid (FK → d_employee)          │
-│ • entity ('event')                 │
-│ • entity_id (FK → d_event.id)      │
-│ • permission [view,edit,share,     │
-│              delete,create,owner]  │
-│ • granted_by_empid                 │
-└────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        BUSINESS DOMAIN MODEL                            │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  EVENT answers: "What meeting/appointment is happening?"                │
+│  ├── WHAT: event_action_entity (service, project, task, quote, product)│
+│  ├── WHEN: from_ts / to_ts / timezone                                  │
+│  ├── WHERE: event_type (onsite/virtual) + event_addr                   │
+│  ├── WHO ORGANIZED: organizer__employee_id                              │
+│  └── WHO ATTENDS: entity_event_person_calendar (RSVP tracking)         │
+│                                                                         │
+│  PERSON_CALENDAR answers: "When is this person available?"              │
+│  ├── WHO: person_entity_type + person_id                                │
+│  ├── WHEN: 15-minute slots (9am-8pm)                                    │
+│  ├── STATUS: availability_flag (true=open, false=booked)                │
+│  └── LINKED TO: event_id (when booked)                                  │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Key Relationships
+### 1.2 Business Use Cases
 
-1. **Event → Organizer**: `d_event.organizer_employee_id` → `d_employee.id`
-   - One-to-One: Each event has exactly one organizer
-   - Mandatory: Cannot be NULL
+| Use Case | Action Entity | Typical Flow |
+|----------|---------------|--------------|
+| **Service Appointment** | `service` | Customer requests → Find available slots → Create event → Book slots → Send invite |
+| **Project Meeting** | `project` | PM schedules → Add team members → Set virtual/onsite → Track RSVPs |
+| **Task Discussion** | `task` | Assignee schedules → Link to task → Add stakeholders |
+| **Quote Review** | `quote` | Sales schedules → Add customer + approvers → Present quote |
+| **Product Demo** | `product` | Sales schedules → Add prospects → Demo product |
+| **Emergency Call** | `service` | Urgent request → Find first available → Immediate booking |
 
-2. **Event → Action Entity**: Polymorphic via type discriminator
-   - `event_action_entity_code` determines which table to join
-   - `event_action_entity_id` is the foreign key
-   - Example: type='service', id='uuid' → `d_service.id`
+### 1.3 RSVP Status Flow
 
-3. **Event → Attendees**: Many-to-Many through `d_entity_event_person_calendar`
-   - One event has many attendees
-   - One person attends many events
-   - Junction table tracks RSVP status
-
-4. **Event → RBAC**: Through `entity_rbac`
-   - Organizer automatically gets Owner permission [5]
-   - Additional permissions can be granted
+```
+                    ┌──────────────┐
+                    │   PENDING    │ ← Initial state when invited
+                    └──────┬───────┘
+                           │
+              ┌────────────┼────────────┐
+              ▼            │            ▼
+       ┌──────────┐        │     ┌──────────┐
+       │ ACCEPTED │        │     │ DECLINED │
+       └────┬─────┘        │     └──────────┘
+            │              │
+            │              │ (if event cancelled)
+            │              │
+            ▼              ▼
+       ┌──────────────────────┐
+       │     CANCELLED        │
+       └──────────────────────┘
+```
 
 ---
 
-## Data Model
+## 2. Data Model
 
-### Table: d_event
+### 2.1 Database Tables (DDL is Source of Truth)
 
+> **CRITICAL**: Tables do NOT use the `d_` prefix. The actual table names are:
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `app.event` | Event/meeting records | `id`, `code`, `name`, `event_action_entity_type`, `event_action_entity_id`, `organizer__employee_id`, `from_ts`, `to_ts`, `event_type`, `event_addr` |
+| `app.person_calendar` | Availability slots (15-min) | `id`, `person_entity_type`, `person_id`, `from_ts`, `to_ts`, `availability_flag`, `event_id` |
+| `app.entity_event_person_calendar` | Event-person RSVP mapping | `id`, `event_id`, `person_entity_type`, `person_id`, `event_rsvp_status` |
+
+### 2.2 Entity-Relationship Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           DATA ARCHITECTURE                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                        ┌─────────────────────┐
+                        │    ACTION ENTITIES  │
+                        │ (service, project,  │
+                        │  task, quote, prod) │
+                        └──────────┬──────────┘
+                                   │ event_action_entity_id
+                                   │
+┌──────────────┐                   ▼                    ┌──────────────┐
+│  ORGANIZER   │─────────────▶ ┌──────────┐ ◀──────────│   PEOPLE     │
+│  (employee)  │               │  EVENT   │            │  (emp/cust)  │
+│              │  organizer__  │          │            │              │
+│              │  employee_id  │ id       │            │              │
+└──────────────┘               │ code     │            └──────────────┘
+                               │ name     │                   │
+                               │ from_ts  │                   │
+                               │ to_ts    │                   │
+                               │ event_   │                   │
+                               │   type   │                   │
+                               └────┬─────┘                   │
+                                    │                         │
+                    ┌───────────────┼───────────────┐         │
+                    │               │               │         │
+                    ▼               ▼               ▼         │
+           ┌───────────────┐ ┌───────────────┐ ┌───────────────────────┐
+           │entity_instance│ │entity_instance│ │entity_event_person_   │
+           │    (registry) │ │    _link      │ │    calendar (RSVP)    │
+           └───────────────┘ │  (linkages)   │ │                       │
+                             └───────────────┘ │ • event_id            │
+                                               │ • person_entity_type  │
+                                               │ • person_id           │
+                                               │ • event_rsvp_status   │
+                                               └───────────┬───────────┘
+                                                           │
+                                                           │ (person lookup)
+                                                           ▼
+                                               ┌───────────────────────┐
+                                               │    PERSON_CALENDAR    │
+                                               │    (availability)     │
+                                               │                       │
+                                               │ • person_id           │
+                                               │ • availability_flag   │
+                                               │ • event_id (when      │
+                                               │   booked)             │
+                                               └───────────────────────┘
+```
+
+### 2.3 Table Schemas
+
+#### app.event
 ```sql
-CREATE TABLE app.d_event (
-  -- Identity
+CREATE TABLE app.event (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  code varchar(50) NOT NULL UNIQUE,
+  code varchar(50) UNIQUE,
   name varchar(200) NOT NULL,
   descr text,
 
-  -- Action Entity (what the event is about)
-  event_action_entity_code varchar(100) NOT NULL,
-    -- Values: 'service', 'product', 'project', 'task', 'quote'
-  event_action_entity_id uuid NOT NULL,
+  -- What this event is about (polymorphic)
+  event_action_entity_type varchar(100),  -- 'service', 'project', 'task', 'quote', 'product'
+  event_action_entity_id uuid,
 
-  -- Organizer
-  organizer_employee_id uuid,
-    -- FK to d_employee.id
+  -- Who organized it
+  organizer__employee_id uuid,
 
   -- Logistics
-  event_type varchar(100) NOT NULL,
-    -- Values: 'onsite', 'virtual'
-  event_platform_provider_name varchar(50) NOT NULL,
-    -- Examples: 'zoom', 'teams', 'google_meet', 'office', 'physical_hall'
-  venue_type varchar(100),
-    -- Examples: 'conference_room', 'office', 'warehouse', 'customer_site', 'remote'
-  event_addr text,
-    -- Physical address OR meeting URL
-  event_instructions text,
-    -- Access codes, parking info, preparation notes
+  event_type varchar(100),                -- 'onsite', 'virtual'
+  event_platform_provider_name varchar(50), -- 'zoom', 'teams', 'office', etc.
+  venue_type varchar(100),                -- 'customer_site', 'office', 'remote'
+  event_addr text,                        -- Physical address OR meeting URL
+  event_instructions text,                -- Access codes, parking, notes
 
   -- Timing
   from_ts timestamptz NOT NULL,
   to_ts timestamptz NOT NULL,
   timezone varchar(50) DEFAULT 'America/Toronto',
 
-  -- Metadata & Audit
-  event_metadata jsonb DEFAULT '{}'::jsonb,
+  -- Extensibility
+  event_metadata jsonb DEFAULT '{}',
+
+  -- Audit
   active_flag boolean DEFAULT true,
   created_ts timestamptz DEFAULT now(),
   updated_ts timestamptz DEFAULT now(),
-  version integer DEFAULT 1,
-
-  -- Constraints
-  CONSTRAINT chk_event_action_entity_code
-    CHECK (event_action_entity_code IN ('service', 'product', 'project', 'task', 'quote'))
+  version integer DEFAULT 1
 );
 ```
 
-### Table: d_entity_event_person_calendar
-
+#### app.entity_event_person_calendar
 ```sql
-CREATE TABLE app.d_entity_event_person_calendar (
-  -- Identity
+CREATE TABLE app.entity_event_person_calendar (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  code varchar(50) NOT NULL,
-  name varchar(200) NOT NULL,
+  code varchar(50),
+  name varchar(200),
 
-  -- Event Reference
+  -- Event reference
   event_id uuid NOT NULL,
-    -- FK to d_event.id
 
-  -- Person Reference (Polymorphic)
-  person_entity_code varchar(50) NOT NULL,
-    -- Values: 'employee', 'customer', 'client'
-  person_entity_id uuid NOT NULL,
-    -- FK to d_employee.id OR d_customer.id
+  -- Person reference (polymorphic)
+  person_entity_type varchar(50) NOT NULL,  -- 'employee', 'customer'
+  person_id uuid NOT NULL,
 
-  -- RSVP Status
-  event_rsvp_status varchar(50) NOT NULL DEFAULT 'pending',
-    -- Values: 'pending', 'accepted', 'declined'
+  -- RSVP tracking
+  event_rsvp_status varchar(50) DEFAULT 'pending',  -- 'pending', 'accepted', 'declined'
 
-  -- Time Slot (for the attendee)
+  -- Time commitment
   from_ts timestamptz NOT NULL,
   to_ts timestamptz NOT NULL,
   timezone varchar(50) DEFAULT 'America/Toronto',
 
-  -- Metadata & Audit
-  metadata jsonb DEFAULT '{}'::jsonb,
+  -- Audit
+  metadata jsonb DEFAULT '{}',
   active_flag boolean DEFAULT true,
   created_ts timestamptz DEFAULT now(),
   updated_ts timestamptz DEFAULT now(),
@@ -332,915 +213,520 @@ CREATE TABLE app.d_entity_event_person_calendar (
 );
 ```
 
-### Table: d_person_calendar
-
+#### app.person_calendar
 ```sql
-CREATE TABLE app.d_person_calendar (
-  -- Identity
+CREATE TABLE app.person_calendar (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  code varchar(50) NOT NULL,
-  name varchar(200) NOT NULL,
+  code varchar(50) UNIQUE,
+  name varchar(200),
 
-  -- Person Reference
-  person_entity_code varchar(50) NOT NULL,
-    -- Values: 'employee'
-  person_entity_id uuid NOT NULL,
-    -- FK to d_employee.id
+  -- Person reference
+  person_entity_type varchar(50),  -- 'employee', 'customer'
+  person_id uuid,
 
-  -- Availability Slot
-  from_ts timestamptz NOT NULL,
-  to_ts timestamptz NOT NULL,
+  -- Time slot (15-minute intervals, 9am-8pm)
+  from_ts timestamptz,
+  to_ts timestamptz,
   timezone varchar(50) DEFAULT 'America/Toronto',
-  availability_flag boolean DEFAULT true,
-    -- true = available, false = busy/blocked
 
-  -- Recurring Pattern
-  recurring_pattern jsonb,
-    -- For repeating availability slots
+  -- Availability tracking
+  availability_flag boolean DEFAULT true,  -- true=available, false=booked
 
-  -- Metadata & Audit
-  metadata jsonb DEFAULT '{}'::jsonb,
+  -- Booking details (populated when booked)
+  title varchar(200),
+  event_id uuid,  -- Link to app.event when booked
+
+  -- Audit
   active_flag boolean DEFAULT true,
   created_ts timestamptz DEFAULT now(),
   updated_ts timestamptz DEFAULT now(),
   version integer DEFAULT 1
 );
-```
-
-### Indexes
-
-```sql
--- Event indexes
-CREATE INDEX idx_event_organizer ON app.d_event(organizer_employee_id);
-CREATE INDEX idx_event_action_entity ON app.d_event(event_action_entity_code, event_action_entity_id);
-CREATE INDEX idx_event_time ON app.d_event(from_ts, to_ts);
-CREATE INDEX idx_event_active ON app.d_event(active_flag);
-
--- Event-Person calendar indexes
-CREATE INDEX idx_event_person_event ON app.d_entity_event_person_calendar(event_id);
-CREATE INDEX idx_event_person_person ON app.d_entity_event_person_calendar(person_entity_code, person_entity_id);
-CREATE INDEX idx_event_person_rsvp ON app.d_entity_event_person_calendar(event_rsvp_status);
-
--- Person calendar indexes
-CREATE INDEX idx_person_cal_person ON app.d_person_calendar(person_entity_code, person_entity_id);
-CREATE INDEX idx_person_cal_time ON app.d_person_calendar(from_ts, to_ts);
-CREATE INDEX idx_person_cal_avail ON app.d_person_calendar(availability_flag);
 ```
 
 ---
 
-## API Layer
+## 3. Logical Flow
 
-### Endpoints
+### 3.1 Event Creation Flow
 
-#### 1. GET /api/v1/event
-**Purpose**: List all events with pagination and filtering
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         EVENT CREATION SEQUENCE                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-**Query Parameters**:
-- `event_type`: Filter by 'onsite' or 'virtual'
-- `event_platform_provider_name`: Filter by platform
-- `from_ts`: Events starting after this timestamp
-- `to_ts`: Events ending before this timestamp
-- `page`: Page number (default: 1)
-- `limit`: Results per page (default: 20)
+  USER                     API                      DATABASE
+   │                        │                          │
+   │ POST /api/v1/event     │                          │
+   │ {name, from_ts, ...    │                          │
+   │  attendees: [...]}     │                          │
+   │───────────────────────▶│                          │
+   │                        │                          │
+   │                        │ 1. RBAC Check (CREATE)   │
+   │                        │──────────────────────────▶│
+   │                        │                          │
+   │                        │ 2. INSERT app.event      │
+   │                        │──────────────────────────▶│
+   │                        │                          │
+   │                        │ 3. INSERT entity_instance│
+   │                        │    (registry)            │
+   │                        │──────────────────────────▶│
+   │                        │                          │
+   │                        │ 4. INSERT entity_rbac    │
+   │                        │    (owner permission)    │
+   │                        │──────────────────────────▶│
+   │                        │                          │
+   │                        │ 5. INSERT entity_event_  │
+   │                        │    person_calendar       │
+   │                        │    (organizer + attendees)
+   │                        │──────────────────────────▶│
+   │                        │                          │
+   │◀────────────────────────│  Return created event    │
+   │   201 Created          │                          │
+   │                        │                          │
+```
 
-**Response Structure**:
+### 3.2 Booking Flow (Person Calendar Service)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         BOOKING ORCHESTRATION                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  STEP 1: CREATE EVENT                    STEP 2: LINK ATTENDEES
+  ────────────────────                    ──────────────────────
+  INSERT INTO app.event (...)             INSERT INTO app.entity_event_person_calendar
+  RETURNING id                            (event_id, person_id, rsvp_status='pending')
+         │                                         │
+         ▼                                         ▼
+  ┌─────────────────┐                    ┌─────────────────┐
+  │  app.event      │                    │  RSVP Junction  │
+  │  (event record) │                    │  (attendees)    │
+  └────────┬────────┘                    └────────┬────────┘
+           │                                      │
+           │                                      │
+           ▼                                      ▼
+  STEP 3: BOOK CALENDAR SLOTS            STEP 4: LINK ENTITIES
+  ───────────────────────────            ─────────────────────
+  UPDATE app.person_calendar             INSERT INTO entity_instance_link
+  SET availability_flag = false,         (event → customer, service, project)
+      event_id = new_event_id
+  WHERE from_ts/to_ts matches
+         │                                         │
+         ▼                                         ▼
+  ┌─────────────────┐                    ┌─────────────────┐
+  │ Calendar slots  │                    │ Entity linkages │
+  │ now BOOKED      │                    │ established     │
+  └────────┬────────┘                    └────────┬────────┘
+           │                                      │
+           └──────────────┬───────────────────────┘
+                          │
+                          ▼
+  STEP 5: GRANT OWNERSHIP                STEP 6: SEND NOTIFICATIONS
+  ───────────────────────                ────────────────────────────
+  INSERT INTO entity_rbac                PersonCalendarMessagingService
+  (person_id, entity_code='event',       → sendPersonCalendarNotification()
+   entity_instance_id, permission=5)     → Email with .ics attachment
+         │                               → SMS confirmation
+         ▼                                         │
+  ┌─────────────────┐                              ▼
+  │ Owner permission│                    ┌─────────────────┐
+  │ granted         │                    │ Invitations     │
+  └─────────────────┘                    │ delivered       │
+                                         └─────────────────┘
+```
+
+### 3.3 Availability Query Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    FIND AVAILABLE SLOTS                                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  Customer: "I need an HVAC appointment on Tuesday afternoon"
+                    │
+                    ▼
+  ┌─────────────────────────────────────────────────────────────┐
+  │ SELECT id, from_ts, to_ts                                   │
+  │ FROM app.person_calendar                                    │
+  │ WHERE person_entity_type = 'employee'                       │
+  │   AND availability_flag = true        ← Only open slots     │
+  │   AND from_ts >= '2025-12-10 13:00'   ← Tuesday 1pm        │
+  │   AND to_ts <= '2025-12-10 18:00'     ← Until 6pm          │
+  │   AND person_id IN (                                        │
+  │     SELECT id FROM app.employee                             │
+  │     WHERE department = 'HVAC'         ← HVAC technicians   │
+  │   )                                                         │
+  │ ORDER BY from_ts                                            │
+  └─────────────────────────────────────────────────────────────┘
+                    │
+                    ▼
+  Returns: Available 15-minute slots for HVAC techs on Tuesday PM
+
+  Customer selects: 2:00 PM - 3:00 PM with James Miller
+                    │
+                    ▼
+  Booking Flow Executes (see 3.2 above)
+```
+
+---
+
+## 4. API Layer
+
+### 4.1 Endpoints Summary
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           API ENDPOINTS                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  EVENT MANAGEMENT                                                           │
+│  ────────────────                                                           │
+│  GET    /api/v1/event                    List events (RBAC + filters)       │
+│  GET    /api/v1/event/:id                Get single event                   │
+│  GET    /api/v1/event/enriched           Events with organizer + attendees  │
+│  GET    /api/v1/event/:id/attendees      Get event attendees                │
+│  GET    /api/v1/event/:id/entities       Get linked entities                │
+│  POST   /api/v1/event                    Create event + attendees           │
+│  PATCH  /api/v1/event/:id                Update event                       │
+│  DELETE /api/v1/event/:id                Soft delete event                  │
+│                                                                             │
+│  PERSON CALENDAR (AVAILABILITY)                                             │
+│  ──────────────────────────────                                             │
+│  GET    /api/v1/person-calendar          List calendar slots                │
+│  GET    /api/v1/person-calendar/enriched Slots with event details           │
+│  POST   /api/v1/person-calendar/create   Create booking (orchestrated)      │
+│                                                                             │
+│  EVENT-PERSON MAPPING (RSVP)                                                │
+│  ───────────────────────────                                                │
+│  GET    /api/v1/event-person-calendar    List mappings                      │
+│  POST   /api/v1/event-person-calendar    Invite person to event             │
+│  PATCH  /api/v1/event-person-calendar/:id/rsvp  Update RSVP status          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 4.2 Request/Response Examples
+
+#### Create Event with Attendees
 ```json
+// POST /api/v1/event
 {
-  "data": [
+  "code": "EVT-HVAC-2025-001",
+  "name": "HVAC System Consultation",
+  "event_action_entity_type": "service",
+  "event_action_entity_id": "93106ffb-402e-43a7-8b26-5287e37a1b0e",
+  "organizer__employee_id": "8260b1b0-5efc-4611-ad33-ee76c0cf7f13",
+  "event_type": "onsite",
+  "event_platform_provider_name": "office",
+  "venue_type": "customer_site",
+  "event_addr": "123 Main Street, Toronto",
+  "event_instructions": "Ring doorbell. Park in visitor lot.",
+  "from_ts": "2025-12-10T14:00:00Z",
+  "to_ts": "2025-12-10T16:00:00Z",
+  "timezone": "America/Toronto",
+  "attendees": [
     {
-      "id": "uuid",
-      "code": "EVT-HVAC-001",
-      "name": "HVAC System Consultation",
-      "descr": "Initial consultation...",
-
-      "event_action_entity_code": "service",
-      "event_action_entity_id": "uuid",
-      "organizer_employee_id": "uuid",
-      "venue_type": "customer_site",
-
-      "event_type": "onsite",
-      "event_platform_provider_name": "office",
-      "event_addr": "123 Main Street, Toronto",
-      "event_instructions": "Ring doorbell...",
-
-      "from_ts": "2025-11-14T14:00:00Z",
-      "to_ts": "2025-11-14T16:00:00Z",
-      "timezone": "America/Toronto",
-
-      "event_metadata": {},
-      "active_flag": true,
-      "created_ts": "2025-11-13T19:37:54Z",
-      "updated_ts": "2025-11-13T19:37:54Z",
-      "version": 1,
-
-      "organizer": {
-        "empid": "uuid",
-        "name": "James Miller",
-        "email": "james.miller@huronhome.ca"
-      }
+      "person_entity_type": "employee",
+      "person_id": "8260b1b0-5efc-4611-ad33-ee76c0cf7f13",
+      "event_rsvp_status": "accepted"
+    },
+    {
+      "person_entity_type": "customer",
+      "person_id": "abc12345-def6-7890-ghij-klmnopqrstuv",
+      "event_rsvp_status": "pending"
     }
-  ],
-  "total": 6,
-  "page": 1,
-  "limit": 20,
-  "totalPages": 1
+  ]
 }
 ```
 
-#### 2. GET /api/v1/event/enriched
-**Purpose**: Get events with full organizer and attendee details
-
-**Query Parameters**:
-- `from_ts`: Events starting after
-- `to_ts`: Events ending before
-- `person_id`: Filter by person involvement (organizer or attendee)
-- `person_type`: Type of person ('employee', 'customer')
-- `page`, `limit`: Pagination
-
-**Response Structure**:
+#### Enriched Event Response
 ```json
+// GET /api/v1/event/enriched
 {
   "data": [
     {
       "id": "uuid",
+      "code": "EVT-HVAC-2025-001",
       "name": "HVAC System Consultation",
-
+      "event_type": "onsite",
+      "event_platform_provider_name": "office",
+      "from_ts": "2025-12-10T14:00:00Z",
+      "to_ts": "2025-12-10T16:00:00Z",
       "organizer": {
-        "empid": "uuid",
+        "employee_id": "8260b1b0-5efc-4611-ad33-ee76c0cf7f13",
         "name": "James Miller",
-        "email": "james@..."
+        "email": "james.miller@huronhome.ca"
       },
-
       "attendees": [
         {
-          "person_entity_code": "employee",
-          "person_entity_id": "uuid",
-          "person_name": "Jane Doe",
-          "person_email": "jane@...",
+          "person_entity_type": "employee",
+          "person_id": "8260b1b0-...",
+          "person_name": "James Miller",
+          "person_email": "james.miller@huronhome.ca",
           "event_rsvp_status": "accepted"
+        },
+        {
+          "person_entity_type": "customer",
+          "person_id": "abc12345-...",
+          "person_name": "John Thompson",
+          "person_email": "john@example.com",
+          "event_rsvp_status": "pending"
         }
-      ],
-
-      "..."
+      ]
     }
   ],
   "pagination": {
     "page": 1,
     "limit": 20,
-    "total": 5,
+    "total": 1,
     "totalPages": 1
   }
 }
 ```
 
-#### 3. GET /api/v1/event/:id
-**Purpose**: Get single event details with linked entities
+---
 
-**Response Structure**:
-```json
-{
-  "id": "uuid",
-  "code": "EVT-HVAC-001",
-  "name": "HVAC System Consultation",
+## 5. UI Components
 
-  "attendees": [
-    {
-      "id": "uuid",
-      "person_entity_code": "employee",
-      "person_entity_id": "uuid",
-      "event_rsvp_status": "accepted",
-      "from_ts": "...",
-      "to_ts": "..."
-    }
-  ],
+### 5.1 Component Architecture
 
-  "linked_entities": [
-    {
-      "child_entity_code": "service",
-      "child_entity_id": "uuid",
-      "relationship_type": "event_action"
-    }
-  ]
-}
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        UI COMPONENT TREE                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  EntityListOfInstancesPage (person-calendar)
+  │
+  ├── ViewSwitcher
+  │   ├── Table View
+  │   ├── Kanban View
+  │   └── Calendar View ← Default for person-calendar
+  │
+  └── CalendarView.tsx
+      │
+      ├── Month/Week/Day Navigation
+      │
+      ├── Event Cards (colored by type)
+      │   └── onClick → CalendarEventModal (view/edit)
+      │
+      └── Empty Slot Click
+          └── CalendarEventModal (create)
+              │
+              ├── Event Details Section
+              │   ├── Name input
+              │   ├── Date/Time pickers
+              │   ├── On-site/Virtual toggle
+              │   └── Platform chips
+              │
+              ├── Organizers Section
+              │   └── SearchableMultiSelect (employees)
+              │
+              └── Attendees Section
+                  └── SearchableMultiSelect (employees + customers)
 ```
 
-#### 4. POST /api/v1/event
-**Purpose**: Create new event
+### 5.2 CalendarEventModal (v2.0)
 
-**Request Body**:
-```json
-{
-  "code": "EVT-HVAC-001",
-  "name": "HVAC System Consultation",
-  "descr": "Initial consultation...",
+**Design System**: Futuristic, elegant (inspired by Linear, Vercel, Apple)
 
-  "event_action_entity_code": "service",
-  "event_action_entity_id": "uuid",
-  "organizer_employee_id": "uuid",
-
-  "event_type": "onsite",
-  "event_platform_provider_name": "office",
-  "venue_type": "customer_site",
-  "event_addr": "123 Main Street",
-  "event_instructions": "Ring doorbell...",
-
-  "from_ts": "2025-11-14T14:00:00Z",
-  "to_ts": "2025-11-14T16:00:00Z",
-  "timezone": "America/Toronto",
-
-  "attendees": [
-    {
-      "person_entity_code": "employee",
-      "person_entity_id": "uuid",
-      "event_rsvp_status": "accepted"
-    }
-  ]
-}
-```
-
-**Behavior**:
-1. Creates event record in `d_event`
-2. Registers in `entity_instance`
-3. Grants Owner permission [7] to creator via `entity_rbac`
-4. Adds organizer as attendee with `accepted` RSVP
-5. Creates attendee records in `d_entity_event_person_calendar`
-
-**Response**: Created event with 201 status
-
-#### 5. PATCH /api/v1/event/:id
-**Purpose**: Update event details
-
-**Request Body**: Partial event object (only fields to update)
-
-**Behavior**:
-- Updates specified fields
-- Increments version
-- Updates `updated_ts`
-
-#### 6. DELETE /api/v1/event/:id
-**Purpose**: Soft-delete event
-
-**Behavior**:
-1. Sets `active_flag = false` on event
-2. Soft-deletes linked attendee records
-3. Soft-deletes entity linkages in `entity_instance_link`
+- **Glassmorphism**: `backdrop-blur-sm`, `bg-dark-100/50`
+- **Micro-animations**: Fade + scale on open/close, chevron rotation
+- **Collapsible Sections**: Accordion pattern with smooth transitions
+- **Toggle Buttons**: On-site/Virtual with checkmark indicator
+- **Platform Chips**: Zoom, Teams, Meet, Office, etc.
+- **Multi-select**: Organizers and Attendees with search
 
 ---
 
-## UI/UX Layer
+## 6. Integration Points
 
-### Components
-
-#### 1. CalendarView.tsx
-**Purpose**: Main calendar interface showing events
-
-**Features**:
-- Month/Week/Day views
-- Event cards with organizer and time
-- Click to view details
-- Click empty slot to create event
-- Filter by employee/customer
-- Color coding by event type
-
-**Data Flow**:
-```
-1. Component mounts → Fetch events from API
-2. User filters → Re-fetch with query params
-3. User clicks event → Show CalendarEventModal (view mode)
-4. User clicks empty → Show CalendarEventModal (create mode)
-```
-
-#### 2. CalendarEventModal.tsx
-**Purpose**: Create/Edit event dialog
-
-**Fields**:
-```
-┌─────────────────────────────────────────────┐
-│ Event Information                           │
-├─────────────────────────────────────────────┤
-│ Event Name: [___________________________]  │
-│ Description: [_________________________]   │
-│ Start Date: [________] Time: [_______]     │
-│ End Date: [________] Time: [_______]       │
-│                                             │
-│ Event About:                                │
-│   Type: [Service ▼]                         │
-│   Entity: [HVAC Service ▼]  ← Shows names  │
-│                                             │
-│ Organizer: [James Miller ▼]  ← Shows names │
-│                                             │
-│ Location Type:                              │
-│   • Onsite  ○ Virtual                       │
-│                                             │
-│ Platform: [Office ▼]                        │
-│ Venue: [Customer Site ▼]                    │
-│ Address: [___________________________]      │
-│ Instructions: [_______________________]     │
-├─────────────────────────────────────────────┤
-│ Attendees                                   │
-├─────────────────────────────────────────────┤
-│ [+ Add Employee] [+ Add Customer]           │
-│                                             │
-│ ☑ Jane Doe (Accepted)         [Remove]     │
-│ ☑ John Smith (Pending)        [Remove]     │
-└─────────────────────────────────────────────┘
-```
-
-**Form State**:
-```typescript
-interface EventFormData {
-  name: string;
-  descr?: string;
-
-  // IDs submitted to API
-  event_action_entity_code: 'service' | 'product' | 'project' | 'task' | 'quote';
-  event_action_entity_id: string;  // UUID
-  organizer_employee_id: string;   // UUID
-
-  event_type: 'onsite' | 'virtual';
-  event_platform_provider_name: string;
-  venue_type?: string;
-  event_addr?: string;
-  event_instructions?: string;
-
-  from_ts: string;  // ISO timestamp
-  to_ts: string;
-  timezone: string;
-
-  attendees: Array<{
-    person_entity_code: 'employee' | 'customer';
-    person_entity_id: string;  // UUID
-    event_rsvp_status: 'pending' | 'accepted' | 'declined';
-  }>;
-}
-```
-
-**Validation Rules**:
-- Name: Required, max 200 chars
-- Start time: Required, must be in future
-- End time: Required, must be after start time
-- Event action entity: Required
-- Organizer: Defaults to current user if not specified
-
-**Submission Flow**:
-```
-1. User fills form with names (dropdowns)
-2. Form validation
-3. Convert names to IDs
-4. POST /api/v1/event with IDs
-5. API creates event and attendees
-6. Modal closes
-7. Calendar refreshes
-```
-
-#### 3. CalendarEventPopover.tsx
-**Purpose**: Quick view popup on hover/click
-
-**Displays**:
-- Event name
-- Organizer name (not ID)
-- Time range
-- Location
-- RSVP status
-- Quick actions (Edit, Delete)
-
----
-
-## Data Flow Architecture
-
-### Complete Request-Response Cycle
+### 6.1 RBAC Integration
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                    USER CREATES EVENT                            │
-└──────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           PERMISSION MODEL                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Permission Levels:                                                         │
+│  ─────────────────                                                          │
+│  0 = VIEW      Read event details                                           │
+│  1 = EDIT      Modify event                                                 │
+│  2 = SHARE     Share with others                                            │
+│  3 = DELETE    Soft delete event                                            │
+│  4 = CREATE    Create new events (type-level)                               │
+│  5 = OWNER     Full control (implies all)                                   │
+│                                                                             │
+│  Automatic Grants:                                                          │
+│  ────────────────                                                           │
+│  • Event creator → OWNER (5) for that event                                 │
+│  • Organizer → OWNER (5) if different from creator                          │
+│  • Attendees → VIEW (0) for their events                                    │
+│                                                                             │
+│  RBAC Enforcement:                                                          │
+│  ─────────────────                                                          │
+│  • LIST: Only events user has VIEW permission for                           │
+│  • GET:  Check VIEW permission for specific event                           │
+│  • POST: Check CREATE permission (type-level)                               │
+│  • PATCH: Check EDIT permission                                             │
+│  • DELETE: Check DELETE permission                                          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
-1. USER INTERACTION (Browser)
-   ├─ User opens CalendarEventModal
-   ├─ Selects "Service" from Event Type dropdown
-   ├─ Dropdown fetches: GET /api/v1/service → Shows "HVAC Service"
-   ├─ User selects "HVAC Service" (stores service_id in state)
-   ├─ Selects "James Miller" from Organizer dropdown (stores employee_id)
-   └─ Fills in time, location, attendees
+### 6.2 Entity Infrastructure Integration
 
-2. FORM SUBMISSION (React)
-   ├─ Validate form data
-   ├─ Transform state to API format:
-   │  {
-   │    "name": "HVAC Consultation",
-   │    "event_action_entity_code": "service",
-   │    "event_action_entity_id": "93106ffb...",  ← UUID
-   │    "organizer_employee_id": "8260b1b0...",   ← UUID
-   │    "from_ts": "2025-11-14T14:00:00Z",
-   │    ...
-   │  }
-   └─ POST /api/v1/event
-
-3. API REQUEST HANDLING (Fastify)
-   ├─ Authenticate JWT token
-   ├─ Extract user ID from token (request.user.sub)
-   ├─ Validate request body against schema
-   ├─ Check RBAC permissions (user can create events?)
-   └─ Call event creation service
-
-4. DATABASE OPERATIONS (PostgreSQL)
-   ├─ BEGIN TRANSACTION
-   │
-   ├─ INSERT INTO app.d_event
-   │  (id, code, name, descr,
-   │   event_action_entity_code,
-   │   event_action_entity_id,
-   │   organizer_employee_id,
-   │   event_type, venue_type,
-   │   from_ts, to_ts, ...)
-   │  VALUES (gen_random_uuid(), ...)
-   │  RETURNING id, code, name, ...
-   │
-   ├─ INSERT INTO app.entity_instance
-   │  (entity_code, entity_instance_id, entity_instance_name, code)
-   │  VALUES ('event', new_event_id, ...)
-   │
-   ├─ INSERT INTO app.entity_rbac
-   │  (empid, entity, entity_id, permission)
-   │  VALUES (creator_id, 'event', new_event_id, ARRAY[0,1,2,3,4,5])
-   │  -- Grant Owner [5] permission to creator
-   │
-   ├─ INSERT INTO app.d_entity_event_person_calendar
-   │  (event_id, person_entity_code, person_entity_id, event_rsvp_status, ...)
-   │  VALUES (new_event_id, 'employee', organizer_id, 'accepted', ...)
-   │  -- Add organizer as accepted attendee
-   │
-   ├─ FOR EACH additional attendee:
-   │  INSERT INTO app.d_entity_event_person_calendar
-   │  (event_id, person_entity_code, person_entity_id, event_rsvp_status, ...)
-   │  VALUES (new_event_id, attendee_type, attendee_id, 'pending', ...)
-   │
-   └─ COMMIT TRANSACTION
-
-5. API RESPONSE (Fastify)
-   ├─ Query created event with enriched data:
-   │  SELECT e.*,
-   │    (SELECT jsonb_build_object('empid', emp.id, 'name', emp.name, ...)
-   │     FROM d_employee emp WHERE emp.id = e.organizer_employee_id) as organizer
-   │  FROM d_event e WHERE e.id = new_event_id
-   │
-   └─ Return 201 Created with:
-      {
-        "id": "new_event_id",
-        "code": "EVT-HVAC-001",
-        "name": "HVAC Consultation",
-        "event_action_entity_id": "93106ffb...",
-        "organizer_employee_id": "8260b1b0...",
-        "organizer": {
-          "empid": "8260b1b0...",
-          "name": "James Miller",          ← ENRICHED
-          "email": "james@huronhome.ca"
-        },
-        "attendees": [...]
-      }
-
-6. UI UPDATE (React)
-   ├─ Receive API response
-   ├─ Close modal
-   ├─ Refresh calendar view: GET /api/v1/event
-   ├─ Display new event card showing:
-   │  • Event name
-   │  • Organizer name (from organizer.name)  ← NOT organizer_employee_id
-   │  • Time
-   │  • Location
-   └─ Success toast notification
-
-┌──────────────────────────────────────────────────────────────────┐
-│                     USER VIEWS EVENT                             │
-└──────────────────────────────────────────────────────────────────┘
-
-1. USER CLICKS EVENT CARD
-   └─ GET /api/v1/event/:id
-
-2. API ENRICHES DATA
-   ├─ Query d_event table
-   ├─ LEFT JOIN d_employee for organizer details
-   ├─ Query d_entity_event_person_calendar for attendees
-   ├─ LEFT JOIN d_employee/d_customer for attendee names
-   └─ Return enriched response
-
-3. UI DISPLAYS
-   ├─ Modal shows event details
-   ├─ Organizer: "James Miller" (not UUID)
-   ├─ Event About: "HVAC Service" (not UUID)
-   ├─ Attendees list with names
-   └─ All IDs hidden from user
-
-┌──────────────────────────────────────────────────────────────────┐
-│                   ID ↔ NAME TRANSLATION                          │
-└──────────────────────────────────────────────────────────────────┘
-
-DATABASE STORES:              API RETURNS:              UI SHOWS:
-┌─────────────────┐          ┌──────────────────┐     ┌───────────┐
-│ organizer_      │          │ organizer_       │     │ Organizer:│
-│ employee_id:    │──────────│ employee_id:     │     │           │
-│ "8260b1b0..."   │          │ "8260b1b0..."    │     │ James     │
-│                 │          │                  │     │ Miller    │
-│                 │          │ organizer: {     │     │           │
-│                 │          │   name: "James   │─────│           │
-│                 │          │         Miller"  │     │           │
-│                 │          │ }                │     │           │
-└─────────────────┘          └──────────────────┘     └───────────┘
-
-USER SELECTS:               FORM SUBMITS:           DB RECEIVES:
-┌───────────────┐          ┌─────────────────┐    ┌──────────────┐
-│ Dropdown:     │          │ {               │    │ INSERT INTO  │
-│ ☑ James Miller│──────────│  organizer_     │────│   d_event    │
-│ ○ Jane Doe    │          │  employee_id:   │    │ SET          │
-│ ○ John Smith  │          │  "8260b1b0..."  │    │ organizer_   │
-│               │          │ }               │    │ employee_id  │
-│ (Stored ID:   │          │                 │    │ =            │
-│ "8260b1b0...")│          │                 │    │ '8260b1b0..' │
-└───────────────┘          └─────────────────┘    └──────────────┘
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     ENTITY INFRASTRUCTURE                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Entity Registration (entity_instance):                                     │
+│  ──────────────────────────────────────                                     │
+│  • Every event registered with entity_code='event'                          │
+│  • Enables universal search, linking, RBAC                                  │
+│                                                                             │
+│  Entity Linkages (entity_instance_link):                                    │
+│  ───────────────────────────────────────                                    │
+│  event → service    (what service this appointment is for)                  │
+│  event → customer   (which customer is involved)                            │
+│  event → project    (which project this meeting is about)                   │
+│  event → task       (which task is being discussed)                         │
+│                                                                             │
+│  NOTE: Attendee tracking is via entity_event_person_calendar,               │
+│        NOT entity_instance_link (separate RSVP semantics)                   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## System Behavior
+## 7. Testing & Debugging
 
-### Scenario 1: Customer Self-Schedules Service Appointment
+### 7.1 API Testing
 
-**Business Flow**:
-1. Customer visits public booking page
-2. Selects service type (HVAC)
-3. Chooses available time slot
-4. System creates event automatically
+```bash
+# List events
+./tools/test-api.sh GET /api/v1/event
 
-**Technical Implementation**:
-```javascript
-// 1. Public booking page fetches availability
-GET /api/v1/person-calendar?person_type=employee&availability_flag=true&from_ts=...
+# Get enriched events (with organizer + attendees)
+./tools/test-api.sh GET /api/v1/event/enriched
 
-// 2. Customer submits booking
-POST /api/v1/event
-{
-  "event_action_entity_code": "service",
-  "event_action_entity_id": "hvac_service_id",
-  "organizer_employee_id": "assigned_tech_id",  // System assigns
-  "event_type": "onsite",
-  "from_ts": "...",
-  "to_ts": "...",
-  "attendees": [
-    {
-      "person_entity_code": "customer",
-      "person_entity_id": "customer_id",
-      "event_rsvp_status": "accepted"
-    },
-    {
-      "person_entity_code": "employee",
-      "person_entity_id": "assigned_tech_id",
-      "event_rsvp_status": "accepted"
-    }
-  ]
-}
+# Get single event
+./tools/test-api.sh GET /api/v1/event/{uuid}
 
-// 3. System creates event
-// 4. Marks technician's time as busy in person_calendar
-// 5. Sends confirmation emails to customer and tech
+# Get event attendees
+./tools/test-api.sh GET /api/v1/event/{uuid}/attendees
+
+# List calendar slots
+./tools/test-api.sh GET /api/v1/person-calendar
+
+# Get enriched calendar (slots + event details)
+./tools/test-api.sh GET /api/v1/person-calendar/enriched
 ```
 
-### Scenario 2: Project Manager Schedules Review Meeting
-
-**Business Flow**:
-1. PM opens calendar from project detail page
-2. Clicks "Schedule Review" button
-3. System pre-fills project information
-4. PM selects team members as attendees
-5. Creates event
-
-**Technical Implementation**:
-```javascript
-// 1. Button on project page passes context
-navigate('/calendar/create', {
-  state: {
-    event_action_entity_code: 'project',
-    event_action_entity_id: project.id
-  }
-});
-
-// 2. Modal pre-fills form
-<CalendarEventModal
-  initialData={{
-    event_action_entity_code: 'project',
-    event_action_entity_id: project.id,
-    organizer_employee_id: currentUser.id
-  }}
-/>
-
-// 3. PM adds attendees and submits
-POST /api/v1/event
-{
-  "event_action_entity_code": "project",
-  "event_action_entity_id": "project_uuid",
-  "organizer_employee_id": "pm_uuid",
-  "attendees": [
-    { "person_entity_code": "employee", "person_entity_id": "dev1_uuid", ... },
-    { "person_entity_code": "employee", "person_entity_id": "dev2_uuid", ... }
-  ]
-}
-
-// 4. System sends calendar invites to attendees
-// 5. Attendees can accept/decline via RSVP
-```
-
-### Scenario 3: Sales Rep Schedules Quote Review
-
-**Business Flow**:
-1. Sales rep opens quote detail page
-2. Clicks "Schedule Review with Customer"
-3. System suggests times based on availability
-4. Rep selects time and invites customer
-5. Creates virtual meeting
-
-**Technical Implementation**:
-```javascript
-// 1. Quote page shows "Schedule Review" button
-<button onClick={handleScheduleQuoteReview}>
-  Schedule Review with Customer
-</button>
-
-// 2. Handler fetches availability
-const handleScheduleQuoteReview = async () => {
-  const availability = await fetch(
-    `/api/v1/person-calendar?person_id=${currentUser.id}&availability_flag=true`
-  );
-
-  openModal({
-    event_action_entity_code: 'quote',
-    event_action_entity_id: quote.id,
-    organizer_employee_id: currentUser.id,
-    event_type: 'virtual',
-    event_platform_provider_name: 'zoom',
-    suggested_times: availability.data
-  });
-};
-
-// 3. Rep creates event
-POST /api/v1/event
-{
-  "event_action_entity_code": "quote",
-  "event_action_entity_id": "quote_uuid",
-  "organizer_employee_id": "sales_rep_uuid",
-  "event_type": "virtual",
-  "event_platform_provider_name": "zoom",
-  "event_addr": "https://zoom.us/j/meeting-123",
-  "attendees": [
-    { "person_entity_code": "customer", "person_entity_id": "customer_uuid", ... }
-  ]
-}
-
-// 4. System generates Zoom link (if integrated)
-// 5. Sends email with meeting link to customer
-```
-
-### Scenario 4: Employee Views Their Calendar
-
-**Business Flow**:
-1. Employee opens calendar page
-2. System filters events where employee is organizer OR attendee
-3. Shows all relevant events
-4. Color codes by RSVP status
-
-**Technical Implementation**:
-```javascript
-// 1. Fetch events for current user
-GET /api/v1/event/enriched?person_id={employee_id}&person_type=employee
-
-// 2. API filters events
-SELECT e.*
-FROM d_event e
-WHERE
-  e.organizer_employee_id = '{employee_id}'
-  OR EXISTS (
-    SELECT 1 FROM entity_event_person_calendar epc
-    WHERE epc.event_id = e.id
-      AND epc.person_entity_code = 'employee'
-      AND epc.person_entity_id = '{employee_id}'
-  )
-
-// 3. UI renders events
-events.map(event => (
-  <EventCard
-    color={
-      event.organizer_employee_id === currentUser.id
-        ? 'blue'  // Organizer
-        : getColorByRSVP(event.attendee_rsvp_status)
-    }
-  />
-))
-```
-
-### Scenario 5: Scheduling Conflict Detection
-
-**Business Flow**:
-1. User tries to create event
-2. System checks if attendees are available
-3. Shows warning if conflicts detected
-4. User can override or adjust time
-
-**Technical Implementation**:
-```javascript
-// 1. Before creating event, check conflicts
-POST /api/v1/event/check-conflicts
-{
-  "attendees": [
-    { "person_entity_id": "employee1_id", "person_entity_code": "employee" }
-  ],
-  "from_ts": "2025-11-14T14:00:00Z",
-  "to_ts": "2025-11-14T16:00:00Z"
-}
-
-// 2. API queries existing events
-SELECT e.id, e.name, e.from_ts, e.to_ts
-FROM d_event e
-JOIN d_entity_event_person_calendar epc ON epc.event_id = e.id
-WHERE epc.person_entity_id IN ('{employee1_id}')
-  AND e.active_flag = true
-  AND (
-    (e.from_ts, e.to_ts) OVERLAPS ('2025-11-14T14:00:00Z', '2025-11-14T16:00:00Z')
-  )
-
-// 3. Returns conflicts
-{
-  "has_conflicts": true,
-  "conflicts": [
-    {
-      "person_name": "John Doe",
-      "event_name": "Project Meeting",
-      "from_ts": "2025-11-14T13:00:00Z",
-      "to_ts": "2025-11-14T15:00:00Z"
-    }
-  ]
-}
-
-// 4. UI shows warning
-<ConflictWarning conflicts={conflicts} />
-```
-
----
-
-## Integration Points
-
-### 1. RBAC System
-**Integration**: `entity_rbac`
-
-**Permissions**:
-- `0`: View event details
-- `1`: Edit event (time, location, attendees)
-- `2`: Share event with others
-- `3`: Delete event
-- `4`: Create new events
-- `5`: Owner (all permissions + transfer ownership)
-
-**Behavior**:
-- Event creator automatically gets Owner [5] permission
-- Owner can grant permissions to other employees
-- Organizer field is independent of RBAC (for display only)
-
-### 2. Entity System
-**Integration**: `entity`, `entity_instance`, `entity_instance_link`
-
-**Event as Entity**:
-- Registered in `entity` with code='event'
-- Each event instance in `entity_instance`
-- Can be parent/child in `entity_instance_link`
-
-**Action Entity Linkage**:
-- Event links to service/product/project/task/quote via `event_action_entity_id`
-- Polymorphic design allows any entity type
-- No foreign key constraints (uses linker tables)
-
-### 3. Notification System
-**Integration**: Future - `d_message` table
-
-**Planned Behavior**:
-- Event creation → Email to organizer and attendees
-- RSVP change → Notify organizer
-- Event update → Notify all attendees
-- Reminder → 24h and 1h before event
-
-### 4. Search System
-**Integration**: Entity search API
-
-**Searchable Fields**:
-- Event name, description
-- Organizer name
-- Attendee names
-- Event action entity name (joined)
-- Location/address
-
----
-
-## Appendix
-
-### Data Validation Rules
-
-```typescript
-// Event creation validation
-interface EventValidation {
-  code: {
-    required: true,
-    unique: true,
-    pattern: /^EVT-[A-Z0-9-]+$/,
-    maxLength: 50
-  },
-  name: {
-    required: true,
-    minLength: 3,
-    maxLength: 200
-  },
-  event_action_entity_code: {
-    required: true,
-    enum: ['service', 'product', 'project', 'task', 'quote']
-  },
-  event_action_entity_id: {
-    required: true,
-    type: 'uuid',
-    exists: true  // Must reference existing entity
-  },
-  organizer_employee_id: {
-    required: false,  // Defaults to current user
-    type: 'uuid',
-    exists: true  // Must be valid employee
-  },
-  from_ts: {
-    required: true,
-    type: 'timestamp',
-    futureDate: true  // Must be in future (for new events)
-  },
-  to_ts: {
-    required: true,
-    type: 'timestamp',
-    afterField: 'from_ts'  // Must be after from_ts
-  },
-  event_type: {
-    required: true,
-    enum: ['onsite', 'virtual']
-  },
-  venue_type: {
-    required: false,
-    enum: ['conference_room', 'office', 'warehouse', 'customer_site', 'remote', 'outdoor']
-  }
-}
-```
-
-### Query Performance Guidelines
+### 7.2 Common SQL Queries
 
 ```sql
--- Good: Uses index on organizer_employee_id
-SELECT * FROM d_event
-WHERE organizer_employee_id = '...'
-  AND active_flag = true;
+-- Get upcoming events
+SELECT code, name, event_type, from_ts, to_ts
+FROM app.event
+WHERE active_flag = true AND from_ts >= now()
+ORDER BY from_ts;
 
--- Good: Uses composite index on event_action_entity
-SELECT * FROM d_event
-WHERE event_action_entity_code = 'service'
-  AND event_action_entity_id = '...'
-  AND active_flag = true;
+-- Get attendees for an event
+SELECT
+  epc.person_entity_type,
+  epc.event_rsvp_status,
+  CASE
+    WHEN epc.person_entity_type = 'employee' THEN e.name
+    WHEN epc.person_entity_type = 'customer' THEN c.name
+  END as person_name
+FROM app.entity_event_person_calendar epc
+LEFT JOIN app.employee e ON epc.person_id = e.id AND epc.person_entity_type = 'employee'
+LEFT JOIN app.customer c ON epc.person_id = c.id AND epc.person_entity_type = 'customer'
+WHERE epc.event_id = 'uuid' AND epc.active_flag = true;
 
--- Good: Uses index on time range
-SELECT * FROM d_event
-WHERE from_ts >= NOW()
-  AND to_ts <= NOW() + INTERVAL '7 days'
-  AND active_flag = true;
+-- Find available slots for an employee
+SELECT id, from_ts, to_ts
+FROM app.person_calendar
+WHERE person_entity_type = 'employee'
+  AND person_id = 'employee-uuid'
+  AND availability_flag = true
+  AND from_ts >= now()
+ORDER BY from_ts;
 
--- Bad: Full table scan (no index on name)
-SELECT * FROM d_event
-WHERE name LIKE '%consultation%';
-
--- Better: Use full-text search
-SELECT * FROM d_event
-WHERE to_tsvector('english', name || ' ' || descr) @@ to_tsquery('consultation')
-  AND active_flag = true;
+-- RSVP summary for an event
+SELECT
+  event_rsvp_status,
+  COUNT(*) as count
+FROM app.entity_event_person_calendar
+WHERE event_id = 'uuid' AND active_flag = true
+GROUP BY event_rsvp_status;
 ```
-
-### Testing Checklist
-
-- [ ] Create event with all required fields
-- [ ] Create event with optional fields
-- [ ] Update event details
-- [ ] Delete event (soft delete)
-- [ ] Add attendees to event
-- [ ] Remove attendees from event
-- [ ] Change RSVP status
-- [ ] Check scheduling conflicts
-- [ ] Filter events by organizer
-- [ ] Filter events by time range
-- [ ] Filter events by action entity type
-- [ ] Verify RBAC permissions enforced
-- [ ] Verify organizer auto-added as attendee
-- [ ] Verify enriched API responses include names
-- [ ] Verify UI shows names not IDs
 
 ---
 
-**Document Version**: 3.1
-**Last Updated**: 2025-11-13
+## 8. Architecture Decisions
+
+### 8.1 Why Three Tables?
+
+| Pattern | Alternative | Our Choice | Rationale |
+|---------|-------------|------------|-----------|
+| Single Monolithic Table | ❌ | Separate `event`, `person_calendar`, `entity_event_person_calendar` | Separation of concerns: Event (what), Availability (when free), RSVP (who attends) |
+| Foreign Keys | ❌ | Polymorphic with entity codes | Microservices-ready, no circular dependencies |
+| RSVP in Event Table | ❌ | Junction table | Many-to-many with metadata (status, time commitment) |
+
+### 8.2 Why Polymorphic Person References?
+
+```
+PROBLEM: Attendees can be employees OR customers
+─────────────────────────────────────────────────
+
+Option A: Separate columns (employee_id, customer_id)
+  ❌ NULL columns, awkward queries, not extensible
+
+Option B: Separate junction tables
+  ❌ Duplicated logic, harder to query "all attendees"
+
+Option C: Polymorphic (person_entity_type + person_id) ✅
+  ✓ Single table, extensible to new person types
+  ✓ Query: WHERE person_entity_type = 'employee' AND person_id = ?
+  ✓ Industry pattern: Salesforce, HubSpot, most modern CRMs
+```
+
+### 8.3 Why Pre-seeded Availability Slots?
+
+```
+PROBLEM: How to model employee availability?
+────────────────────────────────────────────
+
+Option A: Calculate on-the-fly from existing events
+  ❌ Slow queries, complex inverse logic
+
+Option B: Store "blocked time" only
+  ❌ Harder to visualize "open" time
+
+Option C: Pre-seed 15-minute slots, mark as booked ✅
+  ✓ Fast availability queries (WHERE availability_flag = true)
+  ✓ Visual calendar representation
+  ✓ Industry pattern: Calendly, Cal.com slot architecture
+  ✓ Trade-off: More storage, but faster reads
+```
+
+---
+
+## Document History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 5.0 | 2025-12-05 | Added business flow, data flow, logical flow diagrams; Architecture decisions; Industry patterns |
+| 4.0 | 2025-12-05 | Fixed table names (removed `d_` prefix); Consolidated README |
+| 3.0 | 2025-11-27 | Added organizer__employee_id, RSVP tracking |
+| 2.0 | 2025-11-20 | Three-table architecture (event, person_calendar, event_person_calendar) |
+| 1.0 | 2025-11-15 | Initial calendar system |
+
+---
+
 **Maintained By**: PMO Development Team
-**Status**: Production Documentation
+**Documentation Status**: Production
