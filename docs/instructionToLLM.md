@@ -15,6 +15,11 @@ docs/services/entity-infrastructure.service.md\
 ------------------------------------------------------------------------------------------------------------------------
 
 
+What's the industry trend, 
+be super smart, and next generation expert and compare this approach with other advanced implementations, how to resolve it coherently? 
+
+-------------------------------------------------------------
+
 Login page → Login
 Sidebar → Click "Office"
 EntityListOfInstancesPage (Office list with data table) → EntityListOfInstancesTable component

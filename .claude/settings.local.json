@@ -283,7 +283,8 @@
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzY0ODc1NTM3LCJleHAiOjE3NjQ5NjE5Mzd9.Dq9grh9zQbmMatwZGFmVuYuvjSO7yGV-BFgbKp-hONk\" curl -s \"http://localhost:4000/api/v1/entity/types\" -H \"Authorization: Bearer $TOKEN\")",
       "Bash(do timeout 2 curl -s http://localhost:4000/api/v1/health)",
       "Bash(break)",
-      "Bash(corepack prepare:*)"
+      "Bash(corepack prepare:*)",
+      "Bash(git -C /home/rabin/projects/pmo fetch origin claude/add-design-pattern-docs-01UeEtCJfbRkXSE7HjrMWtJL)"
     ],
     "deny": [],
     "ask": [],
