@@ -10,7 +10,7 @@
  * - Settings-driven dropdowns with colored badges
  * - Drag & drop reordering support
  *
- * INLINE EDITING PATTERN (Airtable-style v8.4.0):
+ * INLINE EDITING PATTERN (Airtable-style v8.4.0, v13.0.0 Cell-Isolated State):
  * - Single-click on editable cell → Instant inline edit of THAT cell only
  * - Click outside / Tab / Enter → Auto-save and exit edit mode
  * - Escape → Cancel without saving
@@ -18,6 +18,13 @@
  * - Keyboard: 'E' when row focused enters row edit mode
  * - Tab navigates to next editable cell (spreadsheet convention)
  * - Cmd+Z / Ctrl+Z → Undo last change with toast notification
+ *
+ * v13.0.0 PERFORMANCE: Cell-Isolated State Pattern (Industry Standard)
+ * - Cell components (DebouncedInput) manage their own local state
+ * - Parent is only notified on COMMIT (blur/enter), not during typing
+ * - Eliminates ALL parent re-renders during typing (0 vs 2 per debounce)
+ * - Supports 10K+ rows with smooth editing
+ * - See: docs/design_pattern/INLINE_EDIT_PERFORMANCE_ACTION_PLAN.md
  *
  * ADD ROW FEATURE:
  * - When allowAddRow=true, shows "+ Add new row" button at bottom
@@ -463,13 +470,18 @@ export function EntityListOfInstancesTable<T = any>({
   }, []);
 
   // Handle cell value change
-  const handleCellValueChange = useCallback((rowId: string, columnKey: string, value: any) => {
-    setLocalCellValue(value);
-    // Also update editedData for compatibility with row-level editing
-    if (onInlineEdit) {
-      onInlineEdit(rowId, columnKey, value);
-    }
-  }, [onInlineEdit]);
+  // v13.0.0: Cell-Isolated State Pattern (Industry Standard)
+  // ─────────────────────────────────────────────────────────
+  // NO-OP for cell-level edits. DebouncedInput manages its own local state.
+  // Value is passed directly to handleCellSave on blur/enter via valueOverride.
+  // This eliminates ALL parent re-renders during typing (0 vs 2 per debounce).
+  //
+  // NOTE: Row-level edit and Add Row flows still use editedData via their
+  // own handlers (handleFieldChange). This change only affects cell-level edits.
+  const handleCellValueChange = useCallback((_rowId: string, _columnKey: string, _value: any) => {
+    // NO-OP: Cell component (DebouncedInput) manages its own local state
+    // for instant UI feedback. Parent is only notified on COMMIT (blur/enter).
+  }, []);
 
   // Handle cell save (Enter key or blur)
   // valueOverride: Pass value directly to avoid stale state from React's async batching
@@ -629,6 +641,22 @@ export function EntityListOfInstancesTable<T = any>({
 
     return metadataMap;
   }, [columns, inlineEditable]);
+
+  // v13.0.0: Pre-transform options for BadgeDropdownSelect (avoids .map() in render loop)
+  // This is memoized so it only recomputes when labelsMetadata changes
+  const badgeDropdownOptionsMap = useMemo(() => {
+    const optionsMap = new Map<string, Array<{ value: string | number; label: string; metadata: { color_code?: string } }>>();
+
+    labelsMetadata.forEach((options, columnKey) => {
+      optionsMap.set(columnKey, options.map(opt => ({
+        value: opt.value,
+        label: opt.label,
+        metadata: { color_code: opt.colorClass }
+      })));
+    });
+
+    return optionsMap;
+  }, [labelsMetadata]);
 
   // Preload colors for all settings columns (for filter dropdowns and inline edit)
   useEffect(() => {
@@ -1948,21 +1976,20 @@ export function EntityListOfInstancesTable<T = any>({
                                   fieldName={column.key}
                                   accept={backendMeta?.accept}
                                   onUploadComplete={(fileUrl) => {
-                                    handleCellValueChange(recordId, column.key, fileUrl);
-                                    handleCellSave(recordId, column.key, record);
+                                    // v13.0.0: Direct save on upload complete
+                                    handleCellSave(recordId, column.key, record, fileUrl);
                                   }}
                                   disabled={false}
                                 />
                               ) : column.key === 'color_code' && colorOptions ? (
+                                // v13.0.0: Cell-Isolated State - Direct save on selection
                                 <div className="relative w-full">
                                   <select
                                     autoFocus
-                                    value={(isCellBeingEdited ? localCellValue : editedData[column.key]) ?? rawValue ?? ''}
+                                    value={rawValue ?? ''}  // v13.0.0: Use rawValue (select saves immediately)
                                     onChange={(e) => {
-                                      handleCellValueChange(recordId, column.key, e.target.value);
-                                      if (isCellBeingEdited) {
-                                        setTimeout(() => handleCellSave(recordId, column.key, record), 0);
-                                      }
+                                      // v13.0.0: Direct save - no intermediate state updates
+                                      handleCellSave(recordId, column.key, record, e.target.value);
                                     }}
                                     onClick={(e) => e.stopPropagation()}
                                     className="w-full px-2.5 py-1.5 pr-8 border border-dark-400 rounded-md focus:outline-none focus:border-dark-500 bg-dark-100 shadow-sm hover:border-dark-400 transition-colors cursor-pointer appearance-none"
@@ -1977,31 +2004,30 @@ export function EntityListOfInstancesTable<T = any>({
                                 </div>
                               ) : inputType === 'component' && hasLabelsMetadata ? (
                                 // v12.2.0: inputType 'component' with datalabel options renders BadgeDropdownSelect
+                                // v13.0.0: Cell-Isolated State - Direct save on selection (atomic action)
                                 <BadgeDropdownSelect
-                                  value={(isCellBeingEdited ? localCellValue : editedData[column.key]) ?? rawValue ?? ''}
-                                options={columnOptions.map(opt => ({
-                                  value: opt.value,
-                                  label: opt.label,
-                                  metadata: { color_code: opt.colorClass }
-                                }))}
-                                onChange={(value) => {
-                                  handleCellValueChange(recordId, column.key, value);
-                                  if (isCellBeingEdited) {
-                                    // Pass value directly to avoid stale state from React's async batching
-                                    setTimeout(() => handleCellSave(recordId, column.key, record, value), 0);
-                                  }
-                                }}
-                                onClick={(e) => e.stopPropagation()}
-                              />
+                                  value={rawValue ?? ''}  // v13.0.0: Use rawValue (dropdown saves immediately)
+                                  options={badgeDropdownOptionsMap.get(column.key) || []}
+                                  onChange={(value) => {
+                                    // v13.0.0: Direct save - no intermediate state updates
+                                    handleCellSave(recordId, column.key, record, value);
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
                               ) : (
                                 // ALL OTHER FIELDS - Backend-driven renderer with auto-focus
+                                // v13.0.0: Cell-Isolated State - DebouncedInput manages local state,
+                                // onChange triggers handleCellSave directly (commit-only pattern)
                                 <div onClick={(e) => e.stopPropagation()}>
                                   {(() => {
                                     const metadata = (column as any).backendMetadata || { inputType: 'text', label: column.key };
                                     return renderEditModeFromMetadata(
-                                      (isCellBeingEdited ? localCellValue : editedData[column.key]) ?? rawValue,
+                                      rawValue,  // v13.0.0: Use rawValue only (DebouncedInput has its own local state)
                                       metadata,
-                                      (val) => handleCellValueChange(recordId, column.key, val),
+                                      (val) => {
+                                        // v13.0.0: Direct save on commit (blur/enter from DebouncedInput)
+                                        handleCellSave(recordId, column.key, record, val);
+                                      },
                                       {
                                         className: 'w-full px-2 py-1 text-sm border border-dark-300 rounded focus:outline-none focus:border-dark-500',
                                         autoFocus: isCellBeingEdited
@@ -2210,23 +2236,21 @@ export function EntityListOfInstancesTable<T = any>({
                                   fieldName={column.key}
                                   accept={backendMeta?.accept}
                                   onUploadComplete={(fileUrl) => {
-                                    handleCellValueChange(recordId, column.key, fileUrl);
-                                    handleCellSave(recordId, column.key, record);
+                                    // v13.0.0: Direct save on upload complete
+                                    handleCellSave(recordId, column.key, record, fileUrl);
                                   }}
                                   disabled={false}
                                 />
                               ) : column.key === 'color_code' && colorOptions ? (
                                 // COLOR PICKER - Entity-specific field for settings tables
+                                // v13.0.0: Cell-Isolated State - Direct save on selection
                                 <div className="relative w-full">
                                   <select
                                     autoFocus
-                                    value={(isCellBeingEdited ? localCellValue : editedData[column.key]) ?? rawValue ?? ''}
+                                    value={rawValue ?? ''}  // v13.0.0: Use rawValue (select saves immediately)
                                     onChange={(e) => {
-                                      handleCellValueChange(recordId, column.key, e.target.value);
-                                      // Auto-save on select change (Airtable behavior)
-                                      if (isCellBeingEdited) {
-                                        setTimeout(() => handleCellSave(recordId, column.key, record), 0);
-                                      }
+                                      // v13.0.0: Direct save - no intermediate state updates
+                                      handleCellSave(recordId, column.key, record, e.target.value);
                                     }}
                                     onClick={(e) => e.stopPropagation()}
                                     className="w-full px-2.5 py-1.5 pr-8 border border-dark-400 rounded-md focus:outline-none focus:border-dark-500 bg-dark-100 shadow-sm hover:border-dark-400 transition-colors cursor-pointer appearance-none"
@@ -2250,33 +2274,31 @@ export function EntityListOfInstancesTable<T = any>({
                                 </div>
                               ) : inputType === 'component' && hasLabelsMetadata ? (
                                 // v12.2.0: inputType 'component' with datalabel options renders BadgeDropdownSelect
+                                // v13.0.0: Cell-Isolated State - Direct save on selection (atomic action)
                                 <BadgeDropdownSelect
-                                  value={(isCellBeingEdited ? localCellValue : editedData[column.key]) ?? rawValue ?? ''}
-                                  options={columnOptions.map(opt => ({
-                                    value: opt.value,
-                                    label: opt.label,
-                                    metadata: { color_code: opt.colorClass }
-                                  }))}
+                                  value={rawValue ?? ''}  // v13.0.0: Use rawValue (dropdown saves immediately)
+                                  options={badgeDropdownOptionsMap.get(column.key) || []}
                                   onChange={(value) => {
-                                    handleCellValueChange(recordId, column.key, value);
-                                    // Auto-save on select change (Airtable behavior)
-                                    // Pass value directly to avoid stale state from React's async batching
-                                    if (isCellBeingEdited) {
-                                      setTimeout(() => handleCellSave(recordId, column.key, record, value), 0);
-                                    }
+                                    // v13.0.0: Direct save - no intermediate state updates
+                                    handleCellSave(recordId, column.key, record, value);
                                   }}
                                   onClick={(e) => e.stopPropagation()}
                                 />
                               ) : (
                                 // ALL OTHER FIELDS - Backend-driven renderer with auto-focus
+                                // v13.0.0: Cell-Isolated State - DebouncedInput manages local state,
+                                // onChange triggers handleCellSave directly (commit-only pattern)
                                 <div onClick={(e) => e.stopPropagation()}>
                                   {(() => {
                                     // v8.2.0: Backend metadata required - minimal fallback for text input
                                     const metadata = (column as any).backendMetadata || { inputType: 'text', label: column.key };
                                     return renderEditModeFromMetadata(
-                                      (isCellBeingEdited ? localCellValue : editedData[column.key]) ?? rawValue,
+                                      rawValue,  // v13.0.0: Use rawValue only (DebouncedInput has its own local state)
                                       metadata,
-                                      (val) => handleCellValueChange(recordId, column.key, val),
+                                      (val) => {
+                                        // v13.0.0: Direct save on commit (blur/enter from DebouncedInput)
+                                        handleCellSave(recordId, column.key, record, val);
+                                      },
                                       {
                                         className: 'w-full px-2 py-1 text-sm border border-dark-300 rounded focus:outline-none focus:border-dark-500',
                                         autoFocus: isCellBeingEdited

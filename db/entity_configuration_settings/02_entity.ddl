@@ -115,11 +115,11 @@ VALUES (
 -- Customer entity type (has 5 child types)
 INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
-  'cust',
+  'customer',
   'Customer',
   'Customers',
   'Users',
-  'cust',
+  'customer',
   'd',
   '["project", "artifact", "form", "expense", "revenue"]'::jsonb,
   50
@@ -290,11 +290,11 @@ VALUES (
 -- Calendar entity type (person availability/booking - leaf node - no children)
 INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
-  'entity_person_calendar',
+  'person-calendar',
   'Calendar',
   'Calendar',
   'Calendar',
-  'entity_person_calendar',
+  'person_calendar',
   'd',
   '[]'::jsonb,
   45
@@ -481,7 +481,7 @@ VALUES (
   'Calendar',
   'event',
   'f',
-  '["entity_event_person_calendar", "task", "project", "service", "cust", "employee", "business"]'::jsonb,
+  '["event-person-calendar", "task", "project", "service", "customer", "employee", "business"]'::jsonb,
   215
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
@@ -737,7 +737,7 @@ VALUES (
 -- Booking entity type (event RSVP/booking records)
 INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
-  'entity_event_person_calendar',
+  'event-person-calendar',
   'Booking',
   'Booking',
   'CalendarCheck',
@@ -964,7 +964,7 @@ UPDATE app.entity e SET
     updated_ts = now()
 FROM app.d_domain d
 WHERE d.code = 'customer_360'
-  AND e.code IN ('cust', 'business', 'employee', 'role', 'office', 'worksite');
+  AND e.code IN ('customer', 'business', 'employee', 'role', 'office', 'worksite');
 
 -- DOMAIN 2: OPERATIONS
 -- Purpose: Internal operational execution (projects, tasks, work orders, services)
@@ -1063,7 +1063,7 @@ UPDATE app.entity e SET
     updated_ts = now()
 FROM app.d_domain d
 WHERE d.code = 'event_calendar'
-  AND e.code IN ('event', 'entity_person_calendar', 'entity_event_person_calendar');
+  AND e.code IN ('event', 'person-calendar', 'event-person-calendar');
 
 -- Handle hierarchies (assign to Customer 360 as organizational structures)
 UPDATE app.entity e SET

@@ -37,7 +37,7 @@ ON CONFLICT DO NOTHING;
 
 -- Backfill customers
 INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
-SELECT 'cust', id, name, code
+SELECT 'customer', id, name, code
 FROM app.cust
 WHERE active_flag = true
 ON CONFLICT DO NOTHING;

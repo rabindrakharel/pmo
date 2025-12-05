@@ -56,7 +56,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
           created_ts::text,
           updated_ts::text,
           version
-        FROM app.d_entity_person_calendar
+        FROM app.person_calendar
         WHERE active_flag = true ${availabilityFilter}
         ORDER BY from_ts ASC
         LIMIT ${limit}
@@ -66,7 +66,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
       // Count query for total records
       const countQuery = client`
         SELECT COUNT(*) as total
-        FROM app.d_entity_person_calendar
+        FROM app.person_calendar
         WHERE active_flag = true ${availabilityFilter}
       `;
 
@@ -115,7 +115,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
           created_ts::text,
           updated_ts::text,
           version
-        FROM app.d_entity_person_calendar
+        FROM app.person_calendar
         WHERE id = ${id}::uuid AND active_flag = true
       `;
 
@@ -178,7 +178,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
           timezone,
           availability_flag,
           created_ts::text
-        FROM app.d_entity_person_calendar
+        FROM app.person_calendar
         ${whereConditions}
         ORDER BY from_ts ASC
       `;
@@ -224,7 +224,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
           e.title as job_title,
           e.email as employee_email,
           e.phone as employee_phone
-        FROM app.d_entity_person_calendar c
+        FROM app.person_calendar c
         JOIN app.employee e ON c.person_id = e.id
         WHERE c.person_entity_type = 'employee'
           AND c.availability_flag = true
@@ -294,7 +294,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
           event_id::text,
           metadata,
           created_ts::text
-        FROM app.d_entity_person_calendar
+        FROM app.person_calendar
         ${whereConditions}
         ORDER BY from_ts ASC
       `;
@@ -318,7 +318,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
       const slot = request.body;
 
       const insertQuery = client`
-        INSERT INTO app.d_entity_person_calendar (
+        INSERT INTO app.person_calendar (
           code,
           name,
           descr,
@@ -389,7 +389,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
       const updates = request.body;
 
       const updateQuery = client`
-        UPDATE app.d_entity_person_calendar
+        UPDATE app.person_calendar
         SET
           name = COALESCE(${updates.name !== undefined ? updates.name : null}, name),
           descr = COALESCE(${updates.descr !== undefined ? updates.descr : null}, descr),
@@ -444,7 +444,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
       const { slot_ids, title, event_id, appointment_medium, appointment_addr, instructions, metadata } = request.body;
 
       const bookQuery = client`
-        UPDATE app.d_entity_person_calendar
+        UPDATE app.person_calendar
         SET
           availability_flag = false,
           title = ${title},
@@ -493,7 +493,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
       const { slot_ids } = request.body;
 
       const cancelQuery = client`
-        UPDATE app.d_entity_person_calendar
+        UPDATE app.person_calendar
         SET
           availability_flag = true,
           title = NULL,
@@ -540,7 +540,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
       const { id } = request.params;
 
       const deleteQuery = client`
-        UPDATE app.d_entity_person_calendar
+        UPDATE app.person_calendar
         SET
           active_flag = false,
           updated_ts = now()

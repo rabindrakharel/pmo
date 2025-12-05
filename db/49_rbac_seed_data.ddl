@@ -44,7 +44,7 @@ SELECT
   'role', r.id, entity_type, '11111111-1111-1111-1111-111111111111', 7, now()  -- Level 7 = Owner
 FROM app.role r
 CROSS JOIN (VALUES
-  ('artifact'), ('business'), ('business_hierarchy'), ('calendar'), ('cust'),
+  ('artifact'), ('business'), ('business_hierarchy'), ('calendar'), ('customer'),
   ('employee'), ('event'), ('expense'), ('form'), ('interaction'),
   ('inventory'), ('invoice'), ('message'), ('message_schema'), ('office'),
   ('office_hierarchy'), ('order'), ('product'), ('product_hierarchy'), ('project'),
@@ -86,7 +86,7 @@ SELECT
   'role', r.id, entity_type, '11111111-1111-1111-1111-111111111111', 4  -- Level 4 = Share
 FROM app.role r
 CROSS JOIN (VALUES
-  ('worksite'), ('cust'), ('form'), ('inventory'), ('service'), ('product')
+  ('worksite'), ('customer'), ('form'), ('inventory'), ('service'), ('product')
 ) AS entities(entity_type)
 WHERE r.role_code IN ('DEPT-MGR', 'MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
 
@@ -136,7 +136,7 @@ SELECT
   'role', r.id, entity_type, '11111111-1111-1111-1111-111111111111', 4  -- Level 4 = Share
 FROM app.role r
 CROSS JOIN (VALUES
-  ('worksite'), ('cust'), ('interaction')
+  ('worksite'), ('customer'), ('interaction')
 ) AS entities(entity_type)
 WHERE r.role_code IN ('SUP-FIELD', 'TECH-SR');
 
@@ -198,7 +198,7 @@ SELECT
   'role', r.id, entity_type, '11111111-1111-1111-1111-111111111111', 0  -- Level 0 = View
 FROM app.role r
 CROSS JOIN (VALUES
-  ('cust'), ('worksite'), ('inventory'), ('product'), ('service')
+  ('customer'), ('worksite'), ('inventory'), ('product'), ('service')
 ) AS entities(entity_type)
 WHERE r.role_code IN ('TECH-FIELD');
 
@@ -234,7 +234,7 @@ SELECT
   'role', r.id, entity_type, '11111111-1111-1111-1111-111111111111', 4  -- Level 4 = Share
 FROM app.role r
 CROSS JOIN (VALUES
-  ('project'), ('cust'), ('wiki'), ('calendar')
+  ('project'), ('customer'), ('wiki'), ('calendar')
 ) AS entities(entity_type)
 WHERE r.role_code IN ('COORD-PROJ', 'COORD-HR');
 
@@ -270,7 +270,7 @@ SELECT
   'employee', e.id, entity_type, '11111111-1111-1111-1111-111111111111', 7, now()  -- Level 7 = Owner
 FROM app.employee e
 CROSS JOIN (VALUES
-  ('artifact'), ('business'), ('business_hierarchy'), ('calendar'), ('cust'),
+  ('artifact'), ('business'), ('business_hierarchy'), ('calendar'), ('customer'),
   ('employee'), ('event'), ('expense'), ('form'), ('interaction'),
   ('inventory'), ('invoice'), ('message'), ('message_schema'), ('office'),
   ('office_hierarchy'), ('order'), ('product'), ('product_hierarchy'), ('project'),

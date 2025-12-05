@@ -103,15 +103,19 @@ CREATE TABLE app.person_calendar (
   confirmation_sent_flag boolean DEFAULT false,
   confirmation_sent_ts timestamptz,
 
+  CONSTRAINT person_calendar_pkey PRIMARY KEY (id),
+  CONSTRAINT person_calendar_code_key UNIQUE (code)
 );
 
 -- =====================================================
 -- INDEXES FOR PERFORMANCE
 -- =====================================================
 
+CREATE INDEX idx_person_calendar_availability ON app.person_calendar (person_id, from_ts)
   WHERE active_flag = true AND person_entity_type = 'employee' AND availability_flag = true;
 
 -- GIN index for JSONB metadata queries
+CREATE INDEX idx_person_calendar_metadata ON app.person_calendar USING GIN (metadata);
 
 -- =====================================================
 -- HELPER FUNCTION: Generate 15-minute slots for date range
@@ -161,7 +165,7 @@ BEGIN
         availability_flag,
         event_id
       ) VALUES (
-        v_code_base || '-' || to_char(v_slot_start, 'YYYYMMDD-HH24MI') || '-' || substr(p_person_id, 1, 8),
+        v_code_base || '-' || to_char(v_slot_start, 'YYYYMMDD-HH24MI') || '-' || substr(p_person_id::text, 1, 8),
         'Available Slot - ' || to_char(v_slot_start, 'YYYY-MM-DD HH24:MI'),
         p_person_entity_type,
         p_person_id,
@@ -203,7 +207,7 @@ BEGIN
 
   -- Generate slots for other active employees (first 10)
   FOR v_employee_id IN
-    SELECT id FROM app.d_employee
+    SELECT id FROM app.employee
     WHERE active_flag = true
       AND id != '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
     LIMIT 10
@@ -259,7 +263,7 @@ SET
   name = 'Emergency Plumbing Repair - Burst Pipe'
 WHERE person_entity_type = 'employee'
   AND person_id IN (
-    SELECT id FROM app.d_employee
+    SELECT id FROM app.employee
     WHERE department = 'Plumbing'
       AND active_flag = true
     LIMIT 1

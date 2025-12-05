@@ -132,7 +132,7 @@ FROM app.employee;
 
 -- Register customer entities
 INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
-SELECT 'cust', id, name, code
+SELECT 'customer', id, name, code
 FROM app.cust;
 
 -- Register role entities
