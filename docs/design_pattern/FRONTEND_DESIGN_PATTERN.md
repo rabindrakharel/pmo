@@ -1499,11 +1499,40 @@ const handleCellSave = useCallback((rowId, columnKey, record, valueOverride?) =>
 
 ### 9.4 Critical Behavioral Requirements for Inline Editing
 
-#### 9.4.1 Edit Modes (MUST support both)
+> **v13.0.0**: Cell-Isolated State Pattern - Industry standard used by AG Grid, Airtable, Notion, TanStack Table.
+
+#### 9.4.1 Architecture (Cell-Isolated State Pattern)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    Cell-Isolated Ephemeral State (v13.0.0)                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  User types in text field                                                    │
+│         │                                                                    │
+│         ▼                                                                    │
+│  DebouncedInput (maintains LOCAL state for instant feedback)                │
+│         │                                                                    │
+│         │  ← User sees instant feedback (ZERO parent updates)               │
+│         │                                                                    │
+│         ▼ (on blur/Enter - COMMIT ONLY)                                     │
+│  handleCellSave(rowId, columnKey, record, valueOverride)                    │
+│         │                                                                    │
+│         ▼                                                                    │
+│  Optimistic Update → Cache + API PATCH                                      │
+│                                                                              │
+│  RESULT: 0 re-renders during typing, instant feedback                       │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Principle**: Cell components own their local state during editing. Parent is only notified on COMMIT (blur/enter), not during typing.
+
+#### 9.4.2 Edit Modes (MUST support both)
 
 | Mode | Trigger | Behavior | State Used |
 |------|---------|----------|------------|
-| **Cell-Level** | Single-click cell | Edit THAT cell only | `editingCell`, `localCellValue` |
+| **Cell-Level** | Single-click cell | Edit THAT cell only | Cell-local state (DebouncedInput) |
 | **Row-Level** | Edit icon (✏️) or 'E' key | Edit entire row | `editingRow`, `editedData` |
 
 **Cell-Level Interactions:**
@@ -1515,18 +1544,66 @@ const handleCellSave = useCallback((rowId, columnKey, record, valueOverride?) =>
 - ✓/✕ buttons to save/cancel
 - `editedData` accumulates ALL field changes before save
 
-#### 9.4.2 Input Type Behaviors
+#### 9.4.3 Input Type Behaviors
 
 | Input Type | Behavior | Save Trigger | Parent Updates During Edit |
 |------------|----------|--------------|---------------------------|
-| **Text/Textarea** | DebouncedInput (300ms) | Blur or Enter | Only on commit |
+| **Text/Textarea** | DebouncedInput (300ms local) | Blur or Enter | Only on commit |
 | **Dropdown (BadgeDropdownSelect)** | Immediate | Selection click | Only on commit |
 | **EntityInstanceNameSelect** | Immediate | Selection click | Only on commit |
 | **Date/DateTime** | Immediate | Picker close | Only on commit |
 | **Checkbox** | Immediate | Click | Only on commit |
 | **File Upload** | Async | Upload complete | Only on commit |
 
-#### 9.4.3 Portal-Aware Click-Outside (Defense in Depth)
+#### 9.4.4 Implementation
+
+```typescript
+// handleCellValueChange is NO-OP for cell-level edits
+const handleCellValueChange = useCallback((_rowId: string, _columnKey: string, _value: any) => {
+  // NO-OP: Cell component (DebouncedInput) manages its own local state
+  // for instant UI feedback. Parent is only notified on COMMIT (blur/enter).
+}, []);
+
+// Text fields: DebouncedInput manages local state, calls handleCellSave on commit
+renderEditModeFromMetadata(
+  rawValue,  // ← Use rawValue only (DebouncedInput has its own local state)
+  metadata,
+  (val) => handleCellSave(recordId, column.key, record, val),
+  { autoFocus: isCellBeingEdited }
+);
+
+// Dropdowns: Direct save on selection (atomic action)
+<BadgeDropdownSelect
+  value={rawValue ?? ''}
+  options={badgeDropdownOptionsMap.get(column.key) || []}  // ← Pre-memoized
+  onChange={(value) => handleCellSave(recordId, column.key, record, value)}
+/>
+```
+
+#### 9.4.5 Memoization
+
+```typescript
+// Pre-memoize dropdown options to avoid .map() in render loop
+const badgeDropdownOptionsMap = useMemo(() => {
+  const optionsMap = new Map<string, Array<{
+    value: string | number;
+    label: string;
+    metadata: { color_code?: string };
+  }>>();
+
+  labelsMetadata.forEach((options, columnKey) => {
+    optionsMap.set(columnKey, options.map(opt => ({
+      value: opt.value,
+      label: opt.label,
+      metadata: { color_code: opt.colorClass }
+    })));
+  });
+
+  return optionsMap;
+}, [labelsMetadata]);
+```
+
+#### 9.4.6 Portal-Aware Click-Outside (Defense in Depth)
 
 ```
 REQUIREMENT: Dropdown menus render via createPortal to document.body
@@ -1536,7 +1613,7 @@ REQUIREMENT: Dropdown menus render via createPortal to document.body
 • Must NOT trigger handleCellSave when clicking inside portal
 ```
 
-#### 9.4.4 Value Resolution Priority
+#### 9.4.7 Value Resolution Priority
 
 ```typescript
 // handleCellSave value resolution (in order):
@@ -1546,18 +1623,7 @@ const valueToSave =
   editedData[columnKey]; // 3. Accumulated changes (row-level only)
 ```
 
-#### 9.4.5 State Variables Required
-
-| Variable | Purpose | Scope |
-|----------|---------|-------|
-| `editingCell` | `{ rowId, columnKey }` or `null` | Cell-level edit tracking |
-| `localCellValue` | Current value during cell edit | Single cell only |
-| `editedData` | Accumulated changes for row/add | Row-level & Add Row |
-| `editingRow` | Which row is in full edit mode | Row-level edit |
-| `isAddingRow` | Is current edit a new row? | Add Row flow |
-| `undoStack` | History for Ctrl+Z | Undo functionality |
-
-#### 9.4.6 Non-Negotiable Behaviors
+#### 9.4.8 Non-Negotiable Behaviors
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -1565,17 +1631,18 @@ const valueToSave =
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ✓ Dropdowns MUST save immediately (atomic action, no debounce)            │
-│  ✓ Text fields MUST debounce (reduce re-renders during typing)             │
+│  ✓ Text fields use DebouncedInput (local state for instant feedback)       │
 │  ✓ Undo MUST work (Cmd+Z restores previous value)                          │
 │  ✓ Tab navigation MUST work (spreadsheet convention)                       │
 │  ✓ Add Row MUST use editedData (accumulated for POST)                      │
 │  ✓ Cell Save MUST use valueOverride (avoid stale state)                    │
 │  ✓ Portal dropdowns MUST NOT close on option click                         │
+│  ✓ Virtualization supports 10K+ rows                                        │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-#### 9.4.7 Critical Flows That Must Continue Working
+#### 9.4.9 Critical Flows That Must Continue Working
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -1608,7 +1675,7 @@ const valueToSave =
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-#### 9.4.8 Dependencies on editedData
+#### 9.4.10 Dependencies on editedData
 
 | Feature | Uses `editedData`? | Safe to Remove During Cell Edit? |
 |---------|-------------------|----------------------------------|
@@ -1617,7 +1684,7 @@ const valueToSave =
 | Add Row save | **Yes** (accumulates) | ❌ No |
 | Undo | No (uses `undoStack`) | ✅ Yes |
 
-**Key Insight**: `editedData` is required for row-level and add-row flows. Performance optimizations should only remove its usage during cell-level keystroke updates, not eliminate it entirely.
+**Key Insight**: `editedData` is required for row-level and add-row flows. The Cell-Isolated State Pattern only affects cell-level keystroke updates, not row-level or add-row flows.
 
 ---
 
