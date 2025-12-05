@@ -14,9 +14,6 @@
  * FORMAT-AT-READ: Formatting happens in components via useMemo, not in hooks
  */
 
-export { useColumnVisibility } from './useColumnVisibility';
-export type { UseColumnVisibilityReturn } from './useColumnVisibility';
-
 // Reactive formatting with cache subscription
 export { useFormattedEntityData, useFormattedEntityDataAuto } from './useFormattedEntityData';
 export type { UseFormattedEntityDataResult } from './useFormattedEntityData';
@@ -39,11 +36,6 @@ export {
   useEntityInstanceNames,
   // Entity links
   useEntityLinks,
-  // Offline-first hooks (Dexie-only, no network)
-  useOfflineEntity,
-  useOfflineEntityList,
-  isEntityCached,
-  getCachedEntity,
   // Draft persistence (survives page refresh)
   useDraft,
   useRecoverDrafts,

@@ -133,7 +133,7 @@ export function PermissionManagementModal({ isOpen, onClose, onSave }: Permissio
         expires_ts: expiresAt || null,
       };
 
-      const response = await fetch(`${apiBaseUrl}/api/v1/rbac/grant-permission`, {
+      const response = await fetch(`${apiBaseUrl}/api/v1/entity_rbac/grant-permission`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

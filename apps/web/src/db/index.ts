@@ -41,11 +41,6 @@ export {
   // Single Entity
   useEntity,
   useEntityMutation,
-  // Offline Entity
-  useOfflineEntity,
-  useOfflineEntityList,
-  isEntityCached,
-  getCachedEntity,
   // Entity Links
   useEntityLinks,
   // Entity Instance Names

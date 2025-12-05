@@ -98,16 +98,16 @@ export function CalendarEventPopover({
 
   // Calculate position to keep popover on screen
   const getPopoverStyle = (): React.CSSProperties => {
-    const popoverWidth = 360;
-    const popoverHeight = 400;
-    const padding = 16;
+    const popoverWidth = 280;
+    const popoverHeight = 300;
+    const padding = 12;
 
-    let x = position.x + 10;
+    let x = position.x + 8;
     let y = position.y;
 
     // Adjust if too far right
     if (x + popoverWidth > window.innerWidth - padding) {
-      x = position.x - popoverWidth - 10;
+      x = position.x - popoverWidth - 8;
     }
 
     // Adjust if too far down
@@ -139,126 +139,85 @@ export function CalendarEventPopover({
       {/* Popover */}
       <div
         style={getPopoverStyle()}
-        className={`${colors.bg} ${colors.border} border-2 rounded-md shadow-sm w-[360px] overflow-hidden z-[1000]`}
+        className={`${colors.bg} ${colors.border} border rounded-md shadow-lg w-[280px] overflow-hidden z-[1000]`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className={`${colors.badge} px-4 py-3 flex items-start justify-between border-b ${colors.border}`}>
-          <div className="flex-1 pr-2">
-            <h3 className={`${colors.text} font-semibold text-base leading-tight`}>
-              {isAvailable ? 'Available Slot' : (event.title || 'Booked Appointment')}
-            </h3>
-            {!isAvailable && event.title && (
-              <p className={`${colors.text} opacity-75 text-sm mt-0.5`}>
-                {isBooked ? 'Appointment' : 'Event'}
-              </p>
-            )}
-          </div>
+        <div className={`${colors.badge} px-3 py-2 flex items-center justify-between border-b ${colors.border}`}>
+          <h3 className={`${colors.text} font-medium text-xs truncate flex-1`}>
+            {isAvailable ? 'Available' : (event.title || 'Booked')}
+          </h3>
           <button
             onClick={onClose}
-            className={`${colors.text} hover:opacity-70 transition-opacity flex-shrink-0`}
+            className={`${colors.text} hover:opacity-70 transition-opacity ml-2`}
             title="Close"
           >
-            <X className="h-5 w-5" />
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-4 space-y-3 bg-white">
+        <div className="p-2.5 space-y-2 bg-white">
           {/* Time Information */}
-          <div className="flex items-start gap-3">
-            <Clock className={`h-5 w-5 ${colors.text} flex-shrink-0 mt-0.5`} />
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-dark-600">
-                {formatDateTime(event.from_ts)}
-              </div>
-              <div className="text-sm text-dark-700 mt-1">
-                {formatTime(event.from_ts)} - {formatTime(event.to_ts)}
-              </div>
-              <div className="text-xs text-dark-700 mt-0.5">
-                Duration: {formatDuration(event.from_ts, event.to_ts)}
-              </div>
+          <div className="flex items-center gap-2">
+            <Clock className={`h-3.5 w-3.5 ${colors.text} flex-shrink-0`} />
+            <div className="flex-1 min-w-0 text-xs">
+              <span className="text-dark-600 font-medium">{formatTime(event.from_ts)} - {formatTime(event.to_ts)}</span>
+              <span className="text-dark-500 ml-1">({formatDuration(event.from_ts, event.to_ts)})</span>
             </div>
           </div>
 
           {/* Person Information */}
           {person && (
-            <div className="flex items-start gap-3">
-              <User className={`h-5 w-5 ${colors.text} flex-shrink-0 mt-0.5`} />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-dark-600">
-                  {person.name}
-                </div>
-                <div className="text-xs text-dark-700 mt-0.5">
-                  {person.type === 'employee' ? 'Employee' : 'Customer'}
-                  {person.email && ` • ${person.email}`}
-                </div>
+            <div className="flex items-center gap-2">
+              <User className={`h-3.5 w-3.5 ${colors.text} flex-shrink-0`} />
+              <div className="flex-1 min-w-0 text-xs truncate">
+                <span className="text-dark-600 font-medium">{person.name}</span>
+                <span className="text-dark-500 ml-1">({person.type === 'employee' ? 'Emp' : 'Cust'})</span>
               </div>
             </div>
           )}
 
           {/* Location/Medium (for booked appointments) */}
-          {!isAvailable && (
-            <>
-              {event.appointment_medium && (
-                <div className="flex items-start gap-3">
-                  {event.appointment_medium === 'onsite' ? (
-                    <MapPin className={`h-5 w-5 ${colors.text} flex-shrink-0 mt-0.5`} />
-                  ) : (
-                    <Video className={`h-5 w-5 ${colors.text} flex-shrink-0 mt-0.5`} />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-dark-600">
-                      {event.appointment_medium === 'onsite' ? 'On-site Meeting' : 'Virtual Meeting'}
-                    </div>
-                    {event.appointment_addr && (
-                      <div className="text-xs text-dark-700 mt-0.5 break-words">
-                        {event.appointment_addr}
-                      </div>
-                    )}
-                  </div>
-                </div>
+          {!isAvailable && event.appointment_medium && (
+            <div className="flex items-center gap-2">
+              {event.appointment_medium === 'onsite' ? (
+                <MapPin className={`h-3.5 w-3.5 ${colors.text} flex-shrink-0`} />
+              ) : (
+                <Video className={`h-3.5 w-3.5 ${colors.text} flex-shrink-0`} />
               )}
-
-              {/* Instructions */}
-              {event.instructions && (
-                <div className="flex items-start gap-3">
-                  <FileText className={`h-5 w-5 ${colors.text} flex-shrink-0 mt-0.5`} />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-dark-600">
-                      Special Instructions
-                    </div>
-                    <div className="text-xs text-dark-700 mt-0.5 whitespace-pre-wrap">
-                      {event.instructions}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
+              <div className="flex-1 min-w-0 text-xs truncate text-dark-600">
+                {event.appointment_medium === 'onsite' ? 'On-site' : 'Virtual'}
+                {event.appointment_addr && ` • ${event.appointment_addr}`}
+              </div>
+            </div>
           )}
 
-          {/* Status Badge */}
-          <div className="pt-2">
-            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colors.badge}`}>
-              {isAvailable ? '🟢 Available' : '🔴 Booked'}
-            </span>
-          </div>
+          {/* Instructions */}
+          {!isAvailable && event.instructions && (
+            <div className="flex items-start gap-2">
+              <FileText className={`h-3.5 w-3.5 ${colors.text} flex-shrink-0 mt-0.5`} />
+              <div className="flex-1 min-w-0 text-xs text-dark-600 line-clamp-2">
+                {event.instructions}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Actions */}
-        <div className="flex gap-2 p-3 bg-dark-50 border-t border-dark-200">
+        <div className="flex gap-1.5 p-2 bg-dark-50 border-t border-dark-200">
           <button
             onClick={() => onEdit(event)}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors text-sm font-medium"
+            className="flex-1 flex items-center justify-center gap-1 px-2 py-1 bg-slate-600 text-white rounded hover:bg-slate-700 transition-colors text-xs font-medium"
           >
-            <Edit2 className="h-3.5 w-3.5" />
+            <Edit2 className="h-3 w-3" />
             Edit
           </button>
           <button
             onClick={() => onDelete(event.id)}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm font-medium"
+            className="flex-1 flex items-center justify-center gap-1 px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-xs font-medium"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash2 className="h-3 w-3" />
             Delete
           </button>
         </div>

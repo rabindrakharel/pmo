@@ -73,6 +73,18 @@ export const QUERY_KEYS = {
   entityInstanceDataInfinite: (entityCode: string, params: Record<string, unknown>) =>
     ['entityInstanceDataInfinite', entityCode, params] as const,
 
+  /** Progressive entity list query key (cursor-based pagination v10.0.0) */
+  progressiveEntityList: (
+    entityCode: string,
+    params: Record<string, unknown>,
+    sortField: string,
+    sortOrder: string
+  ) => ['progressive', entityCode, params, sortField, sortOrder] as const,
+
+  /** Progressive entity list query key by entity code only (for invalidation) */
+  progressiveEntityListByCode: (entityCode: string) =>
+    ['progressive', entityCode] as const,
+
   // ────────────────────────────────────────────────────────────────────────
   // Draft Store
   // ────────────────────────────────────────────────────────────────────────

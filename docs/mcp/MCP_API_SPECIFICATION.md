@@ -1,34 +1,54 @@
-# PMO MCP API Specification
+# PMO MCP Implementation Guide
 
-> **Model Context Protocol (MCP) - Complete API Reference**
+> **Model Context Protocol (MCP) - Complete API Reference & Next-Generation Architecture**
 >
-> **Version:** 4.0.0
-> **Last Updated:** 2025-11-12
-> **Standards Compliance:** OpenAPI 3.1.0, MCP Protocol Specification
+> **Version:** 5.0.0
+> **Last Updated:** 2025-12-05
+> **Standards:** OpenAPI 3.1.0, MCP Protocol 2025-06
 > **Base URL:** `http://localhost:4000/api/v1`
+
+---
+
+## Executive Summary
+
+This document provides a comprehensive guide for the PMO Model Context Protocol (MCP) implementation, covering both the current REST API specification and the next-generation dynamic tool generation architecture.
+
+**Key Findings:**
+1. **MCP is the industry standard** - Adopted by OpenAI, Google DeepMind, and Anthropic
+2. **Dynamic tool generation from entity metadata** is the emerging pattern (Dynamics 365, ZenStack, ScaleMCP)
+3. **Streamable HTTP (stateless)** replaces HTTP+SSE for production scaling
+4. **Your entity-driven architecture is perfectly positioned** for next-gen MCP implementation
 
 ---
 
 ## Table of Contents
 
-1. [Overview](#overview)
-2. [Architecture](#architecture)
-3. [Authentication](#authentication)
-4. [API Categories](#api-categories)
-5. [Common Patterns](#common-patterns)
-6. [Error Handling](#error-handling)
-7. [Request/Response Examples](#requestresponse-examples)
-8. [OpenAPI Schema](#openapi-schema)
-9. [Integration Guide](#integration-guide)
-10. [Performance & Best Practices](#performance--best-practices)
+### Part 1: Current API Reference
+1. [Overview](#1-overview)
+2. [Architecture](#2-architecture)
+3. [Authentication](#3-authentication)
+4. [API Categories](#4-api-categories)
+5. [Common Patterns](#5-common-patterns)
+6. [Error Handling](#6-error-handling)
+7. [Request/Response Examples](#7-requestresponse-examples)
+
+### Part 2: Next-Generation Architecture
+8. [Industry Landscape Analysis](#8-industry-landscape-analysis)
+9. [Current vs Future Approaches](#9-current-vs-future-approaches)
+10. [Critical Problems to Solve](#10-critical-problems-to-solve)
+11. [Next-Gen Implementation](#11-next-gen-implementation)
+12. [Implementation Roadmap](#12-implementation-roadmap)
+13. [Production Considerations](#13-production-considerations)
 
 ---
+
+# Part 1: Current API Reference
 
 ## 1. Overview
 
 ### What is PMO MCP?
 
-The PMO MCP (Model Context Protocol) system provides a **standardized API abstraction layer** that converts the PMO Platform's 100+ REST endpoints into AI-accessible tools. It enables LLMs (Large Language Models) to execute business operations through structured function calling.
+The PMO MCP system provides a **standardized API abstraction layer** that converts the PMO Platform's 100+ REST endpoints into AI-accessible tools. It enables LLMs to execute business operations through structured function calling.
 
 ### Key Features
 
@@ -38,7 +58,6 @@ The PMO MCP (Model Context Protocol) system provides a **standardized API abstra
 - ✅ **JWT Authentication** - Secure token-based auth
 - ✅ **RBAC Integration** - Permission-aware operations
 - ✅ **Auto-Enrichment** - Context-aware parameter injection
-- ✅ **Session Memory** - Persistent conversation state
 
 ### Business Capabilities
 
@@ -68,7 +87,7 @@ The PMO MCP (Model Context Protocol) system provides a **standardized API abstra
           │                    │                 │
           │         ┌──────────▼──────────┐      │
           │         │  Session Memory     │      │
-          │         │  (LowDB/JSON)       │      │
+          │         │  (Context Store)    │      │
           │         └──────────┬──────────┘      │
           │                    │                 │
           └────────────────────┴─────────────────▼
@@ -103,7 +122,7 @@ The PMO MCP (Model Context Protocol) system provides a **standardized API abstra
                                │
                       ┌────────▼─────────┐
                       │   PostgreSQL     │
-                      │   (52 tables)    │
+                      │   (50 tables)    │
                       └──────────────────┘
 ```
 
@@ -151,26 +170,9 @@ The PMO MCP (Model Context Protocol) system provides a **standardized API abstra
           └─────────────────────────────┘
 ```
 
-### OpenAPI Security Schema
-
-```yaml
-components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: JWT token obtained from /auth/login endpoint
-
-security:
-  - bearerAuth: []
-```
-
 ### Authentication Endpoints
 
 #### POST /api/v1/auth/login
-
-**Description:** Authenticate user and obtain JWT token
 
 **Request Body:**
 ```json
@@ -196,8 +198,6 @@ security:
 
 #### GET /api/v1/auth/profile
 
-**Description:** Get authenticated user profile
-
 **Response (200 OK):**
 ```json
 {
@@ -219,8 +219,6 @@ security:
 
 ### 4.1 Customer Management
 
-#### Endpoints
-
 | Method | Path | Description | MCP Tool Name |
 |--------|------|-------------|---------------|
 | GET | `/api/v1/cust` | List customers | `customer_list` |
@@ -229,122 +227,7 @@ security:
 | PUT | `/api/v1/cust/:id` | Update customer | `customer_update` |
 | DELETE | `/api/v1/cust/:id` | Delete customer | `customer_delete` |
 
-#### OpenAPI Schema - customer_create
-
-```yaml
-paths:
-  /api/v1/cust:
-    post:
-      operationId: customer_create
-      summary: Create new customer profile
-      description: |
-        Creates a new customer with contact information and address.
-        Only name is required; all other fields are optional.
-      tags:
-        - Customer
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - name
-              properties:
-                name:
-                  type: string
-                  description: Customer full name (REQUIRED)
-                  example: "John Doe"
-                primary_phone:
-                  type: string
-                  description: Primary phone number
-                  example: "+1 234 567 8900"
-                primary_email:
-                  type: string
-                  format: email
-                  description: Primary email address
-                  example: "john.doe@example.com"
-                primary_address:
-                  type: string
-                  description: Street address
-                  example: "353531 Edmonton Avenue"
-                city:
-                  type: string
-                  description: City name
-                  example: "Palo Alto"
-                province:
-                  type: string
-                  description: Province/State (defaults to ON)
-                  example: "CA"
-                postal_code:
-                  type: string
-                  description: Postal/ZIP code
-                  example: "94301"
-                country:
-                  type: string
-                  description: Country (defaults to Canada)
-                  example: "USA"
-      responses:
-        '201':
-          description: Customer created successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Customer'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-```
-
-#### Example: Create Customer
-
-**Request:**
-```http
-POST /api/v1/cust HTTP/1.1
-Host: localhost:4000
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-Content-Type: application/json
-
-{
-  "name": "Jane Smith",
-  "primary_phone": "+1 555 123 4567",
-  "primary_email": "jane.smith@example.com",
-  "primary_address": "789 Goodrich Road",
-  "city": "Minneapolis",
-  "province": "Minnesota",
-  "postal_code": "55437",
-  "country": "USA"
-}
-```
-
-**Response (201 Created):**
-```json
-{
-  "id": "cust-uuid-123",
-  "name": "Jane Smith",
-  "primary_phone": "+1 555 123 4567",
-  "primary_email": "jane.smith@example.com",
-  "primary_address": "789 Goodrich Road",
-  "city": "Minneapolis",
-  "province": "Minnesota",
-  "postal_code": "55437",
-  "country": "USA",
-  "created_ts": "2025-11-12T10:30:00Z",
-  "updated_ts": "2025-11-12T10:30:00Z",
-  "active_flag": true
-}
-```
-
----
-
 ### 4.2 Task Management
-
-#### Endpoints
 
 | Method | Path | Description | MCP Tool Name |
 |--------|------|-------------|---------------|
@@ -358,84 +241,7 @@ Content-Type: application/json
 | POST | `/api/v1/task/:id/case-note` | Add case note | `task_add_case_note` |
 | GET | `/api/v1/task/:id/activity` | Get task activity | `task_get_activity` |
 
-#### OpenAPI Schema - task_create
-
-```yaml
-paths:
-  /api/v1/task:
-    post:
-      operationId: task_create
-      summary: Create new task
-      description: |
-        Creates a new task with auto-enrichment from session context.
-        MCP Agent automatically injects customer data and conversation history.
-      tags:
-        - Task
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - name
-              properties:
-                name:
-                  type: string
-                  description: Task name/title
-                  example: "Fix plumbing leak"
-                code:
-                  type: string
-                  description: Task code/identifier
-                  example: "TASK-2025-001"
-                descr:
-                  type: string
-                  description: |
-                    Task description. Auto-enriched by MCP with:
-                    - Customer information
-                    - Service request details
-                    - Conversation history
-                  example: "## Customer Information\n- Name: John Doe\n- Phone: +1 555 1234\n\n## Service Request\n- Issue: Plumbing leak\n\n## Conversation History\n..."
-                dl__task_stage:
-                  type: string
-                  description: Task stage from settings
-                  enum: [backlog, in_progress, blocked, done, cancelled]
-                  example: "backlog"
-                dl__task_priority:
-                  type: string
-                  description: Task priority from settings
-                  enum: [low, medium, high, urgent]
-                  example: "high"
-                estimated_hours:
-                  type: number
-                  description: Estimated hours to complete
-                  example: 4
-                metadata:
-                  type: object
-                  description: Additional metadata (project_id, customer_id, etc.)
-                  example:
-                    project_id: "proj-uuid"
-                    customer_id: "cust-uuid"
-      responses:
-        '201':
-          description: Task created successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Task'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-```
-
----
-
 ### 4.3 Calendar & Booking
-
-#### Endpoints
 
 | Method | Path | Description | MCP Tool Name |
 |--------|------|-------------|---------------|
@@ -444,82 +250,7 @@ paths:
 | GET | `/api/v1/person-calendar/:id` | Get booking details | `person_calendar_get` |
 | DELETE | `/api/v1/person-calendar/:id` | Cancel booking | `person_calendar_cancel` |
 
-#### OpenAPI Schema - person_calendar_book
-
-```yaml
-paths:
-  /api/v1/person-calendar/book:
-    post:
-      operationId: person_calendar_book
-      summary: Book calendar appointment
-      description: |
-        Books a calendar appointment with auto-enrichment:
-        - Task reference from session context
-        - Attendees list (customer + employee)
-        - Service details
-      tags:
-        - Calendar
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - slot_ids
-                - title
-              properties:
-                slot_ids:
-                  type: array
-                  items:
-                    type: string
-                  description: Array of availability slot IDs
-                  example: ["slot-uuid-1", "slot-uuid-2"]
-                title:
-                  type: string
-                  description: Appointment title
-                  example: "Service: Plumbing Repair"
-                instructions:
-                  type: string
-                  description: |
-                    Special instructions. Auto-enriched with:
-                    - Task ID and details
-                    - Customer information
-                    - Service request
-                  example: "Task ID: task-uuid\nCustomer: John Doe\nPhone: +1 555 1234"
-                metadata:
-                  type: object
-                  description: |
-                    Metadata with auto-enriched attendees array:
-                    - Customer (name, phone, email, type: customer)
-                    - Employee (name, email, type: employee)
-                  example:
-                    attendees:
-                      - name: "John Doe"
-                        email: null
-                        phone: "+1 555 1234"
-                        type: "customer"
-                      - name: "Jane Tech"
-                        email: "jane@example.com"
-                        type: "employee"
-                    task_id: "task-uuid"
-                    service_type: "plumbing_service"
-      responses:
-        '201':
-          description: Appointment booked successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CalendarBooking'
-```
-
----
-
 ### 4.4 Project Management
-
-#### Endpoints
 
 | Method | Path | Description | MCP Tool Name |
 |--------|------|-------------|---------------|
@@ -528,14 +259,8 @@ paths:
 | POST | `/api/v1/project` | Create project | `project_create` |
 | PUT | `/api/v1/project/:id` | Update project | `project_update` |
 | GET | `/api/v1/project/:id/tasks` | Get project tasks | `project_get_tasks` |
-| GET | `/api/v1/project/:id/wiki` | Get project wiki | `project_get_wiki` |
-| GET | `/api/v1/project/:id/artifacts` | Get project artifacts | `project_get_artifacts` |
-
----
 
 ### 4.5 Financial Operations
-
-#### Endpoints
 
 | Method | Path | Description | MCP Tool Name |
 |--------|------|-------------|---------------|
@@ -544,11 +269,7 @@ paths:
 | GET | `/api/v1/revenue` | List revenue entries | `revenue_list` |
 | GET | `/api/v1/invoice` | List invoices | `invoice_list` |
 
----
-
 ### 4.6 Entity Linkage
-
-#### Endpoints
 
 | Method | Path | Description | MCP Tool Name |
 |--------|------|-------------|---------------|
@@ -556,67 +277,11 @@ paths:
 | POST | `/api/v1/entity-linkage` | Create linkage | `linkage_create` |
 | DELETE | `/api/v1/entity-linkage/:id` | Delete linkage | `linkage_delete` |
 
-#### OpenAPI Schema - linkage_create
-
-```yaml
-paths:
-  /api/v1/entity-linkage:
-    post:
-      operationId: linkage_create
-      summary: Create entity linkage
-      description: |
-        Creates a relationship between two entities (parent-child).
-        Stored in entity_instance_link table.
-      tags:
-        - Linkage
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - parent_entity_code
-                - parent_entity_id
-                - child_entity_code
-                - child_entity_id
-              properties:
-                parent_entity_code:
-                  type: string
-                  description: Parent entity type
-                  example: "project"
-                parent_entity_id:
-                  type: string
-                  format: uuid
-                  description: Parent entity UUID
-                  example: "proj-uuid-123"
-                child_entity_code:
-                  type: string
-                  description: Child entity type
-                  example: "task"
-                child_entity_id:
-                  type: string
-                  format: uuid
-                  description: Child entity UUID
-                  example: "task-uuid-456"
-                relationship_type:
-                  type: string
-                  description: Type of relationship
-                  example: "belongs_to"
-      responses:
-        '201':
-          description: Linkage created successfully
-```
-
 ---
 
 ## 5. Common Patterns
 
 ### 5.1 Pagination
-
-All list endpoints support pagination:
 
 **Query Parameters:**
 ```
@@ -664,7 +329,6 @@ MCP automatically enriches certain tool calls with session context:
 | `task_create` | Customer data + conversation history | Session memory |
 | `customer_create` | Fine-grained address mapping | Data extraction agent |
 | `person_calendar_book` | Task reference + attendees | Session context |
-| `customer_update` | Incremental field updates | Data extraction agent |
 
 ---
 
@@ -683,7 +347,7 @@ MCP automatically enriches certain tool calls with session context:
     }
   },
   "statusCode": 400,
-  "timestamp": "2025-11-12T10:30:00Z"
+  "timestamp": "2025-12-05T10:30:00Z"
 }
 ```
 
@@ -699,74 +363,11 @@ MCP automatically enriches certain tool calls with session context:
 | 422 | `VALIDATION_ERROR` | Request validation failed |
 | 500 | `INTERNAL_SERVER_ERROR` | Server error |
 
-### OpenAPI Error Schemas
-
-```yaml
-components:
-  responses:
-    BadRequest:
-      description: Bad request - Invalid parameters
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-
-    Unauthorized:
-      description: Unauthorized - Missing or invalid token
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-
-    Forbidden:
-      description: Forbidden - Insufficient permissions
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-
-    NotFound:
-      description: Not found - Resource does not exist
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-
-  schemas:
-    Error:
-      type: object
-      required:
-        - error
-        - statusCode
-      properties:
-        error:
-          type: object
-          required:
-            - code
-            - message
-          properties:
-            code:
-              type: string
-              example: "VALIDATION_ERROR"
-            message:
-              type: string
-              example: "Invalid request parameters"
-            details:
-              type: object
-              additionalProperties: true
-        statusCode:
-          type: integer
-          example: 400
-        timestamp:
-          type: string
-          format: date-time
-```
-
 ---
 
 ## 7. Request/Response Examples
 
-### Example 1: Complete Customer Service Flow
+### Complete Customer Service Flow
 
 #### Step 1: Authenticate
 ```http
@@ -787,25 +388,7 @@ Content-Type: application/json
 }
 ```
 
-#### Step 2: Search for Customer
-```http
-GET /api/v1/cust?query_primary_phone=+15551234567
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
-
-**Response (Customer Not Found):**
-```json
-{
-  "results": [],
-  "pagination": {
-    "total": 0,
-    "page": 1,
-    "limit": 20
-  }
-}
-```
-
-#### Step 3: Create Customer
+#### Step 2: Create Customer
 ```http
 POST /api/v1/cust
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -816,9 +399,7 @@ Content-Type: application/json
   "primary_phone": "+1 555 123 4567",
   "primary_address": "789 Goodrich Road",
   "city": "Minneapolis",
-  "province": "Minnesota",
-  "postal_code": "55437",
-  "country": "USA"
+  "province": "Minnesota"
 }
 ```
 
@@ -828,16 +409,11 @@ Content-Type: application/json
   "id": "cust-uuid-789",
   "name": "Mike Johnson",
   "primary_phone": "+1 555 123 4567",
-  "primary_address": "789 Goodrich Road",
-  "city": "Minneapolis",
-  "province": "Minnesota",
-  "postal_code": "55437",
-  "country": "USA",
-  "created_ts": "2025-11-12T10:30:00Z"
+  "created_ts": "2025-12-05T10:30:00Z"
 }
 ```
 
-#### Step 4: Create Task (Auto-Enriched)
+#### Step 3: Create Task (Auto-Enriched)
 ```http
 POST /api/v1/task
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -850,450 +426,700 @@ Content-Type: application/json
 }
 ```
 
-**MCP Auto-Enrichment (behind the scenes):**
+**MCP Auto-Enrichment (injected automatically):**
 ```json
 {
   "name": "Backyard assistance - Mike Johnson",
-  "descr": "## Customer Information\n- Name: Mike Johnson\n- Phone: +1 555 123 4567\n- Address: 789 Goodrich Road, Minneapolis, Minnesota, 55437\n\n## Service Request\n- Request: Backyard assistance\n\n## Conversation History\nExchange 1:\nCustomer: I need help with my backyard\nAgent: I can help with that. What's your name and phone number?...",
+  "descr": "## Customer Information\n- Name: Mike Johnson\n- Phone: +1 555 123 4567\n- Address: 789 Goodrich Road, Minneapolis\n\n## Service Request\n- Request: Backyard assistance",
   "dl__task_stage": "backlog",
   "dl__task_priority": "high",
   "metadata": {
     "customer_id": "cust-uuid-789",
-    "session_id": "session-uuid",
-    "conversation_length": 5
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "id": "task-uuid-456",
-  "name": "Backyard assistance - Mike Johnson",
-  "descr": "## Customer Information\n...",
-  "dl__task_stage": "backlog",
-  "dl__task_priority": "high",
-  "created_ts": "2025-11-12T10:35:00Z"
-}
-```
-
-#### Step 5: Book Calendar Appointment (Auto-Enriched)
-```http
-POST /api/v1/person-calendar/book
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-Content-Type: application/json
-
-{
-  "slot_ids": ["slot-uuid-1"],
-  "title": "Service: Backyard assistance"
-}
-```
-
-**MCP Auto-Enrichment:**
-```json
-{
-  "slot_ids": ["slot-uuid-1"],
-  "title": "Service: Backyard assistance",
-  "instructions": "Task ID: task-uuid-456\nTask: Backyard assistance\nCustomer: Mike Johnson\nPhone: +1 555 123 4567\nAddress: 789 Goodrich Road, Minneapolis, MN",
-  "metadata": {
-    "attendees": [
-      {
-        "name": "Mike Johnson",
-        "email": null,
-        "phone": "+1 555 123 4567",
-        "type": "customer"
-      },
-      {
-        "name": "John Doe",
-        "email": "john.doe@huronhome.ca",
-        "type": "employee"
-      }
-    ],
-    "task_id": "task-uuid-456",
-    "service_type": "backyard_service"
+    "session_id": "session-uuid"
   }
 }
 ```
 
 ---
 
-## 8. OpenAPI Schema
+# Part 2: Next-Generation Architecture
 
-### Complete OpenAPI 3.1.0 Specification
+## 8. Industry Landscape Analysis
 
-```yaml
-openapi: 3.1.0
-info:
-  title: PMO MCP API
-  version: 4.0.0
-  description: |
-    Model Context Protocol (MCP) API for the PMO Enterprise Platform.
-    Provides AI-accessible tools for project management, customer service,
-    task tracking, scheduling, and financial operations.
-  contact:
-    name: PMO Platform Team
-    email: support@huronhome.ca
-  license:
-    name: MIT
-    url: https://opensource.org/licenses/MIT
+### 8.1 MCP Protocol Evolution (2024-2025)
 
-servers:
-  - url: http://localhost:4000/api/v1
-    description: Local development server
-  - url: http://100.26.224.246:4000/api/v1
-    description: Production server
+| Date | Milestone | Impact |
+|------|-----------|--------|
+| Nov 2024 | Anthropic launches MCP | Open standard for AI-tool integration |
+| Jan 2025 | OpenAI adopts MCP | Cross-platform standardization |
+| Mar 2025 | Streamable HTTP transport | Stateless servers for horizontal scaling |
+| Jun 2025 | OAuth authorization + Tool annotations | Enterprise security + behavior metadata |
+| Sep 2025 | MCP Registry launched | Discovery and cataloging of servers |
 
-tags:
-  - name: Authentication
-    description: User authentication and authorization
-  - name: Customer
-    description: Customer profile management
-  - name: Task
-    description: Task and workflow management
-  - name: Project
-    description: Project management
-  - name: Calendar
-    description: Appointment booking and scheduling
-  - name: Employee
-    description: Employee management
-  - name: Financial
-    description: Cost, revenue, and invoice tracking
-  - name: Linkage
-    description: Entity relationship management
-  - name: Settings
-    description: System settings and configuration
-  - name: RBAC
-    description: Role-based access control
+### 8.2 Industry Pioneers & Their Approaches
 
-components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: JWT token obtained from /auth/login
+#### Microsoft Dynamics 365 MCP Server
+**Pattern:** Dynamic Tool Generation from Entity Schema
 
-  schemas:
-    Customer:
-      type: object
-      required:
-        - id
-        - name
-      properties:
-        id:
-          type: string
-          format: uuid
-          description: Customer UUID
-        name:
-          type: string
-          description: Customer full name
-        primary_phone:
-          type: string
-          description: Primary phone number
-        primary_email:
-          type: string
-          format: email
-          description: Primary email address
-        primary_address:
-          type: string
-          description: Street address
-        city:
-          type: string
-        province:
-          type: string
-        postal_code:
-          type: string
-        country:
-          type: string
-        created_ts:
-          type: string
-          format: date-time
-        updated_ts:
-          type: string
-          format: date-time
-        active_flag:
-          type: boolean
-
-    Task:
-      type: object
-      required:
-        - id
-        - name
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        code:
-          type: string
-        descr:
-          type: string
-        dl__task_stage:
-          type: string
-          enum: [backlog, in_progress, blocked, done, cancelled]
-        dl__task_priority:
-          type: string
-          enum: [low, medium, high, urgent]
-        estimated_hours:
-          type: number
-        actual_hours:
-          type: number
-        metadata:
-          type: object
-          additionalProperties: true
-        created_ts:
-          type: string
-          format: date-time
-        updated_ts:
-          type: string
-          format: date-time
-
-    CalendarBooking:
-      type: object
-      required:
-        - id
-        - title
-        - slot_ids
-      properties:
-        id:
-          type: string
-          format: uuid
-        title:
-          type: string
-        instructions:
-          type: string
-        slot_ids:
-          type: array
-          items:
-            type: string
-            format: uuid
-        metadata:
-          type: object
-          properties:
-            attendees:
-              type: array
-              items:
-                type: object
-                properties:
-                  name:
-                    type: string
-                  email:
-                    type: string
-                    format: email
-                  phone:
-                    type: string
-                  type:
-                    type: string
-                    enum: [customer, employee]
-            task_id:
-              type: string
-              format: uuid
-            service_type:
-              type: string
-
-    Error:
-      type: object
-      required:
-        - error
-        - statusCode
-      properties:
-        error:
-          type: object
-          required:
-            - code
-            - message
-          properties:
-            code:
-              type: string
-            message:
-              type: string
-            details:
-              type: object
-              additionalProperties: true
-        statusCode:
-          type: integer
-        timestamp:
-          type: string
-          format: date-time
-
-security:
-  - bearerAuth: []
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Dynamics 365 API                                            │
+│  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐       │
+│  │   Account   │   │   Contact   │   │ Opportunity │  ...   │
+│  └──────┬──────┘   └──────┬──────┘   └──────┬──────┘       │
+│         │                 │                 │               │
+│         └─────────────────┼─────────────────┘               │
+│                           │                                 │
+│                    ┌──────▼──────┐                          │
+│                    │  Schema     │ ← Real-time introspection│
+│                    │ Discovery   │                          │
+│                    └──────┬──────┘                          │
+│                           │                                 │
+│              ┌────────────┼────────────┐                    │
+│              │            │            │                    │
+│        ┌─────▼────┐ ┌─────▼────┐ ┌─────▼────┐              │
+│        │ _create  │ │ _read    │ │ _list    │              │
+│        │ _update  │ │ _delete  │ │ _search  │              │
+│        └──────────┘ └──────────┘ └──────────┘              │
+└─────────────────────────────────────────────────────────────┘
 ```
 
----
+**Strengths:** Zero manual tool definition, always in sync with schema
+**Weaknesses:** Tool explosion (100+ entities = 600+ tools), no semantic grouping
 
-## 9. Integration Guide
-
-### 9.1 MCP Client Setup
-
-#### Node.js/TypeScript
+#### ZenStack (Database-to-MCP)
+**Pattern:** Schema-Driven Tool Generation with Access Control
 
 ```typescript
-import { MCPClient } from '@modelcontextprotocol/sdk';
+// ZModel schema defines both structure AND permissions
+model Project {
+  id        String   @id
+  name      String
+  owner     User     @relation(fields: [ownerId])
 
-const client = new MCPClient({
-  serverUrl: 'http://localhost:4000',
-  apiVersion: 'v1'
-});
-
-// Authenticate
-const { token } = await client.authenticate({
-  email: 'user@example.com',
-  password: 'password123'
-});
-
-// Call MCP tools
-const customer = await client.executeTool('customer_create', {
-  name: 'Jane Doe',
-  primary_phone: '+1 555 9999',
-  city: 'Toronto'
-});
+  @@allow('read', owner == auth())
+  @@allow('create', auth() != null)
+  @@allow('update', owner == auth())
+}
 ```
 
-#### Python
+**Innovation:** Access control policies baked into tool definitions - LLM can't even see tools it can't use.
 
-```python
-import requests
+#### ScaleMCP (Auto-Synchronizing Tool Storage)
+**Pattern:** Agent-Managed Tool Memory with CRUD Operations
 
-# Authenticate
-response = requests.post(
-    'http://localhost:4000/api/v1/auth/login',
-    json={'email': 'user@example.com', 'password': 'password123'}
-)
-token = response.json()['token']
+**Innovation:** Agents manage their own tool set dynamically, loading only what's needed.
 
-# Create customer
-response = requests.post(
-    'http://localhost:4000/api/v1/cust',
-    headers={'Authorization': f'Bearer {token}'},
-    json={
-        'name': 'Jane Doe',
-        'primary_phone': '+1 555 9999',
-        'city': 'Toronto'
+### 8.3 Production Deployment Patterns
+
+| Pattern | Use Case | Pros | Cons |
+|---------|----------|------|------|
+| **Stdio (Local)** | Development, Claude Desktop | Simple, fast | No network, single user |
+| **HTTP+SSE** | Early production | Streaming support | Persistent connections, scaling issues |
+| **Streamable HTTP** | Enterprise production | Stateless, horizontal scaling | Newer, less tooling |
+| **WebSocket** | Real-time bidirectional | Full duplex | Connection management complexity |
+
+**Industry Consensus (2025):** Streamable HTTP is the production standard for new deployments.
+
+---
+
+## 9. Current vs Future Approaches
+
+### 9.1 Current PMO MCP Approach (v4.0.0)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  Current Architecture                        │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  Static Tool Definitions (100+ manually defined)            │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │ customer_list, customer_get, customer_create...     │    │
+│  │ task_list, task_get, task_create, task_kanban...    │    │
+│  │ (Manually maintained for each endpoint)             │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                           │                                  │
+│                           ▼                                  │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │           MCP Adapter (Manual Mapping)               │    │
+│  │  • Hand-coded tool definitions                       │    │
+│  │  • Static OpenAPI schemas                            │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Issues:**
+1. **Maintenance Burden:** 100+ tool definitions manually maintained
+2. **Schema Drift:** OpenAPI specs can diverge from actual API behavior
+3. **No Dynamic Discovery:** New entities require manual tool creation
+4. **Context Bloat:** All tools loaded regardless of task
+5. **No Permission-Aware Tools:** LLM sees tools it can't use
+
+### 9.2 Next-Generation Approach (Proposed v5.0.0)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              Next-Generation Architecture                    │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  Entity Metadata (app.entity table)                         │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │ code: 'project', db_table: 'project', ui_label: ... │    │
+│  │ code: 'task', db_table: 'task', child_codes: [...]  │    │
+│  │ (27+ entities, auto-discovered)                     │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                           │                                  │
+│              ┌────────────┼────────────┐                    │
+│              │            │            │                    │
+│              ▼            ▼            ▼                    │
+│  ┌────────────────┐ ┌────────────────┐ ┌────────────────┐  │
+│  │ Schema Service │ │ RBAC Service   │ │ Pattern YAML   │  │
+│  │ (field types)  │ │ (permissions)  │ │ (field meta)   │  │
+│  └────────────────┘ └────────────────┘ └────────────────┘  │
+│              │            │            │                    │
+│              └────────────┼────────────┘                    │
+│                           │                                  │
+│              ┌────────────▼────────────┐                    │
+│              │   Dynamic Tool Factory   │                    │
+│              │  • Generates tools from  │                    │
+│              │    entity metadata       │                    │
+│              │  • RBAC-filtered tools   │                    │
+│              │  • Rich descriptions     │                    │
+│              └────────────┬────────────┘                    │
+│                           │                                  │
+│              ┌────────────▼────────────┐                    │
+│              │    MCP Server Layer      │                    │
+│              │  ┌─────────────────────┐ │                    │
+│              │  │ Streamable HTTP     │ │ ← Stateless       │
+│              │  │ Tool Annotations    │ │ ← Behavior hints  │
+│              │  │ OAuth 2.0 + RFC8707 │ │ ← Enterprise auth │
+│              │  └─────────────────────┘ │                    │
+│              └────────────┬────────────┘                    │
+│                           │                                  │
+│              ┌────────────▼────────────┐                    │
+│              │  Universal CRUD Factory  │ ← Your existing!  │
+│              │  (already entity-driven) │                    │
+│              └─────────────────────────┘                    │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 9.3 Feature Comparison Matrix
+
+| Feature | Current (v4) | Next-Gen (v5) | Industry Leaders |
+|---------|--------------|---------------|------------------|
+| Tool Definition | Manual (100+) | Auto-generated | Dynamics 365, ZenStack |
+| Schema Source | Static YAML | Entity metadata | ScaleMCP |
+| RBAC Integration | Post-call check | Pre-filter tools | ZenStack |
+| Field Metadata | Hardcoded | YAML pattern detection | PMO unique advantage |
+| Transport | HTTP REST | Streamable HTTP | Anthropic standard |
+| Tool Discovery | Static list | Dynamic + semantic | ScaleMCP |
+| Context Efficiency | All tools (72K tokens) | Task-relevant (5-10K) | ScaleMCP |
+| Stateless Scaling | No | Yes | Anthropic production |
+
+---
+
+## 10. Critical Problems to Solve
+
+### 10.1 The Tool Explosion Problem
+
+**Problem:** With 27+ entities × 6 CRUD operations = 162+ base tools, plus child entity endpoints, you could have 200+ tools. Anthropic research shows 50+ tools consume 72K tokens (38.5% of context).
+
+**Solution: Semantic Tool Grouping**
+```typescript
+// Instead of 6 individual tools per entity, create 1 composite tool:
+{
+  name: "entity_operation",
+  description: "Perform CRUD operations on any entity",
+  inputSchema: {
+    type: "object",
+    properties: {
+      entity_type: { enum: ["project", "task", "employee", ...] },
+      operation: { enum: ["list", "get", "create", "update", "delete"] },
+      id: { type: "string", description: "Required for get/update/delete" },
+      data: { type: "object", description: "Required for create/update" },
+      filters: { type: "object", description: "Optional for list" }
     }
-)
-customer = response.json()
+  }
+}
 ```
 
-### 9.2 AI Agent Integration
+**Token Reduction:** 162 tools → 1 tool + entity enum = ~95% reduction
 
-#### OpenAI Function Calling
+### 10.2 The Permission Visibility Problem
+
+**Problem:** LLM receives tools for operations the user can't perform, wasting context and causing failed calls.
+
+**Solution:** RBAC-filtered tool list per user session:
 
 ```typescript
-import OpenAI from 'openai';
-import { getMCPTools, executeMCPTool } from './mcp-adapter';
+// MCP tool list handler with RBAC filtering
+server.setRequestHandler(ListToolsRequestSchema, async (request) => {
+  const userId = request.meta?.userId;
+  const entityInfra = getEntityInfrastructure(db);
+  const tools = [];
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  for (const entity of ALL_ENTITIES) {
+    const canCreate = await entityInfra.check_entity_rbac(
+      userId, entity.code, ALL_ENTITIES_ID, Permission.CREATE
+    );
+    if (canCreate) {
+      tools.push(generateCreateTool(entity));
+    }
+    // ... similar for VIEW, EDIT, DELETE
+  }
 
-// Get MCP tools formatted for OpenAI
-const tools = getMCPTools({
-  categories: ['Customer', 'Task', 'Calendar']
+  return { tools };
 });
-
-// Create chat completion with function calling
-const response = await openai.chat.completions.create({
-  model: 'gpt-4o-mini',
-  messages: [
-    { role: 'system', content: 'You are a customer service assistant.' },
-    { role: 'user', content: 'Create a customer named John Smith' }
-  ],
-  tools,
-  tool_choice: 'auto'
-});
-
-// Execute tool if LLM decided to call one
-if (response.choices[0].message.tool_calls) {
-  const toolCall = response.choices[0].message.tool_calls[0];
-  const result = await executeMCPTool(
-    toolCall.function.name,
-    JSON.parse(toolCall.function.arguments),
-    authToken
-  );
-}
 ```
 
 ---
 
-## 10. Performance & Best Practices
+## 11. Next-Gen Implementation
 
-### 10.1 Performance Metrics
+### 11.1 Complete System Architecture
 
-| Operation | Avg Latency | Token Usage | Cost |
-|-----------|------------|-------------|------|
-| Authentication | ~100ms | - | - |
-| Simple query (GET) | ~150ms | 500-1000 | $0.0001 |
-| Create operation (POST) | ~200ms | 800-1500 | $0.0002 |
-| Complex query (JOIN) | ~300ms | 1500-3000 | $0.0004 |
-| Auto-enriched creation | ~400ms | 2000-4000 | $0.0006 |
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     AI APPLICATION LAYER                                 │
+│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐               │
+│  │ Claude Agent  │  │ OpenAI Agent  │  │ Custom Agent  │               │
+│  │ (Claude Code) │  │ (GPT-4)       │  │ (LangChain)   │               │
+│  └───────┬───────┘  └───────┬───────┘  └───────┬───────┘               │
+│          │                  │                  │                        │
+│          └──────────────────┼──────────────────┘                        │
+│                             │                                           │
+│                             ▼                                           │
+│          ┌──────────────────────────────────────┐                       │
+│          │      MCP Client (Anthropic SDK)      │                       │
+│          │  • Streamable HTTP transport         │                       │
+│          │  • OAuth 2.0 token management        │                       │
+│          └──────────────────┬───────────────────┘                       │
+│                             │                                           │
+└─────────────────────────────┼───────────────────────────────────────────┘
+                              │
+                              │ HTTPS (Streamable HTTP)
+                              │
+┌─────────────────────────────▼───────────────────────────────────────────┐
+│                     MCP SERVER LAYER                                     │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │                    PMO MCP Server (TypeScript)                    │   │
+│  │  ┌────────────────────────────────────────────────────────────┐  │   │
+│  │  │  Transport: Streamable HTTP (Fastify plugin or standalone) │  │   │
+│  │  └────────────────────────────────────────────────────────────┘  │   │
+│  │                                                                   │   │
+│  │  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐        │   │
+│  │  │ Tool Registry │  │ Resource      │  │ Prompt        │        │   │
+│  │  │ (Dynamic)     │  │ Provider      │  │ Templates     │        │   │
+│  │  └───────┬───────┘  └───────┬───────┘  └───────┬───────┘        │   │
+│  │          │                  │                  │                 │   │
+│  │          ▼                  ▼                  ▼                 │   │
+│  │  ┌────────────────────────────────────────────────────────────┐  │   │
+│  │  │              Entity Tool Factory                            │  │   │
+│  │  │  • Reads app.entity table                                  │  │   │
+│  │  │  • Generates CRUD tools dynamically                        │  │   │
+│  │  │  • RBAC-filters per user session                           │  │   │
+│  │  │  • Rich descriptions from YAML patterns                    │  │   │
+│  │  └────────────────────────────────────────────────────────────┘  │   │
+│  │                                                                   │   │
+│  │  ┌────────────────────────────────────────────────────────────┐  │   │
+│  │  │              Tool Annotations (MCP 2025-06)                 │  │   │
+│  │  │  • readOnlyHint: true/false                                │  │   │
+│  │  │  • destructiveHint: true/false (DELETE operations)         │  │   │
+│  │  │  • idempotentHint: true/false                              │  │   │
+│  │  │  • openWorldHint: true (entity-based, extendable)          │  │   │
+│  │  └────────────────────────────────────────────────────────────┘  │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+└──────────────────────────────────────┬──────────────────────────────────┘
+                                       │
+                                       │ Internal HTTP (localhost:4000)
+                                       │
+┌──────────────────────────────────────▼──────────────────────────────────┐
+│                     PMO API LAYER (Existing)                             │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │                  Universal CRUD Factory                           │   │
+│  │  createUniversalEntityRoutes(fastify, { entityCode: 'project' }) │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │                  Entity Infrastructure Service                    │   │
+│  │  • create_entity() - Transactional CRUD                          │   │
+│  │  • check_entity_rbac() - Permission checking                     │   │
+│  │  • build_ref_data_entityInstance() - Reference resolution        │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+└──────────────────────────────────────┬──────────────────────────────────┘
+                                       │
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     DATA LAYER                                           │
+│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐               │
+│  │  PostgreSQL   │  │    Redis      │  │   WebSocket   │               │
+│  │  (50 tables)  │  │ (Field cache) │  │  (PubSub)     │               │
+│  └───────────────┘  └───────────────┘  └───────────────┘               │
+└─────────────────────────────────────────────────────────────────────────┘
+```
 
-### 10.2 Best Practices
+### 11.2 Dynamic Tool Generation from Entity Metadata
 
-#### Rate Limiting
-- Maximum 100 requests/minute per user
-- Burst limit: 20 requests/second
-
-#### Caching
-- Cache authentication tokens (24h expiry)
-- Cache settings/options data (1h expiry)
-- Use ETags for conditional requests
-
-#### Error Handling
 ```typescript
-try {
-  const result = await executeMCPTool('customer_create', args, token);
-} catch (error) {
-  if (error.statusCode === 401) {
-    // Re-authenticate and retry
-    token = await authenticate();
-    return executeMCPTool('customer_create', args, token);
+// apps/mcp/src/tool-factory.ts
+
+import { db } from '@/db/index.js';
+import { sql } from 'drizzle-orm';
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '@/services/entity-infrastructure.service.js';
+
+interface MCPTool {
+  name: string;
+  description: string;
+  inputSchema: object;
+  annotations?: {
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    idempotentHint?: boolean;
+    openWorldHint?: boolean;
+  };
+}
+
+/**
+ * Generate MCP tools from entity metadata
+ *
+ * This is the core innovation: tools are generated from the same
+ * entity metadata that drives the UI, ensuring perfect consistency.
+ */
+export async function generateEntityTools(userId: string): Promise<MCPTool[]> {
+  const entityInfra = getEntityInfrastructure(db);
+
+  // Fetch all active entities
+  const entities = await db.execute(sql`
+    SELECT code, name, ui_label, descr, db_table, child_entity_codes
+    FROM app.entity
+    WHERE active_flag = true
+    ORDER BY display_order
+  `);
+
+  const tools: MCPTool[] = [];
+
+  for (const entity of entities) {
+    const entityCode = entity.code as string;
+    const label = entity.ui_label as string || entity.name as string;
+
+    // CHECK RBAC - Only generate tools user can actually use
+    const canView = await entityInfra.check_entity_rbac(
+      userId, entityCode, ALL_ENTITIES_ID, Permission.VIEW
+    );
+
+    const canCreate = await entityInfra.check_entity_rbac(
+      userId, entityCode, ALL_ENTITIES_ID, Permission.CREATE
+    );
+
+    // LIST TOOL
+    if (canView) {
+      tools.push({
+        name: `${entityCode}_list`,
+        description: `List ${label} records with optional filtering and pagination.`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            limit: { type: 'number', default: 20 },
+            offset: { type: 'number', default: 0 },
+            search: { type: 'string' }
+          }
+        },
+        annotations: {
+          readOnlyHint: true,
+          idempotentHint: true
+        }
+      });
+
+      tools.push({
+        name: `${entityCode}_get`,
+        description: `Get a single ${label} by ID.`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' }
+          },
+          required: ['id']
+        },
+        annotations: { readOnlyHint: true }
+      });
+    }
+
+    // CREATE TOOL
+    if (canCreate) {
+      tools.push({
+        name: `${entityCode}_create`,
+        description: `Create a new ${label}.`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            // Dynamic properties from entity fields
+          }
+        },
+        annotations: { readOnlyHint: false }
+      });
+    }
   }
-  throw error;
+
+  return tools;
 }
 ```
 
-#### Pagination
+### 11.3 Composite Tool Pattern (Maximum Token Reduction)
+
 ```typescript
-async function getAllCustomers() {
-  let page = 1;
-  let hasMore = true;
-  const customers = [];
+// apps/mcp/src/composite-tool.ts
 
-  while (hasMore) {
-    const response = await executeMCPTool('customer_list', {
-      page: page.toString(),
-      limit: '100'
-    }, token);
+/**
+ * Single composite tool that handles all entity operations
+ *
+ * Token impact: 162 individual tools (72K tokens) → 1 composite tool (~5K tokens)
+ */
+export const compositeEntityTool = {
+  name: 'entity',
+  description: `
+    Universal entity management tool for all PMO data operations.
 
-    customers.push(...response.results);
-    hasMore = response.pagination.hasMore;
-    page++;
+    Supported entity types: project, task, employee, customer, calendar, event,
+    cost, revenue, invoice, wiki, form, artifact, role, office, business,
+    worksite, interaction, booking, and more.
+
+    Supported operations:
+    - list: Get multiple records with filtering and pagination
+    - get: Get a single record by ID
+    - create: Create a new record
+    - update: Update an existing record
+    - delete: Soft delete a record
+
+    Examples:
+    - List active projects: { entity: "project", operation: "list", filters: { active: true } }
+    - Get task by ID: { entity: "task", operation: "get", id: "uuid-here" }
+    - Create customer: { entity: "customer", operation: "create", data: { name: "John" } }
+  `,
+  inputSchema: {
+    type: 'object',
+    properties: {
+      entity: {
+        type: 'string',
+        description: 'Entity type code',
+        enum: ['project', 'task', 'employee', 'customer', 'calendar', 'event',
+               'cost', 'revenue', 'invoice', 'wiki', 'form', 'artifact',
+               'role', 'office', 'business', 'worksite', 'interaction', 'booking']
+      },
+      operation: {
+        type: 'string',
+        enum: ['list', 'get', 'create', 'update', 'delete']
+      },
+      id: {
+        type: 'string',
+        format: 'uuid',
+        description: 'Entity ID (required for get, update, delete)'
+      },
+      data: {
+        type: 'object',
+        description: 'Entity data (required for create, update)'
+      },
+      filters: {
+        type: 'object',
+        description: 'Query filters (for list operation)'
+      }
+    },
+    required: ['entity', 'operation']
   }
-
-  return customers;
-}
+};
 ```
 
-#### Batch Operations
-```typescript
-// Good: Batch create
-const customers = await Promise.all([
-  executeMCPTool('customer_create', customer1, token),
-  executeMCPTool('customer_create', customer2, token),
-  executeMCPTool('customer_create', customer3, token)
-]);
+---
 
-// Bad: Sequential creates
-for (const customer of customers) {
-  await executeMCPTool('customer_create', customer, token);
-}
+## 12. Implementation Roadmap
+
+### Phase 1: Foundation (Week 1-2)
+
 ```
+┌─────────────────────────────────────────────────────────────┐
+│  Phase 1: MCP Server Foundation                              │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  1. Create apps/mcp/ directory structure                    │
+│     ├── src/                                                │
+│     │   ├── server.ts          # Fastify + MCP server       │
+│     │   ├── tool-factory.ts    # Dynamic tool generation    │
+│     │   ├── tool-executor.ts   # Route to REST API          │
+│     │   ├── auth.ts            # OAuth/JWT validation       │
+│     │   └── types.ts           # TypeScript definitions     │
+│     ├── package.json                                        │
+│     └── tsconfig.json                                       │
+│                                                              │
+│  2. Add to monorepo workspace                               │
+│     pnpm-workspace.yaml: add "apps/mcp"                     │
+│                                                              │
+│  3. Basic Streamable HTTP transport                         │
+│     - Stateless server                                      │
+│     - Session ID management                                 │
+│     - JWT token passthrough                                 │
+│                                                              │
+│  Deliverable: Working MCP server at localhost:4002/mcp      │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Phase 2: Dynamic Tools (Week 3-4)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Phase 2: Dynamic Tool Generation                            │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  1. Entity metadata reader                                  │
+│     - Query app.entity for active entities                  │
+│     - Cache with Redis (24h TTL)                            │
+│                                                              │
+│  2. Field schema generator                                  │
+│     - Use entity-component-metadata patterns                │
+│     - Generate inputSchema from column types                │
+│                                                              │
+│  3. RBAC-filtered tool list                                 │
+│     - Check permissions per user                            │
+│     - Only show tools user can use                          │
+│                                                              │
+│  4. Tool executor                                           │
+│     - Map tool calls to REST endpoints                      │
+│     - Pass auth token through                               │
+│                                                              │
+│  Deliverable: Dynamic tools generated from entity metadata  │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Phase 3: Production Hardening (Week 5-6)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Phase 3: Production Hardening                               │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  1. OAuth 2.0 + RFC 8707                                    │
+│     - Authorization server discovery                        │
+│     - Resource indicators                                   │
+│     - Token refresh handling                                │
+│                                                              │
+│  2. Tool annotations                                        │
+│     - readOnlyHint for list/get                             │
+│     - destructiveHint for delete                            │
+│     - idempotentHint for updates                            │
+│                                                              │
+│  3. Rate limiting and quotas                                │
+│     - Per-user rate limits                                  │
+│     - Token usage tracking                                  │
+│                                                              │
+│  4. Monitoring and logging                                  │
+│     - Tool call metrics                                     │
+│     - Error tracking                                        │
+│     - Audit logging                                         │
+│                                                              │
+│  Deliverable: Production-ready MCP server                   │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Phase 4: Advanced Features (Week 7-8)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Phase 4: Advanced Features                                  │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  1. Composite tool option                                   │
+│     - Single "entity" tool for 93% token reduction          │
+│     - Configurable via environment variable                 │
+│                                                              │
+│  2. MCP Resources                                           │
+│     - entity://{code}/{id} URIs                             │
+│     - datalabel://{field} for lookup tables                 │
+│                                                              │
+│  3. MCP Prompts                                             │
+│     - Pre-defined task workflows                            │
+│     - Customer service scripts                              │
+│     - Project creation templates                            │
+│                                                              │
+│  4. Real-time updates via WebSocket                         │
+│     - Integrate with existing PubSub (port 4001)            │
+│     - Tool result subscriptions                             │
+│                                                              │
+│  Deliverable: Full-featured MCP server with resources       │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 13. Production Considerations
+
+### 13.1 Horizontal Scaling
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Production Deployment Architecture                          │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  Load Balancer (AWS ALB)                                    │
+│         │                                                    │
+│         ├────────────────────────────────┐                  │
+│         │                                │                  │
+│    ┌────▼────┐  ┌─────────┐  ┌─────────┐ │                  │
+│    │ MCP 1   │  │ MCP 2   │  │ MCP 3   │ │ ← Stateless     │
+│    │ :4002   │  │ :4002   │  │ :4002   │ │   (Streamable   │
+│    └────┬────┘  └────┬────┘  └────┬────┘ │    HTTP)        │
+│         │            │            │      │                  │
+│         └────────────┼────────────┘      │                  │
+│                      │                   │                  │
+│              ┌───────▼───────┐           │                  │
+│              │   Redis       │           │                  │
+│              │ (Session/Cache)│          │                  │
+│              └───────┬───────┘           │                  │
+│                      │                   │                  │
+│              ┌───────▼───────┐           │                  │
+│              │   PMO API     │           │                  │
+│              │   Cluster     │           │                  │
+│              └───────────────┘           │                  │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 13.2 Security Checklist
+
+| Requirement | Implementation |
+|-------------|----------------|
+| Authentication | OAuth 2.0 with JWT tokens |
+| Authorization | RBAC via entity_infrastructure.service |
+| Token Scoping | RFC 8707 Resource Indicators |
+| Rate Limiting | Per-user limits (100 req/min) |
+| Audit Logging | All tool calls logged to app.system_logging |
+| Secret Management | Environment variables, not in code |
+| Transport Security | HTTPS only in production |
+| Input Validation | TypeBox schema validation |
+
+### 13.3 Why PMO is Uniquely Positioned
+
+Your platform has several architectural advantages for next-gen MCP:
+
+| Feature | PMO Advantage |
+|---------|---------------|
+| Entity Metadata | `app.entity` table already defines all entities |
+| Field Detection | YAML pattern system generates rich field metadata |
+| RBAC System | `entity_rbac` provides fine-grained permissions |
+| Universal CRUD | Factory generates consistent endpoints |
+| Real-time Sync | WebSocket PubSub ready for tool notifications |
+| Redis Caching | Field name caching pattern directly applicable |
 
 ---
 
 ## Appendix A: Complete Endpoint Reference
 
-### Authentication (10 endpoints)
+### Authentication (5 endpoints)
 - `POST /auth/login` - `auth_login`
 - `GET /auth/profile` - `auth_get_profile`
 - `GET /auth/permissions` - `auth_get_permissions`
@@ -1359,56 +1185,22 @@ for (const customer of customers) {
 - `POST /entity-linkage` - `linkage_create`
 - `DELETE /entity-linkage/:id` - `linkage_delete`
 
-### Settings (1 endpoint)
-- `GET /setting` - `setting_list`
+---
 
-### RBAC (2 endpoints)
-- `GET /rbac/permissions` - `rbac_list_permissions`
-- `POST /rbac/check` - `rbac_check_permission`
+## Sources
+
+- [MCP Best Practices: Architecture & Implementation Guide](https://modelcontextprotocol.info/docs/best-practices/)
+- [MCP Specification 2025-06-18](https://modelcontextprotocol.io/specification/2025-06-18)
+- [7 MCP Server Best Practices for Scalable AI Integrations](https://www.marktechpost.com/2025/07/23/7-mcp-server-best-practices-for-scalable-ai-integrations-in-2025/)
+- [Model Context Protocol Spec Updates - Auth](https://auth0.com/blog/mcp-specs-update-all-about-auth/)
+- [Dynamics 365 MCP Server](https://lobehub.com/mcp/leon4s4-dynamics-mcp)
+- [ZenStack - Database to MCP Server](https://dev.to/zenstack/turning-your-database-into-an-mcp-server-with-auth-32mp)
+- [ScaleMCP: Dynamic and Auto-Synchronizing MCP Tools](https://arxiv.org/html/2505.06416v1)
+- [Dynamic Tool Updates in Spring AI MCP](https://spring.io/blog/2025/05/04/spring-ai-dynamic-tool-updates-with-mcp/)
+- [Anthropic Streamable HTTP Announcement](https://www.aibase.com/news/16375)
 
 ---
 
-## Appendix B: Data Model References
-
-### Entity Relationships
-
-```
-Customer (d_customer)
-  └─> Interactions (d_interaction)
-  └─> Tasks (d_task) via entity_instance_link
-  └─> Projects (d_project) via entity_instance_link
-
-Project (d_project)
-  └─> Tasks (d_task) via entity_instance_link
-  └─> Wiki (d_wiki) via entity_instance_link
-  └─> Artifacts (d_artifact) via entity_instance_link
-  └─> Forms (form) via entity_instance_link
-  └─> Costs (d_cost) via entity_instance_link
-
-Task (d_task)
-  └─> Case Notes (d_task_case_note)
-  └─> Activity Log (d_task_activity)
-  └─> Attachments (d_attachment)
-  └─> Calendar Bookings (d_entity_person_calendar)
-
-Calendar (d_entity_person_calendar)
-  └─> Availability Slots (d_entity_person_calendar_slot)
-  └─> Tasks (d_task) via metadata
-  └─> Attendees (metadata.attendees)
-```
-
----
-
-## Changelog
-
-### Version 4.0.0 (2025-11-12)
-- Complete rewrite following OpenAPI 3.1.0 standards
-- Added comprehensive request/response examples
-- Documented auto-enrichment patterns
-- Added integration guides for Python/Node.js/AI agents
-- Performance metrics and best practices
-- Complete endpoint reference (100+ endpoints)
-
----
-
-**End of Document**
+**Document Version:** 5.0.0
+**Last Updated:** 2025-12-05
+**Next Review:** After Phase 1 completion

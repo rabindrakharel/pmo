@@ -90,7 +90,7 @@ export function useUnifiedRBACPermissions(
         let response;
         if (isParentActionContext) {
           // TIER 3: Parent-action context
-          response = await fetch(`${API_BASE_URL}/api/v1/rbac/get-permissions-by-parentEntity-actionEntity`, {
+          response = await fetch(`${API_BASE_URL}/api/v1/entity_rbac/get-permissions-by-parentEntity-actionEntity`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -104,7 +104,7 @@ export function useUnifiedRBACPermissions(
           });
         } else {
           // TIER 1: Main page context
-          response = await fetch(`${API_BASE_URL}/api/v1/rbac/get-permissions-by-entityCode`, {
+          response = await fetch(`${API_BASE_URL}/api/v1/entity_rbac/get-permissions-by-entityCode`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -209,7 +209,7 @@ export function useRBACPermission(permission: RBACPermission) {
 
         // For entity-specific permissions (TIER 2)
         if (permission.entityId) {
-          const response = await fetch(`${API_BASE_URL}/api/v1/rbac/check-permission-of-entity`, {
+          const response = await fetch(`${API_BASE_URL}/api/v1/entity_rbac/check-permission-of-entity`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,

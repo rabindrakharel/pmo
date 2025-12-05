@@ -1,21 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layout, EntityListOfInstancesTable } from '../../components/shared';
+import { Layout } from '../../components/shared';
 import { useSettings } from '../../contexts/SettingsContext';
 import { AddDatalabelModal } from '../../components/shared/modals/AddDatalabelModal';
 import { EntityConfigurationModal } from '../../components/settings/EntityConfigurationModal';
 import { PermissionManagementModal } from '../../components/settings/PermissionManagementModal';
-// v9.1.0: Use canonical hook from @/db/tanstack-index
-// v12.6.0: Use reactive formatting hook
-import { useEntityInstanceData } from '../../db/tanstack-index';
-import { useFormattedEntityData } from '../../lib/hooks';
-import { type ComponentMetadata } from '../../lib/formatters';
 import { API_CONFIG } from '../../lib/config/api';
-import { transformForApi, transformFromApi } from '../../lib/frontEndFormatterService';
-import { Edit, Trash2 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { getIconComponent } from '../../lib/iconMapping';
-import type { RowAction } from '../../components/shared/ui/EntityListOfInstancesTable';
 import { InlineSpinner } from '../../components/shared/ui/EllipsisBounce';
 
 // Available icons for picker (must match iconMapping.ts)
@@ -111,102 +103,39 @@ export function SettingsOverviewPage() {
   // Permission management modal
   const [showPermissionModal, setShowPermissionModal] = useState(false);
 
-  // RBAC data table state
-  const [rbacEditingRow, setRbacEditingRow] = useState<string | null>(null);
-  const [rbacEditedData, setRbacEditedData] = useState<any>({});
+  // RBAC overview data (using /api/v1/entity_rbac/overview endpoint)
+  const [rbacOverview, setRbacOverview] = useState<any>(null);
+  const [rbacLoading, setRbacLoading] = useState(true);
 
-  // Fetch RBAC data - v9.1.0: Use canonical useEntityInstanceData
-  const rbacQueryParams = useMemo(() => ({ limit: 100, offset: 0 }), []);
-  const {
-    data: rbacRawData,
-    metadata: rbacMetadata,
-    total: rbacTotal,
-    isLoading: rbacLoading,
-    refetch: refetchRbac,
-  } = useEntityInstanceData('rbac', rbacQueryParams);
-
-  // v12.6.0: Reactive formatting with cache subscription (consistency with EntityListOfInstancesPage)
-  const rbacComponentMetadata = useMemo((): ComponentMetadata | null => {
-    if (!rbacMetadata?.viewType || Object.keys(rbacMetadata.viewType).length === 0) return null;
-    return rbacMetadata as ComponentMetadata;
-  }, [rbacMetadata]);
-
-  const { data: rbacData } = useFormattedEntityData(rbacRawData, rbacComponentMetadata, 'rbac');
-
-  const rbacPagination = useMemo(() => ({
-    current: 1,
-    pageSize: 100,
-    total: rbacTotal,
-  }), [rbacTotal]);
-
-  const handleRbacInlineEdit = useCallback((_rowId: string, field: string, value: any) => {
-    setRbacEditedData((prev: any) => ({ ...prev, [field]: value }));
-  }, []);
-
-  const handleRbacSaveInlineEdit = useCallback(async (record: any) => {
+  // Fetch RBAC overview data
+  const fetchRbacOverview = useCallback(async () => {
     try {
+      setRbacLoading(true);
       const token = localStorage.getItem('auth_token');
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = `Bearer ${token}`;
-
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/v1/rbac/${record.id}`, {
-        method: 'PATCH',
-        headers,
-        body: JSON.stringify(transformForApi(rbacEditedData, record))
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/v1/entity_rbac/overview`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
       if (response.ok) {
-        await refetchRbac();
-        setRbacEditingRow(null);
-        setRbacEditedData({});
+        const data = await response.json();
+        setRbacOverview(data);
       }
     } catch (error) {
-      console.error('Error updating RBAC:', error);
+      console.error('Error fetching RBAC overview:', error);
+    } finally {
+      setRbacLoading(false);
     }
-  }, [rbacEditedData, refetchRbac]);
-
-  const handleRbacCancelInlineEdit = useCallback(() => {
-    setRbacEditingRow(null);
-    setRbacEditedData({});
   }, []);
 
-  const handleRbacDelete = useCallback(async (record: any) => {
-    if (!window.confirm('Delete this permission?')) return;
-    try {
-      const token = localStorage.getItem('auth_token');
-      const headers: HeadersInit = {};
-      if (token) headers.Authorization = `Bearer ${token}`;
-
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/v1/rbac/${record.id}`, {
-        method: 'DELETE',
-        headers
-      });
-
-      if (response.ok) await refetchRbac();
-    } catch (error) {
-      console.error('Error deleting RBAC:', error);
+  // Fetch RBAC overview when Access Control tab is active
+  useEffect(() => {
+    if (activeMainTab === 'accessControl') {
+      fetchRbacOverview();
     }
-  }, [refetchRbac]);
-
-  const rbacRowActions: RowAction[] = useMemo(() => [
-    {
-      key: 'edit',
-      label: 'Edit',
-      icon: <Edit className="h-4 w-4" />,
-      variant: 'default' as const,
-      onClick: (record: any) => {
-        setRbacEditingRow(record.id);
-        setRbacEditedData(transformFromApi({ ...record }));
-      }
-    },
-    {
-      key: 'delete',
-      label: 'Delete',
-      icon: <Trash2 className="h-4 w-4" />,
-      variant: 'danger' as const,
-      onClick: handleRbacDelete
-    }
-  ], [handleRbacDelete]);
+  }, [activeMainTab, fetchRbacOverview]);
 
   // Role statistics
   const [roleStats, setRoleStats] = useState({ total: 0, active: 0, loading: true });
@@ -914,12 +843,12 @@ export function SettingsOverviewPage() {
               </div>
             </div>
 
-            {/* RBAC Records Data Table */}
+            {/* RBAC Overview Summary */}
             <div className="bg-white border border-dark-300 rounded-md p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-base font-semibold text-dark-900 flex items-center gap-2">
                   <LucideIcons.Shield className="h-4 w-4" />
-                  All RBAC Permissions
+                  Permissions Overview
                 </h3>
                 <button
                   onClick={() => setShowPermissionModal(true)}
@@ -929,30 +858,97 @@ export function SettingsOverviewPage() {
                   Grant Permission
                 </button>
               </div>
-              <p className="text-sm text-dark-600 mb-4">
-                View and manage all permissions across roles and employees. Click any row to edit or delete permissions.
-              </p>
+
               {rbacLoading ? (
                 <div className="flex items-center justify-center h-32">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-dark-700" />
                 </div>
+              ) : rbacOverview ? (
+                <div className="space-y-6">
+                  {/* Summary Stats */}
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-center">
+                      <div className="text-2xl font-bold text-blue-700">{rbacOverview.summary?.total_permissions || 0}</div>
+                      <div className="text-xs text-blue-600">Total Permissions</div>
+                    </div>
+                    <div className="bg-green-50 border border-green-200 rounded-md p-3 text-center">
+                      <div className="text-2xl font-bold text-green-700">{rbacOverview.summary?.role_based_permissions || 0}</div>
+                      <div className="text-xs text-green-600">Role-Based</div>
+                    </div>
+                    <div className="bg-purple-50 border border-purple-200 rounded-md p-3 text-center">
+                      <div className="text-2xl font-bold text-purple-700">{rbacOverview.summary?.employee_permissions || 0}</div>
+                      <div className="text-xs text-purple-600">Employee Direct</div>
+                    </div>
+                    <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-center">
+                      <div className="text-2xl font-bold text-amber-700">{rbacOverview.summary?.unique_persons || 0}</div>
+                      <div className="text-xs text-amber-600">Unique Persons</div>
+                    </div>
+                    <div className="bg-slate-50 border border-slate-200 rounded-md p-3 text-center">
+                      <div className="text-2xl font-bold text-slate-700">{rbacOverview.summary?.unique_entities || 0}</div>
+                      <div className="text-xs text-slate-600">Entity Types</div>
+                    </div>
+                  </div>
+
+                  {/* Permissions by Person */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-dark-800 mb-3 flex items-center gap-2">
+                      <LucideIcons.Users className="h-4 w-4" />
+                      Permissions by Person
+                    </h4>
+                    <div className="max-h-64 overflow-y-auto border border-dark-200 rounded-md">
+                      <table className="w-full text-sm">
+                        <thead className="bg-dark-50 sticky top-0">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-dark-600">Person</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-dark-600">Type</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-dark-600">Permissions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-dark-200">
+                          {(rbacOverview.permissions_by_person || []).map((person: any, idx: number) => (
+                            <tr key={idx} className="hover:bg-dark-50">
+                              <td className="px-3 py-2 text-dark-700">{person.person_name}</td>
+                              <td className="px-3 py-2">
+                                <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                                  person.person_type === 'role' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                                }`}>
+                                  {person.person_type}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-dark-600 text-xs">
+                                {person.permissions?.length || 0} permission(s)
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Permissions by Entity */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-dark-800 mb-3 flex items-center gap-2">
+                      <LucideIcons.Database className="h-4 w-4" />
+                      Permissions by Entity Type
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {(rbacOverview.permissions_by_entity || []).map((entity: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-dark-100 border border-dark-200 rounded-md"
+                        >
+                          <span className="text-sm font-medium text-dark-700">{entity.entity_code}</span>
+                          <span className="text-xs text-dark-500">({entity.permissions?.length || 0})</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               ) : (
-                <EntityListOfInstancesTable
-                  data={rbacData}
-                  metadata={rbacComponentMetadata}
-                  loading={rbacLoading}
-                  pagination={rbacPagination}
-                  searchable={true}
-                  filterable={true}
-                  columnSelection={true}
-                  rowActions={rbacRowActions}
-                  inlineEditable={true}
-                  editingRow={rbacEditingRow}
-                  editedData={rbacEditedData}
-                  onInlineEdit={handleRbacInlineEdit}
-                  onSaveInlineEdit={handleRbacSaveInlineEdit}
-                  onCancelInlineEdit={handleRbacCancelInlineEdit}
-                />
+                <div className="text-center py-8 text-dark-500">
+                  <LucideIcons.AlertCircle className="h-8 w-8 mx-auto mb-2" />
+                  <p>Failed to load RBAC overview</p>
+                </div>
               )}
             </div>
 

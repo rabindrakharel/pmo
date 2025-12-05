@@ -76,6 +76,16 @@ import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../service
 import { buildAutoFilters } from './universal-filter-builder.js';
 import { generateEntityResponse, getCachedMetadataResponse, cacheMetadataResponse, type ComponentName } from '../services/entity-component-metadata.service.js';
 import { getEntityLimit } from './pagination.js';
+// v10.0.0: Cursor pagination support for O(1) deep page performance
+import {
+  decodeCursor,
+  buildCursorCondition,
+  buildCursorOrderBy,
+  buildCursorResponse,
+  getCursorPaginationParams,
+  shouldUseCursorPagination,
+  type CursorPaginationResult
+} from './cursor-pagination.js';
 
 // ============================================================================
 // ENTITY-TO-TABLE MAPPING
@@ -421,10 +431,15 @@ export function createEntityListEndpoint(
     preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
-        // Pagination
+        // Pagination (offset-based - legacy)
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100000 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 })),
+        // Pagination (cursor-based - v10.0.0)
+        cursor: Type.Optional(Type.String()),
+        sort_field: Type.Optional(Type.String()),
+        sort_order: Type.Optional(Type.Union([Type.Literal('asc'), Type.Literal('desc')])),
+        include_total: Type.Optional(Type.String()),
         // Filtering
         search: Type.Optional(Type.String()),
         active: Type.Optional(Type.Boolean()),
@@ -442,9 +457,17 @@ export function createEntityListEndpoint(
           metadata: Type.Any(),
           datalabels: Type.Optional(Type.Any()),
           ref_data_entityInstance: Type.Optional(Type.Record(Type.String(), Type.Record(Type.String(), Type.String()))),
-          total: Type.Number(),
+          // Offset pagination
+          total: Type.Optional(Type.Number()),
           limit: Type.Number(),
-          offset: Type.Number(),
+          offset: Type.Optional(Type.Number()),
+          // Cursor pagination (v10.0.0)
+          cursors: Type.Optional(Type.Object({
+            next: Type.Union([Type.String(), Type.Null()]),
+            prev: Type.Union([Type.String(), Type.Null()]),
+            hasMore: Type.Boolean(),
+            hasPrev: Type.Boolean(),
+          })),
         }),
         401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
@@ -567,57 +590,166 @@ export function createEntityListEndpoint(
       // NORMAL DATA MODE: Execute full query with pagination
       // ═══════════════════════════════════════════════════════════════
 
-      // Count query
-      const countQuery = sql`
-        SELECT COUNT(DISTINCT ${sql.raw(TABLE_ALIAS)}.id) as total
-        FROM app.${sql.raw(TABLE_NAME)} ${sql.raw(TABLE_ALIAS)}
-        ${joinClause}
-        ${whereClause}
-      `;
+      // v10.0.0: Determine pagination mode (cursor vs offset)
+      const useCursor = shouldUseCursorPagination(query);
 
-      // Data query
-      const dataQuery = sql`
-        SELECT DISTINCT ${sql.raw(TABLE_ALIAS)}.*
-        FROM app.${sql.raw(TABLE_NAME)} ${sql.raw(TABLE_ALIAS)}
-        ${joinClause}
-        ${whereClause}
-        ORDER BY ${sql.raw(`${TABLE_ALIAS}.${defaultOrderBy}`)}
-        LIMIT ${limit}
-        OFFSET ${offset}
-      `;
+      if (useCursor) {
+        // ═══════════════════════════════════════════════════════════
+        // CURSOR PAGINATION: O(1) performance at any depth
+        // ═══════════════════════════════════════════════════════════
+        const cursorParams = getCursorPaginationParams(query, {
+          limit: defaultLimit ?? 20,
+          sortField: defaultOrderBy.split(' ')[0] || 'created_ts',
+          sortOrder: (defaultOrderBy.toLowerCase().includes('asc') ? 'asc' : 'desc') as 'asc' | 'desc'
+        });
 
-      // Execute in parallel
-      const [countResult, dataResult] = await Promise.all([
-        db.execute(countQuery),
-        db.execute(dataQuery)
-      ]);
+        const cursor = decodeCursor(cursorParams.cursor);
+        const cursorCondition = buildCursorCondition(
+          cursor,
+          cursorParams.sortField,
+          cursorParams.sortOrder,
+          TABLE_ALIAS
+        );
 
-      const total = Number(countResult[0]?.total || 0);
-      let data = Array.from(dataResult);
+        // Add cursor condition to WHERE clause
+        const cursorConditions = cursorCondition
+          ? [...conditions, cursorCondition]
+          : conditions;
 
-      // Hook: afterList - Transform data
-      if (hooks.afterList) {
-        const hookCtx: ListHookContext = {
-          request, reply, userId, entityCode: ENTITY_CODE,
-          alias: TABLE_ALIAS, conditions, joins, query
+        const cursorWhereClause = cursorConditions.length > 0
+          ? sql`WHERE ${sql.join(cursorConditions, sql` AND `)}`
+          : sql``;
+
+        // Build ORDER BY for cursor pagination (always includes id for stability)
+        const cursorOrderBy = buildCursorOrderBy(
+          cursorParams.sortField,
+          cursorParams.sortOrder,
+          TABLE_ALIAS
+        );
+
+        // Fetch limit+1 to detect hasMore without count query
+        const cursorDataQuery = sql`
+          SELECT DISTINCT ${sql.raw(TABLE_ALIAS)}.*
+          FROM app.${sql.raw(TABLE_NAME)} ${sql.raw(TABLE_ALIAS)}
+          ${joinClause}
+          ${cursorWhereClause}
+          ${cursorOrderBy}
+          LIMIT ${cursorParams.limit + 1}
+        `;
+
+        // Optional: Count query only if requested (expensive for large tables)
+        let total: number | undefined;
+        if (cursorParams.includeTotal) {
+          const countQuery = sql`
+            SELECT COUNT(DISTINCT ${sql.raw(TABLE_ALIAS)}.id) as total
+            FROM app.${sql.raw(TABLE_NAME)} ${sql.raw(TABLE_ALIAS)}
+            ${joinClause}
+            ${whereClause}
+          `;
+          const countResult = await db.execute(countQuery);
+          total = Number(countResult[0]?.total || 0);
+        }
+
+        const dataResult = await db.execute(cursorDataQuery);
+        let data = Array.from(dataResult) as Array<{ id: string; [key: string]: any }>;
+
+        // Hook: afterList - Transform data
+        if (hooks.afterList) {
+          const hookCtx: ListHookContext = {
+            request, reply, userId, entityCode: ENTITY_CODE,
+            alias: TABLE_ALIAS, conditions, joins, query
+          };
+          data = await hooks.afterList(hookCtx, data);
+        }
+
+        // Build cursor response
+        const cursorResponse = buildCursorResponse(
+          data,
+          cursorParams.limit,
+          cursorParams.sortField,
+          cursorParams.sortOrder,
+          total,
+          cursorParams.cursor
+        );
+
+        // Build ref_data_entityInstance for entity reference resolution
+        const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(
+          cursorResponse.data as Record<string, any>[]
+        );
+
+        // Generate response with metadata
+        const response = await generateEntityResponse(ENTITY_CODE, cursorResponse.data, {
+          components: requestedComponents,
+          total: cursorResponse.total,
+          limit: cursorResponse.limit,
+          offset: 0, // Not applicable for cursor pagination
+          ref_data_entityInstance,
+          metadataOnly: false
+        });
+
+        // Add cursor pagination info to response
+        return {
+          ...response,
+          cursors: cursorResponse.cursors
         };
-        data = await hooks.afterList(hookCtx, data);
+
+      } else {
+        // ═══════════════════════════════════════════════════════════
+        // OFFSET PAGINATION: Legacy mode (backward compatible)
+        // ═══════════════════════════════════════════════════════════
+
+        // Count query
+        const countQuery = sql`
+          SELECT COUNT(DISTINCT ${sql.raw(TABLE_ALIAS)}.id) as total
+          FROM app.${sql.raw(TABLE_NAME)} ${sql.raw(TABLE_ALIAS)}
+          ${joinClause}
+          ${whereClause}
+        `;
+
+        // Data query
+        const dataQuery = sql`
+          SELECT DISTINCT ${sql.raw(TABLE_ALIAS)}.*
+          FROM app.${sql.raw(TABLE_NAME)} ${sql.raw(TABLE_ALIAS)}
+          ${joinClause}
+          ${whereClause}
+          ORDER BY ${sql.raw(`${TABLE_ALIAS}.${defaultOrderBy}`)}
+          LIMIT ${limit}
+          OFFSET ${offset}
+        `;
+
+        // Execute in parallel
+        const [countResult, dataResult] = await Promise.all([
+          db.execute(countQuery),
+          db.execute(dataQuery)
+        ]);
+
+        const total = Number(countResult[0]?.total || 0);
+        let data = Array.from(dataResult);
+
+        // Hook: afterList - Transform data
+        if (hooks.afterList) {
+          const hookCtx: ListHookContext = {
+            request, reply, userId, entityCode: ENTITY_CODE,
+            alias: TABLE_ALIAS, conditions, joins, query
+          };
+          data = await hooks.afterList(hookCtx, data);
+        }
+
+        // Build ref_data_entityInstance for entity reference resolution
+        const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(data as Record<string, any>[]);
+
+        // Generate response with metadata
+        const response = await generateEntityResponse(ENTITY_CODE, data, {
+          components: requestedComponents,
+          total,
+          limit,
+          offset,
+          ref_data_entityInstance,
+          metadataOnly: false
+        });
+
+        return response;
       }
-
-      // Build ref_data_entityInstance for entity reference resolution
-      const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(data as Record<string, any>[]);
-
-      // Generate response with metadata
-      const response = await generateEntityResponse(ENTITY_CODE, data, {
-        components: requestedComponents,
-        total,
-        limit,
-        offset,
-        ref_data_entityInstance,
-        metadataOnly: false
-      });
-
-      return response;
 
     } catch (error) {
       fastify.log.error(`Error fetching ${ENTITY_CODE} list:`, error as any);

@@ -70,16 +70,6 @@ export {
   type TempRowOptions,
 } from './useInlineAddRow';
 
-// Offline Entity (Dexie-only)
-export {
-  useOfflineEntity,
-  useOfflineEntityList,
-  isEntityCached,
-  getCachedEntity,
-  type UseOfflineEntityResult,
-  type UseOfflineEntityListResult,
-} from './useOfflineEntity';
-
 // Entity Links
 export {
   useEntityLinks,
@@ -106,6 +96,15 @@ export {
   type DraftInfo,
   type UseRecoverDraftsResult,
 } from './useDraft';
+
+// Progressive Entity List (v10.0.0 - Cursor Pagination)
+export {
+  useProgressiveEntityList,
+  type UseProgressiveEntityListResult,
+  type ProgressiveLoadingConfig,
+  type ProgressiveLoadingStatus,
+  type ScrollState,
+} from './useProgressiveEntityList';
 
 // Re-export remaining sync functions from stores
 export {
