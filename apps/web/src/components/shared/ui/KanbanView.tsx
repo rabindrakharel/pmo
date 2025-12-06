@@ -41,6 +41,9 @@ interface KanbanViewProps {
   /** Callback when card is moved between columns */
   onCardMove?: (itemId: string, fromColumn: string, toColumn: string) => void;
 
+  /** Callback when add card button is clicked */
+  onAddCard?: (columnId: string) => void;
+
   /** Custom card renderer (optional) */
   renderCard?: (item: any) => React.ReactNode;
 
@@ -53,6 +56,7 @@ export function KanbanView({
   data,
   onCardClick,
   onCardMove,
+  onAddCard,
   renderCard,
   emptyMessage
 }: KanbanViewProps) {
@@ -143,6 +147,7 @@ export function KanbanView({
       columns={columns}
       onCardClick={onCardClick}
       onCardMove={onCardMove}
+      onAddCard={onAddCard}
       renderCard={renderCard}
       emptyMessage={emptyMessage || `No ${config.pluralName.toLowerCase()} to display`}
     />

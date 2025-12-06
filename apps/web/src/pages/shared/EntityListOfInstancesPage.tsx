@@ -264,6 +264,16 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   }, [config, entityCode, updateEntity]);
 
   // ============================================================================
+  // v15.0.0: KANBAN ADD CARD - Navigate to create with pre-filled stage
+  // ============================================================================
+  const handleAddCard = useCallback((columnId: string) => {
+    if (!config?.kanban) return;
+    // Navigate to create page with stage pre-filled
+    const stageField = config.kanban.groupByField;
+    navigate(`/${entityCode}/new?${stageField}=${encodeURIComponent(columnId)}`);
+  }, [config, entityCode, navigate]);
+
+  // ============================================================================
   // INLINE EDIT HANDLERS (Migrated from FilteredDataTable)
   // ============================================================================
 
@@ -610,12 +620,13 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     // v14.0.0: Removed pagination - loads all data at once
     if (view === 'kanban' && config.kanban) {
       return (
-        <div className="bg-dark-100 rounded-md shadow p-6 h-full overflow-x-auto">
+        <div className="h-full overflow-hidden">
           <KanbanView
             config={config}
             data={data}
             onCardClick={handleRowClick}
             onCardMove={handleCardMove}
+            onAddCard={handleAddCard}
             emptyMessage={`No ${config.pluralName.toLowerCase()} found`}
           />
         </div>
