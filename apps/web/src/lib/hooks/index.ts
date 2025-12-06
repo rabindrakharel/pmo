@@ -92,3 +92,9 @@ export type {
 // UI Utility Hooks
 // ============================================================================
 export { useKeyboardShortcuts } from './useKeyboardShortcuts';
+
+// ============================================================================
+// v17.0.0: Dynamic Component Views (Database-Driven ONLY)
+// ============================================================================
+export { useComponentViews } from './useComponentViews';
+export type { DynamicViewConfig, ViewMode } from './useComponentViews';

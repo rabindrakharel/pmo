@@ -59,8 +59,13 @@ export interface Entity {
   name: string;
   ui_label: string;
   ui_icon: string;
+  db_table: string | null;
+  db_model_type: string | null;
   child_entity_codes: Array<string | { entity: string; ui_label?: string; ui_icon?: string; order?: number }>;
   display_order: number;
+  domain_code: string | null;
+  column_metadata: unknown[] | null;
+  component_views: Record<string, unknown> | null;
   active_flag: boolean;
   created_ts: string;
   updated_ts: string;
@@ -191,7 +196,8 @@ export class EntityInfrastructureService {
 
     // Cache miss or inactive query - fetch from database
     const result = await this.db.execute(sql`
-      SELECT code, name, ui_label, ui_icon, child_entity_codes, display_order, active_flag, created_ts, updated_ts
+      SELECT code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes,
+             display_order, domain_code, column_metadata, component_views, active_flag, created_ts, updated_ts
       FROM app.entity
       WHERE code = ${entity_code}
         ${include_inactive ? sql`` : sql`AND active_flag = true`}
@@ -205,10 +211,19 @@ export class EntityInfrastructureService {
       name: row.name as string,
       ui_label: row.ui_label as string,
       ui_icon: row.ui_icon as string,
+      db_table: row.db_table as string | null,
+      db_model_type: row.db_model_type as string | null,
       child_entity_codes: typeof row.child_entity_codes === 'string'
         ? JSON.parse(row.child_entity_codes)
         : (row.child_entity_codes || []),
       display_order: row.display_order as number,
+      domain_code: row.domain_code as string | null,
+      column_metadata: typeof row.column_metadata === 'string'
+        ? JSON.parse(row.column_metadata)
+        : (row.column_metadata || null),
+      component_views: typeof row.component_views === 'string'
+        ? JSON.parse(row.component_views)
+        : (row.component_views || null),
       active_flag: row.active_flag as boolean,
       created_ts: row.created_ts as string,
       updated_ts: row.updated_ts as string,
@@ -274,7 +289,8 @@ export class EntityInfrastructureService {
    */
   async get_all_entity(include_inactive = false): Promise<Entity[]> {
     const result = await this.db.execute(sql`
-      SELECT code, name, ui_label, ui_icon, child_entity_codes, display_order, active_flag, created_ts, updated_ts
+      SELECT code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes,
+             display_order, domain_code, column_metadata, component_views, active_flag, created_ts, updated_ts
       FROM app.entity
       ${include_inactive ? sql`` : sql`WHERE active_flag = true`}
       ORDER BY display_order ASC, name ASC
@@ -287,10 +303,19 @@ export class EntityInfrastructureService {
         name: row.name as string,
         ui_label: row.ui_label as string,
         ui_icon: row.ui_icon as string,
+        db_table: row.db_table as string | null,
+        db_model_type: row.db_model_type as string | null,
         child_entity_codes: typeof row.child_entity_codes === 'string'
           ? JSON.parse(row.child_entity_codes)
           : (row.child_entity_codes || []),
         display_order: row.display_order as number,
+        domain_code: row.domain_code as string | null,
+        column_metadata: typeof row.column_metadata === 'string'
+          ? JSON.parse(row.column_metadata)
+          : (row.column_metadata || null),
+        component_views: typeof row.component_views === 'string'
+          ? JSON.parse(row.component_views)
+          : (row.component_views || null),
         active_flag: row.active_flag as boolean,
         created_ts: row.created_ts as string,
         updated_ts: row.updated_ts as string,

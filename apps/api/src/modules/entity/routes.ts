@@ -34,6 +34,8 @@ const EntityTypeMetadataSchema = Type.Object({
   name: Type.String(),
   ui_label: Type.String(),
   ui_icon: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  db_table: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  db_model_type: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   child_entity_codes: Type.Array(Type.String()), // Simple array of entity codes
   child_entities: Type.Optional(Type.Array(Type.Object({
     entity: Type.String(),
@@ -42,6 +44,9 @@ const EntityTypeMetadataSchema = Type.Object({
     order: Type.Number()
   }))), // Enriched child entity metadata
   display_order: Type.Number(),
+  domain_code: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  column_metadata: Type.Optional(Type.Array(Type.Any())),
+  component_views: Type.Optional(Type.Record(Type.String(), Type.Any())),
   active_flag: Type.Boolean()
 });
 
@@ -57,95 +62,6 @@ export async function entityRoutes(fastify: FastifyInstance) {
   // ═══════════════════════════════════════════════════════════════════════════
   // 4-LAYER NORMALIZED CACHE ENDPOINTS
   // ═══════════════════════════════════════════════════════════════════════════
-
-  /**
-   * GET /api/v1/entity/types
-   *
-   * Layer 1: Entity Type Metadata Cache
-   * Fetched at login, persisted for session.
-   *
-   * Returns all entity types with complete metadata for cache layer:
-   * - code, name, ui_label, ui_icon, db_table, db_model_type
-   * - child_entity_codes (JSONB array of child entity codes)
-   * - display_order, domain_code, column_metadata
-   *
-   * Used by:
-   * - Navigation menus (sidebar)
-   * - Tab generation (child_entity_codes)
-   * - Entity pickers and dropdowns
-   * - Icon/label resolution
-   */
-  fastify.get('/api/v1/entity/types', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      response: {
-        200: Type.Object({
-          data: Type.Array(Type.Object({
-            code: Type.String(),
-            name: Type.String(),
-            ui_label: Type.String(),
-            ui_icon: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-            db_table: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-            db_model_type: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-            child_entity_codes: Type.Array(Type.String()),
-            display_order: Type.Number(),
-            domain_code: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-            column_metadata: Type.Optional(Type.Array(Type.Any())),
-            active_flag: Type.Boolean(),
-          })),
-          syncedAt: Type.Number(),
-        }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
-    try {
-      // Fetch all entity types with complete metadata
-      const result = await db.execute(sql`
-        SELECT
-          code,
-          name,
-          ui_label,
-          ui_icon,
-          db_table,
-          db_model_type,
-          child_entity_codes,
-          display_order,
-          domain_code,
-          column_metadata,
-          active_flag
-        FROM app.entity
-        WHERE active_flag = true
-        ORDER BY display_order ASC, name ASC
-      `);
-
-      const entities = result.map((row: any) => ({
-        code: row.code,
-        name: row.name,
-        ui_label: row.ui_label,
-        ui_icon: row.ui_icon,
-        db_table: row.db_table,
-        db_model_type: row.db_model_type,
-        child_entity_codes: typeof row.child_entity_codes === 'string'
-          ? JSON.parse(row.child_entity_codes)
-          : (row.child_entity_codes || []),
-        display_order: row.display_order,
-        domain_code: row.domain_code,
-        column_metadata: typeof row.column_metadata === 'string'
-          ? JSON.parse(row.column_metadata)
-          : (row.column_metadata || []),
-        active_flag: row.active_flag,
-      }));
-
-      return {
-        data: entities,
-        syncedAt: Date.now(),
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching entity types:', error);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
 
   /**
    * GET /api/v1/entity-instance/all
@@ -363,36 +279,47 @@ export async function entityRoutes(fastify: FastifyInstance) {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /**
-   * GET /api/v1/entity/codes/:entity_code?
-   * UNIFIED ENDPOINT - Serves both Settings page and DynamicChildEntityTabs
+   * GET /api/v1/entity/codes
+   * UNIFIED ENDPOINT - Entity Type Metadata Cache + Settings + Tabs
    *
-   * - With :entity_code → Returns single entity metadata (for tabs)
-   * - Without :entity_code → Returns all entity metadata (for settings)
+   * Query params:
+   * - ?code=task → Returns single entity metadata (for tabs)
+   * - No code → Returns all entity metadata (for cache/settings)
+   * - ?include_inactive=true → Include inactive entities
+   *
+   * Used by:
+   * - useEntityCodes hook (TanStack Query cache)
+   * - Navigation menus (sidebar)
+   * - Tab generation (child_entity_codes)
+   * - Entity pickers and dropdowns
+   * - Icon/label resolution
    */
-  fastify.get('/api/v1/entity/codes/:entity_code?', {
+  fastify.get('/api/v1/entity/codes', {
     preHandler: [fastify.authenticate],
     schema: {
-      params: Type.Object({
-        entity_code: Type.Optional(Type.Union([Type.String(), Type.Null()]))
-      }),
       querystring: Type.Object({
+        code: Type.Optional(Type.Union([Type.String(), Type.Null()])),
         include_inactive: Type.Optional(Type.Union([Type.Boolean(), Type.Null()]))
       }),
       response: {
         200: Type.Union([
-          EntityTypeMetadataSchema,  // Single entity
-          Type.Array(EntityTypeMetadataSchema)  // All entities
+          // Single entity response
+          EntityTypeMetadataSchema,
+          // All entities response (for cache)
+          Type.Object({
+            data: Type.Array(EntityTypeMetadataSchema),
+            syncedAt: Type.Number()
+          })
         ]),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })
       }
     }
   }, async (request, reply) => {
-    const { entity_code } = request.params as { entity_code?: string };
-    const { include_inactive } = request.query as { include_inactive?: boolean };
+    const { code: entity_code, include_inactive } = request.query as { code?: string; include_inactive?: boolean };
 
     // ═══════════════════════════════════════════════════════════════
-    // CASE 1: No entity_code → Return ALL entities (Settings page)
+    // CASE 1: No entity_code → Return ALL entities (Cache/Settings)
     // ═══════════════════════════════════════════════════════════════
     if (!entity_code) {
       try {
@@ -418,19 +345,29 @@ export async function entityRoutes(fastify: FastifyInstance) {
             })
             .filter((item: any) => item !== null);
 
+          // JSONB fields already parsed by entity-infrastructure.service
           return {
             code: entity.code,
             name: entity.name,
             ui_label: entity.ui_label,
             ui_icon: entity.ui_icon,
-            display_order: entity.display_order,
-            active_flag: entity.active_flag,
+            db_table: entity.db_table,
+            db_model_type: entity.db_model_type,
             child_entity_codes: filteredChildCodes,
-            child_entities: enrichedChildEntities
+            child_entities: enrichedChildEntities,
+            display_order: entity.display_order,
+            domain_code: entity.domain_code,
+            column_metadata: entity.column_metadata || [],
+            component_views: entity.component_views || {},
+            active_flag: entity.active_flag
           };
         });
 
-        return result;
+        // Return wrapped format for cache compatibility
+        return {
+          data: result,
+          syncedAt: Date.now()
+        };
       } catch (error) {
         fastify.log.error('Error fetching all entity types:', error as any);
         return reply.status(500).send({ error: 'Internal server error' });
@@ -483,14 +420,20 @@ export async function entityRoutes(fastify: FastifyInstance) {
           .filter((item: any) => item !== null);
       }
 
+      // JSONB fields already parsed by entity-infrastructure.service
       return {
         code: entity.code,
         name: entity.name,
         ui_label: entity.ui_label,
         ui_icon: entity.ui_icon,
+        db_table: entity.db_table,
+        db_model_type: entity.db_model_type,
         child_entity_codes: filteredChildEntities,
-        child_entities: enrichedChildEntities,  // ✅ NEW: Enriched child metadata
+        child_entities: enrichedChildEntities,
         display_order: entity.display_order,
+        domain_code: entity.domain_code,
+        column_metadata: entity.column_metadata || [],
+        component_views: entity.component_views || {},
         active_flag: entity.active_flag
       };
     } catch (error) {

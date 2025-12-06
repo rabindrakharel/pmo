@@ -1,17 +1,18 @@
 import React from 'react';
 import { KanbanBoard, KanbanColumn } from './KanbanBoard';
-import type { EntityConfig } from '../../../lib/entityConfig';
-import { useKanbanColumns } from '../../../lib/hooks/useKanbanColumns';
+import { useKanbanColumns, type KanbanConfig } from '../../../lib/hooks/useKanbanColumns';
 import { EllipsisBounce } from './EllipsisBounce';
 
 /**
  * Standardized Kanban View Component
  *
+ * v17.0.0: Updated to accept kanban config directly (database-driven)
  * Universal, reusable Kanban view that works for ANY entity with kanban configuration.
  * Follows DRY principle - single implementation for all Kanban views.
  *
  * Features:
  * - Settings-driven columns (NO hardcoded fallbacks)
+ * - Database-driven kanban config from entity.component_views
  * - Drag-and-drop support
  * - Empty state handling
  * - Loading states
@@ -19,8 +20,11 @@ import { EllipsisBounce } from './EllipsisBounce';
  *
  * Usage:
  * ```tsx
+ * const viewConfig = useComponentViews('task');
  * <KanbanView
- *   config={taskConfig}
+ *   kanban={viewConfig.kanban}
+ *   displayName="Task"
+ *   pluralName="Tasks"
  *   data={tasks}
  *   onCardClick={(task) => navigate(`/task/${task.id}`)}
  *   onCardMove={(taskId, fromStage, toStage) => updateTask(taskId, { stage: toStage })}
@@ -29,8 +33,14 @@ import { EllipsisBounce } from './EllipsisBounce';
  */
 
 interface KanbanViewProps {
-  /** Entity configuration with kanban settings */
-  config: EntityConfig;
+  /** Kanban configuration from database component_views */
+  kanban: KanbanConfig;
+
+  /** Entity display name (for error messages) */
+  displayName: string;
+
+  /** Entity plural name (for empty messages) */
+  pluralName: string;
 
   /** Array of entity items to display */
   data: any[];
@@ -41,6 +51,9 @@ interface KanbanViewProps {
   /** Callback when card is moved between columns */
   onCardMove?: (itemId: string, fromColumn: string, toColumn: string) => void;
 
+  /** Callback when add card button is clicked */
+  onAddCard?: (columnId: string) => void;
+
   /** Custom card renderer (optional) */
   renderCard?: (item: any) => React.ReactNode;
 
@@ -49,15 +62,18 @@ interface KanbanViewProps {
 }
 
 export function KanbanView({
-  config,
+  kanban,
+  displayName,
+  pluralName,
   data,
   onCardClick,
   onCardMove,
+  onAddCard,
   renderCard,
   emptyMessage
 }: KanbanViewProps) {
-  // Load Kanban columns from settings API
-  const { columns, loading, error } = useKanbanColumns(config, data);
+  // v17.0.0: Load Kanban columns using database-driven config
+  const { columns, loading, error } = useKanbanColumns(kanban, data);
 
   // Loading state
   if (loading) {
@@ -131,7 +147,7 @@ export function KanbanView({
             fontSize: '13px'
           }}
         >
-          Configure stage settings to enable Kanban view for {config.displayName}.
+          Configure stage settings to enable Kanban view for {displayName}.
         </p>
       </div>
     );
@@ -143,8 +159,9 @@ export function KanbanView({
       columns={columns}
       onCardClick={onCardClick}
       onCardMove={onCardMove}
+      onAddCard={onAddCard}
       renderCard={renderCard}
-      emptyMessage={emptyMessage || `No ${config.pluralName.toLowerCase()} to display`}
+      emptyMessage={emptyMessage || `No ${pluralName.toLowerCase()} to display`}
     />
   );
 }

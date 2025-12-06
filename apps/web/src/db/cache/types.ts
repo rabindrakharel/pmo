@@ -52,6 +52,43 @@ export interface DatalabelOption {
 // Entity Code Types
 // ============================================================================
 
+/**
+ * Component View Configuration (v16.0.0)
+ * Database-driven configuration for entity views on EntityListOfInstancesPage
+ */
+export interface ComponentViewConfig {
+  /** Whether this view is enabled */
+  enabled: boolean;
+  /** Whether this is the default view */
+  default?: boolean;
+  /** Group by field for kanban view */
+  groupByField?: string;
+  /** Fields to display on kanban cards */
+  cardFields?: string[];
+  /** Date field for calendar view */
+  dateField?: string;
+  /** End date field for calendar view */
+  endDateField?: string;
+  /** Title field for calendar events */
+  titleField?: string;
+  /** Grid columns configuration */
+  columns?: number;
+  /** Graph/hierarchy configuration */
+  rootField?: string;
+}
+
+/**
+ * Component Views Configuration
+ * Maps component names to their configurations
+ */
+export interface ComponentViews {
+  EntityListOfInstancesTable?: ComponentViewConfig;
+  KanbanView?: ComponentViewConfig;
+  GridView?: ComponentViewConfig;
+  CalendarView?: ComponentViewConfig;
+  GraphView?: ComponentViewConfig;
+}
+
 export interface EntityCode {
   /** Entity type code (e.g., 'project', 'task') */
   code: string;
@@ -73,6 +110,8 @@ export interface EntityCode {
   domain_code?: string;
   /** Column metadata for the entity */
   column_metadata?: unknown[];
+  /** Component views configuration (v16.0.0) */
+  component_views?: ComponentViews;
   /** Whether entity type is active */
   active_flag: boolean;
 }
@@ -349,6 +388,10 @@ export interface UseEntityInstanceDataResult<T = Record<string, unknown>> {
   isError: boolean;
   error: Error | null;
   refetch: () => Promise<void>;
+  // v14.0.0: Infinite scroll props (only active when infiniteScroll: true)
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
+  fetchNextPage: (() => Promise<void>) | undefined;
 }
 
 export interface UseDraftResult {

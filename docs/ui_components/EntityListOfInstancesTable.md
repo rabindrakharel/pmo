@@ -1,6 +1,6 @@
 # EntityListOfInstancesTable Component
 
-**Version:** 12.3.0 | **Location:** `apps/web/src/components/shared/ui/EntityListOfInstancesTable.tsx` | **Updated:** 2025-12-03
+**Version:** 17.0.0 | **Location:** `apps/web/src/components/shared/ui/EntityListOfInstancesTable.tsx` | **Updated:** 2025-12-06
 
 ---
 
@@ -9,6 +9,8 @@
 EntityListOfInstancesTable is a universal data table component with **virtualized rendering**, inline editing, sorting, filtering, and pagination. It uses the `{ viewType, editType }` metadata structure from the backend to determine column configuration and rendering.
 
 **Core Principle:** Backend metadata with `{ viewType, editType }` structure controls all columns, rendering, and edit behavior. Frontend is a pure renderer.
+
+**v17.0.0 Key Change:** Table view availability is now **database-driven ONLY** via `entity.component_views` JSONB column. No static fallback - all view configuration comes from `/api/v1/entity/codes` endpoint. If `component_views.EntityListOfInstancesTable.enabled = true` (default), the table view is available.
 
 **v12.3.0 Key Change:** All three components (`EntityListOfInstancesTable`, `EntityInstanceFormContainer`, `EntityMetadataField`) now use the same **slow click-and-hold (500ms) inline editing pattern** for consistent UX. Flat metadata format `{ viewType, editType }` used across all components. Entity reference fields resolved via `getEntityInstanceNameSync()` which reads directly from TanStack Query cache.
 
@@ -994,6 +996,59 @@ Inline Edit Flow (v12.3.0 - Slow Click-and-Hold)
 
 ---
 
+## Dynamic Entity Integration (v16.0.0)
+
+### Database-Driven View Availability
+
+The table view is controlled by the `entity.component_views` JSONB column in the database:
+
+```sql
+-- Table view enabled (default)
+UPDATE app.entity SET
+    component_views = '{
+      "EntityListOfInstancesTable": { "enabled": true, "default": true }
+    }'::jsonb
+WHERE code = 'project';
+```
+
+### How Table View is Rendered
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  v16.0.0: DATABASE-DRIVEN TABLE VIEW                                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  1. GET /api/v1/entity/codes                                                │
+│     └── Returns: { component_views: { EntityListOfInstancesTable: {...} } } │
+│                                                                              │
+│  2. useEntityCodes() → useComponentViews()                                  │
+│     └── Extracts: viewConfig.supportedViews includes 'table' if enabled    │
+│                                                                              │
+│  3. EntityListOfInstancesPage                                               │
+│     └── if (viewConfig.supportedViews.includes('table'))                    │
+│     └── ViewSwitcher shows table option                                     │
+│                                                                              │
+│  4. When view === 'table':                                                  │
+│     └── <EntityListOfInstancesTable                                         │
+│           data={formattedData}                                              │
+│           metadata={metadata}                                               │
+│           hasNextPage={hasNextPage}          // Infinite scroll             │
+│           isFetchingNextPage={isFetchingNextPage}                           │
+│           fetchNextPage={fetchNextPage}                                     │
+│         />                                                                   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Configuration Options
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `enabled` | boolean | Whether table view is available |
+| `default` | boolean | Whether table is the default view |
+
+---
+
 ## Related Documents
 
 | Document | Purpose |
@@ -1003,12 +1058,19 @@ Inline Edit Flow (v12.3.0 - Slow Click-and-Hold)
 | `docs/caching-frontend/NORMALIZED_CACHE_ARCHITECTURE.md` | TanStack Query + Dexie cache architecture |
 | `docs/caching-frontend/ref_data_entityInstance.md` | Entity reference resolution pattern |
 | `docs/state_management/STATE_MANAGEMENT.md` | State architecture overview |
+| `docs/design_pattern/INFINITE_SCROLL_VIRTUALIZATION.md` | Infinite scroll + dynamic entity config |
 
 ---
 
-**Version:** 12.3.0 | **Last Updated:** 2025-12-03 | **Status:** Production
+**Version:** 17.0.0 | **Last Updated:** 2025-12-06 | **Status:** Production
 
 **Recent Updates:**
+- v17.0.0 (2025-12-06): **Database-Driven View Configuration (No Static Fallback)**
+  - Table view availability controlled by `entity.component_views` JSONB column
+  - View config fetched from `/api/v1/entity/codes` endpoint
+  - `useComponentViews` hook extracts table config directly from database (no fallback)
+  - Removed `useMergedEntityConfig` - all view config is database-only
+  - Infinite scroll props passed from page for seamless integration
 - v12.3.0 (2025-12-03): **Unified Slow Click-and-Hold Inline Editing**
   - All three components (`EntityListOfInstancesTable`, `EntityInstanceFormContainer`, `EntityMetadataField`) now use consistent 500ms long-press pattern
   - Click outside OR Enter key triggers optimistic update (TanStack Query + Dexie)

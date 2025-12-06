@@ -1,29 +1,31 @@
-import { useState, useEffect } from 'react';
-import { ViewMode, getDefaultView } from '../entityConfig';
+import { useState } from 'react';
+import type { ViewMode } from './useComponentViews';
 
 /**
  * Hook to manage view mode state with localStorage persistence
  *
+ * v17.0.0: ViewMode type now from useComponentViews (database-driven)
+ *
  * @param entityName - The entity type (e.g., 'project', 'task')
- * @param defaultView - Optional default view (falls back to entity config default)
+ * @param defaultView - Default view (from useComponentViews.defaultView)
  * @returns [currentView, setView] tuple
  */
 export function useViewMode(
   entityName: string,
-  defaultView?: ViewMode
+  defaultView: ViewMode = 'table'
 ): [ViewMode, (view: ViewMode) => void] {
   const storageKey = `viewMode_${entityName}`;
-  const initialView = defaultView || getDefaultView(entityName);
 
   const [view, setViewState] = useState<ViewMode>(() => {
     // Try to load from localStorage
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem(storageKey);
-      if (stored && (stored === 'table' || stored === 'kanban' || stored === 'grid')) {
+      // v17.0.0: Added 'calendar' and 'graph' to valid view modes
+      if (stored && ['table', 'kanban', 'grid', 'calendar', 'graph'].includes(stored)) {
         return stored as ViewMode;
       }
     }
-    return initialView;
+    return defaultView;
   });
 
   const setView = (newView: ViewMode) => {

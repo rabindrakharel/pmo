@@ -240,15 +240,6 @@ export interface TableFilterState {
   [columnKey: string]: any;
 }
 
-/**
- * Table pagination state
- */
-export interface TablePaginationState {
-  currentPage: number;
-  pageSize: number;
-  totalRecords: number;
-}
-
 // ============================================================================
 // TYPE GUARDS
 // ============================================================================

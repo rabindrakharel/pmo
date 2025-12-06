@@ -33,14 +33,14 @@ export {
 } from './useEntityCodes';
 
 // Entity Instance Data (On-Demand)
+// v14.0.0: useEntityInstanceData now supports infiniteScroll option
 export {
   useEntityInstanceData,
   useEntityInstanceMetadata,
-  useEntityInfiniteList,
   clearEntityInstanceDataCache,
   type UseEntityInstanceDataResult,
   type UseEntityInstanceMetadataResult,
-  type UseEntityInfiniteListResult,
+  type UseEntityInstanceDataOptions,
 } from './useEntityInstanceData';
 
 // Single Entity & Mutations
@@ -96,15 +96,6 @@ export {
   type DraftInfo,
   type UseRecoverDraftsResult,
 } from './useDraft';
-
-// Progressive Entity List (v10.0.0 - Cursor Pagination)
-export {
-  useProgressiveEntityList,
-  type UseProgressiveEntityListResult,
-  type ProgressiveLoadingConfig,
-  type ProgressiveLoadingStatus,
-  type ScrollState,
-} from './useProgressiveEntityList';
 
 // Re-export remaining sync functions from stores
 export {
