@@ -75,7 +75,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
    * - Entity pickers and dropdowns
    * - Icon/label resolution
    */
-  fastify.get('/api/v1/entity/types', {
+  fastify.get('/api/v1/entity/codes', {
     preHandler: [fastify.authenticate],
     schema: {
       response: {

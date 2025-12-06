@@ -47,7 +47,7 @@ export function useEntityCodes(options: { enabled?: boolean } = {}): UseEntityCo
       // Layer 3: Fetch from API
       try {
         const response = await apiClient.get<{ data: EntityCode[] }>(
-          '/api/v1/entity/types'
+          '/api/v1/entity/codes'
         );
         const codes = response.data?.data || [];
 
@@ -110,7 +110,7 @@ export function useEntityCodes(options: { enabled?: boolean } = {}): UseEntityCo
 export async function prefetchEntityCodes(): Promise<number> {
   try {
     const response = await apiClient.get<{ data: EntityCode[] }>(
-      '/api/v1/entity/types'
+      '/api/v1/entity/codes'
     );
     const codes = response.data?.data || [];
 
