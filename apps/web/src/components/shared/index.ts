@@ -35,11 +35,6 @@ export { FilePreview } from './file/FilePreview';
 export { DragDropFileUpload } from './file/DragDropFileUpload';
 
 // ============================================================================
-// SEARCH COMPONENTS
-// ============================================================================
-export { ScopeFilters } from './search/ScopeFilters';
-
-// ============================================================================
 // SHARE COMPONENTS
 // ============================================================================
 export { ShareURLSection } from './share/ShareURLSection';
