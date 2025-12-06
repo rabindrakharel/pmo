@@ -91,6 +91,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
             display_order: Type.Number(),
             domain_code: Type.Optional(Type.Union([Type.String(), Type.Null()])),
             column_metadata: Type.Optional(Type.Array(Type.Any())),
+            component_views: Type.Optional(Type.Record(Type.String(), Type.Any())),
             active_flag: Type.Boolean(),
           })),
           syncedAt: Type.Number(),
@@ -113,6 +114,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
           display_order,
           domain_code,
           column_metadata,
+          component_views,
           active_flag
         FROM app.entity
         WHERE active_flag = true
@@ -134,6 +136,9 @@ export async function entityRoutes(fastify: FastifyInstance) {
         column_metadata: typeof row.column_metadata === 'string'
           ? JSON.parse(row.column_metadata)
           : (row.column_metadata || []),
+        component_views: typeof row.component_views === 'string'
+          ? JSON.parse(row.component_views)
+          : (row.component_views || {}),
         active_flag: row.active_flag,
       }));
 

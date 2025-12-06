@@ -11,6 +11,7 @@ import { DAGVisualizer } from '../../components/workflow/DAGVisualizer';
 import { HierarchyGraphView } from '../../components/hierarchy/HierarchyGraphView';
 import { useViewMode } from '../../lib/hooks/useViewMode';
 import { getEntityConfig, type ViewMode } from '../../lib/entityConfig';
+import { useMergedEntityConfig } from '../../lib/hooks/useComponentViews';
 import { getEntityIcon } from '../../lib/entityIcons';
 import { transformForApi, transformFromApi } from '../../lib/frontEndFormatterService';
 import { useSidebar } from '../../contexts/SidebarContext';
@@ -56,7 +57,12 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   // Track previous rawData reference for cache debugging
   const prevRawDataRef = useRef<unknown[] | null>(null);
   const config = getEntityConfig(entityCode);
-  const [view, setView] = useViewMode(entityCode, defaultView);
+
+  // v16.0.0: Dynamic component views from database
+  // Uses TanStack Query cache (entity codes) with fallback to static entityConfig
+  const viewConfig = useMergedEntityConfig(entityCode, config);
+
+  const [view, setView] = useViewMode(entityCode, defaultView || viewConfig.defaultView);
   const { collapseSidebar } = useSidebar();
 
   // Check if this is a settings entity
@@ -250,28 +256,30 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   // ============================================================================
 
   const handleCardMove = useCallback(async (itemId: string, fromColumn: string, toColumn: string) => {
-    if (!config?.kanban) return;
+    // v16.0.0: Use dynamic viewConfig instead of static config
+    if (!viewConfig.kanban) return;
 
     debugCache('Optimistic card move: Starting', { entityCode, itemId, fromColumn, toColumn });
 
     try {
-      await updateEntity(itemId, { [config.kanban.groupByField]: toColumn });
+      await updateEntity(itemId, { [viewConfig.kanban.groupByField]: toColumn });
       debugCache('Optimistic card move: Completed', { entityCode, itemId });
     } catch (err) {
       // Error handling and rollback handled by useOptimisticMutation onError callback
       debugCache('Optimistic card move: Failed', { entityCode, itemId, error: String(err) });
     }
-  }, [config, entityCode, updateEntity]);
+  }, [viewConfig, entityCode, updateEntity]);
 
   // ============================================================================
   // v15.0.0: KANBAN ADD CARD - Navigate to create with pre-filled stage
   // ============================================================================
   const handleAddCard = useCallback((columnId: string) => {
-    if (!config?.kanban) return;
+    // v16.0.0: Use dynamic viewConfig instead of static config
+    if (!viewConfig.kanban) return;
     // Navigate to create page with stage pre-filled
-    const stageField = config.kanban.groupByField;
+    const stageField = viewConfig.kanban.groupByField;
     navigate(`/${entityCode}/new?${stageField}=${encodeURIComponent(columnId)}`);
-  }, [config, entityCode, navigate]);
+  }, [viewConfig, entityCode, navigate]);
 
   // ============================================================================
   // INLINE EDIT HANDLERS (Migrated from FilteredDataTable)
@@ -618,16 +626,22 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
 
     // KANBAN VIEW - Settings-driven, no fallbacks
     // v14.0.0: Removed pagination - loads all data at once
-    if (view === 'kanban' && config.kanban) {
+    // v16.0.0: Uses dynamic viewConfig from database
+    if (view === 'kanban' && viewConfig.kanban) {
+      // Build a minimal config object for KanbanView (it expects EntityConfig shape)
+      const kanbanConfig = {
+        ...config,
+        kanban: viewConfig.kanban,
+      };
       return (
         <div className="h-full overflow-hidden">
           <KanbanView
-            config={config}
+            config={kanbanConfig}
             data={data}
             onCardClick={handleRowClick}
             onCardMove={handleCardMove}
             onAddCard={handleAddCard}
-            emptyMessage={`No ${config.pluralName.toLowerCase()} found`}
+            emptyMessage={`No ${config?.pluralName?.toLowerCase() || 'items'} found`}
           />
         </div>
       );
@@ -635,18 +649,19 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
 
     // GRID VIEW
     // v14.0.0: Removed pagination - loads all data at once
-    if (view === 'grid' && config.grid) {
+    // v16.0.0: Uses dynamic viewConfig from database
+    if (view === 'grid' && viewConfig.grid) {
       return (
         <div className="bg-dark-100 rounded-md shadow p-6">
           <GridView
             items={data}
             onItemClick={handleRowClick}
             columns={3}
-            emptyMessage={`No ${config.pluralName.toLowerCase()} found`}
-            titleField={config.grid.cardFields[0] || 'name'}
-            descriptionField={config.grid.cardFields[1] || 'descr'}
-            badgeFields={config.grid.cardFields.slice(2) || []}
-            imageField={config.grid.imageField}
+            emptyMessage={`No ${config?.pluralName?.toLowerCase() || 'items'} found`}
+            titleField={viewConfig.grid.cardFields[0] || 'name'}
+            descriptionField={viewConfig.grid.cardFields[1] || 'descr'}
+            badgeFields={viewConfig.grid.cardFields.slice(2) || []}
+            imageField={viewConfig.grid.imageField}
           />
         </div>
       );
@@ -733,11 +748,12 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
             </div>
 
             {/* View Switcher and Create Button */}
+            {/* v16.0.0: Uses dynamic viewConfig.supportedViews from database */}
             <div className="flex items-center space-x-3">
-              {config.supportedViews.length > 1 && (
+              {viewConfig.supportedViews.length > 1 && (
                 <ViewSwitcher
                   currentView={view}
-                  supportedViews={config.supportedViews}
+                  supportedViews={viewConfig.supportedViews}
                   onChange={setView}
                 />
               )}
