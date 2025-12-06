@@ -345,14 +345,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
             })
             .filter((item: any) => item !== null);
 
-          // Parse JSONB fields
-          const columnMetadata = typeof entity.column_metadata === 'string'
-            ? JSON.parse(entity.column_metadata)
-            : (entity.column_metadata || []);
-          const componentViews = typeof entity.component_views === 'string'
-            ? JSON.parse(entity.component_views)
-            : (entity.component_views || {});
-
+          // JSONB fields already parsed by entity-infrastructure.service
           return {
             code: entity.code,
             name: entity.name,
@@ -364,8 +357,8 @@ export async function entityRoutes(fastify: FastifyInstance) {
             child_entities: enrichedChildEntities,
             display_order: entity.display_order,
             domain_code: entity.domain_code,
-            column_metadata: columnMetadata,
-            component_views: componentViews,
+            column_metadata: entity.column_metadata || [],
+            component_views: entity.component_views || {},
             active_flag: entity.active_flag
           };
         });
@@ -427,14 +420,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
           .filter((item: any) => item !== null);
       }
 
-      // Parse JSONB fields
-      const columnMetadata = typeof entity.column_metadata === 'string'
-        ? JSON.parse(entity.column_metadata)
-        : (entity.column_metadata || []);
-      const componentViews = typeof entity.component_views === 'string'
-        ? JSON.parse(entity.component_views)
-        : (entity.component_views || {});
-
+      // JSONB fields already parsed by entity-infrastructure.service
       return {
         code: entity.code,
         name: entity.name,
@@ -446,8 +432,8 @@ export async function entityRoutes(fastify: FastifyInstance) {
         child_entities: enrichedChildEntities,
         display_order: entity.display_order,
         domain_code: entity.domain_code,
-        column_metadata: columnMetadata,
-        component_views: componentViews,
+        column_metadata: entity.column_metadata || [],
+        component_views: entity.component_views || {},
         active_flag: entity.active_flag
       };
     } catch (error) {
