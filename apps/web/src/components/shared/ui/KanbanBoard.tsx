@@ -1,9 +1,19 @@
-import React, { useState, useMemo } from 'react';
-import { MoreVertical } from 'lucide-react';
+import React, { useState, useCallback, useRef } from 'react';
+import { MoreHorizontal, Plus, ChevronDown, ChevronRight, GripVertical, Calendar, Clock, User } from 'lucide-react';
 
 // ============================================================================
-// v8.2.0: No auto-detection - groupByField REQUIRED via prop or backend metadata
+// KANBAN BOARD v15.0.0 - Industry Standard Design
 // ============================================================================
+// Inspired by: Linear, Notion, Jira, Monday.com
+// Features:
+// - Sticky headers with color bars
+// - Collapsible columns
+// - Avatar chips for assignees
+// - Due date indicators
+// - Modern card design with elevation
+// - Smooth drag & drop with visual feedback
+// ============================================================================
+
 import { loadFieldOptions } from '../../../lib/formatters/labelMetadataLoader';
 
 export interface KanbanColumn {
@@ -14,250 +24,355 @@ export interface KanbanColumn {
 }
 
 export interface KanbanBoardProps {
-  // ============================================================================
-  // NEW ARCHITECTURE: Auto-Generation ONLY (Universal Field Detector)
-  // ============================================================================
-  /**
-   * Data array - REQUIRED when columns not provided
-   * Board automatically detects grouping field and generates columns
-   */
   data?: any[];
-
-  /**
-   * Pre-built columns - when provided, skips auto-generation
-   */
   columns?: KanbanColumn[];
-
-  /**
-   * v8.2.0: REQUIRED - grouping field for kanban columns
-   * No auto-detection - must be explicitly provided
-   * @example
-   * groupByField="dl__task_stage"
-   */
   groupByField?: string;
-
-  // UI handlers
   onCardClick?: (item: any) => void;
   onCardMove?: (itemId: string, fromColumn: string, toColumn: string) => void;
+  onAddCard?: (columnId: string) => void;
   renderCard?: (item: any) => React.ReactNode;
   emptyMessage?: string;
 }
 
+// ============================================================================
+// KANBAN CARD - Modern Design with Metadata
+// ============================================================================
+
 function KanbanCard({
   item,
   onClick,
-  renderContent
+  renderContent,
+  isDragging = false,
 }: {
   item: any;
   onClick?: () => void;
   renderContent?: (item: any) => React.ReactNode;
+  isDragging?: boolean;
 }) {
-  const [showMenu, setShowMenu] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Priority color mapping
+  const getPriorityStyle = (priority: string) => {
+    const styles: Record<string, { bg: string; text: string; border: string }> = {
+      urgent: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
+      high: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' },
+      medium: { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200' },
+      low: { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' },
+    };
+    return styles[priority?.toLowerCase()] || styles.medium;
+  };
+
+  // Due date formatting and urgency
+  const formatDueDate = (date: string) => {
+    if (!date) return null;
+    const dueDate = new Date(date);
+    const today = new Date();
+    const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    let color = 'text-gray-500';
+    if (diffDays < 0) color = 'text-red-600';
+    else if (diffDays <= 2) color = 'text-orange-600';
+    else if (diffDays <= 7) color = 'text-yellow-600';
+
+    return {
+      text: dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      color,
+      isOverdue: diffDays < 0,
+    };
+  };
+
+  const dueInfo = formatDueDate(item.due_date || item.end_date);
+  const priority = item.priority_level || item.dl__priority;
 
   const defaultContent = (
-    <>
-      <h4
-        className="text-dark-600 mb-2 line-clamp-2"
-        style={{
-          fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-          fontSize: '13px',
-          fontWeight: 400,
-          color: '#333'
-        }}
-      >
-        {item.name || item.title}
+    <div className="space-y-3">
+      {/* Card Title */}
+      <h4 className="text-[13px] font-medium text-gray-900 leading-snug line-clamp-2">
+        {item.name || item.title || item.code}
       </h4>
+
+      {/* Description Preview */}
       {item.descr && (
-        <p
-          className="text-dark-700 mb-2 line-clamp-2"
-          style={{
-            fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-            fontSize: '12px',
-            color: '#666'
-          }}
-        >
+        <p className="text-[12px] text-gray-500 leading-relaxed line-clamp-2">
           {item.descr}
         </p>
       )}
-      <div className="flex items-center justify-between mt-2">
-        {item.priority_level && (
-          <span
-            className={`
-              inline-flex items-center px-2 py-0.5 rounded-full
-              ${item.priority_level === 'High'
-                ? 'bg-red-100 text-red-800'
-                : item.priority_level === 'Medium'
-                ? 'bg-yellow-100 text-yellow-800'
-                : 'bg-green-100 text-green-800'
-              }
-            `}
-            style={{
-              fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-              fontSize: '11px',
-              fontWeight: 400
-            }}
-          >
-            {item.priority_level}
-          </span>
-        )}
-        {item.estimated_hours && (
-          <span
-            className="text-dark-700"
-            style={{
-              fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-              fontSize: '11px'
-            }}
-          >
-            {item.estimated_hours}h
+
+      {/* Metadata Row */}
+      <div className="flex items-center justify-between pt-1">
+        <div className="flex items-center gap-2">
+          {/* Priority Badge */}
+          {priority && (
+            <span className={`
+              inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border
+              ${getPriorityStyle(priority).bg}
+              ${getPriorityStyle(priority).text}
+              ${getPriorityStyle(priority).border}
+            `}>
+              {priority}
+            </span>
+          )}
+
+          {/* Estimated Hours */}
+          {item.estimated_hours && (
+            <span className="inline-flex items-center gap-1 text-[11px] text-gray-400">
+              <Clock className="w-3 h-3" />
+              {item.estimated_hours}h
+            </span>
+          )}
+        </div>
+
+        {/* Due Date */}
+        {dueInfo && (
+          <span className={`inline-flex items-center gap-1 text-[11px] ${dueInfo.color}`}>
+            <Calendar className="w-3 h-3" />
+            {dueInfo.text}
           </span>
         )}
       </div>
+
+      {/* Tags */}
       {item.tags && item.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1 mt-2">
-          {item.tags.slice(0, 2).map((tag: string, idx: number) => (
+        <div className="flex flex-wrap gap-1">
+          {item.tags.slice(0, 3).map((tag: string, idx: number) => (
             <span
               key={idx}
-              className="inline-flex items-center px-1.5 py-0.5 rounded bg-dark-100 text-dark-700"
-              style={{
-                fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-                fontSize: '11px',
-                fontWeight: 400
-              }}
+              className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[10px]"
             >
               {tag}
             </span>
           ))}
-          {item.tags.length > 2 && (
-            <span
-              className="text-dark-600"
-              style={{
-                fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-                fontSize: '11px'
-              }}
-            >
-              +{item.tags.length - 2}
+          {item.tags.length > 3 && (
+            <span className="text-[10px] text-gray-400">
+              +{item.tags.length - 3}
             </span>
           )}
         </div>
       )}
-    </>
+
+      {/* Assignee Avatar */}
+      {(item.assignee_name || item.owner_name) && (
+        <div className="flex items-center gap-2 pt-1 border-t border-gray-100">
+          <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+            <span className="text-[10px] font-medium text-white">
+              {(item.assignee_name || item.owner_name)?.charAt(0).toUpperCase()}
+            </span>
+          </div>
+          <span className="text-[11px] text-gray-500 truncate">
+            {item.assignee_name || item.owner_name}
+          </span>
+        </div>
+      )}
+    </div>
   );
 
   return (
     <div
-      className="bg-dark-100 p-3 rounded-md border border-dark-300 shadow-sm hover:shadow-sm transition-shadow cursor-pointer relative group"
+      className={`
+        group relative bg-white rounded-lg border transition-all duration-200 cursor-pointer
+        ${isDragging
+          ? 'shadow-lg ring-2 ring-blue-500 ring-opacity-50 opacity-90 rotate-2'
+          : isHovered
+            ? 'shadow-md border-gray-200 -translate-y-0.5'
+            : 'shadow-sm border-gray-100 hover:border-gray-200'
+        }
+      `}
       onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       draggable
       onDragStart={(e) => {
         e.dataTransfer.setData('itemId', item.id);
+        e.dataTransfer.effectAllowed = 'move';
       }}
     >
-      {renderContent ? renderContent(item) : defaultContent}
+      {/* Drag Handle */}
+      <div className={`
+        absolute left-0 top-0 bottom-0 w-6 flex items-center justify-center
+        opacity-0 group-hover:opacity-100 transition-opacity cursor-grab
+      `}>
+        <GripVertical className="w-3 h-3 text-gray-300" />
+      </div>
 
+      {/* Card Content */}
+      <div className="p-3 pl-5">
+        {renderContent ? renderContent(item) : defaultContent}
+      </div>
+
+      {/* Card Menu */}
       <button
-        className="absolute top-2 right-2 p-1 rounded hover:bg-dark-100 opacity-0 group-hover:opacity-100 transition-opacity"
+        className={`
+          absolute top-2 right-2 p-1 rounded hover:bg-gray-100
+          opacity-0 group-hover:opacity-100 transition-opacity
+        `}
         onClick={(e) => {
           e.stopPropagation();
-          setShowMenu(!showMenu);
+          // Menu handler
         }}
       >
-        <MoreVertical className="h-4 w-4 text-dark-600" />
+        <MoreHorizontal className="w-4 h-4 text-gray-400" />
       </button>
     </div>
   );
 }
 
+// ============================================================================
+// KANBAN COLUMN - Sticky Header with Color Bar
+// ============================================================================
+
 function KanbanColumnComponent({
   column,
   onCardClick,
   onCardMove,
-  renderCard
+  onAddCard,
+  renderCard,
+  isCollapsed,
+  onToggleCollapse,
 }: {
   column: KanbanColumn;
   onCardClick?: (item: any) => void;
   onCardMove?: (itemId: string, toColumn: string) => void;
+  onAddCard?: () => void;
   renderCard?: (item: any) => React.ReactNode;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
+  const columnRef = useRef<HTMLDivElement>(null);
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
-
     const itemId = e.dataTransfer.getData('itemId');
     if (itemId && onCardMove) {
       onCardMove(itemId, column.id);
     }
-  };
+  }, [column.id, onCardMove]);
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
     setIsDragOver(true);
-  };
+  }, []);
 
-  const handleDragLeave = () => {
-    setIsDragOver(false);
-  };
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    // Only set false if leaving the column entirely
+    if (!columnRef.current?.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false);
+    }
+  }, []);
+
+  // Generate color from column color or default
+  const headerColor = column.color || '#6366f1';
+  const headerColorLight = `${headerColor}15`;
+
+  if (isCollapsed) {
+    return (
+      <div
+        className="flex flex-col h-full min-w-[48px] max-w-[48px] cursor-pointer group"
+        onClick={onToggleCollapse}
+      >
+        {/* Collapsed Header */}
+        <div
+          className="flex flex-col items-center py-3 rounded-lg transition-colors"
+          style={{ backgroundColor: headerColorLight }}
+        >
+          <div
+            className="w-1.5 h-1.5 rounded-full mb-2"
+            style={{ backgroundColor: headerColor }}
+          />
+          <span className="text-[11px] font-medium text-gray-600 writing-mode-vertical transform rotate-180"
+            style={{ writingMode: 'vertical-rl' }}>
+            {column.title}
+          </span>
+          <span className="mt-2 text-[10px] text-gray-400">
+            {column.items.length}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col min-w-[280px] max-w-[280px]">
-      {/* Column Header */}
-      <div className="flex items-center justify-between p-3 bg-dark-100 rounded-t-lg border-b border-dark-300">
-        <div className="flex items-center space-x-2">
-          {column.color && (
-            <div
-              className="w-3 h-3 rounded-full"
-              style={{ backgroundColor: column.color }}
-            />
+    <div
+      ref={columnRef}
+      className="flex flex-col min-w-[300px] max-w-[300px] h-full"
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+    >
+      {/* Column Header - Sticky */}
+      <div
+        className="sticky top-0 z-10 rounded-t-xl overflow-hidden"
+        style={{ backgroundColor: headerColorLight }}
+      >
+        {/* Color Bar */}
+        <div
+          className="h-1 w-full"
+          style={{ backgroundColor: headerColor }}
+        />
+
+        {/* Header Content */}
+        <div className="flex items-center justify-between px-3 py-2.5">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              onClick={onToggleCollapse}
+              className="p-0.5 rounded hover:bg-black/5 transition-colors"
+            >
+              <ChevronDown className="w-4 h-4 text-gray-500" />
+            </button>
+            <h3 className="text-[13px] font-semibold text-gray-800 truncate">
+              {column.title}
+            </h3>
+            <span className="flex-shrink-0 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-white/60 text-[11px] font-medium text-gray-600">
+              {column.items.length}
+            </span>
+          </div>
+
+          {/* Add Card Button */}
+          {onAddCard && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddCard();
+              }}
+              className="p-1 rounded hover:bg-white/60 transition-colors"
+            >
+              <Plus className="w-4 h-4 text-gray-500" />
+            </button>
           )}
-          <h3
-            className="text-dark-600"
-            style={{
-              fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-              fontSize: '13px',
-              fontWeight: 400,
-              color: '#333'
-            }}
-          >
-            {column.title}
-          </h3>
         </div>
-        <span
-          className="bg-dark-200 text-dark-600 px-2 py-0.5 rounded-full"
-          style={{
-            fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-            fontSize: '11px',
-            fontWeight: 400
-          }}
-        >
-          {column.items.length}
-        </span>
       </div>
 
       {/* Column Content */}
       <div
         className={`
-          flex-1 p-3 bg-dark-100 border border-t-0 rounded-b-lg overflow-y-auto
-          ${isDragOver ? 'bg-dark-100 border-dark-500' : ''}
+          flex-1 px-2 py-2 rounded-b-xl overflow-y-auto transition-colors duration-200
+          ${isDragOver
+            ? 'bg-blue-50 ring-2 ring-blue-200 ring-inset'
+            : 'bg-gray-50/50'
+          }
         `}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        style={{ minHeight: '400px', maxHeight: 'calc(100vh - 300px)' }}
+        style={{ maxHeight: 'calc(100vh - 220px)' }}
       >
-        <div className="space-y-3">
+        <div className="space-y-2">
           {column.items.length === 0 ? (
-            <div className="text-center py-8">
-              <p
-                className="text-dark-600"
-                style={{
-                  fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-                  fontSize: '13px',
-                  fontWeight: 400
-                }}
-              >
-                No items
+            <div className={`
+              flex flex-col items-center justify-center py-8 px-4
+              border-2 border-dashed rounded-lg transition-colors
+              ${isDragOver ? 'border-blue-300 bg-blue-50' : 'border-gray-200'}
+            `}>
+              <p className="text-[12px] text-gray-400 text-center">
+                {isDragOver ? 'Drop here' : 'No items'}
               </p>
+              {onAddCard && !isDragOver && (
+                <button
+                  onClick={onAddCard}
+                  className="mt-2 text-[12px] text-blue-500 hover:text-blue-600 font-medium"
+                >
+                  + Add item
+                </button>
+              )}
             </div>
           ) : (
             column.items.map((item) => (
@@ -270,10 +385,25 @@ function KanbanColumnComponent({
             ))
           )}
         </div>
+
+        {/* Add Card at Bottom */}
+        {column.items.length > 0 && onAddCard && (
+          <button
+            onClick={onAddCard}
+            className="w-full mt-2 py-2 text-[12px] text-gray-400 hover:text-gray-600 hover:bg-white rounded-lg transition-colors flex items-center justify-center gap-1"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add item
+          </button>
+        )}
       </div>
     </div>
   );
 }
+
+// ============================================================================
+// KANBAN BOARD - Main Container
+// ============================================================================
 
 export function KanbanBoard({
   data,
@@ -281,21 +411,29 @@ export function KanbanBoard({
   groupByField: explicitGroupByField,
   onCardClick,
   onCardMove,
+  onAddCard,
   renderCard,
-  emptyMessage = 'No columns to display'}: KanbanBoardProps) {
-  // ============================================================================
-  // v8.2.0: Column generation from explicit groupByField (no auto-detection)
-  // ============================================================================
+  emptyMessage = 'No columns to display',
+}: KanbanBoardProps) {
   const [columns, setColumns] = useState<KanbanColumn[]>(providedColumns || []);
+  const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(new Set());
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // ============================================================================
-  // v8.2.0: No auto-detection - groupByField REQUIRED
-  // ============================================================================
+  // Toggle column collapse
+  const toggleColumnCollapse = useCallback((columnId: string) => {
+    setCollapsedColumns(prev => {
+      const next = new Set(prev);
+      if (next.has(columnId)) {
+        next.delete(columnId);
+      } else {
+        next.add(columnId);
+      }
+      return next;
+    });
+  }, []);
 
-  // Load settings options and generate columns (only when columns not provided)
+  // Load settings options and generate columns
   React.useEffect(() => {
-    // Skip auto-generation if columns are provided
     if (providedColumns) {
       setColumns(providedColumns);
       return;
@@ -309,25 +447,22 @@ export function KanbanBoard({
 
       setIsGenerating(true);
       try {
-        // v8.2.0: REQUIRE explicit groupByField - no auto-detection
         const groupField = explicitGroupByField;
 
         if (!groupField) {
-          console.error('[KanbanBoard] groupByField prop is REQUIRED - no auto-detection');
+          console.error('[KanbanBoard] groupByField prop is REQUIRED');
           setColumns([]);
           return;
         }
 
-        // Load options from settings for the grouping field
         const options = await loadFieldOptions(groupField);
 
         if (options.length === 0) {
-          console.warn(`[KanbanBoard] No options found for grouping field: ${groupField}`);
+          console.warn(`[KanbanBoard] No options found for: ${groupField}`);
           setColumns([]);
           return;
         }
 
-        // Group items by the grouping field
         const groupedItems: Record<string, any[]> = {};
         options.forEach(opt => {
           groupedItems[opt.value] = [];
@@ -340,12 +475,11 @@ export function KanbanBoard({
           }
         });
 
-        // Generate KanbanColumn array
         const generatedColumns: KanbanColumn[] = options.map(opt => ({
           id: opt.value,
           title: opt.label,
           color: opt.metadata?.color_code,
-          items: groupedItems[opt.value] || []
+          items: groupedItems[opt.value] || [],
         }));
 
         setColumns(generatedColumns);
@@ -362,10 +496,9 @@ export function KanbanBoard({
     }
   }, [data, explicitGroupByField, providedColumns]);
 
-  const handleCardMove = (itemId: string, toColumnId: string) => {
+  const handleCardMove = useCallback((itemId: string, toColumnId: string) => {
     if (!onCardMove) return;
 
-    // Find which column the item came from
     const fromColumn = columns.find(col =>
       col.items.some(item => item.id === itemId)
     );
@@ -373,44 +506,57 @@ export function KanbanBoard({
     if (fromColumn && fromColumn.id !== toColumnId) {
       onCardMove(itemId, fromColumn.id, toColumnId);
     }
-  };
+  }, [columns, onCardMove]);
 
   if (isGenerating) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-dark-600">Generating Kanban board...</p>
+        <div className="flex items-center gap-3">
+          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <span className="text-[13px] text-gray-500">Loading board...</span>
+        </div>
       </div>
     );
   }
 
   if (columns.length === 0) {
     return (
-      <div className="text-center py-12">
-        <p
-          className="text-dark-700"
-          style={{
-            fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-            fontSize: '13px',
-            fontWeight: 400
-          }}
-        >
-          {emptyMessage}
-        </p>
+      <div className="flex flex-col items-center justify-center h-64 text-center">
+        <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mb-3">
+          <ChevronRight className="w-6 h-6 text-gray-400" />
+        </div>
+        <p className="text-[13px] text-gray-500">{emptyMessage}</p>
       </div>
     );
   }
 
   return (
-    <div className="flex space-x-4 overflow-x-auto pb-4">
-      {columns.map((column) => (
-        <KanbanColumnComponent
-          key={column.id}
-          column={column}
-          onCardClick={onCardClick}
-          onCardMove={(itemId, toColumn) => handleCardMove(itemId, toColumn)}
-          renderCard={renderCard}
-        />
-      ))}
+    <div className="h-full overflow-hidden">
+      {/* Horizontal Scroll Container */}
+      <div
+        className="flex gap-3 h-full overflow-x-auto pb-4 px-1"
+        style={{
+          scrollSnapType: 'x mandatory',
+          scrollBehavior: 'smooth',
+        }}
+      >
+        {columns.map((column) => (
+          <div
+            key={column.id}
+            style={{ scrollSnapAlign: 'start' }}
+          >
+            <KanbanColumnComponent
+              column={column}
+              onCardClick={onCardClick}
+              onCardMove={(itemId, toColumn) => handleCardMove(itemId, toColumn)}
+              onAddCard={onAddCard ? () => onAddCard(column.id) : undefined}
+              renderCard={renderCard}
+              isCollapsed={collapsedColumns.has(column.id)}
+              onToggleCollapse={() => toggleColumnCollapse(column.id)}
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
