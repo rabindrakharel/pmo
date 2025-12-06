@@ -76,10 +76,10 @@ export const PAGINATION_CONFIG = {
   DEFAULT_PAGE_SIZE: 20,
 
   /** Default limit for bulk data loading (format-at-read pattern) */
-  DEFAULT_LIMIT: 20000,
+  DEFAULT_LIMIT: 500,
 
-  /** Maximum allowed limit per request */
-  MAX_LIMIT: 100000,
+  /** Maximum allowed limit per request (v9.4.0: reduced to 500 for sliding window) */
+  MAX_LIMIT: 500,
 
   /** Minimum allowed limit */
   MIN_LIMIT: 1,
@@ -88,17 +88,17 @@ export const PAGINATION_CONFIG = {
   CHILD_ENTITY_LIMIT: 100,
 
   /** Default for dropdown/select options */
-  DROPDOWN_LIMIT: 1000,
+  DROPDOWN_LIMIT: 500,
 
   /** Default for settings/datalabel lists */
   SETTINGS_LIMIT: 500,
 
   /** Entity-specific limits (override DEFAULT_LIMIT for specific entities) */
   ENTITY_LIMITS: {
-    project: 1000,
-    task: 1000,
-    employee: 5000,
-    client: 5000,
+    project: 500,
+    task: 500,
+    employee: 500,
+    client: 500,
     // Add more entity-specific limits as needed
   } as Record<string, number>,
 } as const;

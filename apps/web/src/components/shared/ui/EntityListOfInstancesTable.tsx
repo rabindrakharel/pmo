@@ -748,11 +748,12 @@ export function EntityListOfInstancesTable<T = any>({
   const shouldVirtualize = paginatedData.length > VIRTUALIZATION_THRESHOLD;
 
   // Row virtualizer - only active when we have enough rows
+  // v9.4.1: Increased overscan to 5 for smoother scrolling and better click responsiveness
   const rowVirtualizer = useVirtualizer({
     count: paginatedData.length,
     getScrollElement: () => tableContainerRef.current,
     estimateSize: useCallback(() => ESTIMATED_ROW_HEIGHT, []),
-    overscan: 3, // Optimized: Render 3 extra rows (reduced from 10 for better performance)
+    overscan: 5, // Render 5 extra rows for smooth scrolling and interaction
     enabled: shouldVirtualize,
     // Stable keys improve React reconciliation performance
     getItemKey: useCallback((index: number) => {
@@ -1744,8 +1745,11 @@ export function EntityListOfInstancesTable<T = any>({
               tableLayout: processedColumns.length <= 7 ? 'auto' : 'fixed'
             }}
           >
-            <thead className="bg-gradient-to-r from-dark-100 to-dark-100/80 sticky top-0 z-30 shadow-sm">
-              <tr>
+            <thead
+              className="bg-gradient-to-r from-dark-100 to-dark-100/80 sticky top-0 z-30 shadow-sm"
+              style={shouldVirtualize ? { display: 'block' } : undefined}
+            >
+              <tr style={shouldVirtualize ? { display: 'flex', width: '100%' } : undefined}>
                 {processedColumns.map((column, index) => (
                   <th
                     key={column.key}
@@ -1753,7 +1757,7 @@ export function EntityListOfInstancesTable<T = any>({
                       column.sortable ? 'cursor-pointer hover:bg-dark-100/50 transition-colors' : ''
                     } ${processedColumns.length > 7 ? 'min-w-[200px]' : ''} ${
                       index === 0 ? 'sticky left-0 z-40 bg-dark-100 shadow-r' : ''
-                    }`}
+                    } ${shouldVirtualize ? 'flex-shrink-0' : ''}`}
                     style={{
                       width: processedColumns.length > 7 ? '200px' : (column.width || 'auto'),
                       textAlign: column.align || 'left',
@@ -1809,7 +1813,13 @@ export function EntityListOfInstancesTable<T = any>({
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, index)}
                       onDragEnd={handleDragEnd}
-                      onClick={() => !isEditing && !activeEditingCell && onRowClick?.(record)}
+                      onClick={(e) => {
+                        // v9.4.1: Robust click handling for virtualized rows
+                        // Only trigger row click if not editing and click wasn't stopped by child
+                        if (!isEditing && !activeEditingCell && onRowClick) {
+                          onRowClick(record);
+                        }
+                      }}
                       onKeyDown={(e) => handleRowKeyDown(e, recordId, record)}
                       tabIndex={0}
                       className={`${getRowClassName(isDragging, isDragOver, isEditing || !!isCellEditing(recordId, ''))} outline-none`}
@@ -1820,7 +1830,9 @@ export function EntityListOfInstancesTable<T = any>({
                         left: 0,
                         width: '100%',
                         transform: `translateY(${virtualRow.start}px)`,
-                        minHeight: `${ESTIMATED_ROW_HEIGHT}px`,
+                        height: `${ESTIMATED_ROW_HEIGHT}px`,
+                        backgroundColor: '#FFFFFF',
+                        borderBottom: '1px solid var(--color-dark-400, #e5e7eb)',
                       }}
                     >
                     {processedColumns.map((column, colIndex) => {
@@ -2073,7 +2085,12 @@ export function EntityListOfInstancesTable<T = any>({
                         onDragLeave={handleDragLeave}
                         onDrop={(e) => handleDrop(e, index)}
                         onDragEnd={handleDragEnd}
-                        onClick={() => !isEditing && !activeEditingCell && onRowClick?.(record)}
+                        onClick={(e) => {
+                          // v9.4.1: Consistent click handling for both virtualized and regular rows
+                          if (!isEditing && !activeEditingCell && onRowClick) {
+                            onRowClick(record);
+                          }
+                        }}
                         onKeyDown={(e) => handleRowKeyDown(e, recordId, record)}
                         tabIndex={0}
                         className={`${getRowClassName(isDragging, isDragOver, isEditing || !!isCellEditing(recordId, ''))} outline-none`}

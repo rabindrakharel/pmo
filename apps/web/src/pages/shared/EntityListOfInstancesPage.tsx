@@ -114,10 +114,11 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
 
   // ============================================================================
   // QUERY 2: DATA (5-min cache) - populates rows after metadata ready
+  // v9.4.0: Sliding window pagination - 500 records per page
   // ============================================================================
   const queryParams = useMemo(() => ({
-    limit: 20000,
-    offset: (currentPage - 1) * 20000,
+    limit: 500,
+    offset: (currentPage - 1) * 500,
   }), [currentPage]);
 
   // v11.0.0: refData removed - using TanStack Query cache via getEntityInstanceNameSync()
@@ -188,18 +189,18 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     setIsAddingRow(false);
   }, [entityCode]);
 
-  const hasMore = (rawData?.length || 0) === 20000;
+  const hasMore = (rawData?.length || 0) === 500;
   const error = queryError?.message || null;
 
   // Client-side pagination for EntityListOfInstancesTable rendering
-  // v8.1.0: Page size controls how many rows render at once
-  const [clientPageSize, setClientPageSize] = useState(1000);
+  // v9.4.0: Sliding window - 500 records max per page
+  const [clientPageSize, setClientPageSize] = useState(500);
   const pagination = useMemo(() => ({
     current: currentPage,
     pageSize: clientPageSize,
     total: totalRecords,
     showSizeChanger: true,
-    pageSizeOptions: [100, 500, 1000, 2000],
+    pageSizeOptions: [50, 100, 200, 500],
     onChange: (page: number, newPageSize: number) => {
       setCurrentPage(page);
       if (newPageSize !== clientPageSize) {
