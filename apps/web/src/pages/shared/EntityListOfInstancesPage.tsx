@@ -14,7 +14,7 @@ import { getEntityConfig, type ViewMode } from '../../lib/entityConfig';
 import { getEntityIcon } from '../../lib/entityIcons';
 import { transformForApi, transformFromApi } from '../../lib/frontEndFormatterService';
 import { useSidebar } from '../../contexts/SidebarContext';
-import { useEntityInstanceData, useEntityInstanceMetadata, useOptimisticMutation, QUERY_KEYS } from '@/db/tanstack-index';
+import { useEntityInstanceData, useEntityInfiniteList, useEntityInstanceMetadata, useOptimisticMutation, QUERY_KEYS } from '@/db/tanstack-index';
 import { type ComponentMetadata } from '../../lib/formatters';
 import { useFormattedEntityData } from '../../lib/hooks';
 import type { RowAction } from '../../components/shared/ui/EntityListOfInstancesTable';
@@ -113,24 +113,42 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   }, [viewType, editType]);
 
   // ============================================================================
-  // QUERY 2: DATA (5-min cache) - populates rows after metadata ready
+  // QUERY 2: DATA - Two strategies based on view mode
   // ============================================================================
+  // Table view: Infinite scroll (50 per page, loads more on scroll)
+  // Other views: All data at once (for kanban, grid, calendar)
+  // ============================================================================
+
+  const useInfiniteScroll = view === 'table';
+
+  // Infinite scroll hook for table view (50 items per page)
+  const infiniteResult = useEntityInfiniteList(entityCode, { limit: 50 }, {
+    enabled: !!config && useInfiniteScroll,
+  });
+
+  // Regular query for non-table views (needs all data for kanban columns, etc.)
   const queryParams = useMemo(() => ({
     limit: 20000,
     offset: (currentPage - 1) * 20000,
   }), [currentPage]);
 
   // v11.0.0: refData removed - using TanStack Query cache via getEntityInstanceNameSync()
-  const {
-    data: rawData,
-    total: totalRecords,
-    isLoading: dataLoading,
-    isError,
-    error: queryError,
-    refetch,
-  } = useEntityInstanceData(entityCode, queryParams, {
-    enabled: !!config,
+  const regularResult = useEntityInstanceData(entityCode, queryParams, {
+    enabled: !!config && !useInfiniteScroll,
   });
+
+  // Unified data access - select based on view mode
+  const rawData = useInfiniteScroll ? infiniteResult.data : regularResult.data;
+  const totalRecords = useInfiniteScroll ? infiniteResult.total : regularResult.total;
+  const dataLoading = useInfiniteScroll ? infiniteResult.isLoading : regularResult.isLoading;
+  const isError = useInfiniteScroll ? infiniteResult.isError : regularResult.isError;
+  const queryError = useInfiniteScroll ? infiniteResult.error : regularResult.error;
+  const refetch = useInfiniteScroll ? infiniteResult.refetch : regularResult.refetch;
+
+  // Infinite scroll specific props (only for table view)
+  const hasNextPage = useInfiniteScroll ? infiniteResult.hasNextPage : false;
+  const isFetchingNextPage = useInfiniteScroll ? infiniteResult.isFetchingNextPage : false;
+  const fetchNextPage = useInfiniteScroll ? infiniteResult.fetchNextPage : undefined;
 
   // ============================================================================
   // CACHE DEBUG: Detect when rawData reference changes (indicates fresh fetch)
@@ -594,12 +612,13 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
       const tableData = formattedData.length > 0 ? formattedData : data;
 
       // v11.0.0: ref_data_entityInstance removed - table uses TanStack Query cache
+      // v14.0.0: Infinite scroll enabled for table view
       return (
         <EntityListOfInstancesTable
           data={tableData}
           metadata={metadata}
           loading={loading}
-          pagination={pagination}
+          pagination={useInfiniteScroll ? undefined : pagination}  // Hide pagination when using infinite scroll
           onRowClick={handleRowClick}
           searchable={true}
           filterable={true}
@@ -615,6 +634,10 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
           onCancelInlineEdit={handleCancelInlineEdit}
           allowAddRow={true}
           onAddRow={handleAddRow}
+          // v14.0.0: Infinite scroll props
+          hasNextPage={hasNextPage}
+          isFetchingNextPage={isFetchingNextPage}
+          fetchNextPage={fetchNextPage}
         />
       );
     }

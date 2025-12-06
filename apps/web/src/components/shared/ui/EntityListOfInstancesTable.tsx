@@ -184,6 +184,10 @@ export interface EntityListOfInstancesTableProps<T = any> {
   onCellSave?: (rowId: string, columnKey: string, value: any, record: T) => void;  // Save single cell
   focusedRowId?: string | null;  // Currently focused row (for keyboard nav)
   onRowFocus?: (rowId: string | null) => void;  // Row focus handler
+  // v14.0.0: Infinite scroll support
+  hasNextPage?: boolean;              // Whether more pages are available
+  isFetchingNextPage?: boolean;       // Whether currently loading next page
+  fetchNextPage?: () => void;         // Callback to load next page
 }
 
 export function EntityListOfInstancesTable<T = any>({
@@ -223,7 +227,11 @@ export function EntityListOfInstancesTable<T = any>({
   onCellClick,
   onCellSave,
   focusedRowId = null,
-  onRowFocus
+  onRowFocus,
+  // v14.0.0: Infinite scroll support
+  hasNextPage = false,
+  isFetchingNextPage = false,
+  fetchNextPage,
 }: EntityListOfInstancesTableProps<T>) {
   // ============================================================================
   // METADATA-DRIVEN COLUMN GENERATION (Pure Backend-Driven Architecture)
@@ -760,6 +768,34 @@ export function EntityListOfInstancesTable<T = any>({
       return record ? getRowKey(record, index) : `row-${index}`;
     }, [paginatedData]),
   });
+
+  // ============================================================================
+  // v14.0.0: INFINITE SCROLL - Trigger fetchNextPage when near bottom
+  // ============================================================================
+  // When the last visible row is within 10 rows of the data end, fetch more
+  // This hooks into the virtualizer's visibility detection for optimal performance
+  useEffect(() => {
+    // Skip if infinite scroll not enabled or already fetching
+    if (!fetchNextPage || !hasNextPage || isFetchingNextPage) return;
+
+    const items = rowVirtualizer.getVirtualItems();
+    if (items.length === 0) return;
+
+    const lastVisibleItem = items[items.length - 1];
+    const totalItems = paginatedData.length;
+
+    // Trigger fetch when within 10 rows of end (prefetch threshold)
+    const PREFETCH_THRESHOLD = 10;
+    if (lastVisibleItem && lastVisibleItem.index >= totalItems - PREFETCH_THRESHOLD) {
+      fetchNextPage();
+    }
+  }, [
+    rowVirtualizer.getVirtualItems(),
+    paginatedData.length,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  ]);
 
   // Helper to get row className (shared between virtualized and regular rendering)
   const getRowClassName = useCallback((isDragging: boolean, isDragOver: boolean, isEditing: boolean) => {
@@ -2383,6 +2419,23 @@ export function EntityListOfInstancesTable<T = any>({
           />
           {/* Scrollbar content */}
           <div className="scrollbar-content" style={{ height: '1px' }} />
+        </div>
+      )}
+
+      {/* v14.0.0: Infinite Scroll Loading Indicator & Footer */}
+      {(isFetchingNextPage || (hasNextPage !== undefined && paginatedData.length > 0)) && (
+        <div className="px-4 py-2 border-t border-dark-300 bg-dark-100/50">
+          {isFetchingNextPage ? (
+            <div className="flex items-center justify-center py-2">
+              <InlineSpinner />
+              <span className="ml-2 text-sm text-dark-700">Loading more...</span>
+            </div>
+          ) : (
+            <div className="text-center text-sm text-dark-700">
+              {paginatedData.length} records loaded
+              {hasNextPage && ' (scroll for more)'}
+            </div>
+          )}
         </div>
       )}
 

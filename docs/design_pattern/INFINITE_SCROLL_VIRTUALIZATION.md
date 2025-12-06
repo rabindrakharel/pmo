@@ -1,9 +1,25 @@
 # Infinite Scroll + Virtualization
 
-> **Version**: 1.0.0
-> **Date**: 2025-12-05
-> **Status**: Implementation Guide
+> **Version**: 2.0.0
+> **Date**: 2025-12-06
+> **Status**: ✅ IMPLEMENTED
 > **Complexity**: Simple - ~50 lines of core logic
+
+---
+
+## Implementation Status
+
+**Implemented in v14.0.0:**
+- `EntityListOfInstancesTable.tsx`: Added `hasNextPage`, `isFetchingNextPage`, `fetchNextPage` props
+- `EntityListOfInstancesPage.tsx`: Uses `useEntityInfiniteList` for table view (50 records per page)
+- Virtualization already existed via `@tanstack/react-virtual`
+- Loading indicator added at table footer during page fetches
+- Non-table views (kanban, grid, calendar) continue to load all data
+
+**Key Files:**
+- `apps/web/src/components/shared/ui/EntityListOfInstancesTable.tsx` - Table component with infinite scroll props
+- `apps/web/src/pages/shared/EntityListOfInstancesPage.tsx` - Page using dual-strategy data fetching
+- `apps/web/src/db/cache/hooks/useEntityInstanceData.ts` - Contains `useEntityInfiniteList` hook
 
 ---
 
