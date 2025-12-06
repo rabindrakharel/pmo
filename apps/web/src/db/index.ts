@@ -37,7 +37,6 @@ export {
   // Entity Instance Data (On-Demand)
   useEntityInstanceData,
   useEntityInstanceMetadata,
-  useEntityInfiniteList,
   // Single Entity
   useEntity,
   useEntityMutation,
