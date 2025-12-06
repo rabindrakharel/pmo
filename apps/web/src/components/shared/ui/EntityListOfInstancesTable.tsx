@@ -772,30 +772,35 @@ export function EntityListOfInstancesTable<T = any>({
   // ============================================================================
   // v14.0.0: INFINITE SCROLL - Trigger fetchNextPage when near bottom
   // ============================================================================
-  // When the last visible row is within 10 rows of the data end, fetch more
-  // This hooks into the virtualizer's visibility detection for optimal performance
+  // Uses scroll event listener instead of virtualizer items dependency
+  // to avoid excessive re-renders from new array references
   useEffect(() => {
-    // Skip if infinite scroll not enabled or already fetching
-    if (!fetchNextPage || !hasNextPage || isFetchingNextPage) return;
+    // Skip if infinite scroll not enabled
+    if (!fetchNextPage) return;
 
-    const items = rowVirtualizer.getVirtualItems();
-    if (items.length === 0) return;
+    const container = tableContainerRef.current;
+    if (!container) return;
 
-    const lastVisibleItem = items[items.length - 1];
-    const totalItems = paginatedData.length;
+    const handleScroll = () => {
+      // Skip if no more pages or already fetching
+      if (!hasNextPage || isFetchingNextPage) return;
 
-    // Trigger fetch when within 10 rows of end (prefetch threshold)
-    const PREFETCH_THRESHOLD = 10;
-    if (lastVisibleItem && lastVisibleItem.index >= totalItems - PREFETCH_THRESHOLD) {
-      fetchNextPage();
-    }
-  }, [
-    rowVirtualizer.getVirtualItems(),
-    paginatedData.length,
-    hasNextPage,
-    isFetchingNextPage,
-    fetchNextPage,
-  ]);
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const distanceToBottom = scrollHeight - scrollTop - clientHeight;
+
+      // Trigger fetch when within ~10 row heights (400px) of bottom
+      const PREFETCH_THRESHOLD_PX = 400;
+      if (distanceToBottom < PREFETCH_THRESHOLD_PX) {
+        fetchNextPage();
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    // Also check on mount in case data is short
+    handleScroll();
+
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // Helper to get row className (shared between virtualized and regular rendering)
   const getRowClassName = useCallback((isDragging: boolean, isDragOver: boolean, isEditing: boolean) => {
@@ -2423,7 +2428,8 @@ export function EntityListOfInstancesTable<T = any>({
       )}
 
       {/* v14.0.0: Infinite Scroll Loading Indicator & Footer */}
-      {(isFetchingNextPage || (hasNextPage !== undefined && paginatedData.length > 0)) && (
+      {/* Only show when infinite scroll is active (fetchNextPage provided) */}
+      {fetchNextPage && paginatedData.length > 0 && (
         <div className="px-4 py-2 border-t border-dark-300 bg-dark-100/50">
           {isFetchingNextPage ? (
             <div className="flex items-center justify-center py-2">
@@ -2433,7 +2439,7 @@ export function EntityListOfInstancesTable<T = any>({
           ) : (
             <div className="text-center text-sm text-dark-700">
               {paginatedData.length} records loaded
-              {hasNextPage && ' (scroll for more)'}
+              {hasNextPage ? ' (scroll for more)' : ' (all loaded)'}
             </div>
           )}
         </div>
