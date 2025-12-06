@@ -1,6 +1,6 @@
 # Infinite Scroll + Virtualization
 
-> **Version**: 14.0.0
+> **Version**: 16.0.0
 > **Date**: 2025-12-06
 > **Status**: ✅ IMPLEMENTED
 > **Complexity**: Simple - unified hook with `infiniteScroll` option
@@ -16,6 +16,12 @@
 - Loading indicator at table footer during page fetches
 - Non-table views (kanban, grid, calendar) load all data at once
 
+**Enhanced in v16.0.0:**
+- Database-driven view configuration via `component_views` JSONB column
+- Dynamic view switching based on entity metadata from `/api/v1/entity/codes`
+- `useMergedEntityConfig` hook merges database config with static fallback
+- View mode determined per-entity without code changes
+
 **Cleanup in v14.0.0:**
 - Removed deprecated `useEntityInfiniteList` hook
 - Removed unused `useProgressiveEntityList` hook
@@ -28,6 +34,7 @@
 - `apps/web/src/db/cache/hooks/useEntityInstanceData.ts` - Unified hook with infinite scroll
 - `apps/web/src/components/shared/ui/EntityListOfInstancesTable.tsx` - Table with scroll detection
 - `apps/web/src/pages/shared/EntityListOfInstancesPage.tsx` - Page using dual-strategy fetching
+- `apps/web/src/lib/hooks/useComponentViews.ts` - Dynamic view configuration from entity codes (v16.0.0)
 
 ---
 
@@ -228,6 +235,130 @@ interface UseEntityInstanceDataResult<T> {
 
 ---
 
+## Dynamic Entity Configuration (v16.0.0)
+
+### Database-Driven View Configuration
+
+View modes are now configured in the database via the `component_views` JSONB column in the `entity` table, rather than hardcoded in `entityConfig.ts`:
+
+```sql
+-- Example: task entity with table + kanban views
+UPDATE app.entity SET
+    component_views = '{
+      "EntityListOfInstancesTable": { "enabled": true, "default": true },
+      "KanbanView": {
+        "enabled": true,
+        "groupByField": "dl__task_stage",
+        "cardFields": ["name", "dl__task_priority", "estimated_hours"]
+      }
+    }'::jsonb
+WHERE code = 'task';
+```
+
+### Data Flow: Entity Codes to View Config
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  v16.0.0: DATABASE-DRIVEN VIEW CONFIGURATION                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  1. API: GET /api/v1/entity/codes                                           │
+│     └── Returns: { data: [..., { code, component_views, ... }], syncedAt }  │
+│                                                                              │
+│  2. useEntityCodes Hook (TanStack Query + Dexie)                            │
+│     └── Caches entity metadata including component_views                    │
+│     └── 30-min staleTime, persists to IndexedDB                             │
+│                                                                              │
+│  3. useComponentViews(entityCode) Hook                                      │
+│     └── Extracts component_views from useEntityCodes cache                  │
+│     └── Returns: { supportedViews, defaultView, kanban, grid, calendar }    │
+│                                                                              │
+│  4. useMergedEntityConfig(entityCode, staticConfig) Hook                    │
+│     └── Merges database config with static entityConfig.ts fallback        │
+│     └── Database values take precedence                                     │
+│                                                                              │
+│  5. EntityListOfInstancesPage                                               │
+│     └── const viewConfig = useMergedEntityConfig(entityCode, config);       │
+│     └── Uses viewConfig.supportedViews for ViewSwitcher                     │
+│     └── Uses viewConfig.defaultView for initial view                        │
+│     └── Passes viewConfig.kanban/grid/calendar to view components           │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Hook Usage
+
+```typescript
+// apps/web/src/pages/shared/EntityListOfInstancesPage.tsx (v16.0.0)
+
+import { useMergedEntityConfig } from '@/lib/hooks/useComponentViews';
+
+export function EntityListOfInstancesPage({ entityCode }) {
+  const config = getEntityConfig(entityCode);  // Static fallback
+
+  // v16.0.0: Database-driven view configuration
+  const viewConfig = useMergedEntityConfig(entityCode, config);
+
+  // viewConfig contains:
+  // - supportedViews: ['table', 'kanban'] (from component_views)
+  // - defaultView: 'table' (from component_views)
+  // - kanban: { groupByField, cardFields } (from component_views)
+  // - isLoading: boolean
+
+  const [view, setView] = useViewMode(entityCode, defaultView || viewConfig.defaultView);
+
+  // Use infinite scroll only for table view
+  const useInfiniteScroll = view === 'table';
+
+  // ViewSwitcher uses database-driven supportedViews
+  return (
+    <ViewSwitcher
+      currentView={view}
+      supportedViews={viewConfig.supportedViews}
+      onChange={setView}
+    />
+  );
+}
+```
+
+### ComponentViews Schema
+
+```typescript
+// apps/web/src/db/cache/types.ts
+
+interface ComponentViewConfig {
+  enabled: boolean;          // Whether view is available
+  default?: boolean;         // Whether this is the default view
+  groupByField?: string;     // Kanban: field to group by
+  cardFields?: string[];     // Kanban/Grid: fields on cards
+  dateField?: string;        // Calendar: event date field
+  endDateField?: string;     // Calendar: event end date
+  titleField?: string;       // Calendar: event title
+  columns?: number;          // Grid: number of columns
+  rootField?: string;        // Graph: root node field
+}
+
+interface ComponentViews {
+  EntityListOfInstancesTable?: ComponentViewConfig;
+  KanbanView?: ComponentViewConfig;
+  GridView?: ComponentViewConfig;
+  CalendarView?: ComponentViewConfig;
+  GraphView?: ComponentViewConfig;
+}
+```
+
+### Benefits of Database-Driven Configuration
+
+| Aspect | Before (Static) | After (Database) |
+|--------|-----------------|------------------|
+| **Adding views** | Code change + deploy | DDL update + db-import |
+| **Changing defaults** | Modify entityConfig.ts | UPDATE SQL statement |
+| **Per-tenant config** | Not possible | Different entity rows |
+| **A/B testing** | Complex feature flags | Simple column update |
+| **Rollback** | Git revert + deploy | UPDATE to previous value |
+
+---
+
 ## Performance
 
 | Metric | Value |
@@ -252,4 +383,4 @@ interface UseEntityInstanceDataResult<T> {
 
 ---
 
-**Version**: 14.0.0 | **Updated**: 2025-12-06 | **Pattern**: Unified Infinite Scroll
+**Version**: 16.0.0 | **Updated**: 2025-12-06 | **Pattern**: Unified Infinite Scroll + Database-Driven Views

@@ -1,14 +1,14 @@
 # KanbanBoard Component
 
-**Version:** 8.2.0 | **Location:** `apps/web/src/components/shared/ui/KanbanView.tsx`, `KanbanBoard.tsx`
+**Version:** 16.0.0 | **Location:** `apps/web/src/components/shared/ui/KanbanView.tsx`, `KanbanBoard.tsx`
 
 ---
 
 ## Semantics
 
-The Kanban system provides a standardized, settings-driven board view for any entity with kanban configuration. It integrates with the v8.2.0 metadata architecture where column definitions come from `datalabelMetadataStore` and card rendering uses `FormattedRow` data.
+The Kanban system provides a standardized, settings-driven board view for any entity with kanban configuration. It integrates with the v16.0.0 architecture where **kanban configuration comes from the database** (`entity.component_views` JSONB column) via the `/api/v1/entity/codes` endpoint, column definitions come from `datalabelMetadataStore`, and card rendering uses `FormattedRow` data.
 
-**Core Principle:** Settings-driven columns from datalabel store. DRY architecture. Backend metadata for card rendering.
+**Core Principle:** Database-driven kanban config from `component_views`. Settings-driven columns from datalabel store. DRY architecture. Backend metadata for card rendering.
 
 ---
 
@@ -16,19 +16,38 @@ The Kanban system provides a standardized, settings-driven board view for any en
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                      KANBAN SYSTEM ARCHITECTURE (v8.2.0)                 │
+│                      KANBAN SYSTEM ARCHITECTURE (v16.0.0)                │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                    entityConfig.kanban                           │    │
-│  │  { groupByField: 'dl__task_stage', lookupField: 'dl__task_stage' } │  │
+│  │  DATABASE: app.entity.component_views (v16.0.0)                  │    │
+│  │  { "KanbanView": { "enabled": true, "groupByField": "dl__task_stage",│ │
+│  │    "cardFields": ["name", "dl__task_priority", "estimated_hours"] } }│ │
 │  └─────────────────────────────────────────────────────────────────┘    │
 │                              │                                          │
 │                              v                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                    TanStack Query + Dexie Cache (v12.0.0)        │    │
-│  │  getDatalabelSync('dl__task_stage')                             │    │
-│  │  → { options: [{ name, label, color_code, position }] }         │    │
+│  │  API: GET /api/v1/entity/codes                                   │    │
+│  │  Returns: { data: [..., { code: 'task', component_views }] }     │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                              │                                          │
+│                              v                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │  useEntityCodes Hook (TanStack Query + Dexie)                    │    │
+│  │  Caches entity metadata including component_views (30-min TTL)   │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                              │                                          │
+│                              v                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │  useMergedEntityConfig(entityCode, staticConfig)                 │    │
+│  │  Extracts: { kanban: { groupByField, cardFields } }              │    │
+│  │  Falls back to static entityConfig.ts if DB empty                │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                              │                                          │
+│                              v                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │  TanStack Query + Dexie Cache: getDatalabelSync(groupByField)    │    │
+│  │  → { options: [{ name, label, color_code, position }] }          │    │
 │  │  (Cached at login, 1-hour TTL)                                   │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
 │                              │                                          │
@@ -331,8 +350,44 @@ function TaskKanbanPage() {
 
 ## Entity Config Setup
 
+### Database Configuration (v16.0.0 - Preferred)
+
+Kanban configuration is now stored in the database `entity.component_views` JSONB column:
+
+```sql
+-- db/entity_configuration_settings/02_entity.ddl
+
+UPDATE app.entity SET
+    component_views = '{
+      "EntityListOfInstancesTable": { "enabled": true, "default": true },
+      "KanbanView": {
+        "enabled": true,
+        "groupByField": "dl__task_stage",
+        "cardFields": ["name", "dl__task_priority", "estimated_hours", "assignee_employee_ids"]
+      }
+    }'::jsonb,
+    updated_ts = now()
+WHERE code = 'task';
+
+UPDATE app.entity SET
+    component_views = '{
+      "EntityListOfInstancesTable": { "enabled": true, "default": true },
+      "KanbanView": {
+        "enabled": true,
+        "groupByField": "dl__project_stage",
+        "cardFields": ["name", "budget_allocated_amt"]
+      }
+    }'::jsonb,
+    updated_ts = now()
+WHERE code = 'project';
+```
+
+### Static Fallback (entityConfig.ts)
+
+If database `component_views` is empty, falls back to static configuration:
+
 ```typescript
-// entityConfig.ts
+// entityConfig.ts (fallback only)
 export const entityConfig = {
   task: {
     label: 'Task',
@@ -355,6 +410,27 @@ export const entityConfig = {
     },
   },
 };
+```
+
+### How Configuration is Merged (v16.0.0)
+
+```typescript
+// EntityListOfInstancesPage.tsx
+import { useMergedEntityConfig } from '@/lib/hooks/useComponentViews';
+
+const config = getEntityConfig(entityCode);  // Static fallback
+const viewConfig = useMergedEntityConfig(entityCode, config);
+
+// viewConfig.kanban comes from:
+// 1. Database component_views.KanbanView (if exists)
+// 2. Else: static entityConfig.kanban (fallback)
+
+// Passed to KanbanView:
+<KanbanView
+  config={viewConfig}  // Contains kanban: { groupByField, cardFields }
+  data={formattedData}
+  // ...
+/>
 ```
 
 ---
@@ -488,9 +564,16 @@ Settings Change Flow
 
 ---
 
-**Last Updated:** 2025-12-02 | **Version:** 12.0.0 | **Status:** Production Ready
+**Last Updated:** 2025-12-06 | **Version:** 16.0.0 | **Status:** Production Ready
 
 **Recent Updates:**
+- v16.0.0 (2025-12-06):
+  - **Database-driven kanban configuration** via `entity.component_views` JSONB column
+  - Kanban config fetched from `/api/v1/entity/codes` endpoint
+  - `useEntityCodes` hook caches entity metadata including `component_views`
+  - `useMergedEntityConfig` hook extracts kanban config with static fallback
+  - Configuration: `component_views.KanbanView.groupByField`, `.cardFields`
+  - No code changes required to add kanban support - just DDL update
 - v12.0.0 (2025-12-02):
   - Renamed `datalabelKey` → `lookupField` in entityConfig.kanban
   - Migrated from Zustand store to TanStack Query sync cache (`getDatalabelSync()`)
