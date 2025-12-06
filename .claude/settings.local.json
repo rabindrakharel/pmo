@@ -286,7 +286,9 @@
       "Bash(corepack prepare:*)",
       "Bash(git -C /home/rabin/projects/pmo fetch origin claude/add-design-pattern-docs-01UeEtCJfbRkXSE7HjrMWtJL)",
       "Bash(DATABASE_URL=\"postgresql://app:app@localhost:5434/app\" JWT_SECRET=\"dev-secret-key-change-in-production\" timeout 15 pnpm dev:api:*)",
-      "Bash(DATABASE_URL=\"postgresql://app:app@localhost:5434/app\" JWT_SECRET=\"dev-secret-key-change-in-production\" timeout 20 pnpm -F @pmo/api dev:*)"
+      "Bash(DATABASE_URL=\"postgresql://app:app@localhost:5434/app\" JWT_SECRET=\"dev-secret-key-change-in-production\" timeout 20 pnpm -F @pmo/api dev:*)",
+      "Bash(git -C /home/rabin/projects/pmo push --force origin main)",
+      "Bash(./tools/monitor-all.sh:*)"
     ],
     "deny": [],
     "ask": [],

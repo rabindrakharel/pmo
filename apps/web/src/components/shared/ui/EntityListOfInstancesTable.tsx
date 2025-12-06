@@ -313,6 +313,16 @@ export function EntityListOfInstancesTable<T = any>({
   const [selectedFilterColumn, setSelectedFilterColumn] = useState<string>('');
   const [filterSearchTerm, setFilterSearchTerm] = useState<string>('');
   const [showFilterDropdown, setShowFilterDropdown] = useState<boolean>(false);
+
+  // v9.4.2: Debounced filter search term to prevent UI lag when typing
+  // Filters 1000+ options smoothly without re-rendering on every keystroke
+  const [debouncedFilterSearchTerm, setDebouncedFilterSearchTerm] = useState<string>('');
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedFilterSearchTerm(filterSearchTerm);
+    }, 150); // 150ms debounce - fast enough to feel responsive, slow enough to prevent lag
+    return () => clearTimeout(timer);
+  }, [filterSearchTerm]);
   const filterContainerRef = useRef<HTMLDivElement | null>(null);
   const columnSelectorRef = useRef<HTMLDivElement | null>(null);
 
@@ -384,7 +394,9 @@ export function EntityListOfInstancesTable<T = any>({
 
   // Long-press tracking for inline edit (click and hold pattern)
   // Hold mouse down for 500ms → enter edit mode
+  // Quick click (< 500ms) → navigate to detail page
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggeredRef = useRef<boolean>(false); // Track if long-press activated edit mode
   const LONG_PRESS_DELAY = 500; // 500ms hold to enter edit mode
 
   // Check if a specific cell is being edited
@@ -436,11 +448,13 @@ export function EntityListOfInstancesTable<T = any>({
     if (!inlineEditable || !isEditable) return;
     if (isCellEditing(rowId, columnKey)) return;
 
-    // Cancel any existing timer
+    // Cancel any existing timer and reset flag
     cancelLongPress();
+    longPressTriggeredRef.current = false;
 
     // Start long-press timer
     longPressTimerRef.current = setTimeout(() => {
+      longPressTriggeredRef.current = true; // Mark that long-press triggered edit mode
       enterEditMode(rowId, columnKey, record);
       longPressTimerRef.current = null;
     }, LONG_PRESS_DELAY);
@@ -456,7 +470,9 @@ export function EntityListOfInstancesTable<T = any>({
     cancelLongPress();
   }, [cancelLongPress]);
 
-  // Handle cell click - just prevent propagation, long-press handles edit mode
+  // Handle cell click - only prevent propagation if long-press triggered edit mode
+  // Quick click (< 500ms) → allow propagation → row onClick → navigate to detail page
+  // Long press (≥ 500ms) → edit mode already activated, stop propagation
   const handleCellClick = useCallback((
     e: React.MouseEvent,
     rowId: string,
@@ -464,7 +480,13 @@ export function EntityListOfInstancesTable<T = any>({
     record: T,
     isEditable: boolean
   ) => {
-    e.stopPropagation(); // Prevent row click navigation
+    // Only stop propagation if long-press triggered edit mode
+    // This allows quick clicks to propagate to row for navigation
+    if (longPressTriggeredRef.current) {
+      e.stopPropagation();
+      longPressTriggeredRef.current = false; // Reset for next interaction
+    }
+    // Quick click: don't stop propagation, let row onClick handle navigation
   }, []);
 
   // Handle cell value change
@@ -816,8 +838,9 @@ export function EntityListOfInstancesTable<T = any>({
     };
   }, [activeEditingCell, paginatedData, getRowKey, handleCellSave, handleCellCancel]);
 
+  // v9.4.2: Memoized column options to prevent recalculation on every render
   // Get unique values for each filterable column - CACHE-AWARE
-  const getColumnOptions = (columnKey: string): string[] => {
+  const getColumnOptions = useCallback((columnKey: string): string[] => {
     // Find column metadata to check if it's a datalabel field
     const column = columns.find(col => col.key === columnKey);
     const backendMeta = (column as any)?.backendMetadata as BackendFieldMetadata | undefined;
@@ -859,7 +882,18 @@ export function EntityListOfInstancesTable<T = any>({
       }
     });
     return Array.from(uniqueValues).sort();
-  };
+  }, [columns, data]);
+
+  // v9.4.2: Memoized filtered options - avoids recalculating on every render
+  // Uses debouncedFilterSearchTerm to prevent lag during typing
+  const filteredColumnOptions = useMemo(() => {
+    if (!selectedFilterColumn) return [];
+    const options = getColumnOptions(selectedFilterColumn);
+    if (!debouncedFilterSearchTerm) return options;
+    return options.filter(option =>
+      option.toLowerCase().includes(debouncedFilterSearchTerm.toLowerCase())
+    );
+  }, [selectedFilterColumn, getColumnOptions, debouncedFilterSearchTerm]);
 
   // Handle clicking outside dropdowns to close
   useEffect(() => {
@@ -1534,11 +1568,8 @@ export function EntityListOfInstancesTable<T = any>({
                     {showFilterDropdown && (
                       <div className="absolute top-full left-0 mt-2 w-80 bg-dark-100 border border-dark-300 rounded-xl shadow-sm z-50 backdrop-blur-sm max-h-64 overflow-y-auto">
                         <div className="p-2">
-                          {getColumnOptions(selectedFilterColumn)
-                            .filter(option =>
-                              option.toLowerCase().includes(filterSearchTerm.toLowerCase())
-                            )
-                            .map((option) => {
+                          {/* v9.4.2: Use memoized filteredColumnOptions for performance */}
+                          {filteredColumnOptions.map((option) => {
                               // Check if this column has settings options loaded using backend metadata
                               const selectedColumn = columns.find(col => col.key === selectedFilterColumn);
                               const backendMeta = (selectedColumn as any)?.backendMetadata as BackendFieldMetadata | undefined;
@@ -1555,21 +1586,27 @@ export function EntityListOfInstancesTable<T = any>({
                                 colorCode = match?.color_code;
                               }
 
+                              // v9.4.2: Check if option is currently selected
+                              const isChecked = (dropdownFilters[selectedFilterColumn] || []).includes(option);
+
                               return (
                                 <label
                                   key={option}
                                   className="flex items-center px-3 py-2 hover:bg-dark-100 rounded-md cursor-pointer transition-colors group"
                                   onClick={(e) => {
-                                    e.stopPropagation();
-                                    const isCurrentlyChecked = (dropdownFilters[selectedFilterColumn] || []).includes(option);
-                                    handleDropdownFilter(selectedFilterColumn, option, !isCurrentlyChecked);
+                                    // Only handle if click was NOT on the checkbox itself
+                                    if ((e.target as HTMLElement).tagName !== 'INPUT') {
+                                      e.preventDefault();
+                                      handleDropdownFilter(selectedFilterColumn, option, !isChecked);
+                                    }
                                   }}
                                 >
                                   <input
                                     type="checkbox"
-                                    checked={(dropdownFilters[selectedFilterColumn] || []).includes(option)}
-                                    onChange={() => {}} // Controlled by label onClick
-                                    onClick={(e) => e.stopPropagation()}
+                                    checked={isChecked}
+                                    onChange={() => {
+                                      handleDropdownFilter(selectedFilterColumn, option, !isChecked);
+                                    }}
                                     className="mr-3 text-dark-700 rounded focus:ring-slate-500/30 focus:ring-offset-0 flex-shrink-0"
                                   />
                                   <div className="flex-1 min-w-0">
@@ -1587,10 +1624,7 @@ export function EntityListOfInstancesTable<T = any>({
                               );
                             })
                           }
-                          {getColumnOptions(selectedFilterColumn)
-                            .filter(option =>
-                              option.toLowerCase().includes(filterSearchTerm.toLowerCase())
-                            ).length === 0 && (
+                          {filteredColumnOptions.length === 0 && (
                             <div className="px-2 py-1.5 text-xs text-dark-700 text-center">
                               No options found
                             </div>
@@ -1760,11 +1794,14 @@ export function EntityListOfInstancesTable<T = any>({
                     } ${shouldVirtualize ? 'flex-shrink-0' : ''}`}
                     style={{
                       width: processedColumns.length > 7 ? '200px' : (column.width || 'auto'),
+                      minWidth: processedColumns.length > 7 ? '200px' : '100px',
+                      boxSizing: 'border-box',
                       textAlign: column.align || 'left',
                       color: '#37352F',
                       font: "500 13px / 18px 'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
                       outline: 0,
-                      backgroundColor: '#FFFFFF'
+                      backgroundColor: '#FFFFFF',
+                      flex: processedColumns.length > 7 ? undefined : '1',
                     }}
                     onClick={() => column.sortable && handleSort(column.key)}
                   >

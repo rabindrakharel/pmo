@@ -540,6 +540,425 @@ UNION ALL
 SELECT 'Tasks' as entity, COUNT(*) as total FROM app.task WHERE active_flag = true;
 
 -- ============================================================================
+-- STEP 4: TYPE-LEVEL CREATE PERMISSIONS FOR 500 EMPLOYEES
+-- ============================================================================
+-- Each employee gets CREATE (6) permission on ~8 random entity types
+-- Uses efficient set-based SQL instead of loops
+
+-- Create temp table for entity types
+CREATE TEMP TABLE IF NOT EXISTS temp_entity_types AS
+SELECT entity_type, row_number() OVER () as entity_num
+FROM (VALUES
+  ('project'), ('task'), ('work_order'), ('quote'), ('expense'),
+  ('artifact'), ('wiki'), ('form'), ('interaction'), ('event'),
+  ('calendar'), ('inventory'), ('customer'), ('worksite'), ('service'),
+  ('product'), ('order'), ('invoice'), ('revenue'), ('shipment')
+) AS entities(entity_type);
+
+-- Grant CREATE permissions using set-based operation
+INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
+SELECT DISTINCT
+  'employee',
+  e.id,
+  t.entity_type,
+  '11111111-1111-1111-1111-111111111111',
+  6,  -- CREATE
+  now()
+FROM (
+  SELECT id, row_number() OVER (ORDER BY id) as emp_num
+  FROM app.employee
+  WHERE active_flag = true
+  LIMIT 500
+) e
+CROSS JOIN temp_entity_types t
+WHERE (
+  -- Deterministic "random" selection: ~8 entities per employee
+  ((e.emp_num * 7 + t.entity_num * 13) % 20 < 8)
+  OR t.entity_type = 'task'  -- Everyone can create tasks
+)
+ON CONFLICT DO NOTHING;
+
+DROP TABLE IF EXISTS temp_entity_types;
+
+-- ============================================================================
+-- STEP 5: INSTANCE-LEVEL PERMISSIONS ON PROJECTS
+-- ============================================================================
+-- Distribute ~3000 projects across 500 employees with varying permission levels
+-- Uses efficient set-based SQL
+
+-- VIEW permissions on projects (~6 per employee)
+INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
+SELECT
+  'employee', e.id, 'project', p.id, 0, now()  -- VIEW
+FROM (
+  SELECT id, row_number() OVER (ORDER BY id) as emp_num
+  FROM app.employee WHERE active_flag = true LIMIT 500
+) e
+CROSS JOIN (
+  SELECT id, row_number() OVER (ORDER BY id) as proj_num
+  FROM app.project WHERE active_flag = true
+) p
+WHERE (
+  ((e.emp_num * 17 + p.proj_num * 31) % 1000 < 3)
+  OR ((e.emp_num + p.proj_num) % 35 < 2)
+)
+ON CONFLICT DO NOTHING;
+
+-- EDIT permissions on projects (~3 per employee)
+INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
+SELECT
+  'employee', e.id, 'project', p.id, 3, now()  -- EDIT
+FROM (
+  SELECT id, row_number() OVER (ORDER BY id) as emp_num
+  FROM app.employee WHERE active_flag = true LIMIT 500
+) e
+CROSS JOIN (
+  SELECT id, row_number() OVER (ORDER BY id) as proj_num
+  FROM app.project WHERE active_flag = true
+) p
+WHERE (
+  ((e.emp_num * 17 + p.proj_num * 31) % 1000 >= 100)
+  AND ((e.emp_num * 17 + p.proj_num * 31) % 1000 < 103)
+)
+ON CONFLICT DO NOTHING;
+
+-- DELETE permissions on projects (~1-2 per employee)
+INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
+SELECT
+  'employee', e.id, 'project', p.id, 5, now()  -- DELETE
+FROM (
+  SELECT id, row_number() OVER (ORDER BY id) as emp_num
+  FROM app.employee WHERE active_flag = true LIMIT 500
+) e
+CROSS JOIN (
+  SELECT id, row_number() OVER (ORDER BY id) as proj_num
+  FROM app.project WHERE active_flag = true
+) p
+WHERE (
+  ((e.emp_num * 17 + p.proj_num * 31) % 1000 >= 200)
+  AND ((e.emp_num * 17 + p.proj_num * 31) % 1000 < 202)
+)
+ON CONFLICT DO NOTHING;
+
+-- OWNER permissions on projects (~1 per employee)
+INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
+SELECT
+  'employee', e.id, 'project', p.id, 7, now()  -- OWNER
+FROM (
+  SELECT id, row_number() OVER (ORDER BY id) as emp_num
+  FROM app.employee WHERE active_flag = true LIMIT 500
+) e
+CROSS JOIN (
+  SELECT id, row_number() OVER (ORDER BY id) as proj_num
+  FROM app.project WHERE active_flag = true
+) p
+WHERE (
+  p.proj_num = e.emp_num
+  OR (e.emp_num * 6 = p.proj_num)
+)
+ON CONFLICT DO NOTHING;
+
+-- ============================================================================
+-- STEP 6: INSTANCE-LEVEL PERMISSIONS ON TASKS
+-- ============================================================================
+-- Distribute 30K tasks across 500 employees
+
+-- VIEW permissions on tasks (~160 per employee)
+INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
+SELECT
+  'employee', e.id, 'task', t.id, 0, now()  -- VIEW
+FROM (
+  SELECT id, row_number() OVER (ORDER BY id) as emp_num
+  FROM app.employee WHERE active_flag = true LIMIT 500
+) e
+CROSS JOIN (
+  SELECT id, row_number() OVER (ORDER BY id) as task_num
+  FROM app.task WHERE active_flag = true
+) t
+WHERE (
+  (t.task_num % 500 = e.emp_num - 1)
+  OR ((t.task_num + e.emp_num) % 300 = 0)
+)
+ON CONFLICT DO NOTHING;
+
+-- EDIT permissions on tasks (~30 per employee)
+INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
+SELECT
+  'employee', e.id, 'task', t.id, 3, now()  -- EDIT
+FROM (
+  SELECT id, row_number() OVER (ORDER BY id) as emp_num
+  FROM app.employee WHERE active_flag = true LIMIT 500
+) e
+CROSS JOIN (
+  SELECT id, row_number() OVER (ORDER BY id) as task_num
+  FROM app.task WHERE active_flag = true
+) t
+WHERE (
+  t.task_num % 1000 = e.emp_num - 1
+)
+ON CONFLICT DO NOTHING;
+
+-- ============================================================================
+-- STEP 7: INSTANCE-LEVEL PERMISSIONS ON BUSINESSES
+-- ============================================================================
+-- Distribute 306 businesses across employees
+
+-- VIEW permissions on businesses (~12 per employee)
+INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
+SELECT
+  'employee', e.id, 'business', b.id, 0, now()  -- VIEW
+FROM (
+  SELECT id, row_number() OVER (ORDER BY id) as emp_num
+  FROM app.employee WHERE active_flag = true LIMIT 500
+) e
+CROSS JOIN (
+  SELECT id, row_number() OVER (ORDER BY id) as biz_num
+  FROM app.business WHERE active_flag = true
+) b
+WHERE (
+  (e.emp_num + b.biz_num) % 25 < 3
+)
+ON CONFLICT DO NOTHING;
+
+-- EDIT permissions on businesses (~3 per employee)
+INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
+SELECT
+  'employee', e.id, 'business', b.id, 3, now()  -- EDIT
+FROM (
+  SELECT id, row_number() OVER (ORDER BY id) as emp_num
+  FROM app.employee WHERE active_flag = true LIMIT 500
+) e
+CROSS JOIN (
+  SELECT id, row_number() OVER (ORDER BY id) as biz_num
+  FROM app.business WHERE active_flag = true
+) b
+WHERE (
+  (e.emp_num * 3 + b.biz_num) % 100 < 2
+)
+ON CONFLICT DO NOTHING;
+
+-- ============================================================================
+-- STEP 8: GENERATE ENTITY INSTANCE LINKS (HIERARCHIES)
+-- ============================================================================
+-- Create parent-child relationships for entity navigation
+-- Uses efficient set-based SQL
+
+-- 8a: Link projects to tasks (project → task) - ~10 tasks per project
+INSERT INTO app.entity_instance_link (
+  entity_code, entity_instance_id,
+  child_entity_code, child_entity_instance_id,
+  relationship_type
+)
+SELECT DISTINCT
+  'project', p.id, 'task', t.id, 'contains'
+FROM (
+  SELECT id, row_number() OVER (ORDER BY id) as proj_num
+  FROM app.project WHERE active_flag = true
+) p
+CROSS JOIN (
+  SELECT id, row_number() OVER (ORDER BY id) as task_num
+  FROM app.task WHERE active_flag = true
+) t
+WHERE (
+  (t.task_num / 10 = p.proj_num)
+  OR (t.task_num % 3005 = p.proj_num - 1)
+)
+ON CONFLICT DO NOTHING;
+
+-- 8b: Link businesses to projects (business → project) - ~10 projects per business
+INSERT INTO app.entity_instance_link (
+  entity_code, entity_instance_id,
+  child_entity_code, child_entity_instance_id,
+  relationship_type
+)
+SELECT DISTINCT
+  'business', b.id, 'project', p.id, 'owns'
+FROM (
+  SELECT id, row_number() OVER (ORDER BY id) as biz_num
+  FROM app.business WHERE active_flag = true
+) b
+CROSS JOIN (
+  SELECT id, row_number() OVER (ORDER BY id) as proj_num
+  FROM app.project WHERE active_flag = true
+) p
+WHERE (
+  p.proj_num % 306 = b.biz_num - 1
+)
+ON CONFLICT DO NOTHING;
+
+-- 8c: Link employees to tasks (employee → task) - ~60 tasks per employee
+INSERT INTO app.entity_instance_link (
+  entity_code, entity_instance_id,
+  child_entity_code, child_entity_instance_id,
+  relationship_type
+)
+SELECT DISTINCT
+  'employee', e.id, 'task', t.id, 'assigned_to'
+FROM (
+  SELECT id, row_number() OVER (ORDER BY id) as emp_num
+  FROM app.employee WHERE active_flag = true LIMIT 500
+) e
+CROSS JOIN (
+  SELECT id, row_number() OVER (ORDER BY id) as task_num
+  FROM app.task WHERE active_flag = true
+) t
+WHERE (
+  t.task_num % 500 = e.emp_num - 1
+)
+ON CONFLICT DO NOTHING;
+
+-- 8d: Link employees to projects (employee → project) - ~120 projects per employee
+INSERT INTO app.entity_instance_link (
+  entity_code, entity_instance_id,
+  child_entity_code, child_entity_instance_id,
+  relationship_type
+)
+SELECT DISTINCT
+  'employee', e.id, 'project', p.id, 'member_of'
+FROM (
+  SELECT id, row_number() OVER (ORDER BY id) as emp_num
+  FROM app.employee WHERE active_flag = true LIMIT 500
+) e
+CROSS JOIN (
+  SELECT id, row_number() OVER (ORDER BY id) as proj_num
+  FROM app.project WHERE active_flag = true
+) p
+WHERE (
+  (e.emp_num + p.proj_num) % 50 < 2
+)
+ON CONFLICT DO NOTHING;
+
+-- 8e: Link offices to employees - ~83 employees per office
+INSERT INTO app.entity_instance_link (
+  entity_code, entity_instance_id,
+  child_entity_code, child_entity_instance_id,
+  relationship_type
+)
+SELECT DISTINCT
+  'office', o.id, 'employee', e.id, 'employs'
+FROM (
+  SELECT id, row_number() OVER (ORDER BY id) as office_num
+  FROM app.office WHERE active_flag = true
+) o
+CROSS JOIN (
+  SELECT id, row_number() OVER (ORDER BY id) as emp_num
+  FROM app.employee WHERE active_flag = true LIMIT 500
+) e
+WHERE (
+  e.emp_num % 6 = o.office_num - 1
+)
+ON CONFLICT DO NOTHING;
+
+-- 8f: Link worksites to projects - ~500 projects per worksite
+INSERT INTO app.entity_instance_link (
+  entity_code, entity_instance_id,
+  child_entity_code, child_entity_instance_id,
+  relationship_type
+)
+SELECT DISTINCT
+  'worksite', w.id, 'project', p.id, 'location_of'
+FROM (
+  SELECT id, row_number() OVER (ORDER BY id) as site_num
+  FROM app.worksite WHERE active_flag = true
+) w
+CROSS JOIN (
+  SELECT id, row_number() OVER (ORDER BY id) as proj_num
+  FROM app.project WHERE active_flag = true
+) p
+WHERE (
+  p.proj_num % 6 = w.site_num - 1
+)
+ON CONFLICT DO NOTHING;
+
+-- ============================================================================
+-- STEP 9: UPDATE ENTITY INSTANCE REGISTRY
+-- ============================================================================
+-- Ensure all entities with RBAC permissions are registered in entity_instance
+
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+SELECT DISTINCT 'project', p.id, p.name, p.code
+FROM app.project p WHERE p.active_flag = true
+ON CONFLICT (entity_code, entity_instance_id) DO UPDATE
+SET entity_instance_name = EXCLUDED.entity_instance_name, code = EXCLUDED.code;
+
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+SELECT DISTINCT 'task', t.id, t.name, t.code
+FROM app.task t WHERE t.active_flag = true
+ON CONFLICT (entity_code, entity_instance_id) DO UPDATE
+SET entity_instance_name = EXCLUDED.entity_instance_name, code = EXCLUDED.code;
+
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+SELECT DISTINCT 'business', b.id, b.name, b.code
+FROM app.business b WHERE b.active_flag = true
+ON CONFLICT (entity_code, entity_instance_id) DO UPDATE
+SET entity_instance_name = EXCLUDED.entity_instance_name, code = EXCLUDED.code;
+
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+SELECT DISTINCT 'employee', e.id, e.name, e.code
+FROM app.employee e WHERE e.active_flag = true
+ON CONFLICT (entity_code, entity_instance_id) DO UPDATE
+SET entity_instance_name = EXCLUDED.entity_instance_name, code = EXCLUDED.code;
+
+-- ============================================================================
+-- RBAC & LINK VERIFICATION QUERIES
+-- ============================================================================
+
+SELECT 'RBAC Summary' as report;
+SELECT
+    'Type-Level CREATE' as permission_type,
+    COUNT(*) as count
+FROM app.entity_rbac
+WHERE permission = 6
+  AND entity_instance_id = '11111111-1111-1111-1111-111111111111'
+  AND person_code = 'employee'
+UNION ALL
+SELECT
+    'Instance-Level VIEW' as permission_type,
+    COUNT(*) as count
+FROM app.entity_rbac
+WHERE permission = 0
+  AND entity_instance_id != '11111111-1111-1111-1111-111111111111'
+  AND person_code = 'employee'
+UNION ALL
+SELECT
+    'Instance-Level EDIT' as permission_type,
+    COUNT(*) as count
+FROM app.entity_rbac
+WHERE permission = 3
+  AND entity_instance_id != '11111111-1111-1111-1111-111111111111'
+  AND person_code = 'employee'
+UNION ALL
+SELECT
+    'Instance-Level DELETE' as permission_type,
+    COUNT(*) as count
+FROM app.entity_rbac
+WHERE permission = 5
+  AND entity_instance_id != '11111111-1111-1111-1111-111111111111'
+  AND person_code = 'employee'
+UNION ALL
+SELECT
+    'Instance-Level OWNER' as permission_type,
+    COUNT(*) as count
+FROM app.entity_rbac
+WHERE permission = 7
+  AND entity_instance_id != '11111111-1111-1111-1111-111111111111'
+  AND person_code = 'employee';
+
+SELECT 'Entity Instance Link Summary' as report;
+SELECT
+    entity_code || ' → ' || child_entity_code as relationship,
+    COUNT(*) as link_count
+FROM app.entity_instance_link
+GROUP BY entity_code, child_entity_code
+ORDER BY link_count DESC;
+
+SELECT 'Entity Instance Registry' as report;
+SELECT entity_code, COUNT(*) as instance_count
+FROM app.entity_instance
+GROUP BY entity_code
+ORDER BY instance_count DESC;
+
+-- ============================================================================
 -- CLEANUP SCRIPT (run if needed to remove generated data)
 -- ============================================================================
 --
@@ -548,5 +967,10 @@ SELECT 'Tasks' as entity, COUNT(*) as total FROM app.task WHERE active_flag = tr
 -- DELETE FROM app.task WHERE metadata->>'batch' = 'big_data_30000';
 -- DELETE FROM app.project WHERE metadata->>'batch' = 'big_data_3000';
 -- DELETE FROM app.business WHERE metadata->>'batch' = 'big_data_300';
+--
+-- To remove RBAC and links (if regenerating):
+--
+-- DELETE FROM app.entity_rbac WHERE person_code = 'employee';
+-- DELETE FROM app.entity_instance_link WHERE relationship_type IN ('contains', 'owns', 'assigned_to', 'member_of', 'employs', 'location_of');
 --
 -- ============================================================================

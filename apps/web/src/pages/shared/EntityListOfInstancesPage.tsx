@@ -114,12 +114,19 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
 
   // ============================================================================
   // QUERY 2: DATA (5-min cache) - populates rows after metadata ready
-  // v9.4.0: Sliding window pagination - 500 records per page
+  // v9.4.1: API fetches 1000 records, client paginates 500 at a time
   // ============================================================================
+  // API pagination: fetch 1000 records per API page
+  const API_FETCH_LIMIT = 1000;
+  // Client pagination: render 500 at a time within the fetched data
+  const CLIENT_RENDER_LIMIT = 500;
+
+  // Calculate which API page we need based on client page
+  const apiPage = Math.ceil((currentPage * CLIENT_RENDER_LIMIT) / API_FETCH_LIMIT);
   const queryParams = useMemo(() => ({
-    limit: 500,
-    offset: (currentPage - 1) * 500,
-  }), [currentPage]);
+    limit: API_FETCH_LIMIT,
+    offset: (apiPage - 1) * API_FETCH_LIMIT,
+  }), [apiPage]);
 
   // v11.0.0: refData removed - using TanStack Query cache via getEntityInstanceNameSync()
   const {
@@ -189,12 +196,17 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     setIsAddingRow(false);
   }, [entityCode]);
 
-  const hasMore = (rawData?.length || 0) === 500;
+  const hasMore = (rawData?.length || 0) === API_FETCH_LIMIT;
   const error = queryError?.message || null;
 
-  // Client-side pagination for EntityListOfInstancesTable rendering
-  // v9.4.0: Sliding window - 500 records max per page
-  const [clientPageSize, setClientPageSize] = useState(500);
+  // ============================================================================
+  // v9.4.1: Client-side pagination - table renders 500 at a time from 1000 fetched
+  // Search/filter works against all 1000 records, pagination slices for display
+  // ============================================================================
+  const [clientPageSize, setClientPageSize] = useState(CLIENT_RENDER_LIMIT);
+
+  // Pagination config for EntityListOfInstancesTable
+  // Table internally slices data based on current page and pageSize
   const pagination = useMemo(() => ({
     current: currentPage,
     pageSize: clientPageSize,
@@ -589,9 +601,9 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
         );
       }
 
-      // v9.5.1: ALWAYS use formattedData for display
-      // The table internally extracts raw values for editing cells via FormattedRow.raw
-      // This fixes the bug where entire table showed UUIDs instead of names during edit mode
+      // v9.4.1: Pass ALL fetched data (1000 records) to table for search/filter
+      // Table's internal pagination will slice to 500 at a time for rendering
+      // This ensures search works against all fetched records, not just displayed slice
       const tableData = formattedData.length > 0 ? formattedData : data;
 
       // v11.0.0: ref_data_entityInstance removed - table uses TanStack Query cache

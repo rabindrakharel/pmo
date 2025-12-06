@@ -19,12 +19,12 @@ export const DISPLAY_CONFIG = {
   MAX_REFERENCE_DISPLAY: 5,
 
   /**
-   * Default page size for paginated tables
+   * Default page size for paginated tables (v9.4.1: client renders 500 at a time)
    */
-  PAGE_SIZE_DEFAULT: 50,
+  PAGE_SIZE_DEFAULT: 500,
 
   /**
-   * Available page size options (v9.4.0: max 500 for sliding window)
+   * Available page size options (v9.4.1: max 500 client render limit)
    */
   PAGE_SIZE_OPTIONS: [50, 100, 200, 500] as const,
 
