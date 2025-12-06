@@ -33,6 +33,7 @@ CREATE TABLE app.entity (
     db_table varchar(100), -- Physical table name without prefix (db table name)
     db_model_type varchar(2), -- Data model type: 'd'=dimension, 'dh'=dimension hierarchy, 'f'=fact, 'fh'=fact head
     child_entity_codes jsonb DEFAULT '[]'::jsonb,
+    component_views jsonb DEFAULT '{"EntityListOfInstancesTable": {"enabled": true, "default": true}}'::jsonb,
     display_order int4 DEFAULT 999,
     domain_id int4,
     domain_code varchar(50),
@@ -51,6 +52,7 @@ COMMENT ON COLUMN app.entity.ui_icon IS 'Lucide icon name for UI display (Folder
 COMMENT ON COLUMN app.entity.db_table IS 'Physical table name without prefix (person, inventory, order, office_hierarchy, etc.) - Single source of truth for entity-to-table mapping';
 COMMENT ON COLUMN app.entity.db_model_type IS 'Data model classification: d=dimension, dh=dimension hierarchy, f=fact, fh=fact head, fd=fact data';
 COMMENT ON COLUMN app.entity.child_entity_codes IS 'JSONB array of child entity metadata: [{"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1}]';
+COMMENT ON COLUMN app.entity.component_views IS 'JSONB object defining allowed view components on EntityListOfInstancesPage. Keys: EntityListOfInstancesTable, KanbanView, GridView, CalendarView. Each has enabled, default flags and component-specific config (groupByField, cardFields, dateField, etc.)';
 COMMENT ON COLUMN app.entity.domain_id IS 'Domain ID (denormalized from d_domain for performance)';
 COMMENT ON COLUMN app.entity.domain_code IS 'Domain code (denormalized from d_domain for performance)';
 COMMENT ON COLUMN app.entity.domain_name IS 'Domain name (denormalized from d_domain for performance)';
@@ -1117,4 +1119,164 @@ WHERE e.db_table IS NOT NULL
 -- NOTE: db_table and db_model_type are now set directly
 -- in the INSERT statements above. No separate UPDATE needed.
 -- =====================================================
+
+-- =====================================================
+-- DATA CURATION: COMPONENT VIEWS CONFIGURATION
+-- =====================================================
+-- Configure which view components are allowed for each entity
+-- on the EntityListOfInstancesPage (table, kanban, grid, calendar)
+--
+-- Schema:
+-- {
+--   "EntityListOfInstancesTable": { "enabled": true, "default": true },
+--   "KanbanView": { "enabled": true, "groupByField": "dl__task_stage", "cardFields": [...] },
+--   "GridView": { "enabled": true, "cardFields": [...], "imageField": "thumbnail_url" },
+--   "CalendarView": { "enabled": true, "dateField": "start_date", "endDateField": "end_date" }
+-- }
+-- =====================================================
+
+-- TASK: Table + Kanban view
+UPDATE app.entity SET
+    component_views = '{
+      "EntityListOfInstancesTable": { "enabled": true, "default": true },
+      "KanbanView": {
+        "enabled": true,
+        "groupByField": "dl__task_stage",
+        "cardFields": ["name", "dl__task_priority", "estimated_hours", "assignee_employee_ids"]
+      }
+    }'::jsonb,
+    updated_ts = now()
+WHERE code = 'task';
+
+-- CUSTOMER: Table + Kanban (opportunity funnel)
+UPDATE app.entity SET
+    component_views = '{
+      "EntityListOfInstancesTable": { "enabled": true, "default": true },
+      "KanbanView": {
+        "enabled": true,
+        "groupByField": "dl__customer_opportunity_funnel",
+        "cardFields": ["name", "primary_email", "primary_phone", "dl__customer_tier"]
+      }
+    }'::jsonb,
+    updated_ts = now()
+WHERE code = 'customer';
+
+-- QUOTE: Table + Kanban (quote stages)
+UPDATE app.entity SET
+    component_views = '{
+      "EntityListOfInstancesTable": { "enabled": true, "default": true },
+      "KanbanView": {
+        "enabled": true,
+        "groupByField": "dl__quote_stage",
+        "cardFields": ["name", "quote_total_amt", "customer_name", "valid_until_date"]
+      }
+    }'::jsonb,
+    updated_ts = now()
+WHERE code = 'quote';
+
+-- WORK ORDER: Table + Kanban (work order status)
+UPDATE app.entity SET
+    component_views = '{
+      "EntityListOfInstancesTable": { "enabled": true, "default": true },
+      "KanbanView": {
+        "enabled": true,
+        "groupByField": "dl__work_order_status",
+        "cardFields": ["name", "scheduled_date", "assigned_technician_ids", "total_cost_amt", "customer_name"]
+      }
+    }'::jsonb,
+    updated_ts = now()
+WHERE code = 'work_order';
+
+-- WORKSITE: Table + Grid view
+UPDATE app.entity SET
+    component_views = '{
+      "EntityListOfInstancesTable": { "enabled": true, "default": true },
+      "GridView": {
+        "enabled": true,
+        "cardFields": ["name", "descr"]
+      }
+    }'::jsonb,
+    updated_ts = now()
+WHERE code = 'worksite';
+
+-- EVENT: Table + Calendar view
+UPDATE app.entity SET
+    component_views = '{
+      "EntityListOfInstancesTable": { "enabled": true, "default": true },
+      "CalendarView": {
+        "enabled": true,
+        "dateField": "start_ts",
+        "endDateField": "end_ts",
+        "titleField": "name"
+      }
+    }'::jsonb,
+    updated_ts = now()
+WHERE code = 'event';
+
+-- MESSAGE SCHEMA (Email Templates): Table + Grid view
+UPDATE app.entity SET
+    component_views = '{
+      "EntityListOfInstancesTable": { "enabled": true, "default": true },
+      "GridView": {
+        "enabled": true,
+        "cardFields": ["name", "subject", "dl__message_status", "updated_ts"]
+      }
+    }'::jsonb,
+    updated_ts = now()
+WHERE code = 'message_schema';
+
+-- OFFICE HIERARCHY: Table + Graph view
+UPDATE app.entity SET
+    component_views = '{
+      "EntityListOfInstancesTable": { "enabled": true, "default": true },
+      "GraphView": {
+        "enabled": true,
+        "hierarchyType": "tree",
+        "parentField": "parent_id",
+        "labelField": "name"
+      }
+    }'::jsonb,
+    updated_ts = now()
+WHERE code = 'office_hierarchy';
+
+-- BUSINESS HIERARCHY: Table + Graph view
+UPDATE app.entity SET
+    component_views = '{
+      "EntityListOfInstancesTable": { "enabled": true, "default": true },
+      "GraphView": {
+        "enabled": true,
+        "hierarchyType": "tree",
+        "parentField": "parent_id",
+        "labelField": "name"
+      }
+    }'::jsonb,
+    updated_ts = now()
+WHERE code = 'business_hierarchy';
+
+-- PRODUCT HIERARCHY: Table + Graph view
+UPDATE app.entity SET
+    component_views = '{
+      "EntityListOfInstancesTable": { "enabled": true, "default": true },
+      "GraphView": {
+        "enabled": true,
+        "hierarchyType": "tree",
+        "parentField": "parent_id",
+        "labelField": "name"
+      }
+    }'::jsonb,
+    updated_ts = now()
+WHERE code = 'product_hierarchy';
+
+-- WORKFLOW: Table + Graph view (DAG visualization)
+UPDATE app.entity SET
+    component_views = '{
+      "EntityListOfInstancesTable": { "enabled": true, "default": true },
+      "GraphView": {
+        "enabled": true,
+        "hierarchyType": "dag",
+        "labelField": "name"
+      }
+    }'::jsonb,
+    updated_ts = now()
+WHERE code = 'workflow';
 
