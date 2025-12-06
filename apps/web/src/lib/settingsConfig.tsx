@@ -115,24 +115,27 @@ export function applySettingsBadgeRenderers<T extends { key: string; lookupSourc
 // SETTINGS REGISTRY - Configuration over Repetition
 // ============================================================================
 
+/**
+ * v17.0.0: View properties removed - settings entities always use table view
+ * Settings are managed via datalabel tables, not entity.component_views
+ */
 export interface SettingDefinition {
   key: string;                    // e.g., 'projectStage'
   datalabel: string;              // e.g., 'dl__project_stage' (with dl__ prefix)
   displayName: string;            // e.g., 'Project Stage'
   pluralName: string;             // e.g., 'Project Stages'
-  supportedViews?: ('table' | 'kanban' | 'grid' | 'graph')[];
-  defaultView?: 'table' | 'kanban' | 'grid' | 'graph';
 }
 
 /**
  * Central registry of all settings entities
  * DRY: Define metadata once, generate everything else
  * Note: datalabel uses dl__ prefix for consistency with database naming
+ * v17.0.0: View properties removed - settings always use table view
  */
 export const SETTINGS_REGISTRY: SettingDefinition[] = [
-  { key: 'projectStage', datalabel: 'dl__project_stage', displayName: 'Project Stage', pluralName: 'Project Stages', supportedViews: ['table', 'graph'], defaultView: 'table' },
+  { key: 'projectStage', datalabel: 'dl__project_stage', displayName: 'Project Stage', pluralName: 'Project Stages' },
   { key: 'projectStatus', datalabel: 'dl__project_status', displayName: 'Project Status', pluralName: 'Project Statuses' },
-  { key: 'taskStage', datalabel: 'dl__task_stage', displayName: 'Task Stage', pluralName: 'Task Stages', supportedViews: ['table', 'graph'], defaultView: 'table' },
+  { key: 'taskStage', datalabel: 'dl__task_stage', displayName: 'Task Stage', pluralName: 'Task Stages' },
   { key: 'taskPriority', datalabel: 'dl__task_priority', displayName: 'Task Priority', pluralName: 'Task Priorities' },
   { key: 'businessLevel', datalabel: 'dl__business_level', displayName: 'Business Level', pluralName: 'Business Levels' },
   { key: 'orgLevel', datalabel: 'dl__office_level', displayName: 'Office Level', pluralName: 'Office Levels' },
@@ -209,6 +212,7 @@ export function createSettingsFields() {
 /**
  * Generate complete entity config from definition
  * DRY: Factory pattern - one function generates all configs
+ * v17.0.0: View properties removed - settings always use table view
  */
 export function createSettingsEntityConfig(definition: SettingDefinition) {
   return {
@@ -218,8 +222,6 @@ export function createSettingsEntityConfig(definition: SettingDefinition) {
     apiEndpoint: `/api/v1/datalabel?name=${definition.datalabel}`,
     columns: createSettingsColumns(),
     fields: createSettingsFields(),
-    supportedViews: definition.supportedViews || ['table'],
-    defaultView: definition.defaultView || 'table'
   };
 }
 

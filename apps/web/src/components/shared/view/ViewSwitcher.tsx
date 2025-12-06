@@ -1,6 +1,6 @@
 import React from 'react';
 import { List, Kanban, Grid, Calendar, GitBranch } from 'lucide-react';
-import { ViewMode } from '../../../lib/entityConfig';
+import type { ViewMode } from '../../../lib/hooks/useComponentViews';
 
 interface ViewSwitcherProps {
   currentView: ViewMode;

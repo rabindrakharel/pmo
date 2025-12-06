@@ -10,8 +10,8 @@ import { CalendarView } from '../../components/shared/ui/CalendarView';
 import { DAGVisualizer } from '../../components/workflow/DAGVisualizer';
 import { HierarchyGraphView } from '../../components/hierarchy/HierarchyGraphView';
 import { useViewMode } from '../../lib/hooks/useViewMode';
-import { getEntityConfig, type ViewMode } from '../../lib/entityConfig';
-import { useMergedEntityConfig } from '../../lib/hooks/useComponentViews';
+import { getEntityConfig } from '../../lib/entityConfig';
+import { useComponentViews, type ViewMode } from '../../lib/hooks/useComponentViews';
 import { getEntityIcon } from '../../lib/entityIcons';
 import { transformForApi, transformFromApi } from '../../lib/frontEndFormatterService';
 import { useSidebar } from '../../contexts/SidebarContext';
@@ -58,9 +58,9 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   const prevRawDataRef = useRef<unknown[] | null>(null);
   const config = getEntityConfig(entityCode);
 
-  // v16.0.0: Dynamic component views from database
-  // Uses TanStack Query cache (entity codes) with fallback to static entityConfig
-  const viewConfig = useMergedEntityConfig(entityCode, config);
+  // v17.0.0: Database-driven ONLY - no static fallback
+  // View configuration comes exclusively from entity.component_views JSONB column
+  const viewConfig = useComponentViews(entityCode);
 
   const [view, setView] = useViewMode(entityCode, defaultView || viewConfig.defaultView);
   const { collapseSidebar } = useSidebar();
@@ -625,18 +625,14 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     }
 
     // KANBAN VIEW - Settings-driven, no fallbacks
-    // v14.0.0: Removed pagination - loads all data at once
-    // v16.0.0: Uses dynamic viewConfig from database
+    // v17.0.0: Uses dynamic viewConfig from database, passes kanban config directly
     if (view === 'kanban' && viewConfig.kanban) {
-      // Build a minimal config object for KanbanView (it expects EntityConfig shape)
-      const kanbanConfig = {
-        ...config,
-        kanban: viewConfig.kanban,
-      };
       return (
         <div className="h-full overflow-hidden">
           <KanbanView
-            config={kanbanConfig}
+            kanban={viewConfig.kanban}
+            displayName={config?.displayName || entityCode}
+            pluralName={config?.pluralName || `${entityCode}s`}
             data={data}
             onCardClick={handleRowClick}
             onCardMove={handleCardMove}

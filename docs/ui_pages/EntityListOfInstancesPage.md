@@ -1,6 +1,6 @@
 # EntityListOfInstancesPage
 
-**Version:** 16.0.0 | **Location:** `apps/web/src/pages/shared/EntityListOfInstancesPage.tsx` | **Updated:** 2025-12-06
+**Version:** 17.0.0 | **Location:** `apps/web/src/pages/shared/EntityListOfInstancesPage.tsx` | **Updated:** 2025-12-06
 
 ---
 
@@ -10,8 +10,8 @@ EntityListOfInstancesPage is a universal listing page that renders the main list
 
 **Core Principles:**
 - Single component renders 27+ entity types
-- **Database-driven view configuration** via `entity.component_views` (v16.0.0)
-- Config-driven view switching with static fallback
+- **Database-driven view configuration ONLY** via `entity.component_views` (v17.0.0 - no static fallback)
+- Config-driven view switching from database
 - Two-query architecture (metadata → data)
 - Format-at-read pattern for display values
 
@@ -109,18 +109,15 @@ type ViewMode = 'table' | 'kanban' | 'grid' | 'calendar' | 'dag' | 'hierarchy';
 
 ## Key Features
 
-### 1. Database-Driven View Configuration (v16.0.0)
+### 1. Database-Driven View Configuration (v17.0.0)
 
-View configuration is now fetched from the database via `/api/v1/entity/codes`:
+View configuration is now fetched EXCLUSIVELY from the database via `/api/v1/entity/codes`:
 
 ```typescript
-import { useMergedEntityConfig } from '@/lib/hooks/useComponentViews';
+import { useComponentViews } from '@/lib/hooks/useComponentViews';
 
-// Static fallback from entityConfig.ts
-const config = getEntityConfig(entityCode);
-
-// v16.0.0: Database-driven configuration with fallback
-const viewConfig = useMergedEntityConfig(entityCode, config);
+// v17.0.0: Database-driven ONLY - no static fallback
+const viewConfig = useComponentViews(entityCode);
 
 // viewConfig contains:
 // - supportedViews: ['table', 'kanban', 'grid'] (from component_views)
@@ -134,8 +131,8 @@ const viewConfig = useMergedEntityConfig(entityCode, config);
 ### 2. View Mode Persistence
 
 ```typescript
-// Uses database defaultView OR static config fallback
-const [view, setView] = useViewMode(entityCode, defaultView || viewConfig.defaultView);
+// Uses database defaultView (no static fallback in v17.0.0)
+const [view, setView] = useViewMode(entityCode, viewConfig.defaultView);
 // Persists view selection per entity in localStorage
 ```
 
@@ -179,10 +176,10 @@ useEffect(() => {
 │                                                                              │
 │  1. Route Match: /project → entityCode="project"                            │
 │                                                                              │
-│  2. View Config Lookup (v16.0.0):                                           │
-│     const config = getEntityConfig('project');  // Static fallback          │
-│     const viewConfig = useMergedEntityConfig('project', config);            │
+│  2. View Config Lookup (v17.0.0):                                           │
+│     const viewConfig = useComponentViews('project');                        │
 │     └── Fetches from /api/v1/entity/codes                                   │
+│     └── Database-only - no static fallback                                  │
 │     └── Returns: { supportedViews, defaultView, kanban, grid, calendar }    │
 │                                                                              │
 │  3. Metadata Query:                                                         │
@@ -211,13 +208,13 @@ useEffect(() => {
 
 ---
 
-## Database-Driven View Configuration (v16.0.0)
+## Database-Driven View Configuration (v17.0.0)
 
 ### Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  v16.0.0: DATABASE-DRIVEN COMPONENT VIEWS                                    │
+│  v17.0.0: DATABASE-DRIVEN COMPONENT VIEWS (No Static Fallback)              │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  DATABASE: app.entity.component_views JSONB                                  │
@@ -244,18 +241,17 @@ useEffect(() => {
 │  ─────────────────                                                          │
 │  useEntityCodes()           → Caches entity metadata (30-min TTL)           │
 │  useComponentViews(code)    → Extracts component_views for entity           │
-│  useMergedEntityConfig()    → Merges DB config with static fallback         │
+│  (No useMergedEntityConfig in v17.0.0 - database-only)                      │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Configuration Priority
+### Configuration Source (v17.0.0)
 
-| Source | Priority | When Used |
-|--------|----------|-----------|
-| Database `component_views` | 1 (Highest) | If field exists in component_views |
-| Static `entityConfig.ts` | 2 (Fallback) | If database config empty |
-| Default (table only) | 3 (Last resort) | If no config at all |
+| Source | When Used |
+|--------|-----------|
+| Database `component_views` | ONLY source - all view config must be in database |
+| Default (table only) | If component_views is null/empty |
 
 ### ViewSwitcher Integration
 
@@ -348,7 +344,8 @@ const { entityCode } = useParams();
 
 | Version | Date | Changes |
 |---------|------|---------|
-| v16.0.0 | 2025-12-06 | **Database-driven view configuration** via `component_views` JSONB |
+| v17.0.0 | 2025-12-06 | **Database-driven ONLY** - removed static entityConfig fallback |
+| v16.0.0 | 2025-12-06 | Database-driven view configuration via `component_views` JSONB |
 | v12.6.0 | 2025-12-04 | Reactive formatting with cache subscription (fixes badge color bug) |
 | v9.4.0 | 2025-12-03 | Two-query architecture (metadata → data separation) |
 | v9.0.0 | 2025-11-28 | TanStack Query + Dexie migration |
@@ -358,9 +355,12 @@ const { entityCode } = useParams();
 
 **Last Updated:** 2025-12-06 | **Status:** Production Ready
 
-**v16.0.0 Key Changes:**
-- View configuration fetched from `/api/v1/entity/codes` endpoint
-- `useMergedEntityConfig` hook merges database config with static fallback
+**v17.0.0 Key Changes:**
+- View configuration fetched EXCLUSIVELY from `/api/v1/entity/codes` endpoint
+- Removed `useMergedEntityConfig` hook - use `useComponentViews` directly
+- No static fallback - all view config must be in database `component_views` JSONB
+- KanbanView now accepts `kanban` prop directly (not via EntityConfig)
+- New KanbanView props: `displayName`, `pluralName` for error messages
 - `component_views` JSONB column in `entity` table controls:
   - Which views are available per entity
   - Default view selection

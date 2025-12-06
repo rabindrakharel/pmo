@@ -1,14 +1,14 @@
 # KanbanBoard Component
 
-**Version:** 16.0.0 | **Location:** `apps/web/src/components/shared/ui/KanbanView.tsx`, `KanbanBoard.tsx`
+**Version:** 17.0.0 | **Location:** `apps/web/src/components/shared/ui/KanbanView.tsx`, `KanbanBoard.tsx`
 
 ---
 
 ## Semantics
 
-The Kanban system provides a standardized, settings-driven board view for any entity with kanban configuration. It integrates with the v16.0.0 architecture where **kanban configuration comes from the database** (`entity.component_views` JSONB column) via the `/api/v1/entity/codes` endpoint, column definitions come from `datalabelMetadataStore`, and card rendering uses `FormattedRow` data.
+The Kanban system provides a standardized, settings-driven board view for any entity with kanban configuration. It integrates with the v17.0.0 architecture where **kanban configuration comes EXCLUSIVELY from the database** (`entity.component_views` JSONB column) via the `/api/v1/entity/codes` endpoint - no static fallback. Column definitions come from datalabel store, and card rendering uses `FormattedRow` data.
 
-**Core Principle:** Database-driven kanban config from `component_views`. Settings-driven columns from datalabel store. DRY architecture. Backend metadata for card rendering.
+**Core Principle:** Database-driven kanban config ONLY from `component_views`. No static fallback. Settings-driven columns from datalabel store. DRY architecture. Backend metadata for card rendering.
 
 ---
 
@@ -16,11 +16,11 @@ The Kanban system provides a standardized, settings-driven board view for any en
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                      KANBAN SYSTEM ARCHITECTURE (v16.0.0)                │
+│                      KANBAN SYSTEM ARCHITECTURE (v17.0.0)                │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │  DATABASE: app.entity.component_views (v16.0.0)                  │    │
+│  │  DATABASE: app.entity.component_views (v17.0.0)                  │    │
 │  │  { "KanbanView": { "enabled": true, "groupByField": "dl__task_stage",│ │
 │  │    "cardFields": ["name", "dl__task_priority", "estimated_hours"] } }│ │
 │  └─────────────────────────────────────────────────────────────────┘    │
@@ -39,9 +39,9 @@ The Kanban system provides a standardized, settings-driven board view for any en
 │                              │                                          │
 │                              v                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │  useMergedEntityConfig(entityCode, staticConfig)                 │    │
+│  │  useComponentViews(entityCode)  (v17.0.0 - database-only)        │    │
 │  │  Extracts: { kanban: { groupByField, cardFields } }              │    │
-│  │  Falls back to static entityConfig.ts if DB empty                │    │
+│  │  No static fallback - requires database configuration            │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
 │                              │                                          │
 │                              v                                          │
@@ -82,22 +82,30 @@ The Kanban system provides a standardized, settings-driven board view for any en
 
 ```typescript
 import type { FormattedRow } from '@/lib/formatters';
+import type { KanbanConfig } from '@/lib/hooks/useKanbanColumns';
 
+// v17.0.0: KanbanView accepts kanban config directly (database-driven)
 interface KanbanViewProps {
-  /** Entity configuration with kanban settings */
-  config: EntityConfig;
+  /** Kanban configuration from database component_views */
+  kanban: KanbanConfig;
+
+  /** Entity display name (for error messages) */
+  displayName: string;
+
+  /** Entity plural name (for empty messages) */
+  pluralName: string;
 
   /** Array of entity items (FormattedRow[] from useFormattedEntityList) */
   data: FormattedRow<any>[];
-
-  /** Backend metadata with { viewType, editType } structure */
-  metadata?: EntityMetadata | null;
 
   /** Callback when card is clicked */
   onCardClick?: (item: any) => void;
 
   /** Callback when card is moved between columns */
   onCardMove?: (itemId: string, fromColumn: string, toColumn: string) => void;
+
+  /** Callback when add card button is clicked */
+  onAddCard?: (columnId: string) => void;
 
   /** Custom card renderer (optional) */
   renderCard?: (item: FormattedRow<any>) => React.ReactNode;
@@ -106,14 +114,11 @@ interface KanbanViewProps {
   emptyMessage?: string;
 }
 
-// EntityConfig with kanban settings
-interface EntityConfig {
-  kanban?: {
-    groupByField: string;      // Field to group by (e.g., 'dl__task_stage')
-    lookupField: string;       // v12.0.0: Key for getDatalabelSync() (e.g., 'dl__task_stage')
-    cardFields?: string[];     // Fields to show on card
-  };
-  supportedViews?: ('table' | 'kanban' | 'grid' | 'calendar')[];
+// v17.0.0: KanbanConfig from useKanbanColumns.ts (database-driven)
+interface KanbanConfig {
+  groupByField: string;      // Field to group by (e.g., 'dl__task_stage')
+  metaTable?: string;        // Optional datalabel table name
+  cardFields: string[];      // Fields to show on card
 }
 ```
 
@@ -382,56 +387,32 @@ UPDATE app.entity SET
 WHERE code = 'project';
 ```
 
-### Static Fallback (entityConfig.ts)
-
-If database `component_views` is empty, falls back to static configuration:
-
-```typescript
-// entityConfig.ts (fallback only)
-export const entityConfig = {
-  task: {
-    label: 'Task',
-    labelPlural: 'Tasks',
-    supportedViews: ['table', 'kanban'],
-    kanban: {
-      groupByField: 'dl__task_stage',      // Field in entity data
-      lookupField: 'dl__task_stage',       // v12.0.0: Key for getDatalabelSync()
-      cardFields: ['name', 'dl__task_priority', 'assigned__employee_id'],
-    },
-  },
-  project: {
-    label: 'Project',
-    labelPlural: 'Projects',
-    supportedViews: ['table', 'kanban', 'grid'],
-    kanban: {
-      groupByField: 'dl__project_stage',
-      lookupField: 'dl__project_stage',    // v12.0.0: Key for getDatalabelSync()
-      cardFields: ['name', 'budget_allocated_amt'],
-    },
-  },
-};
-```
-
-### How Configuration is Merged (v16.0.0)
+### How Configuration Works (v17.0.0 - Database Only)
 
 ```typescript
 // EntityListOfInstancesPage.tsx
-import { useMergedEntityConfig } from '@/lib/hooks/useComponentViews';
+import { useComponentViews } from '@/lib/hooks/useComponentViews';
 
-const config = getEntityConfig(entityCode);  // Static fallback
-const viewConfig = useMergedEntityConfig(entityCode, config);
+// v17.0.0: Database-driven ONLY - no static fallback
+const viewConfig = useComponentViews(entityCode);
 
 // viewConfig.kanban comes from:
-// 1. Database component_views.KanbanView (if exists)
-// 2. Else: static entityConfig.kanban (fallback)
+// Database component_views.KanbanView ONLY
+// No static fallback - if not configured, kanban view is not available
 
-// Passed to KanbanView:
+// Passed to KanbanView with new props:
 <KanbanView
-  config={viewConfig}  // Contains kanban: { groupByField, cardFields }
+  kanban={viewConfig.kanban}  // { groupByField, metaTable, cardFields }
+  displayName={config?.displayName || entityCode}
+  pluralName={config?.pluralName || `${entityCode}s`}
   data={formattedData}
-  // ...
+  onCardClick={handleRowClick}
+  onCardMove={handleCardMove}
+  onAddCard={handleAddCard}
 />
 ```
+
+**Note:** v17.0.0 removed static entityConfig fallback. All view configuration must be in the database `entity.component_views` JSONB column. Run `./tools/db-import.sh` after DDL changes.
 
 ---
 
@@ -564,14 +545,16 @@ Settings Change Flow
 
 ---
 
-**Last Updated:** 2025-12-06 | **Version:** 16.0.0 | **Status:** Production Ready
+**Last Updated:** 2025-12-06 | **Version:** 17.0.0 | **Status:** Production Ready
 
 **Recent Updates:**
-- v16.0.0 (2025-12-06):
-  - **Database-driven kanban configuration** via `entity.component_views` JSONB column
+- v17.0.0 (2025-12-06):
+  - **Database-driven ONLY kanban configuration** via `entity.component_views` JSONB column
   - Kanban config fetched from `/api/v1/entity/codes` endpoint
   - `useEntityCodes` hook caches entity metadata including `component_views`
-  - `useMergedEntityConfig` hook extracts kanban config with static fallback
+  - Removed `useMergedEntityConfig` - use `useComponentViews` directly (no static fallback)
+  - KanbanView now accepts kanban config directly via `kanban` prop (not `config`)
+  - New props: `displayName`, `pluralName` passed separately for error messages
   - Configuration: `component_views.KanbanView.groupByField`, `.cardFields`
   - No code changes required to add kanban support - just DDL update
 - v12.0.0 (2025-12-02):

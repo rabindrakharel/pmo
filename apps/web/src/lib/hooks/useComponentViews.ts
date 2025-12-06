@@ -1,18 +1,23 @@
 // ============================================================================
 // useComponentViews Hook
 // ============================================================================
-// v16.0.0: Database-driven component views configuration
-// Extracts component_views from entity metadata cache and provides
-// dynamic view configuration for EntityListOfInstancesPage
+// v17.0.0: Database-driven ONLY - no static fallback
+// View configuration comes exclusively from entity.component_views JSONB column
+// Fetched via /api/v1/entity/codes and cached via TanStack Query (30-min TTL)
 // ============================================================================
 
 import { useMemo } from 'react';
 import { useEntityCodes } from '@/db/tanstack-index';
-import type { ViewMode } from '../entityConfig';
 import type { ComponentViews, ComponentViewConfig } from '@/db/cache/types';
 
 /**
- * View configuration returned by hook - combines database config with defaults
+ * View mode type - supported view modes for entity listing pages
+ * v17.0.0: Moved here from entityConfig.ts (now database-driven only)
+ */
+export type ViewMode = 'table' | 'kanban' | 'grid' | 'calendar' | 'graph';
+
+/**
+ * View configuration returned by hook - database-driven only (v17.0.0)
  */
 export interface DynamicViewConfig {
   /** Supported views for this entity (derived from component_views) */
@@ -41,11 +46,8 @@ export interface DynamicViewConfig {
     titleField?: string;
   };
 
-  /** Whether config is loading */
+  /** Whether entity codes are still loading */
   isLoading: boolean;
-
-  /** Whether config was found in database */
-  isFromDatabase: boolean;
 }
 
 /**
@@ -110,6 +112,9 @@ function extractDefaultView(componentViews: ComponentViews | undefined): ViewMod
 /**
  * Hook to get dynamic component views configuration from database
  *
+ * v17.0.0: Database-driven ONLY - no static fallback
+ * All view configuration comes exclusively from entity.component_views JSONB column
+ *
  * @param entityCode - Entity type code (e.g., 'task', 'project')
  * @returns Dynamic view configuration from database
  *
@@ -137,7 +142,7 @@ export function useComponentViews(entityCode: string): DynamicViewConfig {
     const entity = getByCode(entityCode);
     const componentViews = entity?.component_views;
 
-    // If no database config, return defaults
+    // v17.0.0: No static fallback - table view as default when no database config
     if (!componentViews || Object.keys(componentViews).length === 0) {
       return {
         supportedViews: ['table'] as ViewMode[],
@@ -146,7 +151,6 @@ export function useComponentViews(entityCode: string): DynamicViewConfig {
         grid: undefined,
         calendar: undefined,
         isLoading,
-        isFromDatabase: false,
       };
     }
 
@@ -184,47 +188,16 @@ export function useComponentViews(entityCode: string): DynamicViewConfig {
       grid,
       calendar,
       isLoading,
-      isFromDatabase: true,
     };
   }, [entityCode, getByCode, isLoading]);
 
   return config;
 }
 
-/**
- * Merge database config with static entityConfig
- * Database config takes precedence when available
- *
- * @param entityCode - Entity type code
- * @param staticConfig - Static config from entityConfig.ts
- * @returns Merged configuration
- */
-export function useMergedEntityConfig(
-  entityCode: string,
-  staticConfig: {
-    supportedViews?: ViewMode[];
-    defaultView?: ViewMode;
-    kanban?: { groupByField: string; metaTable?: string; cardFields: string[] };
-    grid?: { cardFields: string[]; imageField?: string };
-  } | undefined
-): DynamicViewConfig {
-  const dbConfig = useComponentViews(entityCode);
-
-  return useMemo(() => {
-    // If database has config, use it
-    if (dbConfig.isFromDatabase) {
-      return dbConfig;
-    }
-
-    // Otherwise fall back to static config
-    return {
-      supportedViews: staticConfig?.supportedViews || ['table'],
-      defaultView: staticConfig?.defaultView || 'table',
-      kanban: staticConfig?.kanban,
-      grid: staticConfig?.grid,
-      calendar: undefined,
-      isLoading: dbConfig.isLoading,
-      isFromDatabase: false,
-    };
-  }, [dbConfig, staticConfig]);
-}
+// v17.0.0: useMergedEntityConfig REMOVED
+// Static entityConfig fallback pattern eliminated
+// Use useComponentViews() directly - all view config is database-driven only
+//
+// MIGRATION:
+//   Before: const viewConfig = useMergedEntityConfig(entityCode, config);
+//   After:  const viewConfig = useComponentViews(entityCode);

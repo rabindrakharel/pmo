@@ -1,6 +1,6 @@
 # Infinite Scroll + Virtualization
 
-> **Version**: 16.0.0
+> **Version**: 17.0.0
 > **Date**: 2025-12-06
 > **Status**: ✅ IMPLEMENTED
 > **Complexity**: Simple - unified hook with `infiniteScroll` option
@@ -16,11 +16,15 @@
 - Loading indicator at table footer during page fetches
 - Non-table views (kanban, grid, calendar) load all data at once
 
-**Enhanced in v16.0.0:**
-- Database-driven view configuration via `component_views` JSONB column
-- Dynamic view switching based on entity metadata from `/api/v1/entity/codes`
-- `useMergedEntityConfig` hook merges database config with static fallback
-- View mode determined per-entity without code changes
+**v17.0.0: Database-Driven ONLY (No Static Fallback)**
+- Removed static entityConfig fallback - all view config from database
+- `useComponentViews` is the ONLY source of view configuration
+- Removed `useMergedEntityConfig` function entirely
+- Removed `supportedViews`, `defaultView`, `kanban`, `grid` from EntityConfig interface
+- Removed `supportsView()`, `getDefaultView()` helper functions
+- ViewMode type moved from entityConfig.ts to useComponentViews.ts
+- KanbanView now accepts kanban config directly (not via EntityConfig)
+- useKanbanColumns accepts KanbanConfig directly (not via EntityConfig)
 
 **Cleanup in v14.0.0:**
 - Removed deprecated `useEntityInfiniteList` hook
@@ -33,8 +37,8 @@
 **Key Files:**
 - `apps/web/src/db/cache/hooks/useEntityInstanceData.ts` - Unified hook with infinite scroll
 - `apps/web/src/components/shared/ui/EntityListOfInstancesTable.tsx` - Table with scroll detection
-- `apps/web/src/pages/shared/EntityListOfInstancesPage.tsx` - Page using dual-strategy fetching
-- `apps/web/src/lib/hooks/useComponentViews.ts` - Dynamic view configuration from entity codes (v16.0.0)
+- `apps/web/src/pages/shared/EntityListOfInstancesPage.tsx` - Page using database-driven views
+- `apps/web/src/lib/hooks/useComponentViews.ts` - Database-only view configuration (v17.0.0)
 
 ---
 
@@ -235,11 +239,11 @@ interface UseEntityInstanceDataResult<T> {
 
 ---
 
-## Dynamic Entity Configuration (v16.0.0)
+## Dynamic Entity Configuration (v17.0.0)
 
-### Database-Driven View Configuration
+### Database-Driven View Configuration (No Static Fallback)
 
-View modes are now configured in the database via the `component_views` JSONB column in the `entity` table, rather than hardcoded in `entityConfig.ts`:
+View modes are now configured EXCLUSIVELY in the database via the `component_views` JSONB column in the `entity` table. Static entityConfig.ts no longer contains view configuration:
 
 ```sql
 -- Example: task entity with table + kanban views
@@ -273,12 +277,9 @@ WHERE code = 'task';
 │     └── Extracts component_views from useEntityCodes cache                  │
 │     └── Returns: { supportedViews, defaultView, kanban, grid, calendar }    │
 │                                                                              │
-│  4. useMergedEntityConfig(entityCode, staticConfig) Hook                    │
-│     └── Merges database config with static entityConfig.ts fallback        │
-│     └── Database values take precedence                                     │
-│                                                                              │
-│  5. EntityListOfInstancesPage                                               │
-│     └── const viewConfig = useMergedEntityConfig(entityCode, config);       │
+│  4. EntityListOfInstancesPage (v17.0.0)                                     │
+│     └── const viewConfig = useComponentViews(entityCode);                   │
+│     └── Database-only - no static fallback                                  │
 │     └── Uses viewConfig.supportedViews for ViewSwitcher                     │
 │     └── Uses viewConfig.defaultView for initial view                        │
 │     └── Passes viewConfig.kanban/grid/calendar to view components           │
@@ -289,15 +290,13 @@ WHERE code = 'task';
 ### Hook Usage
 
 ```typescript
-// apps/web/src/pages/shared/EntityListOfInstancesPage.tsx (v16.0.0)
+// apps/web/src/pages/shared/EntityListOfInstancesPage.tsx (v17.0.0)
 
-import { useMergedEntityConfig } from '@/lib/hooks/useComponentViews';
+import { useComponentViews } from '@/lib/hooks/useComponentViews';
 
 export function EntityListOfInstancesPage({ entityCode }) {
-  const config = getEntityConfig(entityCode);  // Static fallback
-
-  // v16.0.0: Database-driven view configuration
-  const viewConfig = useMergedEntityConfig(entityCode, config);
+  // v17.0.0: Database-driven ONLY - no static fallback
+  const viewConfig = useComponentViews(entityCode);
 
   // viewConfig contains:
   // - supportedViews: ['table', 'kanban'] (from component_views)
@@ -305,7 +304,7 @@ export function EntityListOfInstancesPage({ entityCode }) {
   // - kanban: { groupByField, cardFields } (from component_views)
   // - isLoading: boolean
 
-  const [view, setView] = useViewMode(entityCode, defaultView || viewConfig.defaultView);
+  const [view, setView] = useViewMode(entityCode, viewConfig.defaultView);
 
   // Use infinite scroll only for table view
   const useInfiniteScroll = view === 'table';
@@ -347,15 +346,17 @@ interface ComponentViews {
 }
 ```
 
-### Benefits of Database-Driven Configuration
+### Benefits of Database-Driven Configuration (v17.0.0)
 
-| Aspect | Before (Static) | After (Database) |
-|--------|-----------------|------------------|
+| Aspect | Before (Static) | After (Database-Only) |
+|--------|-----------------|----------------------|
 | **Adding views** | Code change + deploy | DDL update + db-import |
 | **Changing defaults** | Modify entityConfig.ts | UPDATE SQL statement |
 | **Per-tenant config** | Not possible | Different entity rows |
 | **A/B testing** | Complex feature flags | Simple column update |
 | **Rollback** | Git revert + deploy | UPDATE to previous value |
+| **No code changes** | Required for every view | Only DDL changes needed |
+| **Static config removed** | 1000+ lines of view config | Clean entityConfig.ts |
 
 ---
 
@@ -383,4 +384,4 @@ interface ComponentViews {
 
 ---
 
-**Version**: 16.0.0 | **Updated**: 2025-12-06 | **Pattern**: Unified Infinite Scroll + Database-Driven Views
+**Version**: 17.0.0 | **Updated**: 2025-12-06 | **Pattern**: Unified Infinite Scroll + Database-Driven Views (No Static Fallback)

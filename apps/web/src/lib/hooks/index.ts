@@ -94,7 +94,7 @@ export type {
 export { useKeyboardShortcuts } from './useKeyboardShortcuts';
 
 // ============================================================================
-// v16.0.0: Dynamic Component Views (Database-Driven)
+// v17.0.0: Dynamic Component Views (Database-Driven ONLY)
 // ============================================================================
-export { useComponentViews, useMergedEntityConfig } from './useComponentViews';
-export type { DynamicViewConfig } from './useComponentViews';
+export { useComponentViews } from './useComponentViews';
+export type { DynamicViewConfig, ViewMode } from './useComponentViews';
