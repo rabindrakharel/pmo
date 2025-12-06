@@ -57,8 +57,6 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   const prevRawDataRef = useRef<unknown[] | null>(null);
   const config = getEntityConfig(entityCode);
   const [view, setView] = useViewMode(entityCode, defaultView);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [appendedData, setAppendedData] = useState<any[]>([]); // For pagination append
   const { collapseSidebar } = useSidebar();
 
   // Check if this is a settings entity
@@ -70,12 +68,6 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   useEffect(() => {
     collapseSidebar();
   }, []);
-
-  // Reset appended data when view or entity changes
-  useEffect(() => {
-    setAppendedData([]);
-    setCurrentPage(1);
-  }, [view, entityCode]);
 
   // ============================================================================
   // v9.4.0: TWO-QUERY ARCHITECTURE - Metadata first, then Data
@@ -127,10 +119,8 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   });
 
   // Regular query for non-table views (needs all data for kanban columns, etc.)
-  const queryParams = useMemo(() => ({
-    limit: 20000,
-    offset: (currentPage - 1) * 20000,
-  }), [currentPage]);
+  // v14.0.0: Removed pagination - just fetch all data for non-table views
+  const queryParams = useMemo(() => ({ limit: 20000 }), []);
 
   // v11.0.0: refData removed - using TanStack Query cache via getEntityInstanceNameSync()
   const regularResult = useEntityInstanceData(entityCode, queryParams, {
@@ -190,14 +180,8 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   const [editedData, setEditedData] = useState<any>({});
   const [isAddingRow, setIsAddingRow] = useState(false);
 
-  // Combine raw data with any appended data from pagination
-  // v11.3.0: No more localData - cache is single source of truth
-  const data = useMemo(() => {
-    if (currentPage > 1 && appendedData.length > 0) {
-      return [...appendedData, ...(rawData || [])];
-    }
-    return rawData || [];
-  }, [rawData, appendedData, currentPage]);
+  // v14.0.0: Simplified - rawData is single source of truth
+  const data = rawData || [];
 
   // Clear edit state when entity changes
   useEffect(() => {
@@ -206,26 +190,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     setIsAddingRow(false);
   }, [entityCode]);
 
-  const hasMore = (rawData?.length || 0) === 20000;
   const error = queryError?.message || null;
-
-  // Client-side pagination for EntityListOfInstancesTable rendering
-  // v8.1.0: Page size controls how many rows render at once
-  const [clientPageSize, setClientPageSize] = useState(1000);
-  const pagination = useMemo(() => ({
-    current: currentPage,
-    pageSize: clientPageSize,
-    total: totalRecords,
-    showSizeChanger: true,
-    pageSizeOptions: [100, 500, 1000, 2000],
-    onChange: (page: number, newPageSize: number) => {
-      setCurrentPage(page);
-      if (newPageSize !== clientPageSize) {
-        setClientPageSize(newPageSize);
-        setCurrentPage(1);  // Reset to page 1 when changing page size
-      }
-    }
-  }), [currentPage, totalRecords, clientPageSize]);
 
   // ============================================================================
   // v9.5.0: OPTIMISTIC MUTATIONS - Instant UI feedback with automatic rollback
@@ -251,19 +216,6 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
       alert(`Operation failed: ${error.message}`);
     },
   });
-
-  // Legacy loadData function for compatibility (now just triggers refetch)
-  const loadData = useCallback(async (page: number = 1, append: boolean = false) => {
-    if (append && page > 1) {
-      // Store current data for appending
-      setAppendedData(data);
-      setCurrentPage(page);
-    } else {
-      setCurrentPage(page);
-      setAppendedData([]);
-    }
-    // React Query will automatically refetch due to queryParams change
-  }, [data]);
 
   const handleRowClick = useCallback((item: any) => {
     console.log('%c[ROW CLICK] handleRowClick called', 'color: #8b5cf6; font-weight: bold', { item });
@@ -294,10 +246,6 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   const handleCreateClick = useCallback(() => {
     navigate(`/${entityCode}/new`);
   }, [entityCode, navigate]);
-
-  const handleLoadMore = useCallback(() => {
-    loadData(currentPage + 1, true);
-  }, [currentPage, loadData]);
 
   // ============================================================================
   // v9.5.0: OPTIMISTIC KANBAN CARD MOVE
@@ -618,7 +566,6 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
           data={tableData}
           metadata={metadata}
           loading={loading}
-          pagination={useInfiniteScroll ? undefined : pagination}  // Hide pagination when using infinite scroll
           onRowClick={handleRowClick}
           searchable={true}
           filterable={true}
@@ -665,84 +612,51 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     }
 
     // KANBAN VIEW - Settings-driven, no fallbacks
+    // v14.0.0: Removed pagination - loads all data at once
     if (view === 'kanban' && config.kanban) {
       return (
-        <div className="space-y-4">
-          <div className="bg-dark-100 rounded-md shadow p-6 h-full overflow-x-auto">
-            <KanbanView
-              config={config}
-              data={data}
-              onCardClick={handleRowClick}
-              onCardMove={handleCardMove}
-              emptyMessage={`No ${config.pluralName.toLowerCase()} found`}
-            />
-          </div>
-          {hasMore && !loading && (
-            <div className="flex justify-center">
-              <button
-                onClick={handleLoadMore}
-                className="px-4 py-2 bg-dark-700 text-white rounded-md hover:bg-dark-800 transition-colors"
-              >
-                Load More ({data.length} of {totalRecords})
-              </button>
-            </div>
-          )}
+        <div className="bg-dark-100 rounded-md shadow p-6 h-full overflow-x-auto">
+          <KanbanView
+            config={config}
+            data={data}
+            onCardClick={handleRowClick}
+            onCardMove={handleCardMove}
+            emptyMessage={`No ${config.pluralName.toLowerCase()} found`}
+          />
         </div>
       );
     }
 
     // GRID VIEW
+    // v14.0.0: Removed pagination - loads all data at once
     if (view === 'grid' && config.grid) {
       return (
-        <div className="space-y-4">
-          <div className="bg-dark-100 rounded-md shadow p-6">
-            <GridView
-              items={data}
-              onItemClick={handleRowClick}
-              columns={3}
-              emptyMessage={`No ${config.pluralName.toLowerCase()} found`}
-              titleField={config.grid.cardFields[0] || 'name'}
-              descriptionField={config.grid.cardFields[1] || 'descr'}
-              badgeFields={config.grid.cardFields.slice(2) || []}
-              imageField={config.grid.imageField}
-            />
-          </div>
-          {hasMore && !loading && (
-            <div className="flex justify-center">
-              <button
-                onClick={handleLoadMore}
-                className="px-4 py-2 bg-dark-700 text-white rounded-md hover:bg-dark-800 transition-colors"
-              >
-                Load More ({data.length} of {totalRecords})
-              </button>
-            </div>
-          )}
+        <div className="bg-dark-100 rounded-md shadow p-6">
+          <GridView
+            items={data}
+            onItemClick={handleRowClick}
+            columns={3}
+            emptyMessage={`No ${config.pluralName.toLowerCase()} found`}
+            titleField={config.grid.cardFields[0] || 'name'}
+            descriptionField={config.grid.cardFields[1] || 'descr'}
+            badgeFields={config.grid.cardFields.slice(2) || []}
+            imageField={config.grid.imageField}
+          />
         </div>
       );
     }
 
     // CALENDAR VIEW - Person-filterable calendar grid showing all slots (available + booked)
+    // v14.0.0: Removed pagination - loads all data at once
     if (view === 'calendar') {
       return (
-        <div className="space-y-4">
-          <div className="bg-dark-100 rounded-md shadow p-6">
-            <CalendarView
-              config={config}
-              data={data}
-              onSlotClick={handleRowClick}
-              emptyMessage={`No ${config.pluralName.toLowerCase()} found`}
-            />
-          </div>
-          {hasMore && !loading && (
-            <div className="flex justify-center">
-              <button
-                onClick={handleLoadMore}
-                className="px-4 py-2 bg-dark-700 text-white rounded-md hover:bg-dark-800 transition-colors"
-              >
-                Load More ({data.length} of {totalRecords})
-              </button>
-            </div>
-          )}
+        <div className="bg-dark-100 rounded-md shadow p-6">
+          <CalendarView
+            config={config}
+            data={data}
+            onSlotClick={handleRowClick}
+            emptyMessage={`No ${config.pluralName.toLowerCase()} found`}
+          />
         </div>
       );
     }
