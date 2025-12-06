@@ -598,6 +598,8 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
           hasNextPage={hasNextPage}
           isFetchingNextPage={isFetchingNextPage}
           fetchNextPage={fetchNextPage}
+          // v17.1.0: Data loading state (separate from metadata)
+          isLoadingData={dataLoading}
         />
       );
     }

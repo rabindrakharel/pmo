@@ -188,6 +188,8 @@ export interface EntityListOfInstancesTableProps<T = any> {
   hasNextPage?: boolean;              // Whether more pages are available
   isFetchingNextPage?: boolean;       // Whether currently loading next page
   fetchNextPage?: () => void;         // Callback to load next page
+  // v17.1.0: Data loading state (separate from metadata loading)
+  isLoadingData?: boolean;            // Whether initial data is loading (shows spinner in table)
 }
 
 export function EntityListOfInstancesTable<T = any>({
@@ -232,6 +234,8 @@ export function EntityListOfInstancesTable<T = any>({
   hasNextPage = false,
   isFetchingNextPage = false,
   fetchNextPage,
+  // v17.1.0: Data loading state
+  isLoadingData = false,
 }: EntityListOfInstancesTableProps<T>) {
   // ============================================================================
   // METADATA-DRIVEN COLUMN GENERATION (Pure Backend-Driven Architecture)
@@ -2395,9 +2399,17 @@ export function EntityListOfInstancesTable<T = any>({
           </table>
         </div>
 
+        {/* v17.1.0: Show spinner during initial data load, "No data found" only when truly empty */}
         {paginatedData.length === 0 && !loading && !allowAddRow && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <p className="text-dark-700">No data found</p>
+            {isLoadingData ? (
+              <div className="flex flex-col items-center gap-2">
+                <EllipsisBounce size="md" />
+                <span className="text-sm text-dark-600">Loading data...</span>
+              </div>
+            ) : (
+              <p className="text-dark-700">No data found</p>
+            )}
           </div>
         )}
       </div>
