@@ -349,6 +349,10 @@ export interface UseEntityInstanceDataResult<T = Record<string, unknown>> {
   isError: boolean;
   error: Error | null;
   refetch: () => Promise<void>;
+  // v14.0.0: Infinite scroll props (only active when infiniteScroll: true)
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
+  fetchNextPage: (() => Promise<void>) | undefined;
 }
 
 export interface UseDraftResult {

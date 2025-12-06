@@ -1,11 +1,12 @@
 // ============================================================================
 // useEntityInstanceData Hook
 // ============================================================================
-// Hook for fetching entity list data with pagination and filtering
+// v14.0.0: Unified hook for entity list data with optional infinite scroll
+// Supports both regular queries and infinite scroll via options.infiniteScroll
 // On-demand store - 5 min staleTime, never prefetch
 // ============================================================================
 
-import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, type UseInfiniteQueryResult } from '@tanstack/react-query';
 import { useEffect, useRef, useMemo } from 'react';
 import { apiClient } from '@/lib/api';
 import { QUERY_KEYS, createQueryHash } from '../keys';
@@ -38,7 +39,7 @@ import type {
   ViewFieldMetadata,
   EditFieldMetadata,
 } from '../types';
-// Re-export type for consumers
+// Re-export types for consumers
 export type { UseEntityInstanceDataResult } from '../types';
 import {
   getEntityInstanceData,
@@ -72,7 +73,24 @@ const DISABLED_RESULT = Object.freeze({
   isError: false,
   error: null,
   refetch: async () => {},
+  // v14.0.0: Infinite scroll props (always present, disabled when not in infinite mode)
+  hasNextPage: false,
+  isFetchingNextPage: false,
+  fetchNextPage: undefined,
 });
+
+// ============================================================================
+// Options interface for useEntityInstanceData
+// ============================================================================
+export interface UseEntityInstanceDataOptions {
+  /** Whether to enable the query (default: true) */
+  enabled?: boolean;
+  /**
+   * v14.0.0: Enable infinite scroll mode (default: false)
+   * When true, uses useInfiniteQuery internally with pagination
+   */
+  infiniteScroll?: boolean;
+}
 
 // ============================================================================
 // Hook Implementation
@@ -91,17 +109,29 @@ const DISABLED_RESULT = Object.freeze({
  * - Returns metadata for field definitions
  * - Returns refData for entity instance name lookups
  * - INVARIANT: Returns stable empty state when entityCode is empty (fail-safe)
+ * - v14.0.0: Supports infinite scroll via options.infiniteScroll
  *
  * @param entityCode - Entity type code (e.g., 'project', 'task'). MUST be non-empty.
  * @param params - Query parameters (limit, offset, search, filters)
  * @param options.enabled - Whether to enable the query (default: true)
+ * @param options.infiniteScroll - Enable infinite scroll mode (default: false)
+ *
+ * @example
+ * // Regular mode (loads all at once)
+ * const { data, total } = useEntityInstanceData('project', { limit: 20000 });
+ *
+ * // Infinite scroll mode (loads pages on demand)
+ * const { data, hasNextPage, fetchNextPage } = useEntityInstanceData('project',
+ *   { limit: 50 },
+ *   { infiniteScroll: true }
+ * );
  */
 export function useEntityInstanceData<T = Record<string, unknown>>(
   entityCode: string,
   params: EntityInstanceDataParams = {},
-  options: { enabled?: boolean } = {}
+  options: UseEntityInstanceDataOptions = {}
 ): UseEntityInstanceDataResult<T> {
-  const { enabled = true } = options;
+  const { enabled = true, infiniteScroll = false } = options;
 
   // ============================================================================
   // INVARIANT: entityCode must be non-empty for query to run
@@ -132,6 +162,7 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
   }, [entityCode, isQueryEnabled]);
 
   const queryHash = useMemo(() => createQueryHash(params), [params]);
+  const limit = params.limit || 50;
 
   // Define result type
   type QueryResult = {
@@ -141,7 +172,10 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
     refData?: Record<string, Record<string, string>>;
   };
 
-  const query = useQuery({
+  // ============================================================================
+  // REGULAR QUERY (non-infinite scroll mode)
+  // ============================================================================
+  const regularQuery = useQuery({
     queryKey: QUERY_KEYS.entityInstanceData(entityCode, params),
     queryFn: async () => {
       debugCache(`🔍 queryFn called - checking Dexie (IndexedDB)...`, {
@@ -192,8 +226,6 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
       }
 
       // Layer 3: Fetch from API
-      // All params (including parent_entity_code, parent_entity_instance_id) are passed as query params
-      // The backend routes handle parent-child filtering via INNER JOIN with entity_instance_link
       const searchParams = new URLSearchParams();
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
@@ -202,7 +234,6 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
       });
 
       const apiUrl = `/api/v1/${entityCode}?${searchParams}`;
-
       debugCache(`📡 Fetching from API...`, { entityCode, url: apiUrl });
 
       const response = await apiClient.get<EntityListResponse<T>>(apiUrl);
@@ -219,13 +250,9 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
         entityCode,
         rowCount: result.data.length,
         total: result.total,
-        firstRowBudget: (result.data[0] as any)?.budget_allocated_amt,
-        firstRowVersion: (result.data[0] as any)?.version,
-        firstRowUpdatedTs: (result.data[0] as any)?.updated_ts,
       });
 
       // Persist to Dexie
-      debugCache(`💾 Persisting to Dexie (IndexedDB)...`, { entityCode, queryHash });
       await persistToEntityInstanceData(
         entityCode,
         queryHash,
@@ -235,71 +262,153 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
         result.metadata,
         result.refData
       );
-      debugCache(`✅ Dexie persistence complete`, { entityCode });
 
       // Persist entity instance names from refData
       if (result.refData) {
         for (const [code, names] of Object.entries(result.refData)) {
           await persistToEntityInstanceNames(code, names);
         }
-        // v11.0.0: Upsert to TanStack Query cache for edit mode
-        // This ensures EntityInstanceNameSelect can resolve UUIDs to names
-        // using the same ref_data_entityInstance data as view mode
         upsertRefDataEntityInstance(queryClient, result.refData);
-        debugCache(`✅ ref_data_entityInstance upserted to TanStack Query cache`, {
-          entityCodes: Object.keys(result.refData),
-        });
       }
 
-      debugCache(`✅ queryFn complete - returning fresh data`, {
-        entityCode,
-        rowCount: result.data.length,
-      });
       return result;
     },
     staleTime: ONDEMAND_STORE_CONFIG.staleTime,
     gcTime: ONDEMAND_STORE_CONFIG.gcTime,
-    enabled: isQueryEnabled,  // Use combined check (caller enabled + valid entityCode)
+    enabled: isQueryEnabled && !infiniteScroll,  // Disabled when in infinite scroll mode
+  });
+
+  // ============================================================================
+  // INFINITE SCROLL QUERY (v14.0.0)
+  // ============================================================================
+  const infiniteQuery = useInfiniteQuery<EntityListResponse<T>, Error>({
+    queryKey: QUERY_KEYS.entityInstanceDataInfinite(entityCode, params),
+    queryFn: async ({ pageParam = 0 }) => {
+      const searchParams = new URLSearchParams();
+      Object.entries({ ...params, limit, offset: pageParam }).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.set(key, String(value));
+        }
+      });
+
+      debugCache(`📡 Infinite scroll: Fetching page...`, { entityCode, offset: pageParam, limit });
+
+      const response = await apiClient.get<EntityListResponse<T>>(
+        `/api/v1/${entityCode}?${searchParams}`
+      );
+      const apiData = response.data;
+
+      // Store metadata ONCE per entity type (first page only)
+      if (apiData.metadata?.entityListOfInstancesTable && pageParam === 0) {
+        const metadataTable = apiData.metadata.entityListOfInstancesTable;
+        await setEntityInstanceMetadata(
+          entityCode,
+          'entityListOfInstancesTable',
+          Object.keys(metadataTable.viewType || {}),
+          metadataTable.viewType || {},
+          metadataTable.editType || {}
+        );
+      }
+
+      // Store entity instance names
+      if (apiData.ref_data_entityInstance) {
+        for (const [refEntityCode, names] of Object.entries(apiData.ref_data_entityInstance)) {
+          await persistToEntityInstanceNames(refEntityCode, names as Record<string, string>);
+        }
+        upsertRefDataEntityInstance(queryClient, apiData.ref_data_entityInstance as Record<string, Record<string, string>>);
+      }
+
+      debugCache(`✅ Infinite scroll: Page loaded`, {
+        entityCode,
+        offset: pageParam,
+        rowCount: apiData.data?.length,
+        total: apiData.total,
+      });
+
+      return {
+        data: apiData.data || [],
+        total: apiData.total || 0,
+        limit: apiData.limit || limit,
+        offset: pageParam as number,
+        metadata: apiData.metadata,
+        ref_data_entityInstance: apiData.ref_data_entityInstance,
+      };
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage: EntityListResponse<T> & { offset: number; limit: number }) => {
+      const nextOffset = (lastPage.offset ?? 0) + (lastPage.limit ?? limit);
+      return nextOffset < (lastPage.total ?? 0) ? nextOffset : undefined;
+    },
+    enabled: isQueryEnabled && infiniteScroll,  // Only enabled in infinite scroll mode
+    staleTime: ONDEMAND_STORE_CONFIG.staleTime,
   });
 
   // ============================================================================
   // EARLY RETURN: Stable disabled result when query is not enabled
   // ============================================================================
-  // This returns a frozen, module-level constant to prevent reference changes
-  // that would cause infinite re-renders in consuming components.
   if (!isQueryEnabled) {
     return DISABLED_RESULT as UseEntityInstanceDataResult<T>;
   }
 
+  // ============================================================================
+  // v14.0.0: UNIFIED RESULT - Select based on mode
+  // ============================================================================
+  if (infiniteScroll) {
+    // Flatten all pages into single array
+    type PageResult = EntityListResponse<T> & { offset: number; limit: number };
+    const pages = infiniteQuery.data?.pages as PageResult[] | undefined;
+    const flatData = pages?.flatMap((page) => page.data) ?? [];
+    const metadata = pages?.[0]?.metadata?.entityListOfInstancesTable;
+    const refData = pages?.[0]?.ref_data_entityInstance;
+    const total = pages?.[0]?.total ?? 0;
+
+    return {
+      data: flatData as T[],
+      total,
+      metadata,
+      refData,
+      isLoading: infiniteQuery.isLoading,
+      isFetching: infiniteQuery.isFetching,
+      isStale: infiniteQuery.isStale,
+      isError: infiniteQuery.isError,
+      error: infiniteQuery.error,
+      refetch: async () => {
+        await infiniteQuery.refetch();
+      },
+      // Infinite scroll props
+      hasNextPage: infiniteQuery.hasNextPage ?? false,
+      isFetchingNextPage: infiniteQuery.isFetchingNextPage,
+      fetchNextPage: async () => {
+        await infiniteQuery.fetchNextPage();
+      },
+    };
+  }
+
+  // Regular mode result
   const refetch = async (): Promise<void> => {
-    // Guard against refetch when disabled
-    if (!isQueryEnabled) {
-      debugCache('⚠️ refetch() called but query is disabled - ignoring', { entityCode });
-      return;
-    }
-    // Clear Dexie cache for this entity before refetching to ensure fresh data
-    // This is critical after PATCH/POST operations to avoid returning stale cached data
     debugCache('🔄 refetch() called - clearing Dexie cache before API fetch', { entityCode, params });
     await clearEntityInstanceDataDexie(entityCode);
-    debugCache('🗑️ Dexie cache cleared - now calling query.refetch()', { entityCode });
-    await query.refetch();
+    await regularQuery.refetch();
     debugCache('✅ refetch() complete', { entityCode });
   };
 
-  // Type assertion for query result
-  const result = query.data as QueryResult | undefined;
+  const result = regularQuery.data as QueryResult | undefined;
 
   return {
     data: result?.data ?? (EMPTY_ARRAY as T[]),
     total: result?.total ?? 0,
     metadata: result?.metadata,
     refData: result?.refData,
-    isLoading: query.isLoading,
-    isFetching: query.isFetching,
-    isStale: query.isStale,
-    isError: query.isError,
-    error: query.error,
+    isLoading: regularQuery.isLoading,
+    isFetching: regularQuery.isFetching,
+    isStale: regularQuery.isStale,
+    isError: regularQuery.isError,
+    error: regularQuery.error,
     refetch,
+    // Infinite scroll props (disabled in regular mode)
+    hasNextPage: false,
+    isFetchingNextPage: false,
+    fetchNextPage: undefined,
   };
 }
 

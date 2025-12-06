@@ -14,7 +14,7 @@ import { getEntityConfig, type ViewMode } from '../../lib/entityConfig';
 import { getEntityIcon } from '../../lib/entityIcons';
 import { transformForApi, transformFromApi } from '../../lib/frontEndFormatterService';
 import { useSidebar } from '../../contexts/SidebarContext';
-import { useEntityInstanceData, useEntityInfiniteList, useEntityInstanceMetadata, useOptimisticMutation, QUERY_KEYS } from '@/db/tanstack-index';
+import { useEntityInstanceData, useEntityInstanceMetadata, useOptimisticMutation, QUERY_KEYS } from '@/db/tanstack-index';
 import { type ComponentMetadata } from '../../lib/formatters';
 import { useFormattedEntityData } from '../../lib/hooks';
 import type { RowAction } from '../../components/shared/ui/EntityListOfInstancesTable';
@@ -105,40 +105,35 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   }, [viewType, editType]);
 
   // ============================================================================
-  // QUERY 2: DATA - Two strategies based on view mode
+  // QUERY 2: DATA - v14.0.0 Unified Hook with Infinite Scroll Option
   // ============================================================================
-  // Table view: Infinite scroll (50 per page, loads more on scroll)
-  // Other views: All data at once (for kanban, grid, calendar)
+  // Table view: infiniteScroll: true (50 per page, loads more on scroll)
+  // Other views: infiniteScroll: false (loads all data at once)
   // ============================================================================
 
   const useInfiniteScroll = view === 'table';
 
-  // Infinite scroll hook for table view (50 items per page)
-  const infiniteResult = useEntityInfiniteList(entityCode, { limit: 50 }, {
-    enabled: !!config && useInfiniteScroll,
+  // Query params based on view mode
+  const queryParams = useMemo(() => ({
+    limit: useInfiniteScroll ? 50 : 20000,
+  }), [useInfiniteScroll]);
+
+  // v14.0.0: Unified hook - single API for both modes
+  const {
+    data: rawData,
+    total: totalRecords,
+    isLoading: dataLoading,
+    isError,
+    error: queryError,
+    refetch,
+    // Infinite scroll props (only active when infiniteScroll: true)
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useEntityInstanceData(entityCode, queryParams, {
+    enabled: !!config,
+    infiniteScroll: useInfiniteScroll,
   });
-
-  // Regular query for non-table views (needs all data for kanban columns, etc.)
-  // v14.0.0: Removed pagination - just fetch all data for non-table views
-  const queryParams = useMemo(() => ({ limit: 20000 }), []);
-
-  // v11.0.0: refData removed - using TanStack Query cache via getEntityInstanceNameSync()
-  const regularResult = useEntityInstanceData(entityCode, queryParams, {
-    enabled: !!config && !useInfiniteScroll,
-  });
-
-  // Unified data access - select based on view mode
-  const rawData = useInfiniteScroll ? infiniteResult.data : regularResult.data;
-  const totalRecords = useInfiniteScroll ? infiniteResult.total : regularResult.total;
-  const dataLoading = useInfiniteScroll ? infiniteResult.isLoading : regularResult.isLoading;
-  const isError = useInfiniteScroll ? infiniteResult.isError : regularResult.isError;
-  const queryError = useInfiniteScroll ? infiniteResult.error : regularResult.error;
-  const refetch = useInfiniteScroll ? infiniteResult.refetch : regularResult.refetch;
-
-  // Infinite scroll specific props (only for table view)
-  const hasNextPage = useInfiniteScroll ? infiniteResult.hasNextPage : false;
-  const isFetchingNextPage = useInfiniteScroll ? infiniteResult.isFetchingNextPage : false;
-  const fetchNextPage = useInfiniteScroll ? infiniteResult.fetchNextPage : undefined;
 
   // ============================================================================
   // CACHE DEBUG: Detect when rawData reference changes (indicates fresh fetch)

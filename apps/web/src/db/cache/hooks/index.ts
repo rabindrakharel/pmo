@@ -33,14 +33,17 @@ export {
 } from './useEntityCodes';
 
 // Entity Instance Data (On-Demand)
+// v14.0.0: useEntityInstanceData now supports infiniteScroll option
+// useEntityInfiniteList is deprecated - use useEntityInstanceData with { infiniteScroll: true }
 export {
   useEntityInstanceData,
   useEntityInstanceMetadata,
-  useEntityInfiniteList,
+  useEntityInfiniteList,  // @deprecated - use useEntityInstanceData with { infiniteScroll: true }
   clearEntityInstanceDataCache,
   type UseEntityInstanceDataResult,
   type UseEntityInstanceMetadataResult,
   type UseEntityInfiniteListResult,
+  type UseEntityInstanceDataOptions,
 } from './useEntityInstanceData';
 
 // Single Entity & Mutations
