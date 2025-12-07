@@ -167,6 +167,44 @@ sns_log_retention_days = 30
 sns_notification_email = ""
 
 # ============================================================================
+# Secrets Manager Configuration (REQUIRED for production)
+# ============================================================================
+# These secrets will be stored in AWS Secrets Manager for secure access
+# The EC2 instance will have IAM permissions to read these secrets at runtime
+
+# Database secrets
+secrets_db_host     = "localhost"
+secrets_db_port     = 5434
+secrets_db_name     = "app"
+secrets_db_user     = "app"
+secrets_db_password = "CHANGE_ME_STRONG_DB_PASSWORD"  # Generate: openssl rand -base64 32
+
+# JWT/Auth secrets
+secrets_jwt_secret     = "CHANGE_ME_STRONG_JWT_SECRET"  # Generate: openssl rand -base64 64
+secrets_jwt_expires_in = "24h"
+
+# OAuth secrets (optional - leave empty if not using)
+secrets_google_client_id        = ""
+secrets_google_client_secret    = ""
+secrets_microsoft_client_id     = ""
+secrets_microsoft_client_secret = ""
+secrets_github_client_id        = ""
+secrets_github_client_secret    = ""
+
+# API keys (optional - leave empty if not using)
+secrets_openai_api_key      = ""
+secrets_deepgram_api_key    = ""
+secrets_eleven_labs_api_key = ""
+
+# Redis secrets (optional)
+secrets_redis_host     = "localhost"
+secrets_redis_port     = 6379
+secrets_redis_password = ""
+
+# RabbitMQ secrets (optional)
+secrets_rabbitmq_url = ""
+
+# ============================================================================
 # Resource Tagging (Optional)
 # ============================================================================
 

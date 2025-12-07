@@ -288,7 +288,10 @@
       "Bash(DATABASE_URL=\"postgresql://app:app@localhost:5434/app\" JWT_SECRET=\"dev-secret-key-change-in-production\" timeout 15 pnpm dev:api:*)",
       "Bash(DATABASE_URL=\"postgresql://app:app@localhost:5434/app\" JWT_SECRET=\"dev-secret-key-change-in-production\" timeout 20 pnpm -F @pmo/api dev:*)",
       "Bash(git -C /home/rabin/projects/pmo push --force origin main)",
-      "Bash(./tools/monitor-all.sh:*)"
+      "Bash(./tools/monitor-all.sh:*)",
+      "Bash(terraform fmt:*)",
+      "Bash(terraform validate:*)",
+      "Bash(pnpm -F @pmo/api run type-check:*)"
     ],
     "deny": [],
     "ask": [],

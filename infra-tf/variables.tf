@@ -235,3 +235,141 @@ variable "sns_notification_email" {
   type        = string
   default     = ""
 }
+
+# ============================================================================
+# Secrets Manager Variables
+# ============================================================================
+
+variable "secrets_db_host" {
+  description = "Database host for Secrets Manager"
+  type        = string
+  default     = "localhost"
+}
+
+variable "secrets_db_port" {
+  description = "Database port for Secrets Manager"
+  type        = number
+  default     = 5434
+}
+
+variable "secrets_db_name" {
+  description = "Database name for Secrets Manager"
+  type        = string
+  default     = "app"
+}
+
+variable "secrets_db_user" {
+  description = "Database username for Secrets Manager"
+  type        = string
+  default     = "app"
+  sensitive   = true
+}
+
+variable "secrets_db_password" {
+  description = "Database password for Secrets Manager"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "secrets_jwt_secret" {
+  description = "JWT signing secret"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "secrets_jwt_expires_in" {
+  description = "JWT expiration time"
+  type        = string
+  default     = "24h"
+}
+
+variable "secrets_google_client_id" {
+  description = "Google OAuth client ID"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "secrets_google_client_secret" {
+  description = "Google OAuth client secret"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "secrets_microsoft_client_id" {
+  description = "Microsoft OAuth client ID"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "secrets_microsoft_client_secret" {
+  description = "Microsoft OAuth client secret"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "secrets_github_client_id" {
+  description = "GitHub OAuth client ID"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "secrets_github_client_secret" {
+  description = "GitHub OAuth client secret"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "secrets_openai_api_key" {
+  description = "OpenAI API key"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "secrets_deepgram_api_key" {
+  description = "Deepgram API key"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "secrets_eleven_labs_api_key" {
+  description = "ElevenLabs API key"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "secrets_redis_host" {
+  description = "Redis host"
+  type        = string
+  default     = "localhost"
+}
+
+variable "secrets_redis_port" {
+  description = "Redis port"
+  type        = number
+  default     = 6379
+}
+
+variable "secrets_redis_password" {
+  description = "Redis password"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "secrets_rabbitmq_url" {
+  description = "RabbitMQ connection URL"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

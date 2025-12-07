@@ -95,7 +95,7 @@ resource "aws_lambda_function" "deployer" {
   handler          = "lambda_function.lambda_handler"
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
   runtime          = "python3.11"
-  timeout          = 300  # 5 minutes
+  timeout          = 300 # 5 minutes
   memory_size      = 256
 
   environment {

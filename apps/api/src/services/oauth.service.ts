@@ -11,6 +11,7 @@
 import crypto from 'crypto';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
+import secrets from '@/config/secrets.js';
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // CONFIGURATION
@@ -27,39 +28,52 @@ export interface OAuthProviderConfig {
   responseType: string;
 }
 
-// Provider configurations (secrets from environment)
+/**
+ * Get OAuth provider configuration with secrets loaded from Secrets Manager
+ * Uses getter pattern to ensure secrets are loaded at runtime, not module load time
+ */
+export function getOAuthProvider(provider: string): OAuthProviderConfig | null {
+  const providers: Record<string, OAuthProviderConfig> = {
+    google: {
+      name: 'Google',
+      clientId: secrets.google.clientId,
+      clientSecret: secrets.google.clientSecret,
+      authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+      tokenUrl: 'https://oauth2.googleapis.com/token',
+      userInfoUrl: 'https://www.googleapis.com/oauth2/v2/userinfo',
+      scope: 'openid email profile',
+      responseType: 'code',
+    },
+    microsoft: {
+      name: 'Microsoft',
+      clientId: secrets.microsoft.clientId,
+      clientSecret: secrets.microsoft.clientSecret,
+      authorizationUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
+      tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+      userInfoUrl: 'https://graph.microsoft.com/v1.0/me',
+      scope: 'openid email profile',
+      responseType: 'code',
+    },
+    github: {
+      name: 'GitHub',
+      clientId: secrets.github.clientId,
+      clientSecret: secrets.github.clientSecret,
+      authorizationUrl: 'https://github.com/login/oauth/authorize',
+      tokenUrl: 'https://github.com/login/oauth/access_token',
+      userInfoUrl: 'https://api.github.com/user',
+      scope: 'read:user user:email',
+      responseType: 'code',
+    },
+  };
+  return providers[provider] || null;
+}
+
+// Legacy export for backward compatibility (uses getters for lazy evaluation)
 export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
-  google: {
-    name: 'Google',
-    clientId: process.env.GOOGLE_CLIENT_ID || '',
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-    authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
-    tokenUrl: 'https://oauth2.googleapis.com/token',
-    userInfoUrl: 'https://www.googleapis.com/oauth2/v2/userinfo',
-    scope: 'openid email profile',
-    responseType: 'code',
-  },
-  microsoft: {
-    name: 'Microsoft',
-    clientId: process.env.MICROSOFT_CLIENT_ID || '',
-    clientSecret: process.env.MICROSOFT_CLIENT_SECRET || '',
-    authorizationUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
-    tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-    userInfoUrl: 'https://graph.microsoft.com/v1.0/me',
-    scope: 'openid email profile',
-    responseType: 'code',
-  },
-  github: {
-    name: 'GitHub',
-    clientId: process.env.GITHUB_CLIENT_ID || '',
-    clientSecret: process.env.GITHUB_CLIENT_SECRET || '',
-    authorizationUrl: 'https://github.com/login/oauth/authorize',
-    tokenUrl: 'https://github.com/login/oauth/access_token',
-    userInfoUrl: 'https://api.github.com/user',
-    scope: 'read:user user:email',
-    responseType: 'code',
-  },
-};
+  get google() { return getOAuthProvider('google')!; },
+  get microsoft() { return getOAuthProvider('microsoft')!; },
+  get github() { return getOAuthProvider('github')!; },
+} as Record<string, OAuthProviderConfig>;
 
 const OAUTH_STATE_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -207,7 +221,7 @@ export async function getAuthorizationUrl(
   action: 'login' | 'signup' | 'link' = 'login',
   personId?: string
 ): Promise<{ url: string; state: string } | { error: string }> {
-  const config = OAUTH_PROVIDERS[provider];
+  const config = getOAuthProvider(provider);
   if (!config) {
     return { error: `Unknown provider: ${provider}` };
   }
@@ -266,7 +280,7 @@ export async function exchangeCodeForTokens(
   codeVerifier: string,
   redirectUri: string
 ): Promise<OAuthTokenResponse | { error: string }> {
-  const config = OAUTH_PROVIDERS[provider];
+  const config = getOAuthProvider(provider);
   if (!config) {
     return { error: `Unknown provider: ${provider}` };
   }
@@ -315,7 +329,7 @@ export async function getUserInfo(
   provider: string,
   accessToken: string
 ): Promise<OAuthUserInfo | { error: string }> {
-  const config = OAUTH_PROVIDERS[provider];
+  const config = getOAuthProvider(provider);
   if (!config) {
     return { error: `Unknown provider: ${provider}` };
   }

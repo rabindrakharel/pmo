@@ -41,10 +41,10 @@ resource "aws_db_instance" "coherent_db" {
   skip_final_snapshot       = var.environment == "dev" ? true : false
   final_snapshot_identifier = var.environment == "dev" ? null : "${var.project_name}-db-final-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
 
-  multi_az               = var.environment == "prod" ? true : false
-  publicly_accessible    = false
-  deletion_protection    = false  # Disabled to allow RDS deletion
-  apply_immediately      = true   # Apply deletion protection change immediately
+  multi_az            = var.environment == "prod" ? true : false
+  publicly_accessible = false
+  deletion_protection = false # Disabled to allow RDS deletion
+  apply_immediately   = true  # Apply deletion protection change immediately
 
   enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
 

@@ -11,12 +11,12 @@ resource "aws_sns_topic" "app_notifications" {
 
 # SNS SMS Preferences (Account Level)
 resource "aws_sns_sms_preferences" "main" {
-  monthly_spend_limit          = var.monthly_sms_spend_limit
-  default_sender_id            = var.default_sender_id
-  default_sms_type             = var.default_sms_type
-  delivery_status_iam_role_arn = aws_iam_role.sns_delivery_status.arn
+  monthly_spend_limit                   = var.monthly_sms_spend_limit
+  default_sender_id                     = var.default_sender_id
+  default_sms_type                      = var.default_sms_type
+  delivery_status_iam_role_arn          = aws_iam_role.sns_delivery_status.arn
   delivery_status_success_sampling_rate = var.delivery_status_success_sampling_rate
-  usage_report_s3_bucket       = var.usage_report_s3_bucket != "" ? var.usage_report_s3_bucket : null
+  usage_report_s3_bucket                = var.usage_report_s3_bucket != "" ? var.usage_report_s3_bucket : null
 }
 
 # IAM Role for SNS SMS Delivery Status

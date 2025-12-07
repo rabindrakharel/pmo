@@ -97,12 +97,12 @@ data "archive_file" "lambda_zip" {
 resource "aws_lambda_function" "ssl_renewal" {
   filename         = data.archive_file.lambda_zip.output_path
   function_name    = "${var.project_name}-ssl-renewal"
-  role            = aws_iam_role.lambda_role.arn
-  handler         = "index.lambda_handler"
+  role             = aws_iam_role.lambda_role.arn
+  handler          = "index.lambda_handler"
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
 
   runtime = "python3.11"
-  timeout = 300  # 5 minutes
+  timeout = 300 # 5 minutes
 
   environment {
     variables = {
@@ -134,7 +134,7 @@ resource "aws_cloudwatch_log_group" "lambda_logs" {
 resource "aws_cloudwatch_event_rule" "monthly_trigger" {
   name                = "${var.project_name}-ssl-renewal-monthly"
   description         = "Trigger SSL certificate renewal monthly"
-  schedule_expression = "cron(0 2 1 * ? *)"  # 2 AM UTC on the 1st of each month
+  schedule_expression = "cron(0 2 1 * ? *)" # 2 AM UTC on the 1st of each month
 
   tags = merge(var.global_tags, {
     Name = "${var.project_name}-ssl-renewal-schedule"

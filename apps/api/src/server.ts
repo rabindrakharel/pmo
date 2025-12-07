@@ -12,6 +12,8 @@ import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import { config } from '@/lib/config.js';
 import { logger } from '@/lib/logger.js';
 import { testConnection, closeConnection } from '@/db/index.js';
+import { loadSecrets } from '@/config/secrets.js';
+import secrets from '@/config/secrets.js';
 
 // Import type declarations
 import '@/types/jwt.js';
@@ -19,6 +21,12 @@ import '@/types/fastify-logger.js';
 
 // Import plugins and new API modules
 import { registerAllRoutes } from '@/modules/index.js';
+
+// ============================================================================
+// Load Secrets (AWS Secrets Manager in production, .env in development)
+// ============================================================================
+await loadSecrets();
+logger.info('Secrets loaded successfully');
 
 const fastify = Fastify({
   logger: config.NODE_ENV === 'development' ? {
@@ -65,9 +73,9 @@ await fastify.register(rateLimit, {
   max: config.NODE_ENV === 'production' ? 100 : 1000, // Higher limit for development
   timeWindow: '1 minute'});
 
-// JWT
+// JWT - secret loaded from Secrets Manager (production) or .env (development)
 await fastify.register(jwt, {
-  secret: config.JWT_SECRET});
+  secret: secrets.jwtSecret});
 
 // Multipart/File Upload
 await fastify.register(multipart, {

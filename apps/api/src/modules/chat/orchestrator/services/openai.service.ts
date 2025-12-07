@@ -8,6 +8,7 @@ import OpenAI from 'openai';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { getAgentModelConfig, calculateAgentCost } from '../config/agent-models.config.js';
 import { getLLMLogger } from './llm-logger.service.js';
+import secrets from '@/config/secrets.js';
 
 /**
  * OpenAI Service
@@ -18,12 +19,13 @@ export class OpenAIService {
   private logger = getLLMLogger();
 
   constructor() {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY environment variable is required');
+    const apiKey = secrets.openaiApiKey;
+    if (!apiKey) {
+      throw new Error('OPENAI_API_KEY not configured (check Secrets Manager or .env)');
     }
 
     this.client = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+      apiKey,
     });
   }
 

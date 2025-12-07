@@ -202,15 +202,15 @@ output "ssh_command" {
 output "deployment_summary" {
   description = "Summary of deployed infrastructure"
   value = {
-    environment     = var.environment
-    region          = var.aws_region
-    domain          = var.domain_name
-    app_url         = var.create_dns_records ? "https://${var.app_subdomain}.${var.domain_name}" : "http://${module.ec2.instance_public_ip}"
-    vpc_id          = module.vpc.vpc_id
-    ec2_public_ip   = module.ec2.instance_public_ip
-    db_endpoint     = "localhost:5434 (Docker PostgreSQL on EC2)"
-    s3_bucket       = module.s3.bucket_name
-    name_servers    = var.create_dns_records ? module.route53[0].name_servers : []
+    environment   = var.environment
+    region        = var.aws_region
+    domain        = var.domain_name
+    app_url       = var.create_dns_records ? "https://${var.app_subdomain}.${var.domain_name}" : "http://${module.ec2.instance_public_ip}"
+    vpc_id        = module.vpc.vpc_id
+    ec2_public_ip = module.ec2.instance_public_ip
+    db_endpoint   = "localhost:5434 (Docker PostgreSQL on EC2)"
+    s3_bucket     = module.s3.bucket_name
+    name_servers  = var.create_dns_records ? module.route53[0].name_servers : []
   }
 }
 
@@ -235,7 +235,7 @@ output "ses_configuration_set" {
 
 output "ses_verification_instructions" {
   description = "Instructions for verifying SES domain"
-  value = <<-EOT
+  value       = <<-EOT
 
   ============================================================================
   📧 SES Domain Verification
@@ -283,9 +283,52 @@ output "sns_configuration" {
   }
 }
 
+# ============================================================================
+# Secrets Manager Outputs
+# ============================================================================
+
+output "secrets_manager_prefix" {
+  description = "Prefix for all secrets in Secrets Manager"
+  value       = module.secrets_manager.secret_prefix
+}
+
+output "secrets_manager_arns" {
+  description = "ARNs of all secrets"
+  value = {
+    database = module.secrets_manager.database_secret_arn
+    auth     = module.secrets_manager.auth_secret_arn
+    oauth    = module.secrets_manager.oauth_secret_arn
+    api_keys = module.secrets_manager.api_keys_secret_arn
+    redis    = module.secrets_manager.redis_secret_arn
+    rabbitmq = module.secrets_manager.rabbitmq_secret_arn
+  }
+}
+
+output "secrets_manager_names" {
+  description = "Names of all secrets (use with AWS CLI)"
+  value = {
+    database = module.secrets_manager.database_secret_name
+    auth     = module.secrets_manager.auth_secret_name
+    oauth    = module.secrets_manager.oauth_secret_name
+    api_keys = module.secrets_manager.api_keys_secret_name
+    redis    = module.secrets_manager.redis_secret_name
+    rabbitmq = module.secrets_manager.rabbitmq_secret_name
+  }
+}
+
+output "secrets_read_policy_arn" {
+  description = "ARN of the IAM policy for reading secrets (attach to roles)"
+  value       = module.secrets_manager.secrets_read_policy_arn
+}
+
+output "secrets_retrieval_commands" {
+  description = "AWS CLI commands to retrieve each secret"
+  value       = module.secrets_manager.retrieval_commands
+}
+
 output "next_steps" {
   description = "Next steps after deployment"
-  value = <<-EOT
+  value       = <<-EOT
 
   ============================================================================
   🎉 Cohuron Platform Deployment Complete!

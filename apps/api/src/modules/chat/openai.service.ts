@@ -14,10 +14,14 @@ import type {
 } from './types.js';
 import { functionTools } from './functions.service.js';
 import { getMCPTools, executeMCPTool, getCustomerServiceTools, API_MANIFEST } from './mcp-adapter.service.js';
+import secrets from '@/config/secrets.js';
+import { config } from '@/config/index.js';
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
-const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4-turbo-preview';
+
+// Lazy getters for secrets (loaded at runtime, not module load)
+const getOpenAIApiKey = () => secrets.openaiApiKey;
+const getOpenAIModel = () => config.aiModels.defaultModel;
 
 /**
  * System prompt - Tool-focused, ultra-concise
@@ -328,7 +332,7 @@ export async function getAIResponse(
   modelUsed: string;
 }> {
   const { interactionSessionId, useMCP = true, authToken, maxTools = 50 } = options || {};
-  if (!OPENAI_API_KEY) {
+  if (!getOpenAIApiKey()) {
     throw new Error('OPENAI_API_KEY not configured');
   }
 
@@ -442,7 +446,7 @@ async function callOpenAI(
   }));
 
   const requestBody: OpenAIChatCompletionRequest = {
-    model: OPENAI_MODEL,
+    model: getOpenAIModel(),
     messages,
     tools: formattedTools,
     tool_choice: 'auto',
@@ -454,7 +458,7 @@ async function callOpenAI(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${OPENAI_API_KEY}`
+      'Authorization': `Bearer ${getOpenAIApiKey()}`
     },
     body: JSON.stringify(requestBody)
   });

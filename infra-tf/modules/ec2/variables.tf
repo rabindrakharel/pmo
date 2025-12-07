@@ -122,3 +122,9 @@ variable "global_tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "secrets_read_policy_arn" {
+  description = "ARN of the Secrets Manager read policy to attach"
+  type        = string
+  default     = ""
+}

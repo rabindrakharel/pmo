@@ -5,34 +5,50 @@
  */
 
 import { getAgentOrchestratorService } from './agents/agent-orchestrator.service.js';
-import { createClient } from '@deepgram/sdk';
+import { createClient, DeepgramClient } from '@deepgram/sdk';
 import { ElevenLabsClient, stream } from '@elevenlabs/elevenlabs-js';
 import { Readable } from 'stream';
+import secrets from '@/config/secrets.js';
+import { config } from '@/config/index.js';
 
-const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY;
-const ELEVEN_LABS_API_KEY = process.env.ELEVEN_LABS_API_KEY;
-const ELEVEN_LABS_VOICE_ID = process.env.ELEVEN_LABS_VOICE_ID;
-const ELEVEN_LABS_MODEL_ID = process.env.ELEVEN_LABS_MODEL_ID || 'eleven_flash_v2_5';
+// Lazy getters for secrets (loaded at runtime, not module load)
+const getDeepgramApiKey = () => secrets.deepgramApiKey;
+const getElevenLabsApiKey = () => secrets.elevenLabsApiKey;
+const getElevenLabsVoiceId = () => config.elevenLabs.voiceId;
+const getElevenLabsModelId = () => config.elevenLabs.modelId;
+const getElevenLabsStability = () => config.elevenLabs.stability;
+const getElevenLabsSimilarity = () => config.elevenLabs.similarity;
+const getElevenLabsStyle = () => config.elevenLabs.style;
 
-// ✅ Voice settings for consistent pitch/volume across all responses
-// Higher stability = more consistent pitch/tone (0.8 recommended for customer service)
-// Lower style = less variation in delivery (0.0 recommended for consistency)
-const ELEVEN_LABS_STABILITY = parseFloat(process.env.ELEVEN_LABS_STABILITY || '0.8');
-const ELEVEN_LABS_SIMILARITY = parseFloat(process.env.ELEVEN_LABS_SIMILARITY || '0.8');
-const ELEVEN_LABS_STYLE = parseFloat(process.env.ELEVEN_LABS_STYLE || '0.0');
+// Lazy client initialization
+let deepgramClient: DeepgramClient | null = null;
+let elevenLabsClient: ElevenLabsClient | null = null;
 
-// Initialize Deepgram client
-const deepgramClient = DEEPGRAM_API_KEY ? createClient(DEEPGRAM_API_KEY) : null;
+function getDeepgramClient(): DeepgramClient | null {
+  const apiKey = getDeepgramApiKey();
+  if (!apiKey) return null;
+  if (!deepgramClient) {
+    deepgramClient = createClient(apiKey);
+  }
+  return deepgramClient;
+}
 
-// Initialize ElevenLabs client
-const elevenLabsClient = ELEVEN_LABS_API_KEY ? new ElevenLabsClient({ apiKey: ELEVEN_LABS_API_KEY }) : null;
+function getElevenLabsClient(): ElevenLabsClient | null {
+  const apiKey = getElevenLabsApiKey();
+  if (!apiKey) return null;
+  if (!elevenLabsClient) {
+    elevenLabsClient = new ElevenLabsClient({ apiKey });
+  }
+  return elevenLabsClient;
+}
 
 /**
  * Speech-to-Text using Deepgram Nova-2 model
  * https://developers.deepgram.com/docs/getting-started-with-pre-recorded-audio
  */
 export async function speechToText(audioBuffer: Buffer, audioFormat: string = 'webm'): Promise<string> {
-  if (!deepgramClient) {
+  const client = getDeepgramClient();
+  if (!client) {
     throw new Error('DEEPGRAM_API_KEY not configured');
   }
 
@@ -47,7 +63,7 @@ export async function speechToText(audioBuffer: Buffer, audioFormat: string = 'w
                      audioFormat.includes('ogg') ? 'audio/ogg' : 'audio/webm';
 
     // Use Deepgram's prerecorded transcription API
-    const { result, error } = await deepgramClient.listen.prerecorded.transcribeFile(
+    const { result, error } = await client.listen.prerecorded.transcribeFile(
       audioBuffer,
       {
         model: 'nova-2',          // Latest Deepgram model
@@ -85,7 +101,8 @@ export async function speechToText(audioBuffer: Buffer, audioFormat: string = 'w
  * https://elevenlabs.io/docs/api-reference/text-to-speech
  */
 export async function textToSpeech(text: string, voice: string = 'nova'): Promise<Buffer> {
-  if (!elevenLabsClient) {
+  const client = getElevenLabsClient();
+  if (!client) {
     throw new Error('ELEVEN_LABS_API_KEY not configured');
   }
 
@@ -103,17 +120,17 @@ export async function textToSpeech(text: string, voice: string = 'nova'): Promis
       'shimmer': 'pqHfZKP75CvOlQylNhV4',     // Glinda (female, warm)
     };
 
-    // Use env var voice ID if provided, otherwise use voice name mapping, fallback to nova
-    const voiceId = ELEVEN_LABS_VOICE_ID || voiceIds[voice] || voiceIds['nova'];
+    // Use config voice ID if provided, otherwise use voice name mapping, fallback to nova
+    const voiceId = getElevenLabsVoiceId() || voiceIds[voice] || voiceIds['nova'];
 
     // Generate audio using ElevenLabs streaming API
-    const audioStream = await elevenLabsClient.textToSpeech.convert(voiceId, {
+    const audioStream = await client.textToSpeech.convert(voiceId, {
       text,
-      model_id: ELEVEN_LABS_MODEL_ID,    // Use env var model ID (default: eleven_flash_v2_5)
+      model_id: getElevenLabsModelId(),
       voice_settings: {
-        stability: ELEVEN_LABS_STABILITY,      // Voice consistency (0.8 default) - higher = more consistent pitch/tone
-        similarity_boost: ELEVEN_LABS_SIMILARITY, // Voice similarity (0.8 default) - higher = better consistency
-        style: ELEVEN_LABS_STYLE,              // Style variation (0.0 default) - lower = less pitch/volume variation
+        stability: getElevenLabsStability(),
+        similarity_boost: getElevenLabsSimilarity(),
+        style: getElevenLabsStyle(),
         use_speaker_boost: true                // Enhance voice clarity and normalize volume
       },
       output_format: 'mp3_44100_128'     // MP3, 44.1kHz, 128kbps (consistent bitrate ensures consistent volume)
@@ -204,8 +221,9 @@ export async function* processVoiceMessageStream(args: {
       'onyx': 'IKne3meq5aSn9XLyUdCD',
       'shimmer': 'pqHfZKP75CvOlQylNhV4',
     };
-    // Use env var voice ID if provided, otherwise use voice name mapping, fallback to nova
-    const voiceId = ELEVEN_LABS_VOICE_ID || voiceIds[args.voice || 'nova'] || voiceIds['nova'];
+    // Use config voice ID if provided, otherwise use voice name mapping, fallback to nova
+    const voiceId = getElevenLabsVoiceId() || voiceIds[args.voice || 'nova'] || voiceIds['nova'];
+    const ttsClient = getElevenLabsClient();
 
     for await (const chunk of orchestrator.processMessageStream({
       sessionId: args.sessionId,
@@ -226,17 +244,17 @@ export async function* processVoiceMessageStream(args: {
         if (hasSentenceBoundary || isLongBuffer) {
           // Send accumulated text to TTS and stream audio
           try {
-            if (!elevenLabsClient) {
+            if (!ttsClient) {
               throw new Error('ELEVEN_LABS_API_KEY not configured');
             }
 
-            const audioStream = await elevenLabsClient.textToSpeech.convert(voiceId, {
+            const audioStream = await ttsClient.textToSpeech.convert(voiceId, {
               text: textBuffer,
-              model_id: ELEVEN_LABS_MODEL_ID,
+              model_id: getElevenLabsModelId(),
               voice_settings: {
-                stability: ELEVEN_LABS_STABILITY,      // Voice consistency - configurable via env
-                similarity_boost: ELEVEN_LABS_SIMILARITY, // Voice similarity - configurable via env
-                style: ELEVEN_LABS_STYLE,              // Style variation - configurable via env
+                stability: getElevenLabsStability(),
+                similarity_boost: getElevenLabsSimilarity(),
+                style: getElevenLabsStyle(),
                 use_speaker_boost: true                // Normalize volume
               },
               output_format: 'mp3_44100_128'     // Consistent bitrate
@@ -270,17 +288,17 @@ export async function* processVoiceMessageStream(args: {
         // Send any remaining buffered text to TTS
         if (textBuffer.trim().length > 0) {
           try {
-            if (!elevenLabsClient) {
+            if (!ttsClient) {
               throw new Error('ELEVEN_LABS_API_KEY not configured');
             }
 
-            const audioStream = await elevenLabsClient.textToSpeech.convert(voiceId, {
+            const audioStream = await ttsClient.textToSpeech.convert(voiceId, {
               text: textBuffer,
-              model_id: ELEVEN_LABS_MODEL_ID,
+              model_id: getElevenLabsModelId(),
               voice_settings: {
-                stability: ELEVEN_LABS_STABILITY,      // Voice consistency - configurable via env
-                similarity_boost: ELEVEN_LABS_SIMILARITY, // Voice similarity - configurable via env
-                style: ELEVEN_LABS_STYLE,              // Style variation - configurable via env
+                stability: getElevenLabsStability(),
+                similarity_boost: getElevenLabsSimilarity(),
+                style: getElevenLabsStyle(),
                 use_speaker_boost: true                // Normalize volume
               },
               output_format: 'mp3_44100_128'     // Consistent bitrate

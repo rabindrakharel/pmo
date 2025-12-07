@@ -87,6 +87,13 @@ resource "aws_iam_role_policy_attachment" "ec2_ssm_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+# Attach Secrets Manager read policy (if provided)
+resource "aws_iam_role_policy_attachment" "ec2_secrets_policy" {
+  count      = var.secrets_read_policy_arn != "" ? 1 : 0
+  role       = aws_iam_role.ec2_role.name
+  policy_arn = var.secrets_read_policy_arn
+}
+
 # Instance profile
 resource "aws_iam_instance_profile" "ec2_profile" {
   name = "${var.project_name}-ec2-profile"
