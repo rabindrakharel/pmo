@@ -1007,54 +1007,54 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
         {activeMainTab === 'entities' && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-bold text-dark-700 tracking-tight">Entities ({entities.length})</h2>
+            <h2 className="text-base font-semibold text-dark-800 tracking-tight">Entities ({entities.length})</h2>
             <div className="relative w-64">
-              <LucideIcons.Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-dark-600" />
+              <LucideIcons.Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-dark-400" />
               <input
                 type="text"
                 placeholder="Search entities..."
                 value={entitiesSearchQuery}
                 onChange={(e) => setEntitiesSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm border border-dark-300 rounded-md bg-dark-100 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 transition-all placeholder:text-dark-500"
+                className="w-full pl-9 pr-3 py-2 text-sm border border-dark-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400 transition-all placeholder:text-dark-400"
               />
             </div>
           </div>
 
           {entitiesLoading ? (
-            <div className="flex flex-col items-center justify-center py-16 bg-dark-100 rounded-xl border border-dark-300">
-              <div className="inline-block animate-spin rounded-full h-10 w-10 border-3 border-dark-300 border-t-green-500"></div>
-              <p className="text-sm font-medium text-dark-700 mt-4">Loading entities...</p>
+            <div className="flex flex-col items-center justify-center py-16 bg-white rounded-lg border border-dark-200 shadow-sm">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-dark-200 border-t-slate-600"></div>
+              <p className="text-sm font-medium text-dark-600 mt-4">Loading entities...</p>
             </div>
           ) : filteredEntities.length === 0 && !isAddingEntity ? (
-            <div className="flex flex-col items-center justify-center py-12 bg-dark-100 rounded-xl border border-dark-300">
-              <LucideIcons.Tag className="h-10 w-10 text-dark-500 mb-3" />
+            <div className="flex flex-col items-center justify-center py-12 bg-white rounded-lg border border-dark-200 shadow-sm">
+              <LucideIcons.Tag className="h-10 w-10 text-dark-400 mb-3" />
               <p className="text-sm font-medium text-dark-700">No entities found</p>
-              <p className="text-xs text-dark-600 mt-1">Try adjusting your search</p>
+              <p className="text-xs text-dark-500 mt-1">Try adjusting your search</p>
             </div>
           ) : (
-            <div className="bg-dark-100 border border-dark-300 rounded-xl overflow-hidden shadow-sm">
-              <table className="min-w-full divide-y divide-dark-300">
+            <div className="bg-white border border-dark-200 rounded-lg overflow-hidden shadow-sm">
+              <table className="min-w-full divide-y divide-dark-200">
                 <thead className="bg-dark-50">
-                  <tr className="border-b border-dark-300">
-                    <th className="px-4 py-3 text-left text-xs font-medium text-dark-600 uppercase">Code</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-dark-600 uppercase">Name</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-dark-600 uppercase">UI Label</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-dark-600 uppercase">Domain</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-dark-600 uppercase">Icon</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-dark-600 uppercase">Order</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-dark-600 uppercase">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-dark-600 uppercase">Children</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-dark-600 uppercase">Actions</th>
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">Code</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">UI Label</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">Domain</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">Icon</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-dark-600 uppercase tracking-wider">Order</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-dark-600 uppercase tracking-wider">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">Children</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-dark-600 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-dark-100 divide-y divide-dark-300">
+                <tbody className="bg-white divide-y divide-dark-100">
                   {filteredEntities.map((entity) => {
                     const isEditing = editingEntityCode === entity.code;
                     return (
                       <tr
                         key={entity.code}
                         onClick={() => !isEditing && handleConfigureEntity(entity)}
-                        className={isEditing ? 'bg-dark-100/30' : 'hover:bg-blue-50 cursor-pointer transition-colors'}
+                        className={isEditing ? 'bg-slate-50 ring-1 ring-inset ring-slate-200' : 'hover:bg-dark-50 cursor-pointer transition-colors'}
                         title={!isEditing ? `Click to configure ${entity.name}` : ''}
                       >
                         <td className="px-4 py-3">
@@ -1066,7 +1066,7 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                               type="text"
                               value={editingEntityData.name ?? entity.name}
                               onChange={(e) => setEditingEntityData({ ...editingEntityData, name: e.target.value })}
-                              className="w-full px-2 py-1 text-sm border border-dark-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                              className="w-full px-2 py-1.5 text-sm border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400"
                             />
                           ) : (
                             <span className="text-sm text-dark-700">{entity.name}</span>
@@ -1078,7 +1078,7 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                               type="text"
                               value={editingEntityData.ui_label ?? entity.ui_label}
                               onChange={(e) => setEditingEntityData({ ...editingEntityData, ui_label: e.target.value })}
-                              className="w-full px-2 py-1 text-sm border border-dark-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                              className="w-full px-2 py-1.5 text-sm border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400"
                             />
                           ) : (
                             <span className="text-sm text-dark-700">{entity.ui_label}</span>
@@ -1089,7 +1089,7 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                             <select
                               value={editingEntityData.dl_entity_domain ?? entity.dl_entity_domain ?? ''}
                               onChange={(e) => setEditingEntityData({ ...editingEntityData, dl_entity_domain: e.target.value || undefined })}
-                              className="w-full px-2 py-1 text-sm border border-dark-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                              className="w-full px-2 py-1.5 text-sm border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400"
                             >
                               <option value="">-- None --</option>
                               <option value="Core Management">Core Management</option>
@@ -1117,29 +1117,29 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                             <div className="relative">
                               <button
                                 onClick={() => setShowEntityIconPicker(!showEntityIconPicker)}
-                                className="flex items-center gap-2 px-2 py-1 text-xs border border-dark-400 rounded hover:bg-dark-100 transition-colors"
+                                className="flex items-center gap-2 px-2.5 py-1.5 text-sm border border-dark-200 rounded-md bg-white hover:bg-dark-50 hover:border-dark-300 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors"
                                 type="button"
                               >
                                 {(() => {
                                   const EditIcon = getIconComponent(editingEntityData.ui_icon ?? entity.ui_icon);
-                                  return <EditIcon className="h-4 w-4 text-dark-700" />;
+                                  return <EditIcon className="h-4 w-4 text-dark-600" />;
                                 })()}
-                                <span className="text-xs text-dark-700">{(editingEntityData.ui_icon ?? entity.ui_icon) || 'Select'}</span>
-                                <LucideIcons.ChevronDown className="h-3 w-3" />
+                                <span className="text-sm text-dark-700">{(editingEntityData.ui_icon ?? entity.ui_icon) || 'Select'}</span>
+                                <LucideIcons.ChevronDown className="h-3.5 w-3.5 text-dark-400" />
                               </button>
 
                               {/* Icon Picker Dropdown */}
                               {showEntityIconPicker && (
-                                <div className="absolute left-0 top-full mt-1 z-50 bg-dark-100 rounded-md shadow-xl border border-dark-300 p-3 w-96">
+                                <div className="absolute left-0 top-full mt-1 z-50 bg-white rounded-lg shadow-lg border border-dark-200 p-3 w-96">
                                   <div className="mb-2">
                                     <div className="relative">
-                                      <LucideIcons.Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-dark-600" />
+                                      <LucideIcons.Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-dark-400" />
                                       <input
                                         type="text"
                                         value={iconSearchQuery}
                                         onChange={(e) => setIconSearchQuery(e.target.value)}
                                         placeholder="Search icons..."
-                                        className="w-full pl-7 pr-3 py-1.5 text-xs border border-dark-400 rounded focus:ring-2 focus:ring-dark-700/30"
+                                        className="w-full pl-8 pr-3 py-1.5 text-sm border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400"
                                         autoFocus
                                       />
                                     </div>
@@ -1161,7 +1161,7 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                                               setShowEntityIconPicker(false);
                                               setIconSearchQuery('');
                                             }}
-                                            className={`p-2 rounded hover:bg-dark-100 transition-colors ${isSelected ? 'bg-dark-100 ring-2 ring-dark-700' : ''}`}
+                                            className={`p-2 rounded-md hover:bg-dark-100 transition-colors ${isSelected ? 'bg-slate-100 ring-2 ring-slate-500' : ''}`}
                                             title={iconName}
                                             type="button"
                                           >
@@ -1170,8 +1170,8 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                                         );
                                       })}
                                   </div>
-                                  <div className="mt-2 flex items-center justify-between border-t border-dark-300 pt-2">
-                                    <span className="text-xs text-dark-700">
+                                  <div className="mt-2 flex items-center justify-between border-t border-dark-200 pt-2">
+                                    <span className="text-xs text-dark-500">
                                       {AVAILABLE_ICON_NAMES.filter(name =>
                                         iconSearchQuery === '' || name.toLowerCase().includes(iconSearchQuery.toLowerCase())
                                       ).length} icons
@@ -1181,7 +1181,7 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                                         setShowEntityIconPicker(false);
                                         setIconSearchQuery('');
                                       }}
-                                      className="px-2 py-1 text-xs text-dark-700 hover:bg-dark-100 rounded"
+                                      className="px-2.5 py-1 text-sm text-dark-600 hover:bg-dark-100 rounded-md transition-colors"
                                       type="button"
                                     >
                                       Close
@@ -1193,7 +1193,7 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                           ) : (
                             <div className="flex items-center gap-1.5">
                               {React.createElement(getIconComponent(entity.ui_icon), {
-                                className: "h-4 w-4 text-dark-700"
+                                className: "h-4 w-4 text-dark-600"
                               })}
                             </div>
                           )}
@@ -1204,7 +1204,7 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                               type="number"
                               value={editingEntityData.display_order ?? entity.display_order}
                               onChange={(e) => setEditingEntityData({ ...editingEntityData, display_order: parseInt(e.target.value) })}
-                              className="w-16 px-2 py-1 text-sm border border-dark-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-center"
+                              className="w-16 px-2 py-1.5 text-sm border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400 text-center"
                             />
                           ) : (
                             <span className="text-sm text-dark-700">{entity.display_order}</span>
@@ -1216,13 +1216,13 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                               e.stopPropagation();
                               handleToggleEntityActive(entity.code, entity.active_flag);
                             }}
-                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                              entity.active_flag ? 'bg-green-500' : 'bg-dark-300'
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:ring-offset-2 ${
+                              entity.active_flag ? 'bg-emerald-500' : 'bg-dark-300'
                             }`}
                             title={entity.active_flag ? 'Enabled - Click to disable' : 'Disabled - Click to enable'}
                           >
                             <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
                                 entity.active_flag ? 'translate-x-5' : 'translate-x-0.5'
                               }`}
                             />
@@ -1235,7 +1235,7 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                                 e.stopPropagation();
                                 handleManageChildren(entity);
                               }}
-                              className="inline-flex items-center gap-1 px-2 py-1 text-xs text-dark-700 hover:bg-dark-100 rounded border border-dark-300 transition-colors font-medium"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-dark-600 hover:bg-dark-100 hover:text-dark-800 rounded-md border border-dark-200 transition-colors font-medium"
                               title="Manage child entities"
                             >
                               <LucideIcons.GitBranch className="h-3.5 w-3.5" />
@@ -1244,8 +1244,8 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
 
                             {/* Tooltip showing enriched child entities with icons & labels */}
                             {(entity.child_entities || []).length > 0 && (
-                              <div className="invisible group-hover:visible absolute left-0 top-8 z-10 bg-dark-900 text-white text-xs rounded-md py-2 px-3 shadow-lg whitespace-nowrap">
-                                <div className="space-y-1">
+                              <div className="invisible group-hover:visible absolute left-0 top-8 z-10 bg-dark-800 text-white text-xs rounded-md py-2 px-3 shadow-lg whitespace-nowrap">
+                                <div className="space-y-1.5">
                                   {(entity.child_entities || []).slice(0, 5).map((child) => {
                                     const ChildIcon = getIconComponent(child.ui_icon || 'Tag');
                                     return (
@@ -1256,7 +1256,7 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                                     );
                                   })}
                                   {(entity.child_entities || []).length > 5 && (
-                                    <div className="text-dark-600 text-xs">
+                                    <div className="text-dark-400 text-xs mt-1">
                                       +{(entity.child_entities || []).length - 5} more...
                                     </div>
                                   )}
@@ -1274,7 +1274,7 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                                     e.stopPropagation();
                                     handleUpdateEntity(entity.code);
                                   }}
-                                  className="p-1 text-green-600 hover:bg-green-50 rounded"
+                                  className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:outline-none transition-colors"
                                   title="Save"
                                 >
                                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1287,7 +1287,7 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                                     setEditingEntityCode(null);
                                     setEditingEntityData({});
                                   }}
-                                  className="p-1 text-dark-700 hover:bg-dark-100 rounded"
+                                  className="p-1.5 text-dark-500 hover:text-dark-700 hover:bg-dark-100 rounded-md focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors"
                                   title="Cancel"
                                 >
                                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1303,7 +1303,7 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                                     setEditingEntityCode(entity.code);
                                     setEditingEntityData(entity);
                                   }}
-                                  className="p-1 text-dark-700 hover:bg-dark-100 rounded"
+                                  className="p-1.5 text-dark-500 hover:text-dark-700 hover:bg-dark-100 rounded-md focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors"
                                   title="Edit"
                                 >
                                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1315,7 +1315,7 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                                     e.stopPropagation();
                                     handleDeleteEntity(entity.code, entity.name);
                                   }}
-                                  className="p-1 text-red-600 hover:bg-red-50 rounded"
+                                  className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md focus-visible:ring-2 focus-visible:ring-red-500/30 focus-visible:outline-none transition-colors"
                                   title="Delete"
                                 >
                                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1332,65 +1332,65 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
 
                   {/* Add new entity row */}
                   {isAddingEntity && (
-                    <tr className="bg-dark-100/40">
-                      <td className="px-3 py-2.5">
+                    <tr className="bg-slate-50">
+                      <td className="px-4 py-3">
                         <input
                           type="text"
                           value={newEntityData.code}
                           onChange={(e) => setNewEntityData({ ...newEntityData, code: e.target.value.toLowerCase() })}
                           placeholder="code"
-                          className="w-full px-2 py-1 text-[11px] border border-dark-400 rounded focus:ring-2 focus:ring-dark-700/30 focus:border-dark-600"
+                          className="w-full px-2 py-1.5 text-sm border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400"
                         />
                       </td>
-                      <td className="px-3 py-2.5">
+                      <td className="px-4 py-3">
                         <input
                           type="text"
                           value={newEntityData.name}
                           onChange={(e) => setNewEntityData({ ...newEntityData, name: e.target.value })}
                           placeholder="Name"
-                          className="w-full px-2 py-1 text-[11px] border border-dark-400 rounded focus:ring-2 focus:ring-dark-700/30 focus:border-dark-600"
+                          className="w-full px-2 py-1.5 text-sm border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400"
                         />
                       </td>
-                      <td className="px-3 py-2.5">
+                      <td className="px-4 py-3">
                         <input
                           type="text"
                           value={newEntityData.ui_label}
                           onChange={(e) => setNewEntityData({ ...newEntityData, ui_label: e.target.value })}
                           placeholder="UI Label"
-                          className="w-full px-2 py-1 text-[11px] border border-dark-400 rounded focus:ring-2 focus:ring-dark-700/30 focus:border-dark-600"
+                          className="w-full px-2 py-1.5 text-sm border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400"
                         />
                       </td>
-                      <td className="px-3 py-2.5">
+                      <td className="px-4 py-3">
                         <div className="relative">
                           <button
                             onClick={() => setShowNewEntityIconPicker(!showNewEntityIconPicker)}
-                            className="flex items-center gap-1.5 px-2 py-1 text-[11px] border border-dark-400 rounded hover:bg-dark-100 transition-colors"
+                            className="flex items-center gap-2 px-2.5 py-1.5 text-sm border border-dark-200 rounded-md bg-white hover:bg-dark-50 hover:border-dark-300 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors"
                             type="button"
                           >
                             {newEntityData.ui_icon ? (
                               (() => {
                                 const NewIcon = getIconComponent(newEntityData.ui_icon);
-                                return <NewIcon className="h-3.5 w-3.5 text-dark-700" />;
+                                return <NewIcon className="h-4 w-4 text-dark-600" />;
                               })()
                             ) : (
-                              <LucideIcons.Tag className="h-3.5 w-3.5 text-dark-600" />
+                              <LucideIcons.Tag className="h-4 w-4 text-dark-400" />
                             )}
-                            <span className="text-[10px] text-dark-700">{newEntityData.ui_icon || 'Select'}</span>
-                            <LucideIcons.ChevronDown className="h-3 w-3" />
+                            <span className="text-sm text-dark-700">{newEntityData.ui_icon || 'Select'}</span>
+                            <LucideIcons.ChevronDown className="h-3.5 w-3.5 text-dark-400" />
                           </button>
 
                           {/* Icon Picker Dropdown */}
                           {showNewEntityIconPicker && (
-                            <div className="absolute left-0 top-full mt-1 z-50 bg-dark-100 rounded-md shadow-xl border border-dark-300 p-3 w-96">
+                            <div className="absolute left-0 top-full mt-1 z-50 bg-white rounded-lg shadow-lg border border-dark-200 p-3 w-96">
                               <div className="mb-2">
                                 <div className="relative">
-                                  <LucideIcons.Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-dark-600" />
+                                  <LucideIcons.Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-dark-400" />
                                   <input
                                     type="text"
                                     value={newIconSearchQuery}
                                     onChange={(e) => setNewIconSearchQuery(e.target.value)}
                                     placeholder="Search icons..."
-                                    className="w-full pl-7 pr-3 py-1.5 text-xs border border-dark-400 rounded focus:ring-2 focus:ring-dark-700/30"
+                                    className="w-full pl-8 pr-3 py-1.5 text-sm border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400"
                                     autoFocus
                                   />
                                 </div>
@@ -1412,7 +1412,7 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                                           setShowNewEntityIconPicker(false);
                                           setNewIconSearchQuery('');
                                         }}
-                                        className={`p-2 rounded hover:bg-dark-100 transition-colors ${isSelected ? 'bg-dark-100 ring-2 ring-dark-700' : ''}`}
+                                        className={`p-2 rounded-md hover:bg-dark-100 transition-colors ${isSelected ? 'bg-slate-100 ring-2 ring-slate-500' : ''}`}
                                         title={iconName}
                                         type="button"
                                       >
@@ -1421,8 +1421,8 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                                     );
                                   })}
                               </div>
-                              <div className="mt-2 flex items-center justify-between border-t border-dark-300 pt-2">
-                                <span className="text-xs text-dark-700">
+                              <div className="mt-2 flex items-center justify-between border-t border-dark-200 pt-2">
+                                <span className="text-xs text-dark-500">
                                   {AVAILABLE_ICON_NAMES.filter(name =>
                                     newIconSearchQuery === '' || name.toLowerCase().includes(newIconSearchQuery.toLowerCase())
                                   ).length} icons
@@ -1432,7 +1432,7 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                                     setShowNewEntityIconPicker(false);
                                     setNewIconSearchQuery('');
                                   }}
-                                  className="px-2 py-1 text-xs text-dark-700 hover:bg-dark-100 rounded"
+                                  className="px-2.5 py-1 text-sm text-dark-600 hover:bg-dark-100 rounded-md transition-colors"
                                   type="button"
                                 >
                                   Close
@@ -1442,29 +1442,29 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                           )}
                         </div>
                       </td>
-                      <td className="px-3 py-2.5 text-center">
+                      <td className="px-4 py-3 text-center">
                         <input
                           type="number"
                           value={newEntityData.display_order || ''}
                           onChange={(e) => setNewEntityData({ ...newEntityData, display_order: parseInt(e.target.value) || undefined })}
                           placeholder="Auto"
-                          className="w-16 px-2 py-1 text-[11px] border border-dark-400 rounded focus:ring-2 focus:ring-dark-700/30 focus:border-dark-600 text-center"
+                          className="w-16 px-2 py-1.5 text-sm border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400 text-center"
                         />
                       </td>
-                      <td className="px-3 py-2.5 text-center">
-                        <span className="text-[10px] text-green-600 font-medium">Enabled</span>
+                      <td className="px-4 py-3 text-center">
+                        <span className="text-xs text-emerald-600 font-medium">Enabled</span>
                       </td>
-                      <td className="px-3 py-2.5 text-center">
-                        <span className="text-[10px] text-dark-600">-</span>
+                      <td className="px-4 py-3 text-center">
+                        <span className="text-xs text-dark-400">—</span>
                       </td>
-                      <td className="px-3 py-2.5">
-                        <div className="flex items-center justify-center gap-0.5">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-1">
                           <button
                             onClick={handleAddEntity}
-                            className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors"
+                            className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:outline-none transition-colors"
                             title="Save"
                           >
-                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                             </svg>
                           </button>
@@ -1473,10 +1473,10 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                               setIsAddingEntity(false);
                               setNewEntityData({ code: '', name: '', ui_label: '', ui_icon: '' });
                             }}
-                            className="p-1 text-dark-700 hover:bg-dark-100 rounded transition-colors"
+                            className="p-1.5 text-dark-500 hover:text-dark-700 hover:bg-dark-100 rounded-md focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors"
                             title="Cancel"
                           >
-                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                           </button>
@@ -1489,12 +1489,12 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
 
               {/* Add Entity Button */}
               {!isAddingEntity && (
-                <div className="border-t border-dark-300 bg-dark-100/50">
+                <div className="border-t border-dark-200 bg-dark-50">
                   <button
                     onClick={() => setIsAddingEntity(true)}
-                    className="w-full px-3 py-2 text-left text-[11px] font-semibold text-dark-700 hover:bg-dark-100 hover:text-dark-700 transition-colors flex items-center gap-2"
+                    className="w-full px-4 py-3 text-left text-sm font-medium text-dark-600 hover:bg-dark-100 hover:text-dark-800 transition-colors flex items-center gap-2"
                   >
-                    <LucideIcons.Plus className="h-3.5 w-3.5" />
+                    <LucideIcons.Plus className="h-4 w-4" />
                     <span>Add Entity</span>
                   </button>
                 </div>
@@ -1521,19 +1521,19 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
 
       {/* Child Entities Management Modal */}
       {childEntitiesModalOpen && selectedEntityForChildren && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-dark-100 rounded-xl shadow-2xl w-full max-w-md mx-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 border border-dark-200">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-dark-300">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-dark-200">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-dark-100 rounded-md">
-                  <LucideIcons.GitBranch className="h-5 w-5 text-dark-700" />
+                <div className="p-2 bg-slate-100 rounded-lg">
+                  <LucideIcons.GitBranch className="h-5 w-5 text-slate-600" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-dark-600">
+                  <h2 className="text-lg font-semibold text-dark-800">
                     Manage Child Entities
                   </h2>
-                  <p className="text-xs text-dark-700 mt-0.5">
+                  <p className="text-sm text-dark-500 mt-0.5">
                     {selectedEntityForChildren.ui_label} ({selectedEntityForChildren.code})
                   </p>
                 </div>
@@ -1544,7 +1544,7 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                   setSelectedEntityForChildren(null);
                   setChildSearchQuery('');
                 }}
-                className="p-2 rounded-md text-dark-600 hover:text-dark-700 hover:bg-dark-100 transition-colors"
+                className="p-2 rounded-md text-dark-400 hover:text-dark-600 hover:bg-dark-100 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1555,12 +1555,12 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
             {/* Content */}
             <div className="p-6">
               {/* Current Children */}
-              <div className="mb-4">
-                <h3 className="text-sm font-medium text-dark-600 mb-2">Current Child Entities</h3>
+              <div className="mb-5">
+                <h3 className="text-sm font-semibold text-dark-700 mb-2">Current Child Entities</h3>
                 {(selectedEntityForChildren.child_entity_codes || []).length === 0 ? (
-                  <p className="text-xs text-dark-700 italic">No child entities configured</p>
+                  <p className="text-sm text-dark-500 italic">No child entities configured</p>
                 ) : (
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     {(selectedEntityForChildren.child_entity_codes || []).map((childCode) => {
                       const childMetadata = getEntityMetadata(childCode);
                       if (!childMetadata) return null; // Skip if entity not found
@@ -1568,22 +1568,22 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                       return (
                         <div
                           key={childCode}
-                          className="flex items-center justify-between px-3 py-2 bg-dark-100 rounded-md border border-dark-300"
+                          className="flex items-center justify-between px-3 py-2 bg-dark-50 rounded-md border border-dark-200"
                         >
                           <div className="flex items-center gap-2">
                             {(() => {
                               const ChildIcon = getIconComponent(childMetadata.ui_icon || 'Tag');
-                              return <ChildIcon className="h-4 w-4 text-dark-700" />;
+                              return <ChildIcon className="h-4 w-4 text-dark-600" />;
                             })()}
-                            <span className="text-xs font-medium text-dark-600">{childMetadata.ui_label}</span>
-                            <span className="text-xs text-dark-600">({childCode})</span>
+                            <span className="text-sm font-medium text-dark-700">{childMetadata.ui_label}</span>
+                            <span className="text-sm text-dark-500">({childCode})</span>
                           </div>
                           <button
                             onClick={() => handleRemoveChild(selectedEntityForChildren.code, childCode)}
-                            className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+                            className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md focus-visible:ring-2 focus-visible:ring-red-500/30 focus-visible:outline-none transition-colors"
                             title="Remove"
                           >
-                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                             </svg>
                           </button>
@@ -1596,18 +1596,18 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
 
               {/* Add Child Search */}
               <div>
-                <h3 className="text-sm font-medium text-dark-600 mb-2">Add Child Entity</h3>
+                <h3 className="text-sm font-semibold text-dark-700 mb-2">Add Child Entity</h3>
                 <div className="relative mb-2">
-                  <LucideIcons.Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-dark-600" />
+                  <LucideIcons.Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-dark-400" />
                   <input
                     type="text"
                     value={childSearchQuery}
                     onChange={(e) => setChildSearchQuery(e.target.value)}
                     placeholder="Search entities..."
-                    className="w-full pl-8 pr-3 py-2 text-xs border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-700/30 focus:border-dark-600"
+                    className="w-full pl-9 pr-3 py-2 text-sm border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400"
                   />
                 </div>
-                <div className="max-h-40 overflow-y-auto space-y-1">
+                <div className="max-h-40 overflow-y-auto space-y-1.5">
                   {entities
                     .filter(e =>
                       e.code !== selectedEntityForChildren.code && // Not self
@@ -1621,17 +1621,17 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                         <button
                           key={entity.code}
                           onClick={() => handleAddChild(selectedEntityForChildren.code, entity.code)}
-                          className="w-full flex items-center justify-between px-3 py-2 bg-dark-100 hover:bg-dark-100 rounded-md border border-dark-300 transition-colors text-left"
+                          className="w-full flex items-center justify-between px-3 py-2 bg-white hover:bg-dark-50 rounded-md border border-dark-200 hover:border-dark-300 transition-colors text-left"
                         >
                           <div className="flex items-center gap-2">
                             {(() => {
                               const EntityIcon = getIconComponent(entity.ui_icon);
-                              return <EntityIcon className="h-4 w-4 text-dark-700" />;
+                              return <EntityIcon className="h-4 w-4 text-dark-600" />;
                             })()}
-                            <span className="text-xs font-medium text-dark-600">{entity.ui_label}</span>
-                            <span className="text-xs text-dark-600">({entity.code})</span>
+                            <span className="text-sm font-medium text-dark-700">{entity.ui_label}</span>
+                            <span className="text-sm text-dark-500">({entity.code})</span>
                           </div>
-                          <LucideIcons.Plus className="h-3 w-3 text-green-500" />
+                          <LucideIcons.Plus className="h-4 w-4 text-emerald-500" />
                         </button>
                       );
                     })}
@@ -1640,14 +1640,14 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-dark-300 bg-dark-100">
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-dark-200 bg-dark-50">
               <button
                 onClick={() => {
                   setChildEntitiesModalOpen(false);
                   setSelectedEntityForChildren(null);
                   setChildSearchQuery('');
                 }}
-                className="px-4 py-2 text-sm font-medium text-dark-600 hover:bg-dark-100 rounded-md transition-colors"
+                className="px-4 py-2 text-sm font-medium bg-slate-600 text-white rounded-md hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-slate-500/50 focus-visible:outline-none shadow-sm transition-colors"
               >
                 Done
               </button>

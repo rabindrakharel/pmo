@@ -1177,7 +1177,7 @@ export function InteractiveForm({
               <button
                 type="button"
                 onClick={handlePrevious}
-                className="px-4 py-2 border border-dark-400 rounded-md text-sm font-normal text-dark-600 bg-dark-100 hover:bg-dark-100 transition-colors"
+                className="px-4 py-2 border border-dark-200 rounded-md text-sm font-medium text-dark-700 bg-white hover:bg-dark-50 hover:border-dark-300 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors"
               >
                 Previous
               </button>

@@ -98,7 +98,7 @@ export function IntegrationsPage() {
                 </div>
               </div>
               <button
-                className="inline-flex items-center gap-2 px-3 py-1.5 border border-dark-400 text-sm font-normal rounded text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 transition-colors disabled:bg-dark-100 disabled:text-dark-600"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-600 text-white text-sm font-medium rounded-md hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-slate-500/50 focus-visible:outline-none shadow-sm transition-colors disabled:opacity-50 disabled:pointer-events-none"
                 disabled
               >
                 <Plus className="h-4 w-4" />
@@ -107,7 +107,7 @@ export function IntegrationsPage() {
             </div>
 
             {/* Info Banner */}
-            <div className="bg-dark-100 border border-dark-300 rounded-md p-4 mb-6">
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-6">
               <div className="flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 text-dark-700 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
@@ -148,7 +148,7 @@ export function IntegrationsPage() {
                     </div>
                     <p className="text-sm text-dark-700 mb-4">{integration.description}</p>
                     <button
-                      className="w-full px-3 py-1.5 border border-dark-400 text-sm font-normal rounded text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 transition-colors disabled:bg-dark-100 disabled:text-dark-600"
+                      className="w-full px-3 py-2 border border-dark-200 text-sm font-medium rounded-md text-dark-700 bg-white hover:bg-dark-50 hover:border-dark-300 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors disabled:opacity-50 disabled:pointer-events-none"
                       disabled
                     >
                       Configure Integration

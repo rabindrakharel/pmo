@@ -201,17 +201,17 @@ export function SecurityPage() {
                   </div>
                 </div>
               </div>
-              <button className="inline-flex items-center px-3 py-1.5 border border-dark-400 text-sm font-normal rounded text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 transition-colors">
+              <button className="inline-flex items-center px-4 py-2 bg-slate-600 text-white text-sm font-medium rounded-md hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-slate-500/50 focus-visible:outline-none shadow-sm transition-colors">
                 <Smartphone className="h-4 w-4 mr-2 stroke-[1.5]" />
                 Enable Two-Factor Authentication
               </button>
             </div>
 
             {/* Active Sessions */}
-            <div className="border-t border-dark-300 pt-8">
-              <h3 className="text-sm font-normal text-dark-600 mb-4">Active Sessions</h3>
-              <div className="bg-dark-100 shadow overflow-hidden sm:rounded-md">
-                <ul className="divide-y divide-dark-400">
+            <div className="border-t border-dark-200 pt-8">
+              <h3 className="text-sm font-semibold text-dark-700 mb-4">Active Sessions</h3>
+              <div className="bg-white border border-dark-200 shadow-sm overflow-hidden rounded-lg">
+                <ul className="divide-y divide-dark-100">
                   <li className="px-4 py-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center">

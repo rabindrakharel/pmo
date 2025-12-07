@@ -61,8 +61,8 @@ export function WikiViewPage() {
             <p className="text-dark-700 text-sm">Updated {new Date(page.updatedTs || page.updated_ts).toLocaleString()}</p>
           </div>
           <div className="space-x-2">
-            <button onClick={() => navigate(`/wiki/${id}/edit`)} className="inline-flex items-center px-4 py-2 border border-dark-400 text-sm font-normal rounded-md text-dark-600 bg-dark-100 hover:bg-dark-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dark-7000">Edit</button>
-            <button onClick={() => navigate('/wiki')} className="inline-flex items-center px-4 py-2 border border-dark-400 text-sm font-normal rounded-md text-dark-600 bg-dark-100 hover:bg-dark-100">Back</button>
+            <button onClick={() => navigate(`/wiki/${id}/edit`)} className="inline-flex items-center px-4 py-2 bg-slate-600 text-white text-sm font-medium rounded-md hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-slate-500/50 focus-visible:outline-none shadow-sm transition-colors">Edit</button>
+            <button onClick={() => navigate('/wiki')} className="inline-flex items-center px-4 py-2 border border-dark-200 text-sm font-medium rounded-md text-dark-700 bg-white hover:bg-dark-50 hover:border-dark-300 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors">Back</button>
           </div>
         </div>
 
