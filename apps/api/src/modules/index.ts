@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 // Core authentication and metadata modules
 import { authRoutes } from './auth/routes.js';
+import { advancedAuthRoutes } from './auth/routes-advanced.js';
 import { schemaRoutes } from './schema/routes.js';
 import { metaRoutes } from './meta/routes.js';
 import { settingRoutes } from './setting/routes.js';
@@ -79,6 +80,9 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
 
   // Authentication routes (no auth required)
   await fastify.register(authRoutes, { prefix: '/api/v1/auth' });
+
+  // Advanced authentication routes (refresh tokens, passkeys, OAuth, sessions)
+  await fastify.register(advancedAuthRoutes, { prefix: '/api/v1/auth' });
 
   // Shared URL routes (public access for shared entity viewing)
   await sharedRoutes(fastify);
