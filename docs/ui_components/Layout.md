@@ -1,6 +1,6 @@
 # Layout Component
 
-**Version:** 10.0.0 | **Location:** `apps/web/src/components/shared/layout/Layout.tsx` | **Updated:** 2025-12-03
+**Version:** 13.0.0 | **Location:** `apps/web/src/components/shared/layout/Layout.tsx` | **Updated:** 2025-12-07
 
 ---
 
@@ -174,15 +174,28 @@ const profileNavigationItems = [
 
 ---
 
-## Styling
+## Styling (v13.0 - Unified Slate Palette)
+
+### Design System Integration
+
+```tsx
+// Import design tokens
+import { colors } from '@/lib/designSystem';
+
+// Colors used in Layout
+colors.canvas     // #FAFAFA - Page background
+colors.surface    // #FFFFFF - Sidebar background
+colors.border     // #E5E5E5 - Border color
+colors.accent     // #475569 - Active state accent (slate-600)
+```
 
 ### Sidebar
 ```css
 .sidebar {
-  width: 176px;               /* w-44 expanded */
-  width: 64px;                /* w-16 collapsed */
-  background: var(--dark-100);
-  border-right: 1px solid var(--dark-300);
+  width: 176px;                       /* w-44 expanded */
+  width: 64px;                        /* w-16 collapsed */
+  background: var(--color-surface);   /* #FFFFFF */
+  border-right: 1px solid var(--color-border); /* #E5E5E5 */
   transition: width 300ms ease-in-out;
 }
 ```
@@ -192,34 +205,34 @@ const profileNavigationItems = [
 .nav-item {
   display: flex;
   align-items: center;
-  padding: 6px 12px;          /* px-3 py-1.5 */
-  color: var(--dark-700);
-  border-radius: 8px 0 0 8px; /* rounded-l-lg */
+  padding: 6px 12px;                  /* px-3 py-1.5 */
+  color: var(--color-text-primary);   /* #1A1A1A */
+  border-radius: 8px 0 0 8px;         /* rounded-l-lg */
 }
 
 .nav-item:hover {
-  background: var(--dark-100);
-  color: var(--dark-600);
+  background: var(--color-muted);     /* #F5F5F5 */
+  color: var(--color-text-secondary); /* #4A4A4A */
 }
 
 .nav-item.active {
-  background: var(--dark-100);
-  border-right: 2px solid var(--slate-600);
+  background: var(--color-surface);   /* #FFFFFF */
+  border-right: 2px solid var(--color-accent); /* #475569 (slate-600) */
 }
 ```
 
 ### Logo Section
 ```css
 .logo-container {
-  height: 56px;               /* h-14 */
-  padding: 0 16px;            /* px-4 */
-  border-bottom: 1px solid var(--dark-300);
+  height: 56px;                       /* h-14 */
+  padding: 0 16px;                    /* px-4 */
+  border-bottom: 1px solid var(--color-border); /* #E5E5E5 */
 }
 
 .logo-box {
-  height: 28px;               /* h-7 */
-  width: 28px;                /* w-7 */
-  border: 1px solid var(--dark-400);
+  height: 28px;                       /* h-7 */
+  width: 28px;                        /* w-7 */
+  border: 1px solid var(--color-border-strong); /* #D1D1D1 */
   border-radius: 4px;
 }
 ```
@@ -265,10 +278,11 @@ const IconComponent = getIconComponent(entity.icon);
 
 | Version | Date | Changes |
 |---------|------|---------|
+| **v13.0.0** | **2025-12-07** | **Design system v13.0** - Unified slate color palette, CSS custom properties, focus-visible accessibility |
 | v10.0.0 | 2025-12-03 | Design system v10.0 dark theme |
 | v9.0.0 | 2025-11-28 | Dynamic entity navigation from metadata |
 | v1.0.0 | 2025-10-01 | Initial release |
 
 ---
 
-**Last Updated:** 2025-12-03 | **Status:** Production Ready
+**Last Updated:** 2025-12-07 | **Status:** Production Ready | **Design System:** v13.0
