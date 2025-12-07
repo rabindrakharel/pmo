@@ -49,7 +49,7 @@ CREATE TABLE app.entity_rbac (
   id uuid DEFAULT gen_random_uuid(),
 
   -- Person-based permission mapping (supports employee, customer, vendor, supplier)
-  person_code varchar(20), -- 'employee', 'customer', 'vendor', 'supplier'
+  person_code varchar(20), -- 'employee', 'customer', 'vendor', 'supplier', 'role'
   person_id uuid, -- References person.id
 
   -- Entity target
