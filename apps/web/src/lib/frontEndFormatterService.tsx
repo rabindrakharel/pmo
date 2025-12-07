@@ -614,7 +614,7 @@ export function renderEditModeFromMetadata(
           // These are view-only components, not edit components
           // Fallback to readonly display
           return (
-            <div className="text-gray-500 italic">View-only component</div>
+            <div className="text-dark-500 italic">View-only component</div>
           );
 
         default:

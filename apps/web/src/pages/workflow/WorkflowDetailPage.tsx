@@ -289,7 +289,7 @@ export function WorkflowDetailPage() {
                 </button>
               </div>
 
-              <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
+              <span className="text-dark-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
 
               {/* Instance Code */}
               <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">code:</span>
@@ -306,7 +306,7 @@ export function WorkflowDetailPage() {
                 </button>
               </div>
 
-              <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
+              <span className="text-dark-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
 
               {/* ID */}
               <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">id:</span>
@@ -323,7 +323,7 @@ export function WorkflowDetailPage() {
                 </button>
               </div>
 
-              <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
+              <span className="text-dark-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
 
               {/* Template */}
               <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">template:</span>
@@ -331,7 +331,7 @@ export function WorkflowDetailPage() {
                 {workflowData.workflow_template_name}
               </span>
 
-              <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
+              <span className="text-dark-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
 
               {/* Industry */}
               <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">industry:</span>
@@ -339,7 +339,7 @@ export function WorkflowDetailPage() {
                 {workflowData.industry_sector}
               </span>
 
-              <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
+              <span className="text-dark-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
 
               {/* Created */}
               <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">created:</span>
@@ -347,7 +347,7 @@ export function WorkflowDetailPage() {
                 {formatRelativeTime(workflowData.created_ts)}
               </span>
 
-              <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
+              <span className="text-dark-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
 
               {/* Updated */}
               <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">updated:</span>
@@ -406,7 +406,7 @@ export function WorkflowDetailPage() {
 
               {selectedEntityData?.code && (
                 <>
-                  <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
+                  <span className="text-dark-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
                   <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">code:</span>
                   <div className="flex items-center gap-1 group">
                     <span className="text-dark-600 font-medium text-xs tracking-tight">
@@ -423,7 +423,7 @@ export function WorkflowDetailPage() {
                 </>
               )}
 
-              <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
+              <span className="text-dark-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
 
               {/* Entity ID */}
               <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">id:</span>
@@ -444,7 +444,7 @@ export function WorkflowDetailPage() {
 
               {selectedEntityData?.created_ts && (
                 <>
-                  <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
+                  <span className="text-dark-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
                   <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">created:</span>
                   <span className="text-dark-600 font-medium text-xs tracking-tight" title={selectedEntityData.created_ts}>
                     {formatRelativeTime(selectedEntityData.created_ts)}
@@ -454,7 +454,7 @@ export function WorkflowDetailPage() {
 
               {selectedEntityData?.updated_ts && (
                 <>
-                  <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
+                  <span className="text-dark-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
                   <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">updated:</span>
                   <span className="text-dark-600 font-medium text-xs tracking-tight" title={selectedEntityData.updated_ts}>
                     {formatRelativeTime(selectedEntityData.updated_ts)}

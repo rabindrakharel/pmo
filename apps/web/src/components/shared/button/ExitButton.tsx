@@ -36,7 +36,7 @@ export function ExitButton({
   return (
     <button
       onClick={handleClick}
-      className={`p-2 text-gray-600 hover:bg-gray-50 rounded-md transition-colors ${className}`}
+      className={`p-2 text-dark-600 hover:bg-dark-50 rounded-md transition-colors ${className}`}
       title="Exit"
     >
       <ArrowLeft className="h-4 w-4 stroke-[1.5]" />

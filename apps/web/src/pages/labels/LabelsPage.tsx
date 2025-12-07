@@ -297,7 +297,7 @@ export function LabelsPage() {
             {/* Settings Tables */}
             {selectedSettings.length === 0 ? (
               <div className="text-center py-12 text-dark-700">
-                <Tag className="h-12 w-12 mx-auto mb-3 text-gray-300 stroke-[1.5]" />
+                <Tag className="h-12 w-12 mx-auto mb-3 text-dark-300 stroke-[1.5]" />
                 <p className="text-sm font-normal">No labels selected</p>
                 <p className="text-sm">Use the dropdown above to select labels to manage</p>
               </div>

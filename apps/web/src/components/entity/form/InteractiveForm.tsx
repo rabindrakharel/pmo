@@ -602,7 +602,7 @@ export function InteractiveForm({
     const baseInputClass = `w-full px-3 py-2 border rounded-md text-sm transition-colors ${
       hasError
         ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
-        : 'border-dark-400 focus:border-dark-3000 focus:ring-dark-700'
+        : 'border-dark-400 focus:border-dark-300 focus:ring-dark-700'
     } focus:ring-2 focus:outline-none`;
 
     switch (field.type) {

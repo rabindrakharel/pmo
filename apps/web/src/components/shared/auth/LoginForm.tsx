@@ -166,7 +166,7 @@ export function LoginForm() {
                     type="email"
                     autoComplete="email"
                     required
-                    className="block w-full px-4 py-3 border border-slate-300 rounded-xl placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all text-slate-800"
+                    className="block w-full px-4 py-3 border border-slate-300 rounded-xl placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500 transition-all text-slate-800"
                     placeholder="you@example.com"
                   />
                   {errors.email && (
@@ -184,7 +184,7 @@ export function LoginForm() {
                       type={showPassword ? 'text' : 'password'}
                       autoComplete="current-password"
                       required
-                      className="block w-full px-4 py-3 pr-12 border border-slate-300 rounded-xl placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all text-slate-800"
+                      className="block w-full px-4 py-3 pr-12 border border-slate-300 rounded-xl placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500 transition-all text-slate-800"
                       placeholder="Enter your password"
                     />
                     <button
@@ -209,7 +209,7 @@ export function LoginForm() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full flex justify-center items-center gap-2 py-3.5 px-4 text-base font-semibold rounded-xl text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl hover:scale-[1.02]"
+                  className="w-full flex justify-center items-center gap-2 py-3.5 px-4 text-base font-semibold rounded-xl text-white bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl hover:scale-[1.02]"
                 >
                   {isLoading ? (
                     <>
@@ -226,22 +226,22 @@ export function LoginForm() {
               </div>
 
               {/* Demo Account */}
-              <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-5 border border-purple-200">
+              <div className="bg-gradient-to-br from-slate-50 to-slate-100/30 rounded-xl p-5 border border-slate-200">
                 <div className="flex items-center gap-2 mb-3">
-                  <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-purple-400 to-indigo-500 flex items-center justify-center">
+                  <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-slate-500 to-slate-600 flex items-center justify-center">
                     <Sparkles className="h-3.5 w-3.5 text-white" />
                   </div>
-                  <div className="text-sm font-bold text-purple-900">
+                  <div className="text-sm font-bold text-slate-900">
                     Demo Account
                   </div>
                 </div>
                 <div className="text-sm text-slate-700 space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-purple-800">Email:</span>
+                    <span className="font-semibold text-slate-800">Email:</span>
                     <span className="font-mono text-xs">james.miller@huronhome.ca</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-purple-800">Password:</span>
+                    <span className="font-semibold text-slate-800">Password:</span>
                     <span className="font-mono text-xs">password123</span>
                   </div>
                 </div>
@@ -250,7 +250,7 @@ export function LoginForm() {
               <div className="text-center pt-2">
                 <p className="text-sm text-slate-600">
                   Don't have an account?{' '}
-                  <a href="/signup" className="font-semibold text-purple-600 hover:text-purple-700 transition-colors">
+                  <a href="/signup" className="font-semibold text-slate-600 hover:text-slate-700 transition-colors">
                     Sign up for free
                   </a>
                 </p>

@@ -568,7 +568,7 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
   return (
     <div className="fixed bottom-6 right-6 z-50">
       <div
-        className={`bg-white rounded-md shadow-2xl border border-gray-200 flex flex-col overflow-hidden transition-all duration-300 ${
+        className={`bg-white rounded-md shadow-2xl border border-dark-200 flex flex-col overflow-hidden transition-all duration-300 ${
           isMinimized ? 'h-16 w-96' : 'h-[600px] w-96'
         }`}
       >
@@ -665,15 +665,15 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
 
             {/* Voice Call Initial Screen - Only when not active */}
             {showVoiceCall && !isVoiceActive && (
-              <div className="bg-slate-50 p-6 flex flex-col items-center justify-center border-b border-gray-200">
+              <div className="bg-slate-50 p-6 flex flex-col items-center justify-center border-b border-dark-200">
                 <div className="text-center space-y-4">
-                  <div className="w-16 h-16 mx-auto rounded-full bg-gray-300 flex items-center justify-center">
-                    <Mic className="w-8 h-8 text-gray-600" />
+                  <div className="w-16 h-16 mx-auto rounded-full bg-dark-300 flex items-center justify-center">
+                    <Mic className="w-8 h-8 text-dark-600" />
                   </div>
 
                   <div>
-                    <h3 className="text-base font-semibold text-gray-900">Start Voice Call</h3>
-                    <p className="text-xs text-gray-600 mt-1">Talk to the AI assistant</p>
+                    <h3 className="text-base font-semibold text-dark-900">Start Voice Call</h3>
+                    <p className="text-xs text-dark-600 mt-1">Talk to the AI assistant</p>
                   </div>
 
                   <div className="flex gap-2">
@@ -696,7 +696,7 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
                         e.stopPropagation();
                         setShowVoiceCall(false);
                       }}
-                      className="text-gray-600 hover:text-gray-800 text-sm px-4 py-2 rounded-full hover:bg-gray-100"
+                      className="text-dark-600 hover:text-dark-800 text-sm px-4 py-2 rounded-full hover:bg-dark-100"
                     >
                       Cancel
                     </button>
@@ -711,7 +711,7 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
               </div>
             )}
 
-            <div className="flex-1 overflow-y-auto p-4 bg-gray-50 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 bg-dark-50 space-y-4">
               {messages.map((message, index) => (
                 <div
                   key={index}
@@ -725,23 +725,23 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
                         ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white'
                         : message.role === 'system'
                         ? 'bg-green-100 text-green-800 border border-green-300'
-                        : 'bg-white text-gray-800 border border-gray-200'
+                        : 'bg-white text-dark-800 border border-dark-200'
                     }`}
                   >
                     <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                   </div>
-                  <div className="text-xs text-gray-500 mt-1 px-1">
+                  <div className="text-xs text-dark-500 mt-1 px-1">
                     {formatTime(message.timestamp)}
                   </div>
                 </div>
               ))}
               {isLoading && (
                 <div className="flex items-start">
-                  <div className="bg-white border border-gray-200 rounded-md px-4 py-3">
+                  <div className="bg-white border border-dark-200 rounded-md px-4 py-3">
                     <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                      <div className="w-2 h-2 bg-dark-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                      <div className="w-2 h-2 bg-dark-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                      <div className="w-2 h-2 bg-dark-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                     </div>
                   </div>
                 </div>
@@ -755,7 +755,7 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
             </div>
 
             {/* Input */}
-            <div className="bg-white border-t border-gray-200 p-4 flex-shrink-0">
+            <div className="bg-white border-t border-dark-200 p-4 flex-shrink-0">
               <form onSubmit={handleSendMessage} className="flex gap-2">
                 <input
                   type="text"
@@ -763,7 +763,7 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
                   onChange={(e) => setInputValue(e.target.value)}
                   placeholder="Type your message..."
                   disabled={isLoading}
-                  className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent disabled:bg-gray-100"
+                  className="flex-1 border border-dark-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent disabled:bg-dark-100"
                 />
                 <button
                   type="submit"
@@ -773,7 +773,7 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
                   <Send className="w-5 h-5" />
                 </button>
               </form>
-              <div className="text-xs text-gray-500 text-center mt-2">
+              <div className="text-xs text-dark-500 text-center mt-2">
                 Powered by AI
               </div>
             </div>

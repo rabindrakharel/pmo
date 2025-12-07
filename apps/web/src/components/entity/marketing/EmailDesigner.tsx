@@ -202,7 +202,7 @@ export function EmailDesigner({ template, onSave }: EmailDesignerProps) {
             <EmailPreviewPanel template={{ ...template, template_schema: schema }} />
           ) : (
             <div className="max-w-4xl mx-auto">
-              <pre className="bg-dark-900 text-gray-100 rounded-md p-6 overflow-x-auto">
+              <pre className="bg-dark-900 text-dark-100 rounded-md p-6 overflow-x-auto">
                 <code>{JSON.stringify(schema, null, 2)}</code>
               </pre>
             </div>

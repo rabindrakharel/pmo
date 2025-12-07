@@ -587,8 +587,8 @@ export function SettingsOverviewPage() {
               <LucideIcons.ArrowLeft className="h-5 w-5 stroke-[2]" />
             </button>
             <div className="flex items-center gap-3.5">
-              <div className="p-2.5 bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl border border-purple-200 shadow-sm">
-                <LucideIcons.Settings className="h-6 w-6 text-purple-600 stroke-[1.5]" />
+              <div className="p-2.5 bg-gradient-to-br from-blue-50 to-dark-50 rounded-xl border border-dark-200 shadow-sm">
+                <LucideIcons.Settings className="h-6 w-6 text-slate-600 stroke-[1.5]" />
               </div>
               <div>
                 <h1 className="text-xl font-bold text-dark-700 tracking-tight">Settings</h1>
@@ -682,14 +682,14 @@ export function SettingsOverviewPage() {
                   <button
                     key={card.href}
                     onClick={() => navigate(card.href)}
-                    className="group bg-dark-100 border border-dark-300 rounded-xl p-4 hover:border-purple-400 hover:shadow-lg transition-all duration-200 text-left hover:scale-[1.02]"
+                    className="group bg-dark-100 border border-dark-300 rounded-xl p-4 hover:border-slate-400 hover:shadow-lg transition-all duration-200 text-left hover:scale-[1.02]"
                   >
                     <div className="flex items-start gap-3.5">
-                      <div className="p-2.5 bg-gradient-to-br from-purple-50 to-blue-50 rounded-md group-hover:from-purple-100 group-hover:to-blue-100 transition-all duration-200 border border-purple-200 group-hover:border-purple-300">
-                        <IconComponent className="h-5 w-5 text-purple-600 stroke-[1.5]" />
+                      <div className="p-2.5 bg-gradient-to-br from-dark-50 to-blue-50 rounded-md group-hover:from-dark-100 group-hover:to-blue-100 transition-all duration-200 border border-dark-200 group-hover:border-dark-300">
+                        <IconComponent className="h-5 w-5 text-slate-600 stroke-[1.5]" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-bold text-dark-700 mb-1 group-hover:text-purple-700 transition-colors">
+                        <h3 className="text-sm font-bold text-dark-700 mb-1 group-hover:text-slate-700 transition-colors">
                           {card.title}
                         </h3>
                         <p className="text-xs text-dark-600 line-clamp-2 leading-relaxed">{card.description}</p>
@@ -780,7 +780,7 @@ export function SettingsOverviewPage() {
                 </p>
                 <button
                   onClick={() => navigate('/role')}
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+                  className="w-full px-4 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors text-sm font-medium"
                 >
                   Manage Roles →
                 </button>
@@ -829,7 +829,7 @@ export function SettingsOverviewPage() {
                 </p>
                 <button
                   onClick={() => setShowPermissionModal(true)}
-                  className="w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm font-medium"
+                  className="w-full px-4 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors text-sm font-medium"
                 >
                   Grant Permissions →
                 </button>
@@ -852,7 +852,7 @@ export function SettingsOverviewPage() {
                 </h3>
                 <button
                   onClick={() => setShowPermissionModal(true)}
-                  className="px-3 py-1.5 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700 transition-colors font-medium flex items-center gap-2"
+                  className="px-3 py-1.5 bg-slate-600 text-white text-sm rounded-md hover:bg-slate-700 transition-colors font-medium flex items-center gap-2"
                 >
                   <LucideIcons.Plus className="h-3.5 w-3.5" />
                   Grant Permission

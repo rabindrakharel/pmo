@@ -999,7 +999,7 @@ export function EntityListOfInstancesTable<T = any>({
                     disabled={isDisabled}
                     className={`p-1.5 rounded transition-colors ${
                       isDisabled
-                        ? 'text-gray-300 cursor-not-allowed'
+                        ? 'text-dark-300 cursor-not-allowed'
                         : buttonVariants[action.variant || 'default']
                     } ${action.className || ''}`}
                     title={action.label}
@@ -1970,7 +1970,7 @@ export function EntityListOfInstancesTable<T = any>({
                                         }}
                                         disabled={isDisabled}
                                         className={`p-1.5 rounded transition-colors ${
-                                          isDisabled ? 'text-gray-300 cursor-not-allowed' : buttonVariants[action.variant || 'default']
+                                          isDisabled ? 'text-dark-300 cursor-not-allowed' : buttonVariants[action.variant || 'default']
                                         } ${action.className || ''}`}
                                         title={action.label}
                                       >
@@ -2116,7 +2116,7 @@ export function EntityListOfInstancesTable<T = any>({
                                 }
                                 const value = (record as any)[column.key];
                                 if (value === null || value === undefined || value === '') {
-                                  return <span className="text-gray-400 italic">—</span>;
+                                  return <span className="text-dark-400 italic">—</span>;
                                 }
                                 return <span>{String(value)}</span>;
                               })()}
@@ -2230,7 +2230,7 @@ export function EntityListOfInstancesTable<T = any>({
                                         }}
                                         disabled={isDisabled}
                                         className={`p-1.5 rounded transition-colors ${
-                                          isDisabled ? 'text-gray-300 cursor-not-allowed' : buttonVariants[action.variant || 'default']
+                                          isDisabled ? 'text-dark-300 cursor-not-allowed' : buttonVariants[action.variant || 'default']
                                         } ${action.className || ''}`}
                                         title={action.label}
                                       >
@@ -2424,7 +2424,7 @@ export function EntityListOfInstancesTable<T = any>({
                                 // Routes should migrate to format-at-fetch pattern
                                 const value = (record as any)[column.key];
                                 if (value === null || value === undefined || value === '') {
-                                  return <span className="text-gray-400 italic">—</span>;
+                                  return <span className="text-dark-400 italic">—</span>;
                                 }
                                 return <span>{String(value)}</span>;
                               })()}
@@ -2494,12 +2494,12 @@ export function EntityListOfInstancesTable<T = any>({
       {/* v8.4.0: Undo notification toast */}
       {showUndoNotification && (
         <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-2 fade-in duration-200">
-          <div className="bg-gray-900 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+          <div className="bg-dark-900 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
             <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
             </svg>
             <span className="text-sm">Change undone</span>
-            <span className="text-xs text-gray-400 ml-2">⌘Z</span>
+            <span className="text-xs text-dark-400 ml-2">⌘Z</span>
           </div>
         </div>
       )}

@@ -367,7 +367,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
           <div className="relative max-w-7xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => setImagePreview(null)}
-              className="absolute -top-10 right-0 text-white hover:text-gray-300"
+              className="absolute -top-10 right-0 text-white hover:text-dark-300"
             >
               <XIcon className="h-8 w-8" />
             </button>
@@ -419,7 +419,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
               <button
                 onClick={() => setFilter('unresolved')}
                 className={`px-3 py-1 text-xs rounded-full transition-colors ${
-                  filter === 'unresolved' ? 'bg-blue-500 text-white' : 'text-dark-600 hover:bg-dark-100'
+                  filter === 'unresolved' ? 'bg-slate-600 text-white' : 'text-dark-600 hover:bg-dark-100'
                 }`}
               >
                 Open ({unresolvedCount})

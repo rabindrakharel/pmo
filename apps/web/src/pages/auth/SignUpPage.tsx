@@ -256,7 +256,7 @@ export function SignUpPage() {
       case 'good': return 'bg-blue-500';
       case 'fair': return 'bg-yellow-500';
       case 'weak': return 'bg-red-500';
-      default: return 'bg-gray-300';
+      default: return 'bg-dark-300';
     }
   };
 

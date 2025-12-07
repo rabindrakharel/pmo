@@ -97,7 +97,7 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
 
       case 'code':
         return (
-          <pre className="bg-dark-900 text-gray-100 rounded-md p-4 my-4 overflow-x-auto">
+          <pre className="bg-dark-900 text-dark-100 rounded-md p-4 my-4 overflow-x-auto">
             <code className="font-mono text-sm">{block.content}</code>
           </pre>
         );

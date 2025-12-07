@@ -34,10 +34,10 @@ export function WikiPropertiesPanel({
   onUpdateBlock}: WikiPropertiesPanelProps) {
 
   const coverOptions = [
-    { value: 'gradient-blue', label: 'Blue Gradient', class: 'bg-gradient-to-r from-dark-700 to-indigo-600' },
-    { value: 'gradient-purple', label: 'Purple Gradient', class: 'bg-gradient-to-r from-purple-500 to-pink-600' },
-    { value: 'gradient-green', label: 'Green Gradient', class: 'bg-gradient-to-r from-green-500 to-teal-600' },
-    { value: 'gradient-orange', label: 'Orange Gradient', class: 'bg-gradient-to-r from-orange-500 to-red-600' },
+    { value: 'gradient-blue', label: 'Blue Gradient', class: 'bg-gradient-to-r from-slate-500 to-slate-600' },
+    { value: 'gradient-purple', label: 'Purple Gradient', class: 'bg-gradient-to-r from-slate-500 to-slate-600' },
+    { value: 'gradient-green', label: 'Green Gradient', class: 'bg-gradient-to-r from-slate-500 to-slate-600' },
+    { value: 'gradient-orange', label: 'Orange Gradient', class: 'bg-gradient-to-r from-slate-500 to-slate-600' },
     { value: 'solid-gray', label: 'Gray', class: 'bg-dark-1000' }];
 
   // If a block is selected, show block-specific properties

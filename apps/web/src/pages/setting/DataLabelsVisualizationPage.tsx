@@ -74,7 +74,7 @@ export default function DataLabelsVisualizationPage() {
     return (
       <Layout>
         <div className="flex items-center justify-center h-screen">
-          <div className="text-lg text-gray-500">Loading data labels...</div>
+          <div className="text-lg text-dark-500">Loading data labels...</div>
         </div>
       </Layout>
     );
@@ -85,14 +85,14 @@ export default function DataLabelsVisualizationPage() {
 
   return (
     <Layout>
-      <div className="min-h-screen bg-gray-50 p-8">
+      <div className="min-h-screen bg-dark-50 p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-bold text-dark-900 mb-2">
             Data Labels Visualization
           </h1>
-          <p className="text-gray-600">
+          <p className="text-dark-600">
             {dataLabels.length} data labels across {domains.length} domains
           </p>
         </div>
@@ -109,7 +109,7 @@ export default function DataLabelsVisualizationPage() {
             return (
               <div
                 key={domain}
-                className="bg-white rounded-md shadow-sm border border-gray-200 p-4 hover:shadow-sm transition-shadow"
+                className="bg-white rounded-md shadow-sm border border-dark-200 p-4 hover:shadow-sm transition-shadow"
               >
                 <div className="flex items-start gap-3">
                   <div className="text-blue-600 mt-1">
@@ -119,13 +119,13 @@ export default function DataLabelsVisualizationPage() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-1">
+                    <h3 className="text-sm font-semibold text-dark-900 mb-1">
                       {capitalizeWords(domain)}
                     </h3>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-dark-500">
                       {domainLabels.length} label{domainLabels.length !== 1 ? 's' : ''}
                     </div>
-                    <div className="text-xs text-gray-400">
+                    <div className="text-xs text-dark-400">
                       {totalOptions} option{totalOptions !== 1 ? 's' : ''}
                     </div>
                   </div>
@@ -141,8 +141,8 @@ export default function DataLabelsVisualizationPage() {
             const domainLabels = groupedLabels[domain];
 
             return (
-              <div key={domain} className="bg-white rounded-md shadow-sm border border-gray-200 p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <div key={domain} className="bg-white rounded-md shadow-sm border border-dark-200 p-6">
+                <h2 className="text-xl font-bold text-dark-900 mb-4 flex items-center gap-2">
                   {React.createElement(
                     getIcon(domainLabels[0]?.ui_icon || 'Tag'),
                     { size: 24, className: 'text-blue-600' }
@@ -160,11 +160,11 @@ export default function DataLabelsVisualizationPage() {
                         className="border-l-4 border-blue-500 pl-4 py-2"
                       >
                         <div className="flex items-center gap-2 mb-2">
-                          <Icon size={16} className="text-gray-600" />
-                          <span className="font-medium text-gray-900">
+                          <Icon size={16} className="text-dark-600" />
+                          <span className="font-medium text-dark-900">
                             {label.ui_label}
                           </span>
-                          <span className="text-xs text-gray-400 font-mono">
+                          <span className="text-xs text-dark-400 font-mono">
                             ({label.datalabel_name})
                           </span>
                         </div>
@@ -174,7 +174,7 @@ export default function DataLabelsVisualizationPage() {
                           {label.metadata.map(option => (
                             <div
                               key={option.id}
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-gray-50 rounded text-xs"
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-dark-50 rounded text-xs"
                             >
                               <span
                                 className="w-2 h-2 rounded-full"
@@ -182,7 +182,7 @@ export default function DataLabelsVisualizationPage() {
                                   backgroundColor: getColorCode(option.color_code)
                                 }}
                               />
-                              <span className="text-gray-700">{option.name}</span>
+                              <span className="text-dark-700">{option.name}</span>
                             </div>
                           ))}
                         </div>

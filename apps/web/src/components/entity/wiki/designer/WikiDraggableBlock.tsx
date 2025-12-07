@@ -71,7 +71,7 @@ export function WikiDraggableBlock({
             value={block.content || ''}
             onChange={(e) => handleContentChange(e.target.value)}
             onClick={onSelect}
-            className={`w-full bg-transparent border-none outline-none ${headingClasses} text-dark-600 placeholder-gray-400`}
+            className={`w-full bg-transparent border-none outline-none ${headingClasses} text-dark-600 placeholder-dark-400`}
             placeholder="Heading"
           />
         );
@@ -84,7 +84,7 @@ export function WikiDraggableBlock({
             value={block.content || ''}
             onChange={(e) => handleContentChange(e.target.value)}
             onClick={onSelect}
-            className="w-full bg-transparent border-none outline-none resize-none text-dark-600 placeholder-gray-400 leading-relaxed overflow-hidden"
+            className="w-full bg-transparent border-none outline-none resize-none text-dark-600 placeholder-dark-400 leading-relaxed overflow-hidden"
             placeholder="Start typing..."
             style={{ minHeight: '24px' }}
           />
@@ -100,7 +100,7 @@ export function WikiDraggableBlock({
               value={block.content || ''}
               onChange={(e) => handleContentChange(e.target.value)}
               onClick={onSelect}
-              className="w-full bg-transparent border-none outline-none resize-none text-dark-700 placeholder-gray-400 overflow-hidden"
+              className="w-full bg-transparent border-none outline-none resize-none text-dark-700 placeholder-dark-400 overflow-hidden"
               placeholder="Quote text..."
               style={{ minHeight: '24px' }}
             />
@@ -111,13 +111,13 @@ export function WikiDraggableBlock({
       case 'code': {
         const textareaRef = useAutoResizeTextarea(block.content || '');
         return (
-          <div className="bg-dark-900 text-gray-100 rounded-md p-4 font-mono text-sm">
+          <div className="bg-dark-900 text-dark-100 rounded-md p-4 font-mono text-sm">
             <textarea
               ref={textareaRef}
               value={block.content || ''}
               onChange={(e) => handleContentChange(e.target.value)}
               onClick={onSelect}
-              className="w-full bg-transparent border-none outline-none resize-none text-gray-100 placeholder-gray-500 font-mono overflow-hidden"
+              className="w-full bg-transparent border-none outline-none resize-none text-dark-100 placeholder-dark-500 font-mono overflow-hidden"
               placeholder="// Code..."
               style={{ minHeight: '24px' }}
             />
@@ -189,7 +189,7 @@ export function WikiDraggableBlock({
                   onChange={(e) => handleListItemChange(index, e.target.value)}
                   onKeyDown={(e) => handleListItemKeyDown(index, e)}
                   onClick={onSelect}
-                  className="w-full bg-transparent border-none outline-none text-dark-600 placeholder-gray-400"
+                  className="w-full bg-transparent border-none outline-none text-dark-600 placeholder-dark-400"
                   placeholder="List item..."
                 />
               </li>
