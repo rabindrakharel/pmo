@@ -87,8 +87,8 @@ export function EntityMetadataField({
   onInlineSave,
   editable = true
 }: EntityMetadataFieldProps) {
-  const labelClass = 'text-gray-400 font-normal text-xs flex-shrink-0';
-  const valueClass = `text-gray-600 font-normal text-sm ${className}`;
+  const labelClass = 'text-dark-400 font-normal text-xs flex-shrink-0';
+  const valueClass = `text-dark-600 font-normal text-sm ${className}`;
 
   // ============================================================================
   // v12.3.0: SLOW CLICK-AND-HOLD INLINE EDITING STATE
@@ -253,13 +253,13 @@ export function EntityMetadataField({
                 e.stopPropagation();
                 onCopy(value, fieldKey);
               }}
-              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-100 rounded transition-all duration-200"
+              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-dark-100 rounded transition-all duration-200"
               title={`Copy ${label.toLowerCase()}`}
             >
               {copiedField === fieldKey ? (
                 <Check className="h-3 w-3 text-green-600" />
               ) : (
-                <Copy className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                <Copy className="h-3 w-3 text-dark-400 hover:text-dark-600" />
               )}
             </button>
           )}
@@ -298,7 +298,7 @@ interface EntityMetadataSeparatorProps {
  */
 export function EntityMetadataSeparator({ show = true }: EntityMetadataSeparatorProps) {
   if (!show) return null;
-  return <span className="text-gray-200 flex-shrink-0 mx-2">·</span>;
+  return <span className="text-dark-200 flex-shrink-0 mx-2">·</span>;
 }
 
 // =============================================================================

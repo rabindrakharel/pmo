@@ -187,10 +187,10 @@ export function ThreadedComment({
       if (attrs.bold) element = <strong key={idx}>{element}</strong>;
       if (attrs.italic) element = <em key={idx}>{element}</em>;
       if (attrs.code) element = <code key={idx} className="bg-dark-100 px-1 py-0.5 rounded text-sm font-mono">{element}</code>;
-      if (attrs.link) element = <a key={idx} href={attrs.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{element}</a>;
+      if (attrs.link) element = <a key={idx} href={attrs.link} target="_blank" rel="noopener noreferrer" className="text-slate-600 hover:underline">{element}</a>;
       if (attrs.mention) {
         element = (
-          <span key={idx} className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full text-sm">
+          <span key={idx} className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded-full text-sm">
             @{attrs.mention.name}
           </span>
         );
@@ -316,7 +316,7 @@ export function ThreadedComment({
       <div className="flex gap-3">
         {/* Avatar */}
         <div className="flex-shrink-0">
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
+          <div className="w-8 h-8 bg-gradient-to-br from-slate-500 to-slate-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
             {update.updated_by_name?.charAt(0).toUpperCase() || 'U'}
           </div>
         </div>
@@ -422,7 +422,7 @@ export function ThreadedComment({
                   onLoadReplies(update.id);
                 }
               }}
-              className="mt-2 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
+              className="mt-2 flex items-center gap-1 text-xs text-slate-600 hover:text-slate-700"
             >
               <MessageSquare className="w-3.5 h-3.5" />
               <span>

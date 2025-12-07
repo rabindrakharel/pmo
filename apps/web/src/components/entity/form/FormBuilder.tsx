@@ -1511,7 +1511,7 @@ export function RatingInput({
             className={`h-6 w-6 transition-colors ${
               rating <= (hoverRating || value)
                 ? 'fill-yellow-400 text-yellow-400'
-                : 'text-gray-300'
+                : 'text-dark-300'
             }`}
           />
         </button>

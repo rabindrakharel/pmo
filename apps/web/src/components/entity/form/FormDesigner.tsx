@@ -401,7 +401,7 @@ export function FormDesigner({ formData, onSave, onSaveDraft, onExit, actions = 
               setUpdatedDate(new Date().toISOString());
             }}
             placeholder="Untitled Form"
-            className="w-full text-3xl font-bold text-dark-600 bg-transparent border-none outline-none placeholder-gray-300 focus:outline-none"
+            className="w-full text-3xl font-bold text-dark-600 bg-transparent border-none outline-none placeholder-dark-300 focus:outline-none"
           />
           <input
             type="text"
@@ -411,7 +411,7 @@ export function FormDesigner({ formData, onSave, onSaveDraft, onExit, actions = 
               setUpdatedDate(new Date().toISOString());
             }}
             placeholder="Optional description"
-            className="w-full mt-3 text-base text-dark-700 bg-transparent border-none outline-none placeholder-gray-300 focus:outline-none"
+            className="w-full mt-3 text-base text-dark-700 bg-transparent border-none outline-none placeholder-dark-300 focus:outline-none"
           />
           <div className="flex items-center gap-4 mt-4 text-sm text-dark-700">
             <span>Step {currentStepIndex + 1} of {steps.length}</span>

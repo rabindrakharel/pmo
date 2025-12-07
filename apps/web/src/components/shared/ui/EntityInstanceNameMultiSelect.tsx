@@ -205,14 +205,14 @@ export function EntityInstanceNameMultiSelect({
         ref={triggerRef}
         onClick={() => !disabled && setIsOpen(!isOpen)}
         className={`
-          min-h-[36px] w-full border border-gray-300 rounded bg-white px-2.5 py-1.5
+          min-h-[36px] w-full border border-dark-300 rounded bg-white px-2.5 py-1.5
           flex flex-wrap gap-1.5 items-center cursor-pointer transition-colors
-          ${disabled ? 'bg-gray-50 cursor-not-allowed opacity-60' : 'hover:border-gray-400'}
+          ${disabled ? 'bg-dark-50 cursor-not-allowed opacity-60' : 'hover:border-dark-400'}
           ${isOpen ? 'ring-1 ring-slate-500 border-slate-500' : ''}
         `}
       >
         {selectedOptions.length === 0 ? (
-          <span className="text-gray-500 text-sm py-0.5">
+          <span className="text-dark-500 text-sm py-0.5">
             {placeholder || `Select ${entityCode}...`}
           </span>
         ) : (
@@ -238,7 +238,7 @@ export function EntityInstanceNameMultiSelect({
         <div className="ml-auto flex items-center gap-1">
           {isLoading && <InlineSpinner size="sm" />}
           <ChevronDown
-            className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+            className={`w-4 h-4 text-dark-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
           />
         </div>
       </div>
@@ -248,7 +248,7 @@ export function EntityInstanceNameMultiSelect({
         <div
           ref={dropdownRef}
           data-dropdown-portal=""
-          className="bg-white border border-gray-200 rounded-md overflow-hidden"
+          className="bg-white border border-dark-200 rounded-md overflow-hidden"
           style={{
             position: 'absolute',
             top: `${dropdownPosition.top}px`,
@@ -262,16 +262,16 @@ export function EntityInstanceNameMultiSelect({
           }}
         >
           {/* Search input */}
-          <div className="p-2 border-b border-gray-200 bg-gray-50">
+          <div className="p-2 border-b border-dark-200 bg-dark-50">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-400" />
               <input
                 ref={searchInputRef}
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder={`Search ${entityCode}...`}
-                className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-slate-500 focus:border-slate-500"
+                className="w-full pl-8 pr-3 py-1.5 text-sm border border-dark-300 rounded focus:outline-none focus:ring-1 focus:ring-slate-500 focus:border-slate-500"
               />
             </div>
           </div>
@@ -281,10 +281,10 @@ export function EntityInstanceNameMultiSelect({
             {isLoading ? (
               <div className="px-3 py-4 text-center">
                 <InlineSpinner size="md" />
-                <span className="text-sm text-gray-500 ml-2">Loading...</span>
+                <span className="text-sm text-dark-500 ml-2">Loading...</span>
               </div>
             ) : filteredOptions.length === 0 ? (
-              <div className="px-3 py-3 text-sm text-gray-500 text-center">
+              <div className="px-3 py-3 text-sm text-dark-500 text-center">
                 {searchTerm ? 'No matches found' : `No ${entityCode} available`}
               </div>
             ) : (
@@ -296,16 +296,16 @@ export function EntityInstanceNameMultiSelect({
                     onClick={() => toggleOption(option.value)}
                     className={`
                       flex items-center px-3 py-2 cursor-pointer transition-colors
-                      ${isSelected ? 'bg-slate-50' : 'hover:bg-gray-50'}
+                      ${isSelected ? 'bg-slate-50' : 'hover:bg-dark-50'}
                     `}
                   >
                     <div className={`
                       w-4 h-4 border rounded mr-3 flex items-center justify-center flex-shrink-0
-                      ${isSelected ? 'bg-slate-600 border-slate-600' : 'border-gray-300'}
+                      ${isSelected ? 'bg-slate-600 border-slate-600' : 'border-dark-300'}
                     `}>
                       {isSelected && <Check className="w-3 h-3 text-white" />}
                     </div>
-                    <span className={`text-sm truncate ${isSelected ? 'text-slate-700 font-medium' : 'text-gray-700'}`}>
+                    <span className={`text-sm truncate ${isSelected ? 'text-slate-700 font-medium' : 'text-dark-700'}`}>
                       {option.label}
                     </span>
                   </div>
@@ -316,7 +316,7 @@ export function EntityInstanceNameMultiSelect({
 
           {/* Footer with count */}
           {selectedOptions.length > 0 && (
-            <div className="px-3 py-2 border-t border-gray-200 bg-gray-50 text-xs text-gray-500">
+            <div className="px-3 py-2 border-t border-dark-200 bg-dark-50 text-xs text-dark-500">
               {selectedOptions.length} selected
             </div>
           )}

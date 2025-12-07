@@ -271,9 +271,9 @@ export function ColumnMetadataEditor({ columns, onChange, entityCode }: ColumnMe
       {/* Info Banner */}
       <div className="bg-slate-50 border border-slate-200 rounded-md p-3 flex items-start gap-2">
         <Info className="h-4 w-4 text-slate-600 flex-shrink-0 mt-0.5" />
-        <div className="text-xs text-slate-900">
+        <div className="text-xs text-dark-900">
           <p className="font-medium">Column Configuration</p>
-          <p className="mt-1 text-slate-700">
+          <p className="mt-1 text-dark-700">
             Define the database schema for this entity. System columns (id, created_ts, etc.) are protected and cannot be deleted.
           </p>
         </div>
@@ -381,7 +381,7 @@ export function ColumnMetadataEditor({ columns, onChange, entityCode }: ColumnMe
                         <span className="text-xs font-mono text-dark-500">{column.name}</span>
                       </div>
                     </td>
-                    <td className="px-3 py-2 font-mono text-slate-600">{column.datatype}</td>
+                    <td className="px-3 py-2 font-mono text-dark-600">{column.datatype}</td>
                     <td className="px-3 py-2 text-center">
                       {column.is_nullable ? (
                         <span className="text-dark-600">✓</span>

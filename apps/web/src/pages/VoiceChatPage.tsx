@@ -9,15 +9,15 @@ import { Phone, MessageSquare, Zap } from 'lucide-react';
 
 export function VoiceChatPage() {
   return (
-    <div className="h-screen w-full flex flex-col bg-gray-50">
+    <div className="h-screen w-full flex flex-col bg-dark-50">
       {/* Page Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 shadow-sm flex-shrink-0">
+      <div className="bg-white border-b border-dark-200 px-6 py-4 shadow-sm flex-shrink-0">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center gap-3">
             <Phone className="w-6 h-6 text-purple-600" />
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900">Voice Assistant</h1>
-              <p className="mt-1 text-sm text-gray-600">
+              <h1 className="text-2xl font-semibold text-dark-900">Voice Assistant</h1>
+              <p className="mt-1 text-sm text-dark-600">
                 Talk to our AI assistant with voice - powered by multi-agent orchestrator
               </p>
             </div>

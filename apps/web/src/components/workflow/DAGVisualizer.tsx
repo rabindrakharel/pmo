@@ -76,16 +76,17 @@ interface StageNodeData extends Record<string, unknown> {
 function StageNode({ data }: { data: StageNodeData }) {
   const { label, isCurrent, isCompleted } = data;
 
-  // Node styling: light gray fill for all, thin border
+  // Node styling: light background fill for all, thin border
   // Current node gets slightly darker text for emphasis
+  // v13.1.0: Uses unified dark-* palette for consistency
   const getNodeStyle = () => {
     if (isCurrent) {
-      return 'bg-gray-100 text-gray-900 border-gray-400 font-semibold';
+      return 'bg-dark-100 text-dark-700 border-dark-400 font-semibold';
     }
     if (isCompleted) {
-      return 'bg-gray-100 text-gray-700 border-gray-300';
+      return 'bg-dark-100 text-dark-600 border-dark-300';
     }
-    return 'bg-gray-50 text-gray-500 border-gray-200';
+    return 'bg-dark-50 text-dark-500 border-dark-200';
   };
 
   return (
@@ -93,7 +94,7 @@ function StageNode({ data }: { data: StageNodeData }) {
       className={`
         px-4 py-2 rounded-full border min-w-[80px] text-center
         text-sm transition-all cursor-pointer
-        hover:border-gray-400 ${getNodeStyle()}
+        hover:border-dark-400 ${getNodeStyle()}
       `}
     >
       {/* Left handle for incoming edges */}
@@ -306,7 +307,7 @@ export function DAGVisualizer({
 
   return (
     <div
-      className="w-full rounded-lg border border-gray-200 bg-gray-50"
+      className="w-full rounded-lg border border-dark-200 bg-dark-50"
       style={{ height: containerHeight }}
     >
       <ReactFlow

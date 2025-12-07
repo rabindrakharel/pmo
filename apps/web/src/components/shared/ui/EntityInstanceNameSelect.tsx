@@ -274,9 +274,9 @@ export function EntityInstanceNameSelect({
         ref={triggerRef}
         onClick={() => !disabled && setIsOpen(!isOpen)}
         className={`
-          min-h-[32px] w-full border border-gray-300 rounded bg-white px-2.5 py-1
+          min-h-[32px] w-full border border-dark-300 rounded bg-white px-2.5 py-1
           flex items-center justify-between cursor-pointer transition-colors
-          ${disabled ? 'bg-gray-50 cursor-not-allowed opacity-60' : 'hover:border-gray-400'}
+          ${disabled ? 'bg-dark-50 cursor-not-allowed opacity-60' : 'hover:border-dark-400'}
           ${isOpen ? 'ring-1 ring-slate-500 border-slate-500' : ''}
         `}
         tabIndex={disabled ? -1 : 0}
@@ -284,7 +284,7 @@ export function EntityInstanceNameSelect({
         aria-expanded={isOpen}
         aria-haspopup="listbox"
       >
-        <span className={`text-sm truncate ${localValue ? 'text-gray-900' : 'text-gray-500'}`}>
+        <span className={`text-sm truncate ${localValue ? 'text-dark-700' : 'text-dark-500'}`}>
           {displayLabel || placeholder || `Select ${entityCode}...`}
         </span>
         <div className="flex items-center gap-1 ml-2">
@@ -292,14 +292,14 @@ export function EntityInstanceNameSelect({
             <button
               type="button"
               onClick={handleClear}
-              className="p-0.5 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
+              className="p-0.5 hover:bg-dark-100 rounded text-dark-400 hover:text-dark-600"
               title="Clear selection"
             >
               <span className="text-xs">×</span>
             </button>
           )}
           <ChevronDown
-            className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${isOpen ? 'transform rotate-180' : ''}`}
+            className={`w-4 h-4 text-dark-400 transition-transform flex-shrink-0 ${isOpen ? 'transform rotate-180' : ''}`}
           />
         </div>
       </div>
@@ -309,7 +309,7 @@ export function EntityInstanceNameSelect({
         <div
           ref={dropdownRef}
           data-dropdown-portal=""
-          className="bg-white border border-gray-200 rounded-md overflow-hidden"
+          className="bg-white border border-dark-200 rounded-md overflow-hidden"
           style={{
             position: 'absolute',
             top: `${dropdownPosition.top}px`,
@@ -323,16 +323,16 @@ export function EntityInstanceNameSelect({
           }}
         >
           {/* Search input */}
-          <div className="p-2 border-b border-gray-200 bg-gray-50">
+          <div className="p-2 border-b border-dark-200 bg-dark-50">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-dark-400" />
               <input
                 ref={searchInputRef}
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder={`Search ${entityCode}...`}
-                className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-slate-500 focus:border-slate-500"
+                className="w-full pl-8 pr-3 py-1.5 text-sm border border-dark-300 rounded focus:outline-none focus:ring-1 focus:ring-slate-500 focus:border-slate-500"
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
@@ -341,7 +341,7 @@ export function EntityInstanceNameSelect({
           {/* Options list */}
           <div ref={optionsRef} className="max-h-80 overflow-y-auto" role="listbox">
             {filteredOptions.length === 0 ? (
-              <div className="px-3 py-3 text-sm text-gray-500 text-center">
+              <div className="px-3 py-3 text-sm text-dark-500 text-center">
                 No {entityCode} found
               </div>
             ) : (
@@ -355,8 +355,8 @@ export function EntityInstanceNameSelect({
                     className={`
                       flex items-center justify-between px-3 py-2 cursor-pointer transition-colors
                       ${isHighlighted ? 'bg-slate-100' : ''}
-                      ${isSelected ? 'bg-slate-50 text-slate-900' : 'text-gray-700'}
-                      ${!isHighlighted && !isSelected ? 'hover:bg-gray-50' : ''}
+                      ${isSelected ? 'bg-slate-50 text-slate-900' : 'text-dark-700'}
+                      ${!isHighlighted && !isSelected ? 'hover:bg-dark-50' : ''}
                     `}
                     role="option"
                     aria-selected={isSelected}

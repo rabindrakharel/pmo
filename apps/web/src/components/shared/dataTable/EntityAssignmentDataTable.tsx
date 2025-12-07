@@ -257,10 +257,10 @@ export function EntityAssignmentDataTable({
     const colors: Record<string, string> = {
       'biz': 'bg-dark-1000',
       'org': 'bg-green-500',
-      'client': 'bg-purple-500',
+      'client': 'bg-slate-500',
       'project': 'bg-orange-500',
       'hr': 'bg-pink-500',
-      'worksite': 'bg-indigo-500'
+      'worksite': 'bg-slate-600'
     };
     return colors[entityCode] || 'bg-dark-1000';
   };

@@ -57,7 +57,7 @@ export function ChatPage() {
                 <button
                   key={idx}
                   type="button"
-                  className="group bg-white hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 border border-slate-200 hover:border-purple-300 rounded-xl px-5 py-4 text-left transition-all duration-200 shadow-sm hover:shadow-md"
+                  className="group bg-white hover:bg-gradient-to-r hover:from-dark-50 hover:to-indigo-50 border border-slate-200 hover:border-purple-300 rounded-xl px-5 py-4 text-left transition-all duration-200 shadow-sm hover:shadow-md"
                 >
                   <div className="flex items-start gap-3">
                     <MessageSquare className="w-4 h-4 text-slate-400 group-hover:text-purple-600 flex-shrink-0 mt-0.5 transition-colors" />

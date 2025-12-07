@@ -153,7 +153,7 @@ export function BadgeDropdownSelect({
         }}
       >
         {selectedOption ? (
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${selectedColor || 'bg-gray-100 text-gray-600'}`}>
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${selectedColor || 'bg-dark-100 text-dark-600'}`}>
             {selectedOption.label}
           </span>
         ) : (
@@ -182,7 +182,7 @@ export function BadgeDropdownSelect({
         >
           <div className="py-1">
             {options.map(opt => {
-              const optionColor = opt.metadata?.color_code || 'bg-gray-100 text-gray-600';
+              const optionColor = opt.metadata?.color_code || 'bg-dark-100 text-dark-600';
               return (
                 <button
                   key={opt.value}

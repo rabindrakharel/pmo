@@ -30,25 +30,25 @@ export function WikiHeaderEditor({
   const getCoverGradient = (coverValue: string) => {
     switch (coverValue) {
       case 'gradient-blue':
-        return 'bg-gradient-to-r from-dark-700 to-indigo-600';
+        return 'bg-gradient-to-r from-slate-500 to-slate-600';
       case 'gradient-purple':
-        return 'bg-gradient-to-r from-purple-500 to-pink-600';
+        return 'bg-gradient-to-r from-slate-500 to-slate-600';
       case 'gradient-green':
-        return 'bg-gradient-to-r from-green-500 to-teal-600';
+        return 'bg-gradient-to-r from-slate-500 to-slate-600';
       case 'gradient-orange':
-        return 'bg-gradient-to-r from-orange-500 to-red-600';
+        return 'bg-gradient-to-r from-slate-500 to-slate-600';
       case 'solid-gray':
         return 'bg-dark-1000';
       default:
-        return 'bg-gradient-to-r from-dark-700 to-indigo-600';
+        return 'bg-gradient-to-r from-slate-500 to-slate-600';
     }
   };
 
   const coverOptions = [
-    { value: 'gradient-blue', label: 'Blue', class: 'bg-gradient-to-r from-dark-700 to-indigo-600' },
-    { value: 'gradient-purple', label: 'Purple', class: 'bg-gradient-to-r from-purple-500 to-pink-600' },
-    { value: 'gradient-green', label: 'Green', class: 'bg-gradient-to-r from-green-500 to-teal-600' },
-    { value: 'gradient-orange', label: 'Orange', class: 'bg-gradient-to-r from-orange-500 to-red-600' },
+    { value: 'gradient-blue', label: 'Blue', class: 'bg-gradient-to-r from-slate-500 to-slate-600' },
+    { value: 'gradient-purple', label: 'Purple', class: 'bg-gradient-to-r from-slate-500 to-slate-600' },
+    { value: 'gradient-green', label: 'Green', class: 'bg-gradient-to-r from-slate-500 to-slate-600' },
+    { value: 'gradient-orange', label: 'Orange', class: 'bg-gradient-to-r from-slate-500 to-slate-600' },
     { value: 'solid-gray', label: 'Gray', class: 'bg-dark-1000' },
   ];
 
@@ -153,7 +153,7 @@ export function WikiHeaderEditor({
           value={title}
           onChange={(e) => onUpdateTitle(e.target.value)}
           placeholder="Untitled Page"
-          className="w-full text-5xl font-bold text-dark-600 placeholder-gray-300 border-none outline-none focus:ring-0 mb-6 bg-transparent"
+          className="w-full text-5xl font-bold text-dark-600 placeholder-dark-300 border-none outline-none focus:ring-0 mb-6 bg-transparent"
           style={{
             fontFamily: '"Inter", "Segoe UI", system-ui, sans-serif',
           }}

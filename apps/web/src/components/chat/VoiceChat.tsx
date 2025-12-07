@@ -238,7 +238,7 @@ export function VoiceChat({ onClose, authToken }: VoiceChatProps) {
             disabled={isRecording || isProcessing}
           >
             {voices.map(voice => (
-              <option key={voice.id} value={voice.id} className="text-gray-900">
+              <option key={voice.id} value={voice.id} className="text-dark-900">
                 {voice.name} - {voice.description}
               </option>
             ))}
@@ -262,10 +262,10 @@ export function VoiceChat({ onClose, authToken }: VoiceChatProps) {
             <div className="w-20 h-20 mx-auto mb-4 bg-white rounded-full flex items-center justify-center shadow-sm">
               <Mic className="w-10 h-10 text-purple-600" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            <h3 className="text-lg font-semibold text-dark-900 mb-2">
               Press and hold to speak
             </h3>
-            <p className="text-sm text-gray-600 max-w-md mx-auto">
+            <p className="text-sm text-dark-600 max-w-md mx-auto">
               Hold the microphone button below and speak your message.
               Release to send and get an AI response.
             </p>
@@ -280,7 +280,7 @@ export function VoiceChat({ onClose, authToken }: VoiceChatProps) {
                 className={`max-w-[75%] rounded-2xl px-4 py-3 shadow-sm ${
                   message.role === 'user'
                     ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white'
-                    : 'bg-white text-gray-800 border border-gray-200'
+                    : 'bg-white text-dark-800 border border-dark-200'
                 }`}
               >
                 <p className="text-sm whitespace-pre-wrap">{message.transcript}</p>
@@ -297,7 +297,7 @@ export function VoiceChat({ onClose, authToken }: VoiceChatProps) {
           <div className="flex justify-center">
             <div className="bg-white rounded-full px-6 py-3 shadow-sm flex items-center gap-3">
               <Loader2 className="w-5 h-5 text-purple-600 animate-spin" />
-              <span className="text-sm text-gray-700">Processing your message...</span>
+              <span className="text-sm text-dark-700">Processing your message...</span>
             </div>
           </div>
         )}
@@ -336,7 +336,7 @@ export function VoiceChat({ onClose, authToken }: VoiceChatProps) {
       </div>
 
       {/* Recording Controls */}
-      <div className="bg-white border-t border-gray-200 p-6 flex-shrink-0 shadow-sm">
+      <div className="bg-white border-t border-dark-200 p-6 flex-shrink-0 shadow-sm">
         <div className="flex items-center justify-center gap-4">
           <button
             onMouseDown={startRecording}
@@ -366,7 +366,7 @@ export function VoiceChat({ onClose, authToken }: VoiceChatProps) {
           {conversationEnded && (
             <button
               onClick={resetConversation}
-              className="bg-gray-600 hover:bg-gray-700 text-white text-sm px-6 py-3 rounded-md transition-colors shadow-sm"
+              className="bg-slate-600 hover:bg-slate-700 text-white text-sm px-6 py-3 rounded-md transition-colors shadow-sm"
             >
               New Conversation
             </button>
@@ -374,7 +374,7 @@ export function VoiceChat({ onClose, authToken }: VoiceChatProps) {
         </div>
 
         <div className="text-center mt-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-dark-600">
             {isRecording ? (
               <span className="font-semibold text-red-600">🎤 Recording... Release to send</span>
             ) : isProcessing ? (
@@ -389,7 +389,7 @@ export function VoiceChat({ onClose, authToken }: VoiceChatProps) {
           </p>
         </div>
 
-        <div className="text-xs text-gray-500 text-center mt-2">
+        <div className="text-xs text-dark-500 text-center mt-2">
           Session: {sessionId ? `${sessionId.substring(0, 8)}...` : 'New'} |
           Voice: {voices.find(v => v.id === selectedVoice)?.name}
         </div>

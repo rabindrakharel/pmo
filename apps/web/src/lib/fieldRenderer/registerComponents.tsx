@@ -335,7 +335,7 @@ const BadgeDropdownSelectEdit: React.FC<ComponentRendererProps> = ({
     value: opt.value,
     label: opt.label,
     metadata: {
-      color_code: opt.colorClass || 'bg-gray-100 text-gray-600',
+      color_code: opt.colorClass || 'bg-dark-100 text-dark-600',
     },
   }));
 

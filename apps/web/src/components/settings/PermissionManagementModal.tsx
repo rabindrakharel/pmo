@@ -166,7 +166,7 @@ export function PermissionManagementModal({ isOpen, onClose, onSave }: Permissio
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-dark-300">
           <div className="flex items-center gap-3">
-            <Shield className="h-6 w-6 text-blue-600" />
+            <Shield className="h-6 w-6 text-slate-600" />
             <h2 className="text-xl font-bold text-dark-900">Grant Permission</h2>
           </div>
           <button
@@ -181,7 +181,7 @@ export function PermissionManagementModal({ isOpen, onClose, onSave }: Permissio
         <div className="p-6 space-y-6">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-600"></div>
             </div>
           ) : (
             <>
@@ -198,7 +198,7 @@ export function PermissionManagementModal({ isOpen, onClose, onSave }: Permissio
                     }}
                     className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-md border transition-all ${
                       personType === 'role'
-                        ? 'bg-blue-50 border-blue-500 text-blue-700'
+                        ? 'bg-slate-50 border-slate-500 text-slate-700'
                         : 'bg-white border-dark-300 text-dark-700 hover:border-dark-400'
                     }`}
                   >
@@ -212,7 +212,7 @@ export function PermissionManagementModal({ isOpen, onClose, onSave }: Permissio
                     }}
                     className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-md border transition-all ${
                       personType === 'employee'
-                        ? 'bg-blue-50 border-blue-500 text-blue-700'
+                        ? 'bg-slate-50 border-slate-500 text-slate-700'
                         : 'bg-white border-dark-300 text-dark-700 hover:border-dark-400'
                     }`}
                   >
@@ -230,7 +230,7 @@ export function PermissionManagementModal({ isOpen, onClose, onSave }: Permissio
                 <select
                   value={selectedPerson}
                   onChange={(e) => setSelectedPerson(e.target.value)}
-                  className="w-full px-4 py-2 border border-dark-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-dark-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500"
                 >
                   <option value="">-- Select {personType === 'role' ? 'Role' : 'Employee'} --</option>
                   {personType === 'role'
@@ -256,7 +256,7 @@ export function PermissionManagementModal({ isOpen, onClose, onSave }: Permissio
                 <select
                   value={selectedEntity}
                   onChange={(e) => setSelectedEntity(e.target.value)}
-                  className="w-full px-4 py-2 border border-dark-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-dark-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500"
                 >
                   <option value="">-- Select Entity --</option>
                   {entities.map((entity) => (
@@ -279,7 +279,7 @@ export function PermissionManagementModal({ isOpen, onClose, onSave }: Permissio
                       id="scope-all"
                       checked={selectedEntityInstance === 'all'}
                       onChange={() => setSelectedEntityInstance('all')}
-                      className="w-4 h-4 text-blue-600"
+                      className="w-4 h-4 text-slate-600"
                     />
                     <label htmlFor="scope-all" className="text-sm text-dark-700">
                       Type-Level: All instances of {selectedEntity || 'entity'} (entity_id='all')
@@ -291,7 +291,7 @@ export function PermissionManagementModal({ isOpen, onClose, onSave }: Permissio
                       id="scope-specific"
                       checked={selectedEntityInstance !== 'all'}
                       onChange={() => setSelectedEntityInstance('')}
-                      className="w-4 h-4 text-blue-600"
+                      className="w-4 h-4 text-slate-600"
                     />
                     <label htmlFor="scope-specific" className="text-sm text-dark-700">
                       Instance-Level: Specific {selectedEntity || 'entity'} instance
@@ -326,7 +326,7 @@ export function PermissionManagementModal({ isOpen, onClose, onSave }: Permissio
                       onClick={() => setSelectedPermission(level.value)}
                       className={`p-3 rounded-md border cursor-pointer transition-all ${
                         selectedPermission === level.value
-                          ? 'border-blue-500 bg-blue-50'
+                          ? 'border-slate-500 bg-slate-50'
                           : 'border-dark-300 hover:border-dark-400'
                       }`}
                     >
@@ -336,7 +336,7 @@ export function PermissionManagementModal({ isOpen, onClose, onSave }: Permissio
                             type="radio"
                             checked={selectedPermission === level.value}
                             onChange={() => setSelectedPermission(level.value)}
-                            className="w-4 h-4 text-blue-600"
+                            className="w-4 h-4 text-slate-600"
                           />
                           <div>
                             <div className="flex items-center gap-2">
@@ -363,7 +363,7 @@ export function PermissionManagementModal({ isOpen, onClose, onSave }: Permissio
                   type="datetime-local"
                   value={expiresAt}
                   onChange={(e) => setExpiresAt(e.target.value)}
-                  className="w-full px-4 py-2 border border-dark-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-dark-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500"
                 />
                 <p className="text-xs text-dark-500 mt-1">
                   Leave empty for permanent permission. Use for temporary contractor access.
@@ -413,7 +413,7 @@ export function PermissionManagementModal({ isOpen, onClose, onSave }: Permissio
           <button
             onClick={handleGrantPermission}
             disabled={saving || !selectedPerson || !selectedEntity}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-4 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {saving ? (
               <>

@@ -67,7 +67,7 @@ export const COLOR_OPTIONS = [
   { value: 'red', label: 'Red', metadata: { color_code: 'bg-red-100 text-red-700' } },
   { value: 'yellow', label: 'Yellow', metadata: { color_code: 'bg-yellow-100 text-yellow-800' } },
   { value: 'orange', label: 'Orange', metadata: { color_code: 'bg-orange-100 text-orange-700' } },
-  { value: 'gray', label: 'Gray', metadata: { color_code: 'bg-gray-100 text-gray-600' } },
+  { value: 'gray', label: 'Gray', metadata: { color_code: 'bg-dark-100 text-dark-600' } },
   { value: 'cyan', label: 'Cyan', metadata: { color_code: 'bg-cyan-100 text-cyan-700' } },
   { value: 'pink', label: 'Pink', metadata: { color_code: 'bg-pink-100 text-pink-700' } },
   { value: 'amber', label: 'Amber', metadata: { color_code: 'bg-amber-100 text-amber-700' } },

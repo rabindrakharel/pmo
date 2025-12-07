@@ -147,14 +147,14 @@ export function SearchableMultiSelect({
         ref={triggerRef}
         onClick={() => !disabled && !readonly && setIsOpen(!isOpen)}
         className={`
-          min-h-[36px] w-full border border-gray-300 rounded bg-white px-2.5 py-1.5
+          min-h-[36px] w-full border border-dark-300 rounded bg-white px-2.5 py-1.5
           flex flex-wrap gap-1 items-center cursor-pointer transition-colors
-          ${disabled || readonly ? 'bg-gray-50 cursor-not-allowed' : 'hover:border-gray-400'}
+          ${disabled || readonly ? 'bg-dark-50 cursor-not-allowed' : 'hover:border-dark-400'}
           ${isOpen ? 'ring-1 ring-slate-500 border-slate-500' : ''}
         `}
       >
         {selectedOptions.length === 0 ? (
-          <span className="text-gray-500 text-sm py-0.5">{placeholder}</span>
+          <span className="text-dark-500 text-sm py-0.5">{placeholder}</span>
         ) : (
           // v9.8.0: Use reusable Chip component
           selectedOptions.map(option => (
@@ -172,7 +172,7 @@ export function SearchableMultiSelect({
           ))
         )}
         <div className="ml-auto">
-          <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isOpen ? 'transform rotate-180' : ''}`} />
+          <ChevronDown className={`w-3.5 h-3.5 text-dark-400 transition-transform ${isOpen ? 'transform rotate-180' : ''}`} />
         </div>
       </div>
 
@@ -181,7 +181,7 @@ export function SearchableMultiSelect({
         <div
           ref={dropdownRef}
           data-dropdown-portal=""
-          className="bg-white border border-gray-200 rounded overflow-hidden"
+          className="bg-white border border-dark-200 rounded overflow-hidden"
           style={{
             position: 'absolute',
             top: `${dropdownPosition.top}px`,
@@ -195,16 +195,16 @@ export function SearchableMultiSelect({
           }}
         >
           {/* Search input */}
-          <div className="p-1.5 border-b border-gray-200 bg-gray-50">
+          <div className="p-1.5 border-b border-dark-200 bg-dark-50">
             <div className="relative">
-              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400" />
+              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-dark-400" />
               <input
                 ref={searchInputRef}
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search..."
-                className="w-full pl-7 pr-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-slate-500 focus:border-slate-500"
+                className="w-full pl-7 pr-2 py-1 text-xs border border-dark-300 rounded focus:outline-none focus:ring-1 focus:ring-slate-500 focus:border-slate-500"
               />
             </div>
           </div>
@@ -212,7 +212,7 @@ export function SearchableMultiSelect({
           {/* Options list */}
           <div className="max-h-52 overflow-y-auto">
             {filteredOptions.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-gray-500 text-center">
+              <div className="px-3 py-2 text-xs text-dark-500 text-center">
                 No options found
               </div>
             ) : (
@@ -222,7 +222,7 @@ export function SearchableMultiSelect({
                   <label
                     key={option.value}
                     className={`
-                      flex items-center px-3 py-2 hover:bg-gray-50 rounded-md cursor-pointer transition-colors group
+                      flex items-center px-3 py-2 hover:bg-dark-50 rounded-md cursor-pointer transition-colors group
                       ${isSelected ? 'bg-slate-50' : ''}
                     `}
                     onClick={(e) => {
@@ -238,7 +238,7 @@ export function SearchableMultiSelect({
                       onClick={(e) => e.stopPropagation()}
                       className="mr-3 text-slate-600 rounded focus:ring-slate-500/30 focus:ring-offset-0 flex-shrink-0"
                     />
-                    <span className={`text-sm truncate ${isSelected ? 'text-slate-700 font-medium' : 'text-gray-700'}`}>
+                    <span className={`text-sm truncate ${isSelected ? 'text-slate-700 font-medium' : 'text-dark-700'}`}>
                       {option.label}
                     </span>
                   </label>

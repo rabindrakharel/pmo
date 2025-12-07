@@ -315,7 +315,7 @@ export function EntityDesignerPage() {
           <button
             onClick={handleCreateEntity}
             disabled={saving || entityData.columns.length === 0}
-            className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-6 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="h-4 w-4" />
             {saving ? 'Creating...' : 'Create Entity'}

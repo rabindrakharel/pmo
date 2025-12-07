@@ -1230,10 +1230,10 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                 {entityCode === 'artifact' && data?.attachment_object_key && (
                   <button
                     onClick={handleDownload}
-                    className="p-2 hover:bg-gray-50 rounded-md transition-colors"
+                    className="p-2 hover:bg-dark-50 rounded-md transition-colors"
                     title="Download"
                   >
-                    <Download className="h-4 w-4 text-gray-600 stroke-[1.5]" />
+                    <Download className="h-4 w-4 text-dark-600 stroke-[1.5]" />
                   </button>
                 )}
                 {/* Link button for managing entity relationships */}
@@ -1243,19 +1243,19 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                     childEntityId: id!,
                     childEntityName: data?.name || data?.title
                   })}
-                  className="p-2 hover:bg-gray-50 rounded-md transition-colors"
+                  className="p-2 hover:bg-dark-50 rounded-md transition-colors"
                   title="Manage links"
                 >
-                  <LinkIcon className="h-4 w-4 text-gray-600 stroke-[1.5]" />
+                  <LinkIcon className="h-4 w-4 text-dark-600 stroke-[1.5]" />
                 </button>
 
                 {/* Share button - available for all entities */}
                 <button
                   onClick={() => setIsShareModalOpen(true)}
-                  className="p-2 hover:bg-gray-50 rounded-md transition-colors"
+                  className="p-2 hover:bg-dark-50 rounded-md transition-colors"
                   title="Share"
                 >
-                  <Share2 className="h-4 w-4 text-gray-600 stroke-[1.5]" />
+                  <Share2 className="h-4 w-4 text-dark-600 stroke-[1.5]" />
                 </button>
 
                 {/* Edit button */}
@@ -1271,10 +1271,10 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                       startDraft(data);
                     }
                   }}
-                  className="p-2 hover:bg-gray-50 rounded-md transition-colors"
+                  className="p-2 hover:bg-dark-50 rounded-md transition-colors"
                   title={`Edit (${shortcuts.save} to save)`}
                 >
-                  <Edit2 className="h-4 w-4 text-gray-600 stroke-[1.5]" />
+                  <Edit2 className="h-4 w-4 text-dark-600 stroke-[1.5]" />
                 </button>
               </>
             ) : (
@@ -1285,8 +1285,8 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                   disabled={!canUndo}
                   className={`p-2 rounded-md transition-colors ${
                     canUndo
-                      ? 'text-gray-600 hover:bg-gray-50'
-                      : 'text-gray-300 cursor-not-allowed'
+                      ? 'text-dark-600 hover:bg-dark-50'
+                      : 'text-dark-300 cursor-not-allowed'
                   }`}
                   title={`Undo (${shortcuts.undo})`}
                 >
@@ -1299,15 +1299,15 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                   disabled={!canRedo}
                   className={`p-2 rounded-md transition-colors ${
                     canRedo
-                      ? 'text-gray-600 hover:bg-gray-50'
-                      : 'text-gray-300 cursor-not-allowed'
+                      ? 'text-dark-600 hover:bg-dark-50'
+                      : 'text-dark-300 cursor-not-allowed'
                   }`}
                   title={`Redo (${shortcuts.redo})`}
                 >
                   <Redo2 className="h-4 w-4 stroke-[1.5]" />
                 </button>
 
-                <div className="w-px h-4 bg-gray-200 mx-1" />
+                <div className="w-px h-4 bg-dark-200 mx-1" />
 
                 {/* Cancel button */}
                 <button
@@ -1324,8 +1324,8 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                   disabled={isSaving || !hasChanges}
                   className={`p-2 rounded-md transition-colors ${
                     hasChanges
-                      ? 'bg-gray-900 hover:bg-gray-800 text-white'
-                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      ? 'bg-dark-900 hover:bg-dark-800 text-white'
+                      : 'bg-dark-200 text-dark-400 cursor-not-allowed'
                   }`}
                   title={`Save (${shortcuts.save})`}
                 >
