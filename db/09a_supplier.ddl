@@ -4,23 +4,19 @@
 --
 -- PURPOSE:
 -- Manages supplier/vendor information for procurement, ordering, and vendor management.
--- Links to app.person for common contact/address fields.
+-- Supplier is a BUSINESS entity (not a person). Primary contact links to app.person
+-- for authentication if they need portal access.
 --
 -- DESIGN:
--- • Person Link: person_id references app.person for common fields
+-- • Business Entity: Supplier is a company, not a person
+-- • Person Link: person_id references app.person for PRIMARY CONTACT authentication
 -- • Supplier-Specific: payment terms, lead times, ratings, certifications
--- • Universal Entity: Follows d_ prefix with code, name, metadata pattern
+-- • Universal Entity: Standard code, name, metadata pattern
 --
 -- RELATIONSHIPS:
--- • Parent: person.id (for contact/address information)
+-- • Primary Contact: person_id references app.person (if contact needs auth)
 -- • Referenced By: f_order.supplier_id (for dropship/procurement orders)
--- • RBAC: entity_rbac tracks permissions
---
--- USAGE PATTERNS:
--- • CREATE: Create app.person first, then app.supplier with person_id
--- • UPDATE: Update contact info in d_person, supplier-specific here
--- • QUERY: Join with app.person for complete supplier view
--- • ORDERS: Reference supplier_id in f_order for procurement tracking
+-- • RBAC: entity_rbac tracks permissions via person table
 --
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -34,9 +30,14 @@ CREATE TABLE IF NOT EXISTS app.supplier (
     descr text,
 
     -- ─────────────────────────────────────────────────────────────────────────
+    -- Link to Person (for primary contact auth)
+    -- ─────────────────────────────────────────────────────────────────────────
+    person_id uuid, -- References app.person.id (primary contact auth hub)
+
+    -- ─────────────────────────────────────────────────────────────────────────
     -- Supplier Identification
     -- ─────────────────────────────────────────────────────────────────────────
-    supplier_number varchar(50), -- Vendor number / supplier code
+    supplier_number varchar(50),
     company_name varchar(255),
     tax_id varchar(50), -- GST/HST number, EIN, etc.
     website varchar(500),
@@ -66,11 +67,31 @@ CREATE TABLE IF NOT EXISTS app.supplier (
     certification_details text,
 
     -- ─────────────────────────────────────────────────────────────────────────
-    -- Contact Information (Primary Contact)
+    -- Address Information (Business Address)
     -- ─────────────────────────────────────────────────────────────────────────
-    primary_contact_name varchar(255),
+    address_line1 varchar(255),
+    address_line2 varchar(255),
+    city varchar(100),
+    province varchar(50),
+    postal_code varchar(20),
+    country varchar(50) DEFAULT 'Canada',
+
+    -- ─────────────────────────────────────────────────────────────────────────
+    -- Primary Contact Information (stored HERE for display)
+    -- If contact needs auth access, they have a person_id record
+    -- ─────────────────────────────────────────────────────────────────────────
+    primary_contact_first_name varchar(100),
+    primary_contact_last_name varchar(100),
+    primary_contact_name varchar(255), -- Computed/display name
     primary_contact_email varchar(255),
     primary_contact_phone varchar(50),
+
+    -- ─────────────────────────────────────────────────────────────────────────
+    -- Secondary Contact
+    -- ─────────────────────────────────────────────────────────────────────────
+    secondary_contact_name varchar(255),
+    secondary_contact_email varchar(255),
+    secondary_contact_phone varchar(50),
 
     -- ─────────────────────────────────────────────────────────────────────────
     -- Standard Metadata & Temporal Fields
@@ -87,39 +108,22 @@ CREATE TABLE IF NOT EXISTS app.supplier (
 -- Indexes
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+CREATE INDEX IF NOT EXISTS idx_supplier_person_id ON app.supplier(person_id) WHERE person_id IS NOT NULL;
 
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 -- Comments
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-COMMENT ON TABLE app.supplier IS 'Supplier/vendor entity for procurement and vendor management';
+COMMENT ON TABLE app.supplier IS 'Supplier/vendor entity for procurement and vendor management. Primary contact auth via app.person (person_id)';
 COMMENT ON COLUMN app.supplier.id IS 'Unique identifier (UUID)';
 COMMENT ON COLUMN app.supplier.code IS 'Unique supplier code (e.g., SUP-00001)';
 COMMENT ON COLUMN app.supplier.name IS 'Supplier/vendor name';
-COMMENT ON COLUMN app.supplier.descr IS 'Description of supplier';
-COMMENT ON COLUMN app.supplier.person_id IS 'Link to app.person for contact/address information';
+COMMENT ON COLUMN app.supplier.person_id IS 'Link to app.person for primary contact authentication';
 COMMENT ON COLUMN app.supplier.supplier_number IS 'Vendor number or supplier code';
 COMMENT ON COLUMN app.supplier.company_name IS 'Legal company name';
 COMMENT ON COLUMN app.supplier.tax_id IS 'Tax ID (GST/HST number, EIN, etc.)';
-COMMENT ON COLUMN app.supplier.website IS 'Supplier website URL';
-COMMENT ON COLUMN app.supplier.payment_terms IS 'Payment terms (Net 30, Net 60, COD)';
-COMMENT ON COLUMN app.supplier.currency IS 'Currency code (CAD, USD, etc.)';
-COMMENT ON COLUMN app.supplier.credit_limit_amt IS 'Credit limit amount';
-COMMENT ON COLUMN app.supplier.discount_pct IS 'Default discount percentage';
-COMMENT ON COLUMN app.supplier.lead_time_days IS 'Standard lead time in days';
-COMMENT ON COLUMN app.supplier.minimum_order_amt IS 'Minimum order amount';
-COMMENT ON COLUMN app.supplier.dl__supplier_type IS 'Supplier type (manufacturer, distributor, wholesaler, service)';
-COMMENT ON COLUMN app.supplier.dl__delivery_method IS 'Delivery method (pickup, delivery, dropship)';
-COMMENT ON COLUMN app.supplier.dl__supplier_rating IS 'Supplier rating (excellent, good, fair, poor)';
-COMMENT ON COLUMN app.supplier.is_preferred IS 'Preferred supplier flag';
-COMMENT ON COLUMN app.supplier.is_certified IS 'Certified supplier flag';
-COMMENT ON COLUMN app.supplier.certification_details IS 'Certification details';
-COMMENT ON COLUMN app.supplier.primary_contact_name IS 'Primary contact person name';
+COMMENT ON COLUMN app.supplier.primary_contact_first_name IS 'Primary contact first name';
+COMMENT ON COLUMN app.supplier.primary_contact_last_name IS 'Primary contact last name';
+COMMENT ON COLUMN app.supplier.primary_contact_name IS 'Primary contact display name';
 COMMENT ON COLUMN app.supplier.primary_contact_email IS 'Primary contact email';
 COMMENT ON COLUMN app.supplier.primary_contact_phone IS 'Primary contact phone';
-COMMENT ON COLUMN app.supplier.metadata IS 'Additional flexible attributes';
-COMMENT ON COLUMN app.supplier.active_flag IS 'Soft delete flag (true = active)';
-COMMENT ON COLUMN app.supplier.from_ts IS 'Valid from timestamp';
-COMMENT ON COLUMN app.supplier.to_ts IS 'Valid to timestamp (NULL = current)';
-COMMENT ON COLUMN app.supplier.created_ts IS 'Record creation timestamp';
-COMMENT ON COLUMN app.supplier.updated_ts IS 'Last update timestamp';

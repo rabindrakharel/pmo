@@ -22,6 +22,16 @@ import { WelcomePage } from './pages/WelcomePage';
 import { SignupPage } from './pages/SignupPage';
 import { OnboardingPage } from './pages/OnboardingPage';
 
+// Next-Gen Auth Pages
+import {
+  SignUpPage as NewSignUpPage,
+  SignInPage,
+  MFASetupPage,
+  ForgotPasswordPage,
+  AccountRecoveryPage,
+  SecurityQuestionsPage,
+} from './pages/auth';
+
 // Form Pages
 import { FormBuilderPage, FormEditPage, FormDataPreviewPage, PublicFormPage } from './pages/form';
 
@@ -150,8 +160,28 @@ function AppRoutes() {
         element={isAuthenticated ? <Navigate to="/welcome" replace /> : <LoginForm />}
       />
       <Route
+        path="/signin"
+        element={isAuthenticated ? <Navigate to="/welcome" replace /> : <SignInPage />}
+      />
+      <Route
         path="/signup"
-        element={isAuthenticated ? <Navigate to="/welcome" replace /> : <SignupPage />}
+        element={isAuthenticated ? <Navigate to="/welcome" replace /> : <NewSignUpPage />}
+      />
+      <Route
+        path="/forgot-password"
+        element={isAuthenticated ? <Navigate to="/welcome" replace /> : <ForgotPasswordPage />}
+      />
+      <Route
+        path="/account-recovery"
+        element={isAuthenticated ? <Navigate to="/welcome" replace /> : <AccountRecoveryPage />}
+      />
+      <Route
+        path="/mfa/setup"
+        element={<ProtectedRoute><MFASetupPage /></ProtectedRoute>}
+      />
+      <Route
+        path="/security-questions/setup"
+        element={<ProtectedRoute><SecurityQuestionsPage /></ProtectedRoute>}
       />
       <Route
         path="/onboarding"

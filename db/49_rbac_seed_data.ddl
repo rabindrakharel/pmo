@@ -1,14 +1,17 @@
 -- ============================================================================
--- RBAC SEED DATA - ROLE AND EMPLOYEE PERMISSIONS
+-- RBAC SEED DATA - ROLE AND PERSON PERMISSIONS
 -- ============================================================================
 --
--- SEMANTICS:
--- Seed data for entity_rbac table with person-based permissions for:
---   - CEO role: Full owner (7) permissions on all entities
---   - Manager roles: Create (6) permissions on their department entities
---   - Supervisor roles: Edit/Share permissions on operational entities
---   - Technician roles: Limited field operation permissions
---   - James Miller (CEO employee): Direct owner permissions on all entities
+-- ARCHITECTURE (Person-Based RBAC):
+-- Auth is centralized in app.person table. RBAC permissions reference:
+--   - person.id for employee/customer permissions (via person_code='employee'/'customer')
+--   - role.id for role permissions (via person_code='role')
+--
+-- PERMISSION RESOLUTION FLOW:
+-- 1. JWT subject = person.id
+-- 2. Check direct permissions: person_code IN ('employee','customer'), person_id=person.id
+-- 3. Check role permissions: Find roles via entity_instance_link(role->employee.id)
+-- 4. Take MAX permission level
 --
 -- PERMISSION LEVEL MODEL (0-7):
 --   0 = View:       Read access to entity data
@@ -26,17 +29,17 @@
 -- This file runs as #49 in the import sequence (db-import.sh).
 -- It MUST run AFTER all entity tables are created and populated:
 --   - entity_configuration_settings/06_entity_rbac.ddl - Creates RBAC table structure
---   - 05_employee.ddl - Creates employee data
+--   - 04a_person.ddl - Creates person data (auth hub)
+--   - 05_employee.ddl - Creates employee data with person_id link
 --   - 09_role.ddl - Creates role data
---
--- ✅ Automatically executed by: ./tools/db-import.sh
--- ✅ Inserts: Role-based + employee-specific RBAC permissions
 --
 -- ============================================================================
 
 -- ============================================================================
 -- DATA CURATION: ROLE-BASED PERMISSIONS
 -- ============================================================================
+-- Role permissions apply to all employees assigned to those roles
+-- via entity_instance_link (entity_code='role', child_entity_code='employee')
 
 -- CEO Role - Full ownership (level 7) on ALL entities
 INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
@@ -50,7 +53,7 @@ CROSS JOIN (VALUES
   ('office_hierarchy'), ('order'), ('product'), ('product_hierarchy'), ('project'),
   ('quote'), ('revenue'), ('role'), ('service'),
   ('shipment'), ('task'), ('wiki'), ('workflow'), ('workflow_automation'),
-  ('work_order'), ('worksite')
+  ('work_order'), ('worksite'), ('person')
 ) AS entities(entity_type)
 WHERE r.role_code = 'CEO';
 
@@ -259,16 +262,17 @@ CROSS JOIN (VALUES
 WHERE r.role_code IN ('COORD-PROJ', 'COORD-HR');
 
 -- ============================================================================
--- DATA CURATION: EMPLOYEE-SPECIFIC PERMISSIONS
+-- DATA CURATION: PERSON-BASED (EMPLOYEE) DIRECT PERMISSIONS
 -- ============================================================================
--- Direct employee permissions override role-based permissions when higher
+-- Direct permissions use person.id (the auth hub ID) for employee permissions.
+-- This ensures JWT subject (person.id) aligns with RBAC lookups.
 
 -- CEO (James Miller) - Direct owner permissions (level 7) for ALL entities
--- This ensures James has full control even if role permissions are modified
+-- Uses person.id to align with JWT subject
 INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
 SELECT
-  'employee', e.id, entity_type, '11111111-1111-1111-1111-111111111111', 7, now()  -- Level 7 = Owner
-FROM app.employee e
+  'employee', p.id, entity_type, '11111111-1111-1111-1111-111111111111', 7, now()  -- Level 7 = Owner
+FROM app.person p
 CROSS JOIN (VALUES
   ('artifact'), ('business'), ('business_hierarchy'), ('calendar'), ('customer'),
   ('employee'), ('event'), ('expense'), ('form'), ('interaction'),
@@ -276,48 +280,74 @@ CROSS JOIN (VALUES
   ('office_hierarchy'), ('order'), ('product'), ('product_hierarchy'), ('project'),
   ('quote'), ('revenue'), ('role'), ('service'),
   ('shipment'), ('task'), ('wiki'), ('workflow'), ('workflow_automation'),
-  ('work_order'), ('worksite')
+  ('work_order'), ('worksite'), ('person')
 ) AS entities(entity_type)
-WHERE e.email = 'james.miller@huronhome.ca';
+WHERE p.email = 'james.miller@huronhome.ca'
+  AND p.active_flag = true;
+
+-- C-Suite (COO, CTO) - Owner permissions on key operational/technical entities
+INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
+SELECT
+  'employee', p.id, entity_type, '11111111-1111-1111-1111-111111111111', 7, now()  -- Level 7 = Owner
+FROM app.person p
+CROSS JOIN (VALUES
+  ('project'), ('task'), ('work_order'), ('employee'), ('calendar'),
+  ('event'), ('form'), ('wiki'), ('artifact')
+) AS entities(entity_type)
+WHERE p.email IN ('sarah.johnson@huronhome.ca', 'michael.chen@huronhome.ca')
+  AND p.active_flag = true;
+
+-- VP Sales - Create and manage customer-related entities
+INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
+SELECT
+  'employee', p.id, entity_type, '11111111-1111-1111-1111-111111111111', 6, now()  -- Level 6 = Create
+FROM app.person p
+CROSS JOIN (VALUES
+  ('customer'), ('quote'), ('interaction'), ('project')
+) AS entities(entity_type)
+WHERE p.email = 'lisa.rodriguez@huronhome.ca'
+  AND p.active_flag = true;
+
+-- Senior Project Manager - Create and manage projects
+INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
+SELECT
+  'employee', p.id, entity_type, '11111111-1111-1111-1111-111111111111', 6, now()  -- Level 6 = Create
+FROM app.person p
+CROSS JOIN (VALUES
+  ('project'), ('task'), ('work_order'), ('form')
+) AS entities(entity_type)
+WHERE p.email = 'david.thompson@huronhome.ca'
+  AND p.active_flag = true;
 
 -- ============================================================================
--- INSTANCE-SPECIFIC PERMISSIONS: Project Ownership Examples
+-- DATA CURATION: CUSTOMER PERMISSIONS
 -- ============================================================================
--- Grant instance-level owner permissions on specific projects
--- This demonstrates how project managers get full control over their projects
+-- Customers get limited permissions to view their own projects and submit forms
 
--- Grant owner permissions to project managers on their specific projects
--- (This will be auto-created when projects are created via API with proper linkage)
--- Example: Sarah Chen owns "Downtown Condo Renovation" project
-INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_by__employee_id)
+-- All customers - View projects, tasks, quotes linked to them
+INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
 SELECT
-  'employee',
-  e.id,
-  'project',
-  p.id,
-  7,  -- Level 7 = Owner
-  (SELECT id FROM app.employee WHERE email = 'james.miller@huronhome.ca')
-FROM app.employee e
-CROSS JOIN app.project p
-WHERE e.email = 'sarah.chen@huronhome.ca'
-  AND p.code = 'PROJ-001';
+  'customer', p.id, entity_type, '11111111-1111-1111-1111-111111111111', 0, now()  -- Level 0 = View
+FROM app.person p
+CROSS JOIN (VALUES
+  ('project'), ('task'), ('quote'), ('invoice')
+) AS entities(entity_type)
+WHERE p.entity_code = 'customer'
+  AND p.active_flag = true;
 
--- Grant edit permissions to department managers on related business projects
-INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_by__employee_id)
+-- All customers - Submit forms and create interactions
+INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
 SELECT
-  'employee',
-  e.id,
-  'project',
-  p.id,
-  3,  -- Level 3 = Edit
-  (SELECT id FROM app.employee WHERE email = 'james.miller@huronhome.ca')
-FROM app.employee e
-CROSS JOIN app.project p
-WHERE e.email = 'michael.thompson@huronhome.ca'
-  AND p.code IN ('PROJ-002', 'PROJ-003');
+  'customer', p.id, entity_type, '11111111-1111-1111-1111-111111111111', 6, now()  -- Level 6 = Create
+FROM app.person p
+CROSS JOIN (VALUES
+  ('form'), ('interaction')
+) AS entities(entity_type)
+WHERE p.entity_code = 'customer'
+  AND p.active_flag = true;
 
 -- ============================================================================
 -- FINAL COMMENT UPDATE
 -- ============================================================================
 
-COMMENT ON TABLE app.entity_rbac IS 'Person-based RBAC system with integer permission levels: 0=View, 1=Comment, 3=Edit/Contribute, 4=Share, 5=Delete, 6=Create (type-level only), 7=Owner. Higher levels automatically inherit all lower permissions via >= comparison. Supports role-based (via entity_instance_link) and direct employee permissions. Permissions resolve via UNION, taking MAX level. SEED DATA LOADED from 49_rbac_seed_data.ddl';
+COMMENT ON TABLE app.entity_rbac IS 'Person-based RBAC system with integer permission levels: 0=View, 1=Comment, 3=Edit/Contribute, 4=Share, 5=Delete, 6=Create (type-level only), 7=Owner. Higher levels automatically inherit all lower permissions via >= comparison. person_id references app.person.id for employees/customers, and app.role.id for role-based permissions. SEED DATA LOADED from 49_rbac_seed_data.ddl';
