@@ -1,33 +1,31 @@
 -- =====================================================
--- EMPLOYEE ENTITY (d_employee) - PERSONNEL & AUTH
+-- EMPLOYEE ENTITY (employee) - PERSONNEL & PROFILE
 -- =====================================================
 --
 -- SEMANTICS:
--- • RBAC identity foundation: every permission references employee.id
--- • Authentication via email/password_hash (bcrypt), JWT {sub: employee.id}
--- • In-place updates (same ID, version++), soft delete preserves audit trail
+-- • Employee profile and contact information
+-- • Personal details (name, address) stored HERE, not in person table
+-- • Authentication handled by app.person table (person_id FK)
+-- • RBAC references person.id for permission checks
 --
 -- OPERATIONS:
--- • CREATE: INSERT with bcrypt password_hash, version=1, active_flag=true
--- • LOGIN: Query by email, verify with bcrypt.compare(), generate JWT
+-- • CREATE: First create person record, then INSERT employee with person_id
+-- • LOGIN: Query person by email, verify password, get employee profile via JOIN
 -- • UPDATE: Same ID, version++, updated_ts refreshes
 -- • DELETE: active_flag=false, termination_date=now(), to_ts=now()
 --
--- RELATIONSHIPS (NO FOREIGN KEYS):
+-- RELATIONSHIPS (NO FOREIGN KEYS except person_id):
+-- • Parent: person (person_id) - for auth/RBAC
 -- • Parent: role (via entity_instance_link)
 -- • Self: manager__employee_id → employee.id
--- • RBAC: entity_rbac.person_id (where person_code='employee')
---
--- SECURITY:
--- • Account lockout: 5 failed attempts → 30 min lock
--- • Password reset: token expires in 1 hour
+-- • RBAC: entity_rbac.person_id (via person table)
 --
 -- =====================================================
 
 CREATE TABLE app.employee (
   id uuid DEFAULT gen_random_uuid(),
   code varchar(50),
-  name varchar(200),
+  name varchar(200), -- Display name (first + last)
   descr text,
   metadata jsonb DEFAULT '{}'::jsonb,
   active_flag boolean DEFAULT true,
@@ -37,17 +35,31 @@ CREATE TABLE app.employee (
   updated_ts timestamptz DEFAULT now(),
   version integer DEFAULT 1,
 
-  -- Employee-specific fields
-  email varchar(255),
-  password_hash varchar(255),
+  -- ─────────────────────────────────────────────────────────────────────────
+  -- Link to Person (for auth/RBAC)
+  -- ─────────────────────────────────────────────────────────────────────────
+  person_id uuid, -- References app.person.id (auth hub)
 
-  -- Contact information
+  -- ─────────────────────────────────────────────────────────────────────────
+  -- Personal Information (stored HERE, not in person)
+  -- ─────────────────────────────────────────────────────────────────────────
+  first_name varchar(100),
+  last_name varchar(100),
+  preferred_name varchar(100), -- Nickname or preferred name
+  email varchar(255), -- Work email (display only, auth uses person.email)
+
+  -- ─────────────────────────────────────────────────────────────────────────
+  -- Contact Information
+  -- ─────────────────────────────────────────────────────────────────────────
   phone varchar(50),
   mobile varchar(50),
   emergency_contact_name varchar(200),
   emergency_contact_phone varchar(50),
+  emergency_contact_relationship varchar(50),
 
-  -- Address information
+  -- ─────────────────────────────────────────────────────────────────────────
+  -- Address Information
+  -- ─────────────────────────────────────────────────────────────────────────
   address_line1 varchar(200),
   address_line2 varchar(200),
   city varchar(100),
@@ -55,57 +67,94 @@ CREATE TABLE app.employee (
   postal_code varchar(20),
   country varchar(100) DEFAULT 'Canada',
 
-  -- Employment details
-  dl__employee_employment_type text, -- References app.datalabel (datalabel_name='dl__employee_employment_type')
+  -- ─────────────────────────────────────────────────────────────────────────
+  -- Employment Details
+  -- ─────────────────────────────────────────────────────────────────────────
+  dl__employee_employment_type text, -- References app.datalabel
   department varchar(100),
   title varchar(200),
   hire_date date,
   termination_date date,
+  probation_end_date date,
 
+  -- ─────────────────────────────────────────────────────────────────────────
   -- Compensation and HR
+  -- ─────────────────────────────────────────────────────────────────────────
   salary_band varchar(50),
   pay_grade varchar(20),
   manager__employee_id uuid, -- Self-reference for reporting structure
 
-  -- Authentication and security
-  last_login_ts timestamptz,
-  password_reset_token varchar(255),
-  password_reset_expires_ts timestamptz,
-  failed_login_attempts integer DEFAULT 0,
-  account_locked_until_ts timestamptz,
-
-  -- Compliance and tracking
+  -- ─────────────────────────────────────────────────────────────────────────
+  -- Compliance and Tracking
+  -- ─────────────────────────────────────────────────────────────────────────
   sin varchar(20), -- Social Insurance Number (Canada)
   birth_date date,
-  dl__employee_citizenship_status text, -- References app.datalabel (datalabel_name='dl__employee_citizenship_status')
-  dl__employee_security_clearance text, -- References app.datalabel (datalabel_name='dl__employee_security_clearance')
+  dl__employee_citizenship_status text, -- References app.datalabel
+  dl__employee_security_clearance text, -- References app.datalabel
 
-  -- Work preferences and attributes
+  -- ─────────────────────────────────────────────────────────────────────────
+  -- Work Preferences and Attributes
+  -- ─────────────────────────────────────────────────────────────────────────
   remote_work_eligible_flag boolean DEFAULT false,
   time_zone varchar(50) DEFAULT 'America/Toronto',
   preferred_language varchar(10) DEFAULT 'en',
 
-  -- Skills and certifications
-  skills_service_categories text[] DEFAULT ARRAY[]::text[], -- Array of service categories from d_service (HVAC, Plumbing, Electrical, Landscaping, General Contracting, etc.)
+  -- ─────────────────────────────────────────────────────────────────────────
+  -- Skills and Certifications
+  -- ─────────────────────────────────────────────────────────────────────────
+  skills_service_categories text[] DEFAULT ARRAY[]::text[],
 
-  -- Profile photo (S3 storage)
-  profile_photo_url jsonb DEFAULT NULL -- S3 storage reference: {"s3_bucket": "...", "s3_key": "..."}
+  -- ─────────────────────────────────────────────────────────────────────────
+  -- Profile Photo (S3 storage)
+  -- ─────────────────────────────────────────────────────────────────────────
+  profile_photo_url jsonb DEFAULT NULL
 );
 
-COMMENT ON TABLE app.employee IS 'Employee entities with authentication, contact info, and organizational assignments';
+COMMENT ON TABLE app.employee IS 'Employee entities with contact info, address, and organizational assignments. Auth via app.person (person_id)';
+COMMENT ON COLUMN app.employee.person_id IS 'Link to app.person for authentication and RBAC';
+COMMENT ON COLUMN app.employee.first_name IS 'Employee first name';
+COMMENT ON COLUMN app.employee.last_name IS 'Employee last name';
 
 -- =====================================================
 -- DATA CURATION
 -- =====================================================
 
--- Insert sample employee data for James Miller CEO
+-- Create person records first (auth hub)
+-- Then create employee records with person_id reference
+
+-- James Miller CEO - Person record
+INSERT INTO app.person (
+    id,
+    code,
+    entity_code,
+    email,
+    password_hash,
+    email_verified_flag,
+    tos_accepted_flag,
+    tos_accepted_ts,
+    login_count
+) VALUES (
+    '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',
+    'PER-001',
+    'employee',
+    'james.miller@huronhome.ca',
+    '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', -- password123
+    true,
+    true,
+    now(),
+    0
+);
+
+-- James Miller CEO - Employee record
 INSERT INTO app.employee (
     id,
     code,
     name,
     descr,
+    person_id,
+    first_name,
+    last_name,
     email,
-    password_hash,
     phone,
     mobile,
     address_line1,
@@ -128,12 +177,14 @@ INSERT INTO app.employee (
     skills_service_categories,
     metadata
 ) VALUES (
-    '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',
+    'e8260b1b-5efc-4611-ad33-ee76c0cf7f13', -- Different UUID than person
     'EMP-001',
     'James Miller',
     'Chief Executive Officer and Founder of Huron Home Services. Responsible for overall strategic direction, business development, and organizational leadership.',
+    '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', -- person_id
+    'James',
+    'Miller',
     'james.miller@huronhome.ca',
-    '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', -- hashed: password123
     '+1-519-555-0001',
     '+1-519-555-0101',
     '123 Executive Drive',
@@ -153,7 +204,7 @@ INSERT INTO app.employee (
     true,
     'America/Toronto',
     'en',
-    ARRAY['HVAC', 'Plumbing', 'Electrical', 'Landscaping', 'General Contracting']::text[], -- CEO has knowledge of all service categories
+    ARRAY['HVAC', 'Plumbing', 'Electrical', 'Landscaping', 'General Contracting']::text[],
     '{
         "employee_preferences": {
             "notification_methods": ["email", "sms"],
@@ -168,13 +219,29 @@ INSERT INTO app.employee (
     }'::jsonb
 );
 
--- Additional sample employees for testing
+-- Update person with employee_id reference
+UPDATE app.person SET employee_id = 'e8260b1b-5efc-4611-ad33-ee76c0cf7f13' WHERE id = '8260b1b0-5efc-4611-ad33-ee76c0cf7f13';
+
+-- =====================================================
+-- Additional Sample Employees
+-- =====================================================
+
+-- Person records for C-suite
+INSERT INTO app.person (code, entity_code, email, password_hash, email_verified_flag) VALUES
+('PER-002', 'employee', 'sarah.johnson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', true),
+('PER-003', 'employee', 'michael.chen@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', true),
+('PER-004', 'employee', 'lisa.rodriguez@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', true),
+('PER-005', 'employee', 'david.thompson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', true);
+
+-- Employee records for C-suite
 INSERT INTO app.employee (
     code,
     name,
     descr,
+    person_id,
+    first_name,
+    last_name,
     email,
-    password_hash,
     phone,
     dl__employee_employment_type,
     department,
@@ -182,25 +249,39 @@ INSERT INTO app.employee (
     hire_date,
     manager__employee_id,
     skills_service_categories
-) VALUES
-('EMP-002', 'Sarah Johnson', 'Chief Operating Officer responsible for day-to-day operations', 'sarah.johnson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', '+1-519-555-0002', 'Full-time', 'Operations', 'Chief Operating Officer', '2020-02-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY['HVAC', 'Plumbing', 'Electrical', 'Landscaping']::text[]),
-('EMP-003', 'Michael Chen', 'Chief Technology Officer overseeing IT infrastructure and development', 'michael.chen@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', '+1-519-555-0003', 'Full-time', 'Technology', 'Chief Technology Officer', '2020-03-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY[]::text[]),
-('EMP-004', 'Lisa Rodriguez', 'Vice President of Sales managing client relationships and revenue_amt', 'lisa.rodriguez@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', '+1-519-555-0004', 'Full-time', 'Sales', 'Vice President of Sales', '2020-04-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY['HVAC', 'Plumbing', 'Electrical', 'Landscaping', 'General Contracting']::text[]),
-('EMP-005', 'David Thompson', 'Senior Project Manager for landscaping and maintenance projects', 'david.thompson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', '+1-519-555-0005', 'Full-time', 'Operations', 'Senior Project Manager', '2020-05-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY['Landscaping']::text[]);
+)
+SELECT
+    v.code,
+    v.name,
+    v.descr,
+    p.id as person_id,
+    split_part(v.name, ' ', 1) as first_name,
+    split_part(v.name, ' ', 2) as last_name,
+    v.email,
+    v.phone,
+    v.emp_type,
+    v.department,
+    v.title,
+    v.hire_date::date,
+    'e8260b1b-5efc-4611-ad33-ee76c0cf7f13' as manager__employee_id, -- Reports to CEO
+    v.skills
+FROM app.person p
+INNER JOIN (VALUES
+    ('PER-002', 'EMP-002', 'Sarah Johnson', 'sarah.johnson@huronhome.ca', 'Chief Operating Officer responsible for day-to-day operations', '+1-519-555-0002', 'Full-time', 'Operations', 'Chief Operating Officer', '2020-02-01', ARRAY['HVAC', 'Plumbing', 'Electrical', 'Landscaping']::text[]),
+    ('PER-003', 'EMP-003', 'Michael Chen', 'michael.chen@huronhome.ca', 'Chief Technology Officer overseeing IT infrastructure and development', '+1-519-555-0003', 'Full-time', 'Technology', 'Chief Technology Officer', '2020-03-01', ARRAY[]::text[]),
+    ('PER-004', 'EMP-004', 'Lisa Rodriguez', 'lisa.rodriguez@huronhome.ca', 'Vice President of Sales managing client relationships and revenue', '+1-519-555-0004', 'Full-time', 'Sales', 'Vice President of Sales', '2020-04-01', ARRAY['HVAC', 'Plumbing', 'Electrical', 'Landscaping', 'General Contracting']::text[]),
+    ('PER-005', 'EMP-005', 'David Thompson', 'david.thompson@huronhome.ca', 'Senior Project Manager for landscaping and maintenance projects', '+1-519-555-0005', 'Full-time', 'Operations', 'Senior Project Manager', '2020-05-01', ARRAY['Landscaping']::text[])
+) AS v(per_code, code, name, email, descr, phone, emp_type, department, title, hire_date, skills)
+ON p.code = v.per_code;
+
+-- Update person records with employee_id references
+UPDATE app.person p
+SET employee_id = e.id
+FROM app.employee e
+WHERE e.person_id = p.id AND p.employee_id IS NULL;
 
 -- =====================================================
 -- COMPREHENSIVE EMPLOYEE DATA GENERATION (500+ Employees)
--- Programmatic generation with realistic Canadian names and addresses
--- =====================================================
---
--- This script generates 500+ employees with:
--- - Realistic Canadian first and last names
--- - Authentic Canadian addresses across provinces
--- - Diverse roles and departments
--- - Proper hierarchical manager assignments
--- - Complete contact information
---
--- TO APPEND TO: 11_d_employee.ddl (after existing INSERT statements)
 -- =====================================================
 
 DO $$
@@ -243,7 +324,6 @@ DECLARE
     ];
 
     v_provinces text[] := ARRAY['Ontario', 'British Columbia', 'Alberta', 'Quebec', 'Manitoba', 'Nova Scotia', 'Saskatchewan'];
-    v_province_codes text[] := ARRAY['ON', 'BC', 'AB', 'QC', 'MB', 'NS', 'SK'];
 
     v_streets text[] := ARRAY[
         'Main Street', 'King Street', 'Queen Street', 'Yonge Street', 'Dundas Street', 'Bloor Street', 'College Street',
@@ -263,9 +343,12 @@ DECLARE
         'Specialist', 'Analyst', 'Manager', 'Senior Manager', 'Director'
     ];
 
-    v_name text;
+    v_first_name text;
+    v_last_name text;
+    v_full_name text;
     v_email text;
-    v_code text;
+    v_per_code text;
+    v_emp_code text;
     v_city text;
     v_province text;
     v_postal_code text;
@@ -278,19 +361,22 @@ DECLARE
     v_emp_type text;
     v_hire_date date;
     v_manager_id uuid;
-    v_manager_email text;
     v_skills text[];
+    v_person_id uuid;
     i int;
 
 BEGIN
     -- Generate 500 employees (starting from EMP-026)
     FOR i IN 26..525 LOOP
-        -- Randomly select name components and combine
-        v_name := v_first_names[1 + floor(random() * array_length(v_first_names, 1))::int] || ' ' || v_last_names[1 + floor(random() * array_length(v_last_names, 1))::int];
+        -- Randomly select name components
+        v_first_name := v_first_names[1 + floor(random() * array_length(v_first_names, 1))::int];
+        v_last_name := v_last_names[1 + floor(random() * array_length(v_last_names, 1))::int];
+        v_full_name := v_first_name || ' ' || v_last_name;
 
         -- Generate email and identifiers
-        v_email := lower(replace(replace(v_name, ' ', '.'), '''', '') || i || '@huronhome.ca');
-        v_code := 'EMP-' || lpad(i::text, 4, '0');
+        v_email := lower(replace(replace(v_full_name, ' ', '.'), '''', '') || i || '@huronhome.ca');
+        v_per_code := 'PER-' || lpad(i::text, 4, '0');
+        v_emp_code := 'EMP-' || lpad(i::text, 4, '0');
 
         -- Random Canadian city and province
         v_city := v_cities[1 + floor(random() * array_length(v_cities, 1))::int];
@@ -314,53 +400,28 @@ BEGIN
 
         -- Assign department and title based on employee number
         IF i <= 100 THEN
-            v_department := v_departments[1 + floor(random() * 6)::int]; -- Operations departments
-            v_title := v_titles[1 + floor(random() * 3)::int]; -- Field positions
-            v_emp_type := 'full-time';
-            v_manager_email := 'mark.thompson@huronhome.ca'; -- Field supervisor
+            v_department := v_departments[1 + floor(random() * 6)::int];
+            v_title := v_titles[1 + floor(random() * 3)::int];
+            v_emp_type := 'Full-time';
         ELSIF i <= 200 THEN
             v_department := v_departments[1 + floor(random() * 6)::int];
             v_title := v_titles[1 + floor(random() * 5)::int];
-            v_emp_type := 'full-time';
-            v_manager_email := CASE floor(random() * 5)::int
-                WHEN 0 THEN 'carlos.martinez@huronhome.ca'
-                WHEN 1 THEN 'david.kowalski@huronhome.ca'
-                WHEN 2 THEN 'amanda.foster@huronhome.ca'
-                WHEN 3 THEN 'tony.ricci@huronhome.ca'
-                ELSE 'sarah.kim@huronhome.ca'
-            END;
+            v_emp_type := 'Full-time';
         ELSIF i <= 350 THEN
             v_department := v_departments[1 + floor(random() * array_length(v_departments, 1))::int];
             v_title := v_titles[1 + floor(random() * 7)::int];
-            v_emp_type := 'full-time';
-            v_manager_email := CASE floor(random() * 3)::int
-                WHEN 0 THEN 'robert.thompson@huronhome.ca'
-                WHEN 1 THEN 'lisa.wang@huronhome.ca'
-                ELSE 'michael.oconnor@huronhome.ca'
-            END;
+            v_emp_type := 'Full-time';
         ELSIF i <= 450 THEN
             v_department := v_departments[1 + floor(random() * array_length(v_departments, 1))::int];
             v_title := v_titles[1 + floor(random() * array_length(v_titles, 1))::int];
-            v_emp_type := 'part-time';
-            v_manager_email := CASE floor(random() * 5)::int
-                WHEN 0 THEN 'carlos.martinez@huronhome.ca'
-                WHEN 1 THEN 'mark.thompson@huronhome.ca'
-                WHEN 2 THEN 'catherine.brooks@huronhome.ca'
-                WHEN 3 THEN 'rachel.green@huronhome.ca'
-                ELSE 'jennifer.park@huronhome.ca'
-            END;
+            v_emp_type := 'Part-time';
         ELSE
-            -- Seasonal workers
             v_department := CASE floor(random() * 2)::int
                 WHEN 0 THEN 'Landscaping'
                 ELSE 'Snow Removal'
             END;
             v_title := 'Seasonal Worker';
-            v_emp_type := 'seasonal';
-            v_manager_email := CASE floor(random() * 2)::int
-                WHEN 0 THEN 'mark.thompson@huronhome.ca'
-                ELSE 'rachel.green@huronhome.ca'
-            END;
+            v_emp_type := 'Seasonal';
         END IF;
 
         -- Assign skills based on department
@@ -371,34 +432,52 @@ BEGIN
             WHEN 'Plumbing' THEN v_skills := ARRAY['Plumbing']::text[];
             WHEN 'Solar Energy' THEN v_skills := ARRAY['Electrical']::text[];
             WHEN 'Operations' THEN v_skills := ARRAY['HVAC', 'Plumbing', 'Electrical', 'Landscaping']::text[];
-            WHEN 'Finance' THEN v_skills := ARRAY[]::text[];
-            WHEN 'Human Resources' THEN v_skills := ARRAY[]::text[];
-            WHEN 'IT' THEN v_skills := ARRAY[]::text[];
-            WHEN 'Marketing' THEN v_skills := ARRAY[]::text[];
             WHEN 'Sales' THEN v_skills := ARRAY['HVAC', 'Plumbing', 'Electrical', 'Landscaping', 'General Contracting']::text[];
-            WHEN 'Customer Service' THEN v_skills := ARRAY[]::text[];
             ELSE v_skills := ARRAY[]::text[];
         END CASE;
 
-        -- Get manager ID
-        SELECT id INTO v_manager_id FROM app.employee WHERE email = v_manager_email LIMIT 1;
+        -- Default manager to CEO for simplicity
+        v_manager_id := 'e8260b1b-5efc-4611-ad33-ee76c0cf7f13';
 
         -- Generate hire date (between 2021-2024)
         v_hire_date := '2021-01-01'::date + (floor(random() * 1460)::int || ' days')::interval;
 
-        -- Insert employee
+        -- Generate new person_id
+        v_person_id := gen_random_uuid();
+
+        -- Insert person record (auth hub)
+        INSERT INTO app.person (
+            id,
+            code,
+            entity_code,
+            email,
+            password_hash,
+            email_verified_flag
+        ) VALUES (
+            v_person_id,
+            v_per_code,
+            'employee',
+            v_email,
+            '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', -- password123
+            true
+        );
+
+        -- Insert employee record
         INSERT INTO app.employee (
-            code, name, descr, email, password_hash,
+            code, name, descr, person_id,
+            first_name, last_name, email,
             phone, mobile,
             address_line1, city, province, postal_code, country,
             dl__employee_employment_type, department, title, hire_date, manager__employee_id,
             skills_service_categories
         ) VALUES (
-            v_code,
-            v_name,
+            v_emp_code,
+            v_full_name,
             v_title || ' in ' || v_department || ' department',
+            v_person_id,
+            v_first_name,
+            v_last_name,
             v_email,
-            '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', -- password123
             v_phone,
             v_mobile,
             v_street_number || ' ' || v_street,
@@ -406,12 +485,7 @@ BEGIN
             v_province,
             v_postal_code,
             'Canada',
-            CASE v_emp_type
-                WHEN 'full-time' THEN 'Full-time'
-                WHEN 'part-time' THEN 'Part-time'
-                WHEN 'seasonal' THEN 'Seasonal'
-                ELSE v_emp_type
-            END,
+            v_emp_type,
             v_department,
             v_title,
             v_hire_date,
@@ -423,6 +497,12 @@ BEGIN
 
     RAISE NOTICE '500 employees generated successfully!';
 END $$;
+
+-- Update person records with employee_id references (for generated employees)
+UPDATE app.person p
+SET employee_id = e.id
+FROM app.employee e
+WHERE e.person_id = p.id AND p.employee_id IS NULL;
 
 -- =====================================================
 -- REGISTER ALL EMPLOYEES IN entity_instance
@@ -450,7 +530,6 @@ SELECT
     'assigned_to'
 FROM app.employee e
 INNER JOIN app.role r ON (
-    -- Match employee titles to roles
     (e.title LIKE '%CEO%' AND r.role_code = 'CEO') OR
     (e.title LIKE '%CFO%' OR e.title LIKE '%Chief Financial%' AND r.role_code = 'CFO') OR
     (e.title LIKE '%CTO%' OR e.title LIKE '%Chief Technology%' AND r.role_code = 'CTO') OR
@@ -471,8 +550,7 @@ INNER JOIN app.role r ON (
     (e.title LIKE '%Financial Analyst%' AND r.role_code = 'ANALYST-FIN') OR
     (e.title LIKE '%HR Coordinator%' AND r.role_code = 'COORD-HR') OR
     (e.title LIKE '%IT Administrator%' AND r.role_code = 'ADMIN-IT') OR
-    (e.title LIKE '%Seasonal Worker%' AND r.role_code = 'SEASONAL') OR
-    (e.title LIKE '%Part-time%' OR e.employee_type = 'part-time' AND r.role_code = 'PT-SUPPORT')
+    (e.title LIKE '%Seasonal Worker%' AND r.role_code = 'SEASONAL')
 )
 WHERE e.active_flag = true;
 
