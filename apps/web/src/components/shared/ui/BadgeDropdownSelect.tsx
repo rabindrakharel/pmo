@@ -3,6 +3,11 @@
  * BADGE DROPDOWN SELECT - Shared dropdown component with Portal rendering
  * ============================================================================
  *
+ * v13.1: Design System Compliance
+ * - White surface backgrounds (bg-white)
+ * - Visible hover states (hover:bg-dark-50)
+ * - Consistent focus states (focus-visible:ring-slate-500/30)
+ *
  * v8.3.2: Renamed from ColoredDropdown to BadgeDropdownSelect
  *
  * Purpose: Reusable dropdown for datalabel fields with colored badges
@@ -144,30 +149,28 @@ export function BadgeDropdownSelect({
           onClick?.(e);
           setDropdownOpen(!dropdownOpen);
         }}
-        className={`w-full px-2.5 py-1.5 pr-8 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400 bg-dark-100 shadow-sm hover:border-dark-400 transition-colors text-left ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+        className={`w-full h-9 px-2.5 py-1.5 pr-8 border border-dark-300 rounded-md focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:border-slate-400 focus-visible:outline-none bg-white shadow-sm hover:border-dark-400 transition-colors text-left ${disabled ? 'cursor-not-allowed opacity-50 bg-dark-50' : 'cursor-pointer'}`}
         style={{
-          fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+          fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
           fontSize: '13px',
-          minHeight: '32px',
-          maxHeight: '32px',
         }}
       >
         {selectedOption ? (
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${selectedColor || 'bg-dark-100 text-dark-600'}`}>
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${selectedColor || 'bg-dark-100 text-dark-700'}`}>
             {selectedOption.label}
           </span>
         ) : (
-          <span className="text-dark-600">{placeholder}</span>
+          <span className="text-dark-500">{placeholder}</span>
         )}
       </button>
-      <ChevronDown className="h-4 w-4 text-dark-700 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+      <ChevronDown className="h-4 w-4 text-dark-500 absolute right-2.5 top-1/2 transform -translate-y-1/2 pointer-events-none" />
 
       {/* Dropdown menu - rendered via portal to avoid overflow clipping */}
       {dropdownOpen && createPortal(
         <div
           ref={dropdownRef}
           data-dropdown-portal=""
-          className="bg-dark-100 border border-dark-300 rounded-md overflow-auto"
+          className="bg-white border border-dark-200 rounded-lg overflow-auto"
           style={{
             position: 'absolute',
             top: `${dropdownPosition.top}px`,
@@ -182,7 +185,8 @@ export function BadgeDropdownSelect({
         >
           <div className="py-1">
             {options.map(opt => {
-              const optionColor = opt.metadata?.color_code || 'bg-dark-100 text-dark-600';
+              const optionColor = opt.metadata?.color_code || 'bg-dark-100 text-dark-700';
+              const isSelected = opt.value === value;
               return (
                 <button
                   key={opt.value}
@@ -192,7 +196,9 @@ export function BadgeDropdownSelect({
                     onChange(opt.value as string);
                     setDropdownOpen(false);
                   }}
-                  className="w-full px-3 py-2 text-left hover:bg-dark-100 transition-colors flex items-center"
+                  className={`w-full px-3 py-2 text-left transition-colors flex items-center ${
+                    isSelected ? 'bg-slate-50' : 'hover:bg-dark-50'
+                  } focus-visible:bg-dark-100 focus-visible:outline-none`}
                 >
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${optionColor}`}>
                     {opt.label}

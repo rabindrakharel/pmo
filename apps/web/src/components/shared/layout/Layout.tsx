@@ -96,25 +96,25 @@ export function Layout({ children, createButton }: LayoutProps) {
   };
 
   return (
-    <div className="h-screen bg-dark-100 flex">
+    <div className="h-screen bg-dark-50 flex">
       {/* Main Sidebar - Always show, never show settings sidebar */}
       {isVisible && !isSettingsMode && (
-        <div className={`${isCollapsed ? 'w-16' : 'w-44'} bg-dark-100 border-r border-dark-300 transition-all duration-300 ease-in-out flex flex-col`}>
+        <div className={`${isCollapsed ? 'w-16' : 'w-44'} bg-white border-r border-dark-200 transition-all duration-300 ease-in-out flex flex-col`}>
           <div className="flex flex-col h-full">
           {/* Logo and Collapse Button */}
-          <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} h-14 px-4 border-b border-dark-300`}>
+          <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} h-14 px-4 border-b border-dark-200`}>
             <div className="flex items-center">
-              <div className="h-7 w-7 border border-dark-400 rounded flex items-center justify-center">
-                <span className="text-dark-600 font-normal text-xs">PMO</span>
+              <div className="h-7 w-7 bg-slate-600 rounded flex items-center justify-center">
+                <span className="text-white font-medium text-xs">PMO</span>
               </div>
               {!isCollapsed && (
-                <span className="ml-3 text-sm font-normal text-dark-600">Task Manager</span>
+                <span className="ml-3 text-sm font-semibold text-dark-800">Task Manager</span>
               )}
             </div>
             {!isCollapsed && (
               <button
                 onClick={collapseSidebar}
-                className="p-1.5 rounded-md text-dark-600 hover:text-dark-700 hover:bg-dark-100 transition-all duration-200"
+                className="p-1.5 rounded-md text-dark-500 hover:text-dark-700 hover:bg-dark-100 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-all duration-200"
               >
                 <ChevronLeft className="h-4 w-4 stroke-[1.5]" />
               </button>
@@ -123,10 +123,10 @@ export function Layout({ children, createButton }: LayoutProps) {
 
           {/* Expand Button (when collapsed) */}
           {isCollapsed && (
-            <div className="px-2 py-3 border-b border-dark-300">
+            <div className="px-2 py-3 border-b border-dark-200">
               <button
                 onClick={uncollapseSidebar}
-                className="w-full p-2 rounded-md text-dark-600 hover:text-dark-700 hover:bg-dark-100 transition-all duration-200 flex justify-center"
+                className="w-full p-2 rounded-md text-dark-500 hover:text-dark-700 hover:bg-dark-100 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-all duration-200 flex justify-center"
               >
                 <Menu className="h-4 w-4 stroke-[1.5]" />
               </button>
@@ -134,16 +134,16 @@ export function Layout({ children, createButton }: LayoutProps) {
           )}
 
           {/* Main Navigation - scrollable to ensure user profile is always visible */}
-          <nav className="flex-1 px-2 py-2 space-y-0 overflow-y-auto scrollbar-elegant min-h-0">
+          <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto scrollbar-elegant min-h-0">
             {/* Settings Button */}
             <button
               onClick={enterSettingsMode}
-              className={`text-dark-700 hover:bg-dark-100 hover:text-dark-600 w-full group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-1.5 text-sm font-normal rounded-l-lg transition-all duration-200`}
+              className={`text-dark-600 hover:bg-dark-100 hover:text-dark-800 w-full group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2 text-sm font-medium rounded-md focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-all duration-200`}
               title={isCollapsed ? 'Settings' : undefined}
             >
-              <Settings className={`text-dark-700 group-hover:text-dark-700 ${isCollapsed ? '' : 'mr-3'} h-5 w-5 stroke-[1.5] transition-colors duration-200`} />
+              <Settings className={`text-dark-500 group-hover:text-dark-700 ${isCollapsed ? '' : 'mr-3'} h-5 w-5 stroke-[1.5] transition-colors duration-200`} />
               {!isCollapsed && (
-                <span className="text-sm font-normal flex-1 text-left">Settings</span>
+                <span className="text-sm font-medium flex-1 text-left">Settings</span>
               )}
             </button>
 
@@ -157,15 +157,15 @@ export function Layout({ children, createButton }: LayoutProps) {
                   to={item.href}
                   className={`${
                     isActive
-                      ? 'bg-dark-100 text-dark-600 border-r-2 border-dark-400'
-                      : 'text-dark-700 hover:bg-dark-100 hover:text-dark-600'
-                  } group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-1.5 text-sm font-normal rounded-l-lg transition-all duration-200`}
+                      ? 'bg-slate-100 text-slate-700 border-r-2 border-slate-500'
+                      : 'text-dark-600 hover:bg-dark-100 hover:text-dark-800'
+                  } group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2 text-sm font-medium rounded-l-md focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-all duration-200`}
                   title={isCollapsed ? item.name : undefined}
                 >
                   <IconComponent className={`${
-                    isActive ? 'text-dark-600' : 'text-dark-700 group-hover:text-dark-700'
+                    isActive ? 'text-slate-600' : 'text-dark-500 group-hover:text-dark-700'
                   } ${isCollapsed ? '' : 'mr-3'} h-5 w-5 stroke-[1.5] transition-colors duration-200`} />
-                  {!isCollapsed && <span className="text-sm font-normal">{item.name}</span>}
+                  {!isCollapsed && <span className="text-sm font-medium">{item.name}</span>}
                 </Link>
               );
             })}
@@ -173,7 +173,7 @@ export function Layout({ children, createButton }: LayoutProps) {
           </nav>
 
           {/* User Profile with Dropdown - fixed at bottom */}
-          <div className="border-t border-dark-300 p-3 relative flex-shrink-0">
+          <div className="border-t border-dark-200 p-3 relative flex-shrink-0">
             {!isCollapsed ? (
               <>
                 <button
@@ -181,23 +181,23 @@ export function Layout({ children, createButton }: LayoutProps) {
                     e.stopPropagation();
                     setIsUserMenuOpen(!isUserMenuOpen);
                   }}
-                  className="w-full flex items-center space-x-3 p-2 hover:bg-dark-100 rounded-md transition-colors duration-150"
+                  className="w-full flex items-center space-x-3 p-2 hover:bg-dark-100 rounded-md focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors duration-150"
                 >
-                  <div className="h-10 w-10 border border-dark-400 rounded-full flex items-center justify-center">
-                    <User className="h-5 w-5 text-dark-700 stroke-[1.5]" />
+                  <div className="h-10 w-10 bg-dark-100 border border-dark-200 rounded-full flex items-center justify-center">
+                    <User className="h-5 w-5 text-dark-600 stroke-[1.5]" />
                   </div>
                   <div className="flex-1 min-w-0 text-left">
-                    <div className="text-sm font-normal text-dark-600 truncate">{user?.name}</div>
-                    <div className="text-xs font-normal text-dark-700 truncate">{user?.email}</div>
+                    <div className="text-sm font-medium text-dark-800 truncate">{user?.name}</div>
+                    <div className="text-xs text-dark-500 truncate">{user?.email}</div>
                   </div>
-                  <ChevronDown className={`h-4 w-4 text-dark-600 transition-transform duration-150 ${
+                  <ChevronDown className={`h-4 w-4 text-dark-500 transition-transform duration-150 ${
                     isUserMenuOpen ? 'transform rotate-180' : ''
                   }`} />
                 </button>
 
                 {/* Dropdown Menu */}
                 {isUserMenuOpen && (
-                  <div className="absolute bottom-full left-3 right-3 mb-2 bg-dark-100 border border-dark-300 rounded-md shadow-sm py-2 z-50">
+                  <div className="absolute bottom-full left-3 right-3 mb-2 bg-white border border-dark-200 rounded-lg shadow-lg py-1 z-50">
                     {profileNavigationItems.map((item) => {
                       const IconComponent = item.icon;
                       const isActive = isCurrentPage(item.href);
@@ -210,23 +210,23 @@ export function Layout({ children, createButton }: LayoutProps) {
                           }}
                           className={`${
                             isActive
-                              ? 'bg-dark-100 text-dark-600'
-                              : 'text-dark-600 hover:bg-dark-100 hover:text-dark-600'
-                          } flex items-center px-3 py-2 text-sm transition-colors duration-150`}
+                              ? 'bg-slate-100 text-slate-700'
+                              : 'text-dark-700 hover:bg-dark-50 hover:text-dark-800'
+                          } flex items-center px-3 py-2 text-sm font-medium transition-colors duration-150`}
                         >
                           <IconComponent className={`${
-                            isActive ? 'text-dark-600' : 'text-dark-700'
+                            isActive ? 'text-slate-600' : 'text-dark-500'
                           } mr-3 h-5 w-5 stroke-[1.5]`} />
                           {item.name}
                         </Link>
                       );
                     })}
-                    <hr className="my-2 border-dark-300" />
+                    <hr className="my-1 border-dark-200" />
                     <button
                       onClick={handleLogout}
-                      className="w-full flex items-center px-3 py-2 text-sm text-dark-600 hover:bg-dark-100 hover:text-dark-600 transition-colors duration-150"
+                      className="w-full flex items-center px-3 py-2 text-sm font-medium text-dark-700 hover:bg-dark-50 hover:text-dark-800 transition-colors duration-150"
                     >
-                      <LogOut className="mr-3 h-5 w-5 text-dark-700 stroke-[1.5]" />
+                      <LogOut className="mr-3 h-5 w-5 text-dark-500 stroke-[1.5]" />
                       Sign out
                     </button>
                   </div>
@@ -239,18 +239,18 @@ export function Layout({ children, createButton }: LayoutProps) {
                     e.stopPropagation();
                     setIsUserMenuOpen(!isUserMenuOpen);
                   }}
-                  className="h-8 w-8 border border-dark-400 rounded-full flex items-center justify-center hover:bg-dark-100 transition-colors"
+                  className="h-8 w-8 bg-dark-100 border border-dark-200 rounded-full flex items-center justify-center hover:bg-dark-200 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors"
                   title={user?.name}
                 >
-                  <User className="h-4 w-4 text-dark-700 stroke-[1.5]" />
+                  <User className="h-4 w-4 text-dark-600 stroke-[1.5]" />
                 </button>
-                
+
                 {/* Collapsed Dropdown Menu */}
                 {isUserMenuOpen && (
-                  <div className="absolute bottom-full left-16 mb-2 bg-dark-100 border border-dark-300 rounded-md shadow-sm py-2 z-50 min-w-48">
-                    <div className="px-3 py-2 border-b border-dark-300">
-                      <div className="text-sm font-normal text-dark-600 truncate">{user?.name}</div>
-                      <div className="text-xs font-normal text-dark-700 truncate">{user?.email}</div>
+                  <div className="absolute bottom-full left-16 mb-2 bg-white border border-dark-200 rounded-lg shadow-lg py-1 z-50 min-w-48">
+                    <div className="px-3 py-2 border-b border-dark-200">
+                      <div className="text-sm font-medium text-dark-800 truncate">{user?.name}</div>
+                      <div className="text-xs text-dark-500 truncate">{user?.email}</div>
                     </div>
                     {profileNavigationItems.map((item) => {
                       const IconComponent = item.icon;
@@ -260,28 +260,27 @@ export function Layout({ children, createButton }: LayoutProps) {
                           key={item.href}
                           href={item.href}
                           onClick={() => {
-                            setCurrentPage(item.href);
                             setIsUserMenuOpen(false);
                           }}
                           className={`${
                             isActive
-                              ? 'bg-dark-100 text-dark-600'
-                              : 'text-dark-600 hover:bg-dark-100 hover:text-dark-600'
-                          } flex items-center px-3 py-2 text-sm transition-colors duration-150`}
+                              ? 'bg-slate-100 text-slate-700'
+                              : 'text-dark-700 hover:bg-dark-50 hover:text-dark-800'
+                          } flex items-center px-3 py-2 text-sm font-medium transition-colors duration-150`}
                         >
                           <IconComponent className={`${
-                            isActive ? 'text-dark-600' : 'text-dark-700'
+                            isActive ? 'text-slate-600' : 'text-dark-500'
                           } mr-3 h-5 w-5 stroke-[1.5]`} />
                           {item.name}
                         </a>
                       );
                     })}
-                    <hr className="my-2 border-dark-300" />
+                    <hr className="my-1 border-dark-200" />
                     <button
                       onClick={handleLogout}
-                      className="w-full flex items-center px-3 py-2 text-sm text-dark-600 hover:bg-dark-100 hover:text-dark-600 transition-colors duration-150"
+                      className="w-full flex items-center px-3 py-2 text-sm font-medium text-dark-700 hover:bg-dark-50 hover:text-dark-800 transition-colors duration-150"
                     >
-                      <LogOut className="mr-3 h-5 w-5 text-dark-700 stroke-[1.5]" />
+                      <LogOut className="mr-3 h-5 w-5 text-dark-500 stroke-[1.5]" />
                       Sign out
                     </button>
                   </div>
@@ -296,7 +295,7 @@ export function Layout({ children, createButton }: LayoutProps) {
       {/* Main content area - always present */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Page content - this is the key part that must stay mounted */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-dark-100 p-4 pb-8">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-dark-50 p-4 pb-8">
           {/* Create Button in Content Area */}
           {createButton && (
             <div className="flex justify-end mb-4">

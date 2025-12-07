@@ -440,7 +440,7 @@ function EntityInstanceFormContainerInner({
   // ============================================================================
 
   return (
-    <div className="bg-dark-100 rounded-xl shadow-sm overflow-hidden border border-dark-300
+    <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-dark-200
                    transition-all hover:shadow-md">
       <div className="p-6">
         <div className="space-y-0">
@@ -494,12 +494,12 @@ function EntityInstanceFormContainerInner({
             return (
               <div key={field.key}>
                 {index > 0 && (
-                  <div className="h-px my-3 bg-gradient-to-r from-transparent via-dark-300 to-transparent" />
+                  <div className="h-px my-3 bg-gradient-to-r from-transparent via-dark-200 to-transparent" />
                 )}
                 <div className="group transition-all duration-200 ease-out py-1">
                   <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-4 items-start">
                     <label className="text-xs font-medium text-dark-600 pt-2.5 flex items-center gap-2 uppercase tracking-wider">
-                      <span className="opacity-70 group-hover:opacity-100 transition-opacity duration-200">
+                      <span className="opacity-80 group-hover:opacity-100 transition-opacity duration-200">
                         {/* Date Range label */}
                         {(() => {
                           const rangeLabel = getDateRangeLabel(field.key);
@@ -517,8 +517,8 @@ function EntityInstanceFormContainerInner({
                         relative break-words rounded-lg px-3 py-2.5 -ml-3
                         transition-all duration-200 ease-out
                         ${effectiveIsEditing
-                          ? 'bg-dark-50 hover:bg-dark-200 shadow-sm focus-within:bg-dark-100 focus-within:shadow-md focus-within:ring-2 focus-within:ring-slate-500/30 focus-within:border-slate-500'
-                          : 'hover:bg-dark-50 group-hover:bg-dark-200'
+                          ? 'bg-dark-50 shadow-sm focus-within:bg-white focus-within:shadow-md focus-within:ring-2 focus-within:ring-slate-500/30'
+                          : 'hover:bg-dark-50'
                         }
                         ${!isEditing && inlineEditable && isFieldEditable ? 'cursor-text' : ''}
                         text-sm text-dark-700 leading-relaxed

@@ -29,21 +29,21 @@ export const Modal: React.FC<ModalProps> = ({
 
   return (
     <>
-      {/* Backdrop - Following design system v10.0 */}
+      {/* Backdrop - Following design system v13.1 */}
       <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal Container */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div
-          className={`bg-dark-100 rounded-xl shadow-2xl w-full ${sizeClasses[size]} max-h-[90vh] flex flex-col`}
+          className={`bg-white rounded-xl shadow-2xl w-full ${sizeClasses[size]} max-h-[90vh] flex flex-col`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-dark-300">
-            <h2 className="text-lg font-semibold text-dark-700">{title}</h2>
+          <div className="flex items-center justify-between px-6 py-4 border-b border-dark-200">
+            <h2 className="text-lg font-semibold text-dark-800">{title}</h2>
             <button
               onClick={onClose}
-              className="p-1 hover:bg-dark-200 rounded-md transition-colors"
+              className="p-1.5 hover:bg-dark-100 rounded-md focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors"
             >
               <X className="h-5 w-5 text-dark-500" />
             </button>
@@ -56,7 +56,7 @@ export const Modal: React.FC<ModalProps> = ({
 
           {/* Footer */}
           {footer && (
-            <div className="px-6 py-4 border-t border-dark-300 flex justify-end gap-2">
+            <div className="px-6 py-4 border-t border-dark-200 bg-dark-50 rounded-b-xl flex justify-end gap-2">
               {footer}
             </div>
           )}

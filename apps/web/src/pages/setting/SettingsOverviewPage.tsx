@@ -581,17 +581,17 @@ export function SettingsOverviewPage() {
           <div className="flex items-center gap-4">
             <button
               onClick={exitSettingsMode}
-              className="p-2 rounded-md text-dark-700 hover:bg-dark-200 transition-all hover:scale-105"
+              className="p-2 rounded-md text-dark-500 hover:text-dark-700 hover:bg-dark-100 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-all"
               title="Exit Settings"
             >
               <LucideIcons.ArrowLeft className="h-5 w-5 stroke-[2]" />
             </button>
             <div className="flex items-center gap-3.5">
-              <div className="p-2.5 bg-gradient-to-br from-blue-50 to-dark-50 rounded-xl border border-dark-200 shadow-sm">
+              <div className="p-2.5 bg-slate-100 rounded-xl border border-dark-200 shadow-sm">
                 <LucideIcons.Settings className="h-6 w-6 text-slate-600 stroke-[1.5]" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-dark-700 tracking-tight">Settings</h1>
+                <h1 className="text-xl font-semibold text-dark-800 tracking-tight">Settings</h1>
                 <p className="text-sm text-dark-600 mt-0.5">Manage your system configuration and data labels</p>
               </div>
             </div>
@@ -599,14 +599,14 @@ export function SettingsOverviewPage() {
         </div>
 
         {/* Main Tabs */}
-        <div className="bg-dark-100 rounded-xl p-4 border border-dark-300 mb-8">
+        <div className="bg-white rounded-xl p-4 border border-dark-200 shadow-sm mb-8">
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setActiveMainTab('entities')}
-              className={`flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none ${
                 activeMainTab === 'entities'
                   ? 'bg-slate-600 text-white shadow-sm'
-                  : 'bg-white text-dark-700 border border-dark-300 hover:border-dark-400'
+                  : 'bg-dark-50 text-dark-700 border border-dark-200 hover:bg-dark-100 hover:border-dark-300'
               }`}
             >
               <LucideIcons.Database className="h-3.5 w-3.5" />
@@ -615,10 +615,10 @@ export function SettingsOverviewPage() {
 
             <button
               onClick={() => setActiveMainTab('entityMapping')}
-              className={`flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none ${
                 activeMainTab === 'entityMapping'
                   ? 'bg-slate-600 text-white shadow-sm'
-                  : 'bg-white text-dark-700 border border-dark-300 hover:border-dark-400'
+                  : 'bg-dark-50 text-dark-700 border border-dark-200 hover:bg-dark-100 hover:border-dark-300'
               }`}
             >
               <LucideIcons.Link className="h-3.5 w-3.5" />
@@ -628,10 +628,10 @@ export function SettingsOverviewPage() {
 
             <button
               onClick={() => setActiveMainTab('secretsVault')}
-              className={`flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none ${
                 activeMainTab === 'secretsVault'
                   ? 'bg-slate-600 text-white shadow-sm'
-                  : 'bg-white text-dark-700 border border-dark-300 hover:border-dark-400'
+                  : 'bg-dark-50 text-dark-700 border border-dark-200 hover:bg-dark-100 hover:border-dark-300'
               }`}
             >
               <LucideIcons.Lock className="h-3.5 w-3.5" />
@@ -640,10 +640,10 @@ export function SettingsOverviewPage() {
 
             <button
               onClick={() => setActiveMainTab('integrations')}
-              className={`flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none ${
                 activeMainTab === 'integrations'
                   ? 'bg-slate-600 text-white shadow-sm'
-                  : 'bg-white text-dark-700 border border-dark-300 hover:border-dark-400'
+                  : 'bg-dark-50 text-dark-700 border border-dark-200 hover:bg-dark-100 hover:border-dark-300'
               }`}
             >
               <LucideIcons.Plug className="h-3.5 w-3.5" />
@@ -652,10 +652,10 @@ export function SettingsOverviewPage() {
 
             <button
               onClick={() => setActiveMainTab('accessControl')}
-              className={`flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none ${
                 activeMainTab === 'accessControl'
                   ? 'bg-slate-600 text-white shadow-sm'
-                  : 'bg-white text-dark-700 border border-dark-300 hover:border-dark-400'
+                  : 'bg-dark-50 text-dark-700 border border-dark-200 hover:bg-dark-100 hover:border-dark-300'
               }`}
             >
               <LucideIcons.Shield className="h-4 w-4" />
@@ -666,9 +666,9 @@ export function SettingsOverviewPage() {
 
         {/* Entity Mapping Tab */}
         {activeMainTab === 'entityMapping' && (
-          <div className="bg-white border border-dark-300 rounded-md p-6">
-            <h2 className="text-lg font-semibold text-dark-900 mb-3 flex items-center gap-2">
-              <LucideIcons.Link className="h-5 w-5" />
+          <div className="bg-white border border-dark-200 rounded-lg shadow-sm p-6">
+            <h2 className="text-lg font-semibold text-dark-800 mb-3 flex items-center gap-2">
+              <LucideIcons.Link className="h-5 w-5 text-slate-600" />
               Entity Mapping
             </h2>
             <p className="text-sm text-dark-600 mb-4">
@@ -682,14 +682,14 @@ export function SettingsOverviewPage() {
                   <button
                     key={card.href}
                     onClick={() => navigate(card.href)}
-                    className="group bg-dark-100 border border-dark-300 rounded-xl p-4 hover:border-slate-400 hover:shadow-lg transition-all duration-200 text-left hover:scale-[1.02]"
+                    className="group bg-dark-50 border border-dark-200 rounded-lg p-4 hover:bg-white hover:border-slate-300 hover:shadow-md focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-all duration-200 text-left"
                   >
                     <div className="flex items-start gap-3.5">
-                      <div className="p-2.5 bg-gradient-to-br from-dark-50 to-blue-50 rounded-md group-hover:from-dark-100 group-hover:to-blue-100 transition-all duration-200 border border-dark-200 group-hover:border-dark-300">
+                      <div className="p-2.5 bg-white rounded-md border border-dark-200 group-hover:border-slate-300 transition-all duration-200">
                         <IconComponent className="h-5 w-5 text-slate-600 stroke-[1.5]" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-bold text-dark-700 mb-1 group-hover:text-slate-700 transition-colors">
+                        <h3 className="text-sm font-semibold text-dark-800 mb-1 group-hover:text-slate-700 transition-colors">
                           {card.title}
                         </h3>
                         <p className="text-xs text-dark-600 line-clamp-2 leading-relaxed">{card.description}</p>
@@ -705,18 +705,18 @@ export function SettingsOverviewPage() {
 
         {/* Integrations Tab */}
         {activeMainTab === 'integrations' && (
-          <div className="bg-white border border-dark-300 rounded-md p-6">
-            <h2 className="text-lg font-semibold text-dark-900 mb-3 flex items-center gap-2">
-              <LucideIcons.Plug className="h-5 w-5" />
+          <div className="bg-white border border-dark-200 rounded-lg shadow-sm p-6">
+            <h2 className="text-lg font-semibold text-dark-800 mb-3 flex items-center gap-2">
+              <LucideIcons.Plug className="h-5 w-5 text-slate-600" />
               Integrations
             </h2>
             <p className="text-sm text-dark-600 mb-4">
               Manage external service integrations, API connections, and third-party system configurations.
               Configure webhooks, OAuth providers, and external data sources.
             </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-md p-4 text-sm text-blue-900">
-              <p className="font-medium mb-2">Integration Features</p>
-              <ul className="list-disc list-inside space-y-1 text-blue-700">
+            <div className="bg-sky-50 border border-sky-200 rounded-lg p-4 text-sm text-sky-900">
+              <p className="font-semibold mb-2">Integration Features</p>
+              <ul className="list-disc list-inside space-y-1 text-sky-700">
                 <li>Connect to third-party APIs and services</li>
                 <li>Configure webhooks for real-time events</li>
                 <li>Set up OAuth providers for authentication</li>
@@ -729,18 +729,18 @@ export function SettingsOverviewPage() {
 
         {/* Secrets Vault Tab */}
         {activeMainTab === 'secretsVault' && (
-          <div className="bg-white border border-dark-300 rounded-md p-6">
-            <h2 className="text-lg font-semibold text-dark-900 mb-3 flex items-center gap-2">
-              <LucideIcons.Lock className="h-5 w-5" />
+          <div className="bg-white border border-dark-200 rounded-lg shadow-sm p-6">
+            <h2 className="text-lg font-semibold text-dark-800 mb-3 flex items-center gap-2">
+              <LucideIcons.Lock className="h-5 w-5 text-slate-600" />
               Secrets Vault
             </h2>
             <p className="text-sm text-dark-600 mb-4">
               Securely manage API keys, passwords, certificates, and other sensitive credentials.
               All secrets are encrypted and stored with audit logging for compliance.
             </p>
-            <div className="bg-green-50 border border-green-200 rounded-md p-4 text-sm text-green-900">
-              <p className="font-medium mb-2">Secrets Management Features</p>
-              <ul className="list-disc list-inside space-y-1 text-green-700">
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 text-sm text-emerald-900">
+              <p className="font-semibold mb-2">Secrets Management Features</p>
+              <ul className="list-disc list-inside space-y-1 text-emerald-700">
                 <li>Store API keys and tokens securely</li>
                 <li>Manage database connection strings</li>
                 <li>Store SSL certificates and private keys</li>
@@ -756,9 +756,9 @@ export function SettingsOverviewPage() {
         {activeMainTab === 'accessControl' && (
           <div className="space-y-6">
             {/* Header */}
-            <div className="bg-white border border-dark-300 rounded-md p-6">
-              <h2 className="text-lg font-semibold text-dark-900 mb-3 flex items-center gap-2">
-                <LucideIcons.Shield className="h-5 w-5" />
+            <div className="bg-white border border-dark-200 rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-dark-800 mb-3 flex items-center gap-2">
+                <LucideIcons.Shield className="h-5 w-5 text-slate-600" />
                 Access Control - RBAC Management
               </h2>
               <p className="text-sm text-dark-600">
@@ -770,9 +770,9 @@ export function SettingsOverviewPage() {
             {/* Three Sub-Sections */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* 1. Roles Management */}
-              <div className="bg-white border border-dark-300 rounded-md p-6">
-                <h3 className="text-base font-semibold text-dark-900 mb-3 flex items-center gap-2">
-                  <LucideIcons.Users className="h-4 w-4" />
+              <div className="bg-white border border-dark-200 rounded-lg shadow-sm p-6">
+                <h3 className="text-base font-semibold text-dark-800 mb-3 flex items-center gap-2">
+                  <LucideIcons.Users className="h-4 w-4 text-slate-600" />
                   Roles Management
                 </h3>
                 <p className="text-sm text-dark-600 mb-4">
@@ -780,12 +780,12 @@ export function SettingsOverviewPage() {
                 </p>
                 <button
                   onClick={() => navigate('/role')}
-                  className="w-full px-4 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors text-sm font-medium"
+                  className="w-full px-4 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors text-sm font-medium shadow-sm"
                 >
                   Manage Roles →
                 </button>
                 <div className="mt-4 text-xs text-dark-500">
-                  <p className="font-medium mb-1">Quick Stats:</p>
+                  <p className="font-medium text-dark-700 mb-1">Quick Stats:</p>
                   <ul className="list-disc list-inside space-y-1 text-dark-600">
                     <li>Total Roles: {roleStats.loading ? <InlineSpinner /> : roleStats.total}</li>
                     <li>Active Roles: {roleStats.loading ? <InlineSpinner /> : roleStats.active}</li>
@@ -794,9 +794,9 @@ export function SettingsOverviewPage() {
               </div>
 
               {/* 2. Employee Role Assignment */}
-              <div className="bg-white border border-dark-300 rounded-md p-6">
-                <h3 className="text-base font-semibold text-dark-900 mb-3 flex items-center gap-2">
-                  <LucideIcons.Users className="h-4 w-4" />
+              <div className="bg-white border border-dark-200 rounded-lg shadow-sm p-6">
+                <h3 className="text-base font-semibold text-dark-800 mb-3 flex items-center gap-2">
+                  <LucideIcons.Users className="h-4 w-4 text-slate-600" />
                   Employee ↔ Role Assignment
                 </h3>
                 <p className="text-sm text-dark-600 mb-4">
@@ -804,12 +804,12 @@ export function SettingsOverviewPage() {
                 </p>
                 <button
                   onClick={() => navigate('/role')}
-                  className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
+                  className="w-full px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:outline-none transition-colors text-sm font-medium shadow-sm"
                 >
                   Assign Employees →
                 </button>
                 <div className="mt-4 text-xs text-dark-500">
-                  <p className="font-medium mb-1">How it works:</p>
+                  <p className="font-medium text-dark-700 mb-1">How it works:</p>
                   <ul className="list-disc list-inside space-y-1 text-dark-600">
                     <li>Navigate to a role</li>
                     <li>View "Employees" tab</li>
@@ -819,9 +819,9 @@ export function SettingsOverviewPage() {
               </div>
 
               {/* 3. Permission Management */}
-              <div className="bg-white border border-dark-300 rounded-md p-6">
-                <h3 className="text-base font-semibold text-dark-900 mb-3 flex items-center gap-2">
-                  <LucideIcons.Shield className="h-4 w-4" />
+              <div className="bg-white border border-dark-200 rounded-lg shadow-sm p-6">
+                <h3 className="text-base font-semibold text-dark-800 mb-3 flex items-center gap-2">
+                  <LucideIcons.Shield className="h-4 w-4 text-slate-600" />
                   Permission Management
                 </h3>
                 <p className="text-sm text-dark-600 mb-4">
@@ -829,12 +829,12 @@ export function SettingsOverviewPage() {
                 </p>
                 <button
                   onClick={() => setShowPermissionModal(true)}
-                  className="w-full px-4 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors text-sm font-medium"
+                  className="w-full px-4 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors text-sm font-medium shadow-sm"
                 >
                   Grant Permissions →
                 </button>
                 <div className="mt-4 text-xs text-dark-500">
-                  <p className="font-medium mb-1">Permission Levels:</p>
+                  <p className="font-medium text-dark-700 mb-1">Permission Levels:</p>
                   <ul className="list-disc list-inside space-y-1 text-dark-600">
                     <li>0: View | 1: Edit | 2: Share</li>
                     <li>3: Delete | 4: Create | 5: Owner</li>
@@ -844,15 +844,15 @@ export function SettingsOverviewPage() {
             </div>
 
             {/* RBAC Overview Summary */}
-            <div className="bg-white border border-dark-300 rounded-md p-6">
+            <div className="bg-white border border-dark-200 rounded-lg shadow-sm p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-semibold text-dark-900 flex items-center gap-2">
-                  <LucideIcons.Shield className="h-4 w-4" />
+                <h3 className="text-base font-semibold text-dark-800 flex items-center gap-2">
+                  <LucideIcons.Shield className="h-4 w-4 text-slate-600" />
                   Permissions Overview
                 </h3>
                 <button
                   onClick={() => setShowPermissionModal(true)}
-                  className="px-3 py-1.5 bg-slate-600 text-white text-sm rounded-md hover:bg-slate-700 transition-colors font-medium flex items-center gap-2"
+                  className="px-3 py-1.5 bg-slate-600 text-white text-sm rounded-md hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors font-medium flex items-center gap-2 shadow-sm"
                 >
                   <LucideIcons.Plus className="h-3.5 w-3.5" />
                   Grant Permission

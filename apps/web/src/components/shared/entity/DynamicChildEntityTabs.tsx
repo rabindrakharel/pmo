@@ -53,7 +53,7 @@ export function DynamicChildEntityTabs({
   return (
     <div className={className}>
       {/* Tab Navigation - JIRA-style horizontal tabs with underline indicator */}
-      <nav className="flex gap-6 px-1" aria-label="Project navigation">
+      <nav className="flex gap-1" aria-label="Project navigation">
         {tabs.map((tab) => {
           const isActive = activeTab?.id === tab.id;
           const IconComponent = tab.icon || getIconComponent(null);
@@ -65,16 +65,16 @@ export function DynamicChildEntityTabs({
               disabled={tab.disabled}
               title={tab.tooltip}
               className={[
-                'relative flex items-center gap-2 py-3 text-sm font-medium transition-colors',
+                'relative flex items-center gap-2 px-3 py-2.5 text-sm font-medium rounded-md transition-all focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none',
                 isActive
-                  ? 'text-dark-accent'
+                  ? 'text-slate-700 bg-slate-100'
                   : tab.disabled
                   ? 'text-dark-400 cursor-not-allowed'
-                  : 'text-dark-600 hover:text-dark-700 cursor-pointer'
+                  : 'text-dark-600 hover:text-dark-800 hover:bg-dark-100 cursor-pointer'
               ].join(' ')}
             >
               {/* Icon */}
-              <IconComponent className="h-4 w-4" aria-hidden="true" />
+              <IconComponent className={`h-4 w-4 ${isActive ? 'text-slate-600' : ''}`} aria-hidden="true" />
 
               {/* Label */}
               <span>{tab.label}</span>
@@ -83,7 +83,7 @@ export function DynamicChildEntityTabs({
               {tab.count !== undefined && (
                 <span className={[
                   'inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full text-xs font-medium',
-                  isActive ? 'bg-dark-accent-bg text-dark-accent' : 'bg-dark-200 text-dark-600'
+                  isActive ? 'bg-slate-200 text-slate-700' : 'bg-dark-200 text-dark-600'
                 ].join(' ')}>
                   {tab.count}
                 </span>
@@ -91,7 +91,7 @@ export function DynamicChildEntityTabs({
 
               {/* Active underline indicator */}
               {isActive && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-dark-accent" />
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-500 rounded-full" />
               )}
             </button>
           );

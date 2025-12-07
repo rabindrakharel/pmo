@@ -3,10 +3,16 @@
  * DATA TABLE BASE - Shared base component for all data table types
  * ============================================================================
  *
+ * v13.1 Design System Compliance:
+ * - White surface backgrounds (bg-white)
+ * - Visible hover states (hover:bg-dark-50)
+ * - Proper text hierarchy (dark-800/700/600/500)
+ * - Consistent focus states (focus-visible:ring-2)
+ *
  * Common functionality for EntityListOfInstancesTable and SettingsDataTable:
  * - Table structure (thead, tbody, pagination)
  * - Sorting UI
- * - Inline editing pattern (Edit → Check/Cancel)
+ * - Inline editing pattern (Edit -> Check/Cancel)
  * - Add row pattern
  * - Common styling and theming
  *
@@ -129,7 +135,7 @@ export function DataTableBase<T = any>({
 
   if (loading) {
     return (
-      <div className="bg-dark-100 rounded-md shadow-sm border border-dark-300">
+      <div className="bg-white rounded-lg shadow-sm border border-dark-200">
         <div className="flex items-center justify-center py-12">
           <EllipsisBounce size="md" text="Loading data" />
         </div>
@@ -138,21 +144,28 @@ export function DataTableBase<T = any>({
   }
 
   return (
-    <div className={`border border-dark-300 rounded-md ${className}`}>
+    <div className={`bg-white border border-dark-200 rounded-lg shadow-sm ${className}`}>
       {/* Scrollable table container */}
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-dark-400">
+        <table className="min-w-full divide-y divide-dark-200">
           {/* Table Header */}
-          <thead className="bg-dark-100">
+          <thead className="bg-dark-50">
             <tr>
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`px-6 py-3 text-left text-xs font-medium text-dark-700 uppercase tracking-wider ${
-                    col.sortable && !allowReordering ? 'cursor-pointer hover:bg-dark-100' : ''
+                  className={`px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider ${
+                    col.sortable && !allowReordering ? 'cursor-pointer hover:bg-dark-100 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-500/30 focus-visible:outline-none' : ''
                   } transition-colors`}
                   style={{ width: col.width, textAlign: col.align || 'left' }}
                   onClick={() => col.sortable && !allowReordering && onSort(col.key)}
+                  tabIndex={col.sortable && !allowReordering ? 0 : undefined}
+                  onKeyDown={(e) => {
+                    if (col.sortable && !allowReordering && (e.key === 'Enter' || e.key === ' ')) {
+                      e.preventDefault();
+                      onSort(col.key);
+                    }
+                  }}
                 >
                   <div className="flex items-center gap-2">
                     <span>{col.title}</span>
@@ -164,7 +177,7 @@ export function DataTableBase<T = any>({
           </thead>
 
           {/* Table Body */}
-          <tbody className="bg-dark-100 divide-y divide-dark-400">
+          <tbody className="bg-white divide-y divide-dark-200">
             {data.map((record, index) => {
               const rowKey = getRowKey(record, index);
               const isEditing = editingRowId === rowKey;
@@ -177,7 +190,7 @@ export function DataTableBase<T = any>({
                   {isDragOver && draggedIndex !== null && (
                     <tr className="relative pointer-events-none">
                       <td colSpan={columns.length} className="p-0 h-0">
-                        <div className="absolute left-0 right-0 h-1 bg-dark-1000 shadow-sm z-50"
+                        <div className="absolute left-0 right-0 h-1 bg-slate-500 shadow-sm z-50"
                              style={{ top: '-2px' }}
                         />
                       </td>
@@ -187,9 +200,11 @@ export function DataTableBase<T = any>({
                   <tr
                     className={`transition-all ${
                       isDragging ? 'opacity-40 bg-dark-100' :
-                      isEditing ? 'bg-dark-100' :
-                      'hover:bg-dark-100'
-                    } ${allowReordering && !isEditing ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                      isEditing ? 'bg-slate-50' :
+                      'hover:bg-dark-50'
+                    } ${allowReordering && !isEditing ? 'cursor-grab active:cursor-grabbing' : ''} ${
+                      onRowClick && !isEditing ? 'cursor-pointer' : ''
+                    }`}
                     draggable={allowReordering && !isEditing}
                     onDragStart={(e) => onDragStart?.(e, index)}
                     onDragOver={(e) => onDragOver?.(e, index)}
@@ -215,7 +230,7 @@ export function DataTableBase<T = any>({
                                     e.stopPropagation();
                                     onSaveEdit?.(record);
                                   }}
-                                  className="p-1.5 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded transition-colors"
+                                  className="p-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-md focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:outline-none transition-colors"
                                   title="Save"
                                 >
                                   <Check className="h-4 w-4" />
@@ -225,7 +240,7 @@ export function DataTableBase<T = any>({
                                     e.stopPropagation();
                                     onCancelEdit?.();
                                   }}
-                                  className="p-1.5 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded transition-colors"
+                                  className="p-1.5 text-dark-500 hover:text-dark-700 hover:bg-dark-100 rounded-md focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors"
                                   title="Cancel"
                                 >
                                   <X className="h-4 w-4" />
@@ -243,7 +258,7 @@ export function DataTableBase<T = any>({
                       return (
                         <td
                           key={column.key}
-                          className="px-6 py-2.5 whitespace-nowrap"
+                          className="px-6 py-2.5 whitespace-nowrap text-sm text-dark-700"
                           style={{ textAlign: column.align || 'left' }}
                         >
                           {renderCell(column, record, isEditing)}
@@ -259,7 +274,7 @@ export function DataTableBase<T = any>({
 
         {/* Empty state */}
         {data.length === 0 && !allowAddRow && (
-          <div className="text-center py-12 text-dark-700">
+          <div className="text-center py-12 text-dark-500">
             No data available
           </div>
         )}
@@ -267,33 +282,33 @@ export function DataTableBase<T = any>({
 
       {/* Add Row Button/Form - Prominent styling */}
       {allowAddRow && (
-        <div className="border-t border-dark-300 bg-dark-100">
+        <div className="border-t border-dark-200 bg-dark-50">
           {!isAddingRow ? (
             <button
               onClick={onStartAddRow}
-              className="w-full px-6 py-3.5 text-left text-sm font-medium text-dark-700 hover:bg-dark-100 hover:text-dark-700 transition-colors flex items-center gap-2 group"
+              className="w-full px-6 py-3.5 text-left text-sm font-medium text-dark-600 hover:bg-dark-100 hover:text-dark-800 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors flex items-center gap-2 group"
             >
-              <div className="flex items-center justify-center w-6 h-6 rounded-full bg-dark-100 group-hover:bg-dark-200 transition-colors">
+              <div className="flex items-center justify-center w-6 h-6 rounded-full bg-dark-200 group-hover:bg-dark-300 transition-colors">
                 <Plus className="h-4 w-4" />
               </div>
               <span>Add new row</span>
             </button>
           ) : (
-            <div className="p-4">
+            <div className="p-4 bg-white">
               {renderAddRowForm?.()}
 
               {/* Action Buttons */}
               <div className="flex items-center gap-2 mt-4">
                 <button
                   onClick={onSaveAddRow}
-                  className="flex items-center gap-2 px-4 py-2 border border-dark-400 text-dark-600 bg-dark-100 rounded-md hover:bg-dark-100 hover:border-dark-500 transition-colors text-sm shadow-sm"
+                  className="flex items-center gap-2 px-4 py-2 text-white bg-slate-600 rounded-md hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors text-sm font-medium shadow-sm"
                 >
                   <Check className="h-4 w-4" />
                   Save
                 </button>
                 <button
                   onClick={onCancelAddRow}
-                  className="flex items-center gap-2 px-4 py-2 border border-dark-400 text-dark-700 bg-dark-100 rounded-md hover:bg-dark-100 hover:border-dark-500 transition-colors text-sm"
+                  className="flex items-center gap-2 px-4 py-2 border border-dark-300 text-dark-700 bg-white rounded-md hover:bg-dark-50 hover:border-dark-400 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors text-sm font-medium"
                 >
                   <X className="h-4 w-4" />
                   Cancel
@@ -333,7 +348,7 @@ export function ActionButtons<T>({
             e.stopPropagation();
             onEdit(record);
           }}
-          className="p-1.5 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded transition-colors"
+          className="p-1.5 text-dark-500 hover:text-dark-700 hover:bg-dark-100 rounded-md focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors"
           title="Edit"
         >
           <Edit className="h-4 w-4" />
@@ -347,7 +362,7 @@ export function ActionButtons<T>({
               onDelete(record);
             }
           }}
-          className="p-1.5 text-red-600 hover:text-red-900 hover:bg-red-50 rounded transition-colors"
+          className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md focus-visible:ring-2 focus-visible:ring-red-500/30 focus-visible:outline-none transition-colors"
           title="Delete"
         >
           <Trash2 className="h-4 w-4" />
