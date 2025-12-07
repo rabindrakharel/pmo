@@ -144,7 +144,7 @@ export function SignInPage() {
   };
 
   return (
-    <div className="min-h-screen flex bg-dark-100">
+    <div className="min-h-screen flex bg-dark-50">
       {/* Left Panel - Form */}
       <div className="flex-1 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">
@@ -152,18 +152,18 @@ export function SignInPage() {
           <div>
             <Link
               to="/"
-              className="inline-flex items-center text-sm text-dark-700 hover:text-dark-600 mb-6"
+              className="inline-flex items-center text-sm text-dark-600 hover:text-dark-800 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none rounded mb-6"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to home
             </Link>
             <div className="flex items-center mb-6">
-              <div className="h-10 w-10 bg-gradient-to-br from-slate-700 to-slate-800 rounded-md flex items-center justify-center shadow-sm">
+              <div className="h-10 w-10 bg-slate-600 rounded-lg flex items-center justify-center shadow-sm">
                 <Building2 className="h-5 w-5 text-white" />
               </div>
-              <span className="ml-3 text-xl font-semibold text-dark-700">Huron PMO</span>
+              <span className="ml-3 text-xl font-semibold text-dark-800">Huron PMO</span>
             </div>
-            <h2 className="text-2xl font-bold text-dark-700">
+            <h2 className="text-2xl font-bold text-dark-800">
               {requiresMFA ? 'Two-Factor Authentication' : 'Welcome back'}
             </h2>
             <p className="mt-2 text-sm text-dark-600">
@@ -280,10 +280,10 @@ export function SignInPage() {
               <div className="mt-6">
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-dark-300" />
+                    <div className="w-full border-t border-dark-200" />
                   </div>
                   <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-dark-100 text-dark-600">Or continue with</span>
+                    <span className="px-2 bg-dark-50 text-dark-500">Or continue with</span>
                   </div>
                 </div>
 
@@ -291,7 +291,7 @@ export function SignInPage() {
                   <button
                     type="button"
                     onClick={() => handleSSOLogin('google')}
-                    className="w-full inline-flex justify-center py-2.5 px-4 border border-dark-300 rounded-md shadow-sm bg-white text-sm font-medium text-dark-700 hover:bg-dark-50 transition-colors"
+                    className="w-full inline-flex justify-center py-2.5 px-4 border border-dark-200 rounded-md shadow-sm bg-white text-sm font-medium text-dark-700 hover:bg-dark-50 hover:border-dark-300 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors"
                   >
                     <svg className="h-5 w-5" viewBox="0 0 24 24">
                       <path
@@ -316,7 +316,7 @@ export function SignInPage() {
                   <button
                     type="button"
                     onClick={() => handleSSOLogin('microsoft')}
-                    className="w-full inline-flex justify-center py-2.5 px-4 border border-dark-300 rounded-md shadow-sm bg-white text-sm font-medium text-dark-700 hover:bg-dark-50 transition-colors"
+                    className="w-full inline-flex justify-center py-2.5 px-4 border border-dark-200 rounded-md shadow-sm bg-white text-sm font-medium text-dark-700 hover:bg-dark-50 hover:border-dark-300 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors"
                   >
                     <svg className="h-5 w-5" viewBox="0 0 23 23">
                       <path fill="#f35325" d="M1 1h10v10H1z" />

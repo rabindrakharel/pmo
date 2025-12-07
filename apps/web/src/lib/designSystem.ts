@@ -1,13 +1,37 @@
 /**
- * Design System v13.0 - Production Grade
+ * Design System v13.1 - Production Grade
  *
  * Unified design tokens ensuring consistency across the entire application.
  * All components MUST use these constants - no arbitrary Tailwind classes.
  *
- * Color Philosophy:
- * - Primary: Slate-600 (#475569) - All primary actions, focus states
- * - Text: Near-black (#1A1A1A) - Maximum readability
- * - Backgrounds: Warm neutrals - Clean, professional appearance
+ * =============================================================================
+ * COLOR PHILOSOPHY & HIERARCHY
+ * =============================================================================
+ *
+ * PRIMARY BRAND:
+ * - Slate-600 (#475569) - All primary actions, focus states, active indicators
+ *
+ * TEXT HIERARCHY (use consistently):
+ * - dark-800: Page titles, section titles, headings
+ * - dark-700: Body text, primary content
+ * - dark-600: Secondary text, labels
+ * - dark-500: Muted text, placeholders, captions
+ * - dark-400: Disabled text
+ *
+ * BACKGROUND HIERARCHY (critical for visual depth):
+ * - dark-50:  Page canvas background (#FAFAFA)
+ * - white:    Cards, modals, dropdowns, surfaces
+ * - dark-100: Hover states ONLY (visible change from white)
+ * - dark-200: Borders, dividers
+ *
+ * HOVER STATE RULES (prevents invisible hovers):
+ * - bg-white → hover:bg-dark-50 or hover:bg-dark-100
+ * - bg-dark-50 → hover:bg-dark-100
+ * - NEVER: bg-dark-100 → hover:bg-dark-100 (same color = invisible)
+ *
+ * FOCUS STATE STANDARD:
+ * - All interactive: focus-visible:ring-2 focus-visible:ring-slate-500/30
+ * - Semantic focus: focus-visible:ring-{color}-500/30 for colored buttons
  */
 
 // =============================================================================
@@ -83,6 +107,68 @@ export const textStyles = {
     base: text.muted.sm,
     small: 'text-3xs text-dark-400',
   },
+} as const;
+
+// =============================================================================
+// SURFACES - Background hierarchy for visual depth
+// =============================================================================
+
+/**
+ * Surface System
+ * Proper background hierarchy ensures visual depth and clear hover feedback.
+ *
+ * LAYER ORDER (back to front):
+ * 1. Page canvas (dark-50) - Base layer
+ * 2. Cards/Panels (white) - Elevated surfaces
+ * 3. Hover states (dark-100) - Interactive feedback
+ * 4. Active states (dark-200) - Selected/pressed
+ */
+export const surface = {
+  // Page-level backgrounds
+  page: 'bg-dark-50',
+  pageAlt: 'bg-dark-100',
+
+  // Card surfaces (elevated from page)
+  card: 'bg-white border border-dark-200 rounded-lg shadow-sm',
+  cardHover: 'bg-white border border-dark-200 rounded-lg shadow-sm hover:shadow-md hover:border-dark-300 transition-all',
+  cardInteractive: 'bg-white border border-dark-200 rounded-lg shadow-sm hover:shadow-md hover:border-slate-300 transition-all cursor-pointer',
+
+  // Dropdown/Menu surfaces (highest elevation)
+  dropdown: 'bg-white border border-dark-200 rounded-lg shadow-lg',
+  popover: 'bg-white border border-dark-200 rounded-lg shadow-xl',
+  modal: 'bg-white rounded-xl shadow-2xl',
+
+  // Interactive row/item states
+  row: 'bg-white hover:bg-dark-50 transition-colors',
+  rowAlt: 'bg-dark-50 hover:bg-dark-100 transition-colors',
+  rowActive: 'bg-slate-100 text-slate-700',
+
+  // Subtle backgrounds (for nested content)
+  subtle: 'bg-dark-50',
+  subtleHover: 'bg-dark-50 hover:bg-dark-100 transition-colors',
+} as const;
+
+// =============================================================================
+// FOCUS STATES - Accessibility-compliant focus indicators
+// =============================================================================
+
+/**
+ * Focus System
+ * Consistent focus states for all interactive elements.
+ * Uses focus-visible to avoid showing focus on mouse click.
+ */
+export const focus = {
+  // Standard focus ring (slate - brand color)
+  ring: 'focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none',
+  ringOffset: 'focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:ring-offset-1 focus-visible:outline-none',
+
+  // Semantic focus rings
+  primary: 'focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none',
+  danger: 'focus-visible:ring-2 focus-visible:ring-red-500/30 focus-visible:outline-none',
+  success: 'focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:outline-none',
+
+  // Input focus (border + ring)
+  input: 'focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400 focus:outline-none',
 } as const;
 
 // =============================================================================
