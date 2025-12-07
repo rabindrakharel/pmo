@@ -1,30 +1,31 @@
 # PMO Frontend Design Pattern - Comprehensive Architecture Guide
 
-> **Version**: 12.0.0 | **Updated**: 2025-12-05
-> **Pattern**: TanStack Query + Dexie + Metadata-Driven Rendering + Optimistic Updates
+> **Version**: 13.0.0 | **Updated**: 2025-12-07
+> **Pattern**: TanStack Query + Dexie + Metadata-Driven Rendering + **Hydration Gate Pattern**
 
 ---
 
 ## Table of Contents
 
 1. [Architecture Overview](#1-architecture-overview)
-2. [Navigation & Routing](#2-navigation--routing)
-3. [Page Component Architecture](#3-page-component-architecture)
-4. [Cache Architecture (TanStack Query + Dexie)](#4-cache-architecture-tanstack-query--dexie)
-5. [Two-Query Pattern: Metadata + Data](#5-two-query-pattern-metadata--data)
-6. [Format-at-Read Pattern](#6-format-at-read-pattern)
-7. [Metadata-Driven Rendering](#7-metadata-driven-rendering)
-8. [DataTable Component Architecture](#8-datatable-component-architecture)
-9. [Inline Editing Pattern](#9-inline-editing-pattern)
-10. [Optimistic Updates Pattern](#10-optimistic-updates-pattern)
-11. [Inline Add Row Pattern](#11-inline-add-row-pattern)
-12. [Draft Persistence Pattern](#12-draft-persistence-pattern)
-13. [Reactive Re-rendering & Cache Subscriptions](#13-reactive-re-rendering--cache-subscriptions)
-14. [Sync vs Async Cache Access](#14-sync-vs-async-cache-access)
-15. [WebSocket Real-Time Invalidation](#15-websocket-real-time-invalidation)
-16. [Component Re-render Lifecycle](#16-component-re-render-lifecycle)
-17. [Error Handling & Rollback](#17-error-handling--rollback)
-18. [Performance Optimizations](#18-performance-optimizations)
+2. [**Hydration Gate Pattern (v13.0.0)**](#2-hydration-gate-pattern-v1300)
+3. [Navigation & Routing](#3-navigation--routing)
+4. [Page Component Architecture](#4-page-component-architecture)
+5. [Cache Architecture (TanStack Query + Dexie)](#5-cache-architecture-tanstack-query--dexie)
+6. [Two-Query Pattern: Metadata + Data](#6-two-query-pattern-metadata--data)
+7. [Format-at-Read Pattern](#7-format-at-read-pattern)
+8. [Metadata-Driven Rendering](#8-metadata-driven-rendering)
+9. [DataTable Component Architecture](#9-datatable-component-architecture)
+10. [Inline Editing Pattern](#10-inline-editing-pattern)
+11. [Optimistic Updates Pattern](#11-optimistic-updates-pattern)
+12. [Inline Add Row Pattern](#12-inline-add-row-pattern)
+13. [Draft Persistence Pattern](#13-draft-persistence-pattern)
+14. [Reactive Re-rendering & Cache Subscriptions](#14-reactive-re-rendering--cache-subscriptions)
+15. [Sync vs Async Cache Access](#15-sync-vs-async-cache-access)
+16. [WebSocket Real-Time Invalidation](#16-websocket-real-time-invalidation)
+17. [Component Re-render Lifecycle](#17-component-re-render-lifecycle)
+18. [Error Handling & Rollback](#18-error-handling--rollback)
+19. [Performance Optimizations](#19-performance-optimizations)
 
 ---
 
@@ -58,6 +59,11 @@
 │  5. TWO-QUERY PATTERN FOR PERCEIVED PERFORMANCE                             │
 │     • Query 1: Metadata (30-min cache) → Show table structure instantly     │
 │     • Query 2: Data (5-min cache) → Fill rows when ready                    │
+│                                                                              │
+│  6. HYDRATION GATE PATTERN (v13.0.0)                                        │
+│     • Block rendering until ALL session metadata is loaded                  │
+│     • Sync accessors (getDatalabelSync) GUARANTEED non-null after gate      │
+│     • Eliminates race conditions with unformatted data                      │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -110,7 +116,215 @@
 
 ---
 
-## 2. Navigation & Routing
+## 2. Hydration Gate Pattern (v13.0.0)
+
+### 2.1 Problem Statement
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    THE RACE CONDITION PROBLEM                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  BEFORE v13.0.0: Race Condition with Sync Accessors                         │
+│  ──────────────────────────────────────────────────                         │
+│                                                                              │
+│  Timeline:                                                                   │
+│  1. User logs in → AuthContext starts prefetch                              │
+│  2. App renders routes IMMEDIATELY (isReady = isHydrated)                   │
+│  3. Component calls formatBadge() → getDatalabelSync() → NULL               │
+│  4. Badge renders with gray default (BROKEN UI)                             │
+│  5. Prefetch completes → cache populated (TOO LATE)                         │
+│                                                                              │
+│  SYMPTOMS:                                                                   │
+│  ─────────                                                                   │
+│  • Badges showing gray instead of colored                                   │
+│  • Entity reference fields showing "uuid..." instead of names               │
+│  • Dropdowns empty on first render                                          │
+│  • UI "flashes" with unformatted data then corrects                        │
+│                                                                              │
+│  ROOT CAUSE:                                                                 │
+│  ───────────                                                                 │
+│  Sync accessors (getDatalabelSync) return null when cache is empty.         │
+│  Components render BEFORE prefetch completes.                               │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 2.2 Solution: Hydration Gate Pattern
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    HYDRATION GATE PATTERN (v13.0.0)                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  CONCEPT: Block rendering until ALL session metadata is loaded              │
+│  ──────────────────────────────────────────────────────────────             │
+│                                                                              │
+│  Industry Examples: Linear, Notion, Vercel Dashboard                        │
+│                                                                              │
+│  FLOW:                                                                       │
+│  ──────                                                                      │
+│  1. User logs in                                                            │
+│  2. AuthContext starts prefetch                                             │
+│  3. ProtectedRoute wraps children in <MetadataGate>                         │
+│  4. MetadataGate shows loading screen until isMetadataLoaded = true         │
+│  5. AuthContext calls setMetadataLoaded(true) after ALL prefetch complete   │
+│  6. Gate opens → children render → formatters have GUARANTEED data          │
+│                                                                              │
+│  GUARANTEES after gate opens:                                               │
+│  ─────────────────────────────                                               │
+│  • getDatalabelSync(key) → ALWAYS returns data (never null)                 │
+│  • getEntityCodesSync() → ALWAYS returns data (never null)                  │
+│  • getEntityInstanceNameSync() → Returns names for prefetched entities      │
+│  • All formatters render correctly on first render                          │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 2.3 Component Architecture
+
+```typescript
+// apps/web/src/components/shared/gates/MetadataGate.tsx
+
+/**
+ * MetadataGate - Blocks rendering until session metadata is loaded
+ *
+ * Usage: Wrap protected routes in ProtectedRoute which includes MetadataGate
+ */
+export function MetadataGate({ children, loadingMessage }: MetadataGateProps) {
+  const { isMetadataLoaded } = useCacheContext();
+
+  // Gate: Block rendering until metadata is loaded
+  if (!isMetadataLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <EllipsisBounce size="lg" text={loadingMessage} />
+      </div>
+    );
+  }
+
+  // Gate passed - metadata is guaranteed available
+  return <>{children}</>;
+}
+```
+
+### 2.4 Integration Points
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    INTEGRATION ARCHITECTURE                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  1. CacheProvider (db/Provider.tsx)                                         │
+│     ├── Manages isMetadataLoaded state                                      │
+│     ├── Exposes setMetadataLoaded(boolean) to AuthContext                   │
+│     └── clearCache() resets isMetadataLoaded to false                       │
+│                                                                              │
+│  2. AuthContext (contexts/AuthContext.tsx)                                  │
+│     ├── login(): setMetadataLoaded(false) → prefetch → setMetadataLoaded(true)│
+│     ├── logout(): setMetadataLoaded(false) → clearCache()                   │
+│     └── refreshUser(): prefetch → setMetadataLoaded(true)                   │
+│                                                                              │
+│  3. ProtectedRoute (App.tsx)                                                │
+│     ├── Checks isAuthenticated first                                        │
+│     └── Wraps children in <MetadataGate>                                    │
+│                                                                              │
+│  4. MetadataGate (components/shared/gates/MetadataGate.tsx)                 │
+│     ├── Reads isMetadataLoaded from CacheContext                            │
+│     └── Blocks children until true                                          │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 2.5 Loading Sequence
+
+```
+TIME ─────────────────────────────────────────────────────────────────────────►
+
+LOGIN BUTTON CLICKED
+        │
+        ▼
+┌───────────────────────────────────────────────────────────────────────────────┐
+│ AuthContext.login()                                                            │
+│ ├── setMetadataLoaded(false)  ← GATE CLOSED                                   │
+│ ├── API: POST /api/v1/auth/login                                              │
+│ ├── setState({ isAuthenticated: true })                                       │
+│ ├── queryClient.clear() + resetDatabase()                                     │
+│ │                                                                              │
+│ ├── loadAllMetadata()                                                         │
+│ │   ├── prefetchAllDatalabels()      ← 58 datalabel sets                     │
+│ │   ├── prefetchEntityCodes()        ← 23 entity types                       │
+│ │   ├── prefetchGlobalSettings()     ← App config                            │
+│ │   └── prefetchRefDataEntityInstances() ← 300+ entity names                 │
+│ │                                                                              │
+│ └── setMetadataLoaded(true)  ← GATE OPENS                                     │
+│                                                                                │
+└───────────────────────────────────────────────────────────────────────────────┘
+        │
+        ▼
+┌───────────────────────────────────────────────────────────────────────────────┐
+│ ProtectedRoute renders children                                                │
+│ └── <MetadataGate> → isMetadataLoaded = true → render children               │
+│     └── EntityListOfInstancesPage renders                                     │
+│         └── formatBadge() → getDatalabelSync() → GUARANTEED DATA             │
+└───────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 2.6 Prefetched Session Data
+
+| Data Type | Prefetch Function | Sync Accessor | Purpose |
+|-----------|-------------------|---------------|---------|
+| **Datalabels** | `prefetchAllDatalabels()` | `getDatalabelSync(key)` | Badge colors, dropdown options |
+| **Entity Codes** | `prefetchEntityCodes()` | `getEntityCodesSync()` | Entity type definitions, child tabs |
+| **Global Settings** | `prefetchGlobalSettings()` | `getSettingSync(key)` | App config, feature flags |
+| **Entity Names** | `prefetchRefDataEntityInstances()` | `getEntityInstanceNameSync()` | Dropdown labels (employee, project, etc.) |
+
+### 2.7 Error Handling
+
+```typescript
+// AuthContext.loadAllMetadata()
+const loadAllMetadata = async () => {
+  try {
+    await Promise.all([
+      prefetchAllDatalabels(),
+      prefetchEntityCodes(),
+      prefetchGlobalSettings(),
+    ]);
+    await prefetchRefDataEntityInstances(...);
+    setMetadataLoaded(true);  // ✅ Gate opens
+  } catch (error) {
+    console.error('[AuthContext] Metadata prefetch failed:', error);
+    // Still open gate - partial data is better than blocking forever
+    setMetadataLoaded(true);  // ✅ Gate opens anyway
+  }
+};
+```
+
+**Philosophy**: Graceful degradation. If prefetch fails, open the gate anyway. Partial formatting is better than infinite loading screen.
+
+### 2.8 useMetadataReady Hook
+
+For components that need to conditionally render based on metadata state without blocking the entire tree:
+
+```typescript
+import { useMetadataReady } from '@/components/shared';
+
+function MyComponent() {
+  const isReady = useMetadataReady();
+
+  if (!isReady) {
+    return <Skeleton />;
+  }
+
+  // Safe to use getDatalabelSync() here
+  const options = getDatalabelSync('project_stage');
+  return <Badge options={options} />;
+}
+```
+
+---
+
+## 3. Navigation & Routing
 
 ### 2.1 Route Structure
 

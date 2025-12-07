@@ -1105,11 +1105,11 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
             - Pill/chip styling for secondary metadata (code, id, timestamps)
             - Progressive disclosure: essential info prominent, technical details subtle
             - Consistent with 2025 SaaS design patterns (Linear, Notion, Figma)
-            v13.1.0: Enhanced visual hierarchy
-            - Subtle gradient background (white to slate-50) for depth
-            - Improved shadow for better section separation
+            v13.1.0: Enhanced visual hierarchy with unified dark-* palette
+            - Subtle gradient background (white to dark-subtle) for depth
+            - Consistent with Layout and EntityListOfInstancesTable
             ============================================================================ */}
-        <div className="sticky top-0 z-20 bg-gradient-to-b from-white to-slate-50/80 border-b border-slate-200/80 shadow-sm px-4 pt-4 pb-3 flex-shrink-0">
+        <div className="sticky top-0 z-20 bg-gradient-to-b from-white to-dark-subtle/80 border-b border-dark-200 shadow-sm px-4 pt-4 pb-3 flex-shrink-0">
           <div className="w-[97%] max-w-[1536px] mx-auto">
           {/* Header with modern two-line layout */}
           <div className="flex items-start justify-between gap-4">
@@ -1356,12 +1356,12 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
         </div>
 
         {/* ============================================================================
-            v13.1.0: CONTENT AREA - Layered Visual Hierarchy
+            v13.1.0: CONTENT AREA - Layered Visual Hierarchy (dark-* palette)
             ============================================================================
             Design Principles:
-            - Canvas background (slate-50) creates depth separation from header
+            - Canvas background (dark-100) creates depth separation from header
             - Content sits on elevated surface (white cards with shadows)
-            - Subtle gradient overlay for polish
+            - Consistent with Layout and EntityListOfInstancesTable
             ============================================================================ */}
         <div className={`w-[97%] max-w-[1536px] mx-auto mt-4 px-4 pb-4 flex-1 min-h-0 ${isOverviewTab ? 'overflow-y-auto' : 'flex flex-col'}`}>
         {isOverviewTab ? (
@@ -1506,11 +1506,11 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
         ) : (
           // Child Entity Tab - Direct EntityListOfInstancesTable (no FilteredDataTable/Outlet)
           // v9.7.0: Check both data loading AND metadata loading (two-query architecture)
-          // v13.1.0: Enhanced table container with subtle elevation
+          // v13.1.0: Enhanced table container with dark-* palette for consistency
           // flex-1 min-h-0 ensures table fits within available space without page scroll
-          <div className="flex-1 min-h-0 flex flex-col bg-white rounded-xl shadow-sm border border-slate-200/60 overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col bg-white rounded-xl shadow-sm border border-dark-200 overflow-hidden">
             {(childLoading || childMetadataLoading) ? (
-              <div className="flex items-center justify-center h-64 bg-gradient-to-b from-slate-50/50 to-white">
+              <div className="flex items-center justify-center h-64 bg-gradient-to-b from-dark-subtle/50 to-white">
                 <EllipsisBounce size="lg" text="Processing" />
               </div>
             ) : (

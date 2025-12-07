@@ -133,8 +133,8 @@ export function Layout({ children, createButton }: LayoutProps) {
             </div>
           )}
 
-          {/* Main Navigation */}
-          <nav className="flex-1 px-2 py-2 space-y-0">
+          {/* Main Navigation - scrollable to ensure user profile is always visible */}
+          <nav className="flex-1 px-2 py-2 space-y-0 overflow-y-auto scrollbar-elegant min-h-0">
             {/* Settings Button */}
             <button
               onClick={enterSettingsMode}
@@ -172,8 +172,8 @@ export function Layout({ children, createButton }: LayoutProps) {
 
           </nav>
 
-          {/* User Profile with Dropdown */}
-          <div className="border-t border-dark-300 p-3 relative">
+          {/* User Profile with Dropdown - fixed at bottom */}
+          <div className="border-t border-dark-300 p-3 relative flex-shrink-0">
             {!isCollapsed ? (
               <>
                 <button

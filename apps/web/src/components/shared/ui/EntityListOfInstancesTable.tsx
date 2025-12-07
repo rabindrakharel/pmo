@@ -796,22 +796,22 @@ export function EntityListOfInstancesTable<T = any>({
   });
 
   // Helper to get row className (shared between virtualized and regular rendering)
-  // v13.1.0: Updated to use slate palette for consistency
+  // v13.1.0: Updated to use dark-* palette for consistency with Layout
   const getRowClassName = useCallback((isDragging: boolean, isDragOver: boolean, isEditing: boolean) => {
     return `group transition-all duration-200 ${
       isDragging
-        ? 'opacity-40 scale-[0.98] bg-slate-100'
+        ? 'opacity-40 scale-[0.98] bg-dark-100'
         : isDragOver
-          ? 'bg-slate-100/50'
+          ? 'bg-dark-100/50'
           : ''
     } ${
       isEditing
-        ? 'bg-slate-50'
+        ? 'bg-dark-subtle'
         : allowReordering && !isEditing
-          ? 'cursor-move hover:bg-slate-50 hover:shadow-sm'
+          ? 'cursor-move hover:bg-dark-hover hover:shadow-sm'
           : onRowClick
-            ? 'cursor-pointer hover:bg-slate-50/80'
-            : 'hover:bg-slate-50/60'
+            ? 'cursor-pointer hover:bg-dark-hover/80'
+            : 'hover:bg-dark-hover/60'
     }`;
   }, [allowReordering, onRowClick]);
 
@@ -1439,14 +1439,15 @@ export function EntityListOfInstancesTable<T = any>({
     const endRecord = actualTotal > 0 ? Math.min(current * pageSize, actualTotal) : 0;
 
 
+    // v13.1.0: Pagination with dark-* palette for consistency with Layout
     return (
-      <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200/60 bg-gradient-to-t from-slate-50/80 to-white">
-        <div className="flex items-center text-sm text-dark-700">
+      <div className="flex items-center justify-between px-6 py-4 border-t border-dark-200 bg-gradient-to-t from-dark-subtle to-white">
+        <div className="flex items-center text-sm text-dark-600">
           <span className="font-normal">
             {loading ? (
               <InlineSpinner />
             ) : (
-              <>Showing <span className="text-dark-600">{startRecord}</span> to <span className="text-dark-600">{endRecord}</span> of <span className="text-dark-600">{actualTotal}</span> results</>
+              <>Showing <span className="text-dark-700 font-medium">{startRecord}</span> to <span className="text-dark-700 font-medium">{endRecord}</span> of <span className="text-dark-700 font-medium">{actualTotal}</span> results</>
             )}
           </span>
           {showSizeChanger && (
@@ -1456,7 +1457,7 @@ export function EntityListOfInstancesTable<T = any>({
                 e.preventDefault();
                 onChange?.(1, Number(e.target.value));
               }}
-              className="ml-6 px-3 py-1.5 border border-dark-300 rounded-md text-sm bg-dark-100 focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400 transition-all duration-200"
+              className="ml-6 px-3 py-1.5 border border-dark-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-dark-accent-ring focus:border-dark-400 transition-all duration-200 text-dark-700"
             >
               {pageSizeOptions.map(size => (
                 <option key={size} value={size}>{size} per page</option>
@@ -1464,7 +1465,7 @@ export function EntityListOfInstancesTable<T = any>({
             </select>
           )}
         </div>
-        
+
         <div className="flex items-center space-x-2">
           <button
             type="button"
@@ -1473,11 +1474,11 @@ export function EntityListOfInstancesTable<T = any>({
               onChange?.(current - 1, pageSize);
             }}
             disabled={current <= 1 || actualTotal === 0}
-            className="p-2 border border-dark-300 rounded-md text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-dark-100 hover:border-dark-400 hover:shadow-sm transition-all duration-200 bg-dark-100/50"
+            className="p-2 border border-dark-300 rounded-lg text-sm text-dark-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-dark-hover hover:border-dark-400 transition-all duration-200 bg-white"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
-          
+
           <div className="flex items-center space-x-1">
             {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
               let pageNum;
@@ -1499,10 +1500,10 @@ export function EntityListOfInstancesTable<T = any>({
                     e.preventDefault();
                     onChange?.(pageNum, pageSize);
                   }}
-                  className={`px-3 py-1.5 text-sm border rounded-md font-normal transition-all duration-200 ${
+                  className={`px-3 py-1.5 text-sm border rounded-lg font-normal transition-all duration-200 ${
                     current === pageNum
-                      ? 'bg-dark-100 text-dark-600 border-dark-400 shadow-sm'
-                      : 'border-dark-300 bg-dark-100/70 hover:bg-dark-100 hover:border-dark-400 hover:shadow-sm text-dark-600'
+                      ? 'bg-dark-accent text-white border-dark-accent shadow-sm'
+                      : 'border-dark-300 bg-white hover:bg-dark-hover hover:border-dark-400 text-dark-700'
                   }`}
                 >
                   {pageNum}
@@ -1510,7 +1511,7 @@ export function EntityListOfInstancesTable<T = any>({
               );
             })}
           </div>
-          
+
           <button
             type="button"
             onClick={(e) => {
@@ -1518,7 +1519,7 @@ export function EntityListOfInstancesTable<T = any>({
               onChange?.(current + 1, pageSize);
             }}
             disabled={current >= totalPages || actualTotal === 0}
-            className="p-2 border border-dark-300 rounded-md text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-dark-100 hover:border-dark-400 hover:shadow-sm transition-all duration-200 bg-dark-100/50"
+            className="p-2 border border-dark-300 rounded-lg text-sm text-dark-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-dark-hover hover:border-dark-400 transition-all duration-200 bg-white"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
@@ -1529,8 +1530,8 @@ export function EntityListOfInstancesTable<T = any>({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200/60">
-        <div className="flex items-center justify-center py-12 bg-gradient-to-b from-slate-50/50 to-white">
+      <div className="bg-white rounded-xl shadow-sm border border-dark-200">
+        <div className="flex items-center justify-center py-12 bg-gradient-to-b from-dark-subtle/50 to-white">
           <EllipsisBounce size="lg" text="Processing" />
         </div>
       </div>
@@ -1538,47 +1539,47 @@ export function EntityListOfInstancesTable<T = any>({
   }
 
   // ============================================================================
-  // v13.1.0: ENHANCED VISUAL HIERARCHY
+  // v13.1.0: ENHANCED VISUAL HIERARCHY (dark-* palette)
   // ============================================================================
   // Design Principles:
   // - Clean white surface for data clarity (bg-white)
-  // - Subtle slate border for professional separation (border-slate-200/60)
-  // - Gradient toolbar for visual depth (from-slate-50/80 to-white)
+  // - Consistent dark-* palette matching Layout (border-dark-200)
+  // - Gradient toolbar for visual depth (from-dark-subtle to-white)
   // - Soft shadows for elevation (shadow-sm)
   // ============================================================================
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-slate-200/60 overflow-hidden flex flex-col h-full ${className}`}>
+    <div className={`bg-white rounded-xl shadow-sm border border-dark-200 overflow-hidden flex flex-col h-full ${className}`}>
       {(filterable || columnSelection) && (
-        <div className="px-6 py-4 bg-gradient-to-b from-slate-50/80 to-white border-b border-slate-200/60">
+        <div className="px-6 py-4 bg-gradient-to-b from-dark-subtle to-white border-b border-dark-200">
           {filterable && (
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-6">
                 <div className="flex items-center text-sm text-dark-600">
-                  <Filter className="h-4 w-4 text-dark-700 stroke-[1.5] mr-2" />
-                  <span className="font-normal text-sm text-dark-700">Filter by:</span>
+                  <Filter className="h-4 w-4 text-dark-500 stroke-[1.5] mr-2" />
+                  <span className="font-normal text-sm text-dark-600">Filter by:</span>
                 </div>
-                
-                {/* v13.1.0: Updated filter controls to slate palette */}
+
+                {/* v13.1.0: Updated filter controls to dark-* palette */}
                 <div className="relative">
                   <select
                     value={selectedFilterColumn}
                     onChange={(e) => setSelectedFilterColumn(e.target.value)}
-                    className="appearance-none px-4 py-1.5 pr-10 w-48 border border-slate-300 rounded-lg text-sm bg-white hover:border-slate-400 focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400 transition-all duration-200 shadow-sm font-normal text-slate-700"
+                    className="appearance-none px-4 py-1.5 pr-10 w-48 border border-dark-300 rounded-lg text-sm bg-white hover:border-dark-400 focus:ring-2 focus:ring-dark-accent-ring focus:border-dark-400 transition-all duration-200 shadow-sm font-normal text-dark-700"
                   >
-                    <option value="" className="text-slate-500">Select column...</option>
+                    <option value="" className="text-dark-500">Select column...</option>
                     {columns.filter(col => col.filterable).map(column => (
                       <option key={column.key} value={column.key}>
                         {column.title}
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="h-4 w-4 text-slate-500 absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                  <ChevronDown className="h-4 w-4 text-dark-500 absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none" />
                 </div>
 
                 {selectedFilterColumn && (
                   <div className="relative" ref={filterContainerRef}>
                     <div className="relative">
-                      <Search className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                      <Search className="h-4 w-4 text-dark-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
                       <input
                         type="text"
                         placeholder="Type to filter values..."
@@ -1588,12 +1589,12 @@ export function EntityListOfInstancesTable<T = any>({
                           setShowFilterDropdown(true);
                         }}
                         onFocus={() => setShowFilterDropdown(true)}
-                        className="pl-10 pr-4 py-1.5 w-64 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400 transition-all duration-200 text-slate-700 placeholder:text-slate-400"
+                        className="pl-10 pr-4 py-1.5 w-64 border border-dark-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-dark-accent-ring focus:border-dark-400 transition-all duration-200 text-dark-700 placeholder:text-dark-400"
                       />
                     </div>
 
                     {showFilterDropdown && (
-                      <div className="absolute top-full left-0 mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-64 overflow-y-auto">
+                      <div className="absolute top-full left-0 mt-2 w-80 bg-white border border-dark-200 rounded-xl shadow-lg z-50 max-h-64 overflow-y-auto">
                         <div className="p-2">
                           {/* v9.4.2: Use memoized filteredColumnOptions for performance */}
                           {filteredColumnOptions.map((option) => {
@@ -1619,7 +1620,7 @@ export function EntityListOfInstancesTable<T = any>({
                               return (
                                 <label
                                   key={option}
-                                  className="flex items-center px-3 py-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors group"
+                                  className="flex items-center px-3 py-2 hover:bg-dark-hover rounded-lg cursor-pointer transition-colors group"
                                   onClick={(e) => {
                                     // Only handle if click was NOT on the checkbox itself
                                     if ((e.target as HTMLElement).tagName !== 'INPUT') {
@@ -1634,17 +1635,17 @@ export function EntityListOfInstancesTable<T = any>({
                                     onChange={() => {
                                       handleDropdownFilter(selectedFilterColumn, option, !isChecked);
                                     }}
-                                    className="mr-3 text-slate-600 rounded focus:ring-slate-500/30 focus:ring-offset-0 flex-shrink-0"
+                                    className="mr-3 text-dark-600 rounded focus:ring-dark-accent-ring focus:ring-offset-0 flex-shrink-0"
                                   />
                                   <div className="flex-1 min-w-0">
                                     {isSettingsField ? (
                                       // Settings field - always render badge (with or without color)
-                                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorCode || 'bg-slate-100 text-slate-600'}`}>
+                                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorCode || 'bg-dark-100 text-dark-600'}`}>
                                         {option}
                                       </span>
                                     ) : (
                                       // Non-settings field - render text
-                                      <span className="text-sm text-slate-700 truncate">{option}</span>
+                                      <span className="text-sm text-dark-700 truncate">{option}</span>
                                     )}
                                   </div>
                                 </label>
@@ -1652,7 +1653,7 @@ export function EntityListOfInstancesTable<T = any>({
                             })
                           }
                           {filteredColumnOptions.length === 0 && (
-                            <div className="px-2 py-1.5 text-xs text-slate-500 text-center">
+                            <div className="px-2 py-1.5 text-xs text-dark-500 text-center">
                               No options found
                             </div>
                           )}
@@ -1677,30 +1678,31 @@ export function EntityListOfInstancesTable<T = any>({
                 )}
               </div>
 
+              {/* v13.1.0: Column selector with slate palette */}
               {columnSelection && (
                 <div className="relative" ref={columnSelectorRef}>
                   <button
                     onClick={() => setShowColumnSelector(!showColumnSelector)}
-                    className="flex items-center px-3 py-1.5 text-sm text-dark-700 border border-dark-300 rounded hover:bg-dark-100 hover:border-dark-400 transition-colors"
+                    className="flex items-center px-3 py-1.5 text-sm text-dark-600 border border-dark-300 rounded-lg hover:bg-dark-hover hover:border-dark-400 transition-colors"
                   >
                     <Columns className="h-4 w-4 mr-2 stroke-[1.5]" />
                     Columns
                   </button>
 
                   {showColumnSelector && (
-                    <div className="absolute right-0 mt-2 w-56 bg-dark-100 border border-dark-300 rounded-md shadow-sm z-50">
+                    <div className="absolute right-0 mt-2 w-56 bg-white border border-dark-200 rounded-xl shadow-lg z-50">
                       <div className="p-2">
-                        <div className="text-sm font-normal text-dark-700 mb-2 px-1">Show Columns</div>
+                        <div className="text-sm font-medium text-dark-700 mb-2 px-1">Show Columns</div>
                         {/* v8.3.0: Column visibility determined by backend metadata (visible property), NOT frontend pattern detection */}
                         {columns.filter(column => column.visible !== false).map(column => (
-                          <label key={column.key} className="flex items-center px-3 py-1.5 hover:bg-dark-100 rounded cursor-pointer transition-colors">
+                          <label key={column.key} className="flex items-center px-3 py-1.5 hover:bg-dark-hover rounded-lg cursor-pointer transition-colors">
                             <input
                               type="checkbox"
                               checked={visibleColumns.has(column.key)}
                               onChange={() => toggleColumnVisibility(column.key)}
-                              className="mr-3 text-dark-700 rounded focus:ring-dark-700"
+                              className="mr-3 text-dark-600 rounded focus:ring-dark-accent-ring"
                             />
-                            <span className="text-sm text-dark-600">{column.title}</span>
+                            <span className="text-sm text-dark-700">{column.title}</span>
                           </label>
                         ))}
                       </div>
@@ -1716,26 +1718,26 @@ export function EntityListOfInstancesTable<T = any>({
               <div className="relative" ref={columnSelectorRef}>
                 <button
                   onClick={() => setShowColumnSelector(!showColumnSelector)}
-                  className="flex items-center px-3 py-1.5 text-sm text-dark-700 border border-dark-300 rounded hover:bg-dark-100 hover:border-dark-400 transition-colors"
+                  className="flex items-center px-3 py-1.5 text-sm text-dark-600 border border-dark-300 rounded-lg hover:bg-dark-hover hover:border-dark-400 transition-colors"
                 >
                   <Columns className="h-4 w-4 mr-2 stroke-[1.5]" />
                   Columns
                 </button>
 
                 {showColumnSelector && (
-                  <div className="absolute right-0 mt-2 w-56 bg-dark-100 border border-dark-300 rounded-md shadow-sm z-50">
+                  <div className="absolute right-0 mt-2 w-56 bg-white border border-dark-200 rounded-xl shadow-lg z-50">
                     <div className="p-2">
-                      <div className="text-sm font-normal text-dark-700 mb-2 px-1">Show Columns</div>
+                      <div className="text-sm font-medium text-dark-700 mb-2 px-1">Show Columns</div>
                       {/* v8.3.0: Column visibility determined by backend metadata (visible property), NOT frontend pattern detection */}
                       {columns.filter(column => column.visible !== false).map(column => (
-                        <label key={column.key} className="flex items-center px-3 py-1.5 hover:bg-dark-100 rounded cursor-pointer transition-colors">
+                        <label key={column.key} className="flex items-center px-3 py-1.5 hover:bg-dark-hover rounded-lg cursor-pointer transition-colors">
                           <input
                             type="checkbox"
                             checked={visibleColumns.has(column.key)}
                             onChange={() => toggleColumnVisibility(column.key)}
-                            className="mr-3 text-dark-700 rounded focus:ring-dark-700"
+                            className="mr-3 text-dark-600 rounded focus:ring-dark-accent-ring"
                           />
-                          <span className="text-sm text-dark-600">{column.title}</span>
+                          <span className="text-sm text-dark-700">{column.title}</span>
                         </label>
                       ))}
                     </div>
@@ -1747,9 +1749,9 @@ export function EntityListOfInstancesTable<T = any>({
 
           {/* Filter Chips - v13.1.0: Subtle slate border for consistency */}
           {Object.keys(dropdownFilters).length > 0 && (
-            <div className="mt-3 pt-3 border-t border-slate-200/60">
+            <div className="mt-3 pt-3 border-t border-dark-200/60">
               <div className="flex items-center flex-wrap gap-2">
-                <span className="text-xs text-dark-700 font-medium">Active filters:</span>
+                <span className="text-xs text-dark-600 font-medium">Active filters:</span>
                 {Object.entries(dropdownFilters).map(([columnKey, values]) =>
                   values.map((value) => {
                     // Check if this column is a settings field using backend metadata
@@ -1768,7 +1770,8 @@ export function EntityListOfInstancesTable<T = any>({
                       colorCode = match?.color_code;
                     }
 
-                    const chipColorClass = colorCode ? colorCodeToTailwindClass(colorCode) : 'bg-dark-100 text-dark-600';
+                    // v13.1.0: Use slate fallback for uncolored chips
+                    const chipColorClass = colorCode ? colorCodeToTailwindClass(colorCode) : 'bg-dark-100 text-dark-700';
 
                     // v9.8.0: Use reusable Chip component
                     return (
@@ -1800,15 +1803,15 @@ export function EntityListOfInstancesTable<T = any>({
           onScroll={handleTableScroll}
         >
           <table
-            className="w-full divide-y divide-slate-200/80"
+            className="w-full divide-y divide-dark-200"
             style={{
               minWidth: processedColumns.length > 7 ? `${processedColumns.length * 200}px` : '100%',
               tableLayout: processedColumns.length <= 7 ? 'auto' : 'fixed'
             }}
           >
-            {/* v13.1.0: Enhanced table header with slate gradient for visual hierarchy */}
+            {/* v13.1.0: Enhanced table header with dark-* palette for consistency */}
             <thead
-              className="bg-gradient-to-b from-slate-100/80 to-slate-50/60 sticky top-0 z-30 shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
+              className="bg-gradient-to-b from-dark-100 to-dark-subtle sticky top-0 z-30 shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
               style={shouldVirtualize ? { display: 'block' } : undefined}
             >
               <tr style={shouldVirtualize ? { display: 'flex', width: '100%' } : undefined}>
@@ -1816,16 +1819,16 @@ export function EntityListOfInstancesTable<T = any>({
                   <th
                     key={column.key}
                     className={`px-6 py-2.5 text-left ${
-                      column.sortable ? 'cursor-pointer hover:bg-slate-200/40 transition-colors' : ''
+                      column.sortable ? 'cursor-pointer hover:bg-dark-200/40 transition-colors' : ''
                     } ${processedColumns.length > 7 ? 'min-w-[200px]' : ''} ${
-                      index === 0 ? 'sticky left-0 z-40 bg-slate-100/90 shadow-r backdrop-blur-sm' : ''
+                      index === 0 ? 'sticky left-0 z-40 bg-dark-100 shadow-r' : ''
                     } ${shouldVirtualize ? 'flex-shrink-0' : ''}`}
                     style={{
                       width: processedColumns.length > 7 ? '200px' : (column.width || 'auto'),
                       minWidth: processedColumns.length > 7 ? '200px' : '100px',
                       boxSizing: 'border-box',
                       textAlign: column.align || 'left',
-                      color: '#374151', // slate-700 for better contrast
+                      color: '#404040', // dark-700 for better contrast
                       font: "500 13px / 18px 'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
                       outline: 0,
                       backgroundColor: 'transparent', // Let gradient show through
@@ -1849,7 +1852,7 @@ export function EntityListOfInstancesTable<T = any>({
             </thead>
             {/* v13.1.0: Clean white body with subtle dividers */}
             <tbody
-              className="bg-white divide-y divide-slate-100"
+              className="bg-white divide-y divide-dark-100"
               style={shouldVirtualize ? {
                 display: 'block',
                 position: 'relative',
@@ -2000,8 +2003,8 @@ export function EntityListOfInstancesTable<T = any>({
                         <td
                           key={column.key}
                           className={`px-6 py-2.5 flex-shrink-0 ${getStickyClassName(colIndex)} ${
-                            fieldEditable && inlineEditable ? 'cursor-text hover:bg-slate-50/30' : ''
-                          } ${isCellBeingEdited ? 'bg-slate-50/50' : ''}`}
+                            fieldEditable && inlineEditable ? 'cursor-text hover:bg-dark-hover/30' : ''
+                          } ${isCellBeingEdited ? 'bg-dark-subtle/50' : ''}`}
                           style={columnStylesMap.get(column.key)}
                           onClick={(e) => {
                             if (isEditing) {
@@ -2260,8 +2263,8 @@ export function EntityListOfInstancesTable<T = any>({
                         <td
                           key={column.key}
                           className={`px-6 py-2.5 ${getStickyClassName(colIndex)} ${
-                            fieldEditable && inlineEditable ? 'cursor-text hover:bg-slate-50/30' : ''
-                          } ${isCellBeingEdited ? 'bg-slate-50/50' : ''}`}
+                            fieldEditable && inlineEditable ? 'cursor-text hover:bg-dark-hover/30' : ''
+                          } ${isCellBeingEdited ? 'bg-dark-subtle/50' : ''}`}
                           style={columnStylesMap.get(column.key)}
                           onClick={(e) => {
                             if (isEditing) {

@@ -6,8 +6,14 @@
  * Each formatter is a pure function that takes a value and metadata,
  * and returns a FormattedValue with display string and optional style.
  *
- * Colors for datalabels are looked up from the datalabelMetadataStore
- * at fetch time, not render time.
+ * v13.0.0: Hydration Gate Pattern
+ * These formatters are GUARANTEED to run only after MetadataGate has passed.
+ * This means:
+ * - getDatalabelSync() will NEVER return null for session datalabels
+ * - getEntityInstanceNameSync() will return names for prefetched entities
+ * - No defensive fallbacks needed for cache misses on session data
+ *
+ * @see docs/design_pattern/FRONTEND_DESIGN_PATTERN.md
  */
 
 // v11.0.0: Use TanStack Query cache via sync accessors (queryClient.getQueryData)
@@ -73,6 +79,8 @@ export function formatCurrency(
 
 /**
  * Format badge/datalabel values with color lookup
+ *
+ * v13.0.0: Hydration Gate guarantees getDatalabelSync() returns data
  * v12.0.0: Uses lookupField instead of datalabelKey
  */
 export function formatBadge(
@@ -84,17 +92,15 @@ export function formatBadge(
   }
 
   const displayValue = String(value);
-  let color = 'bg-gray-100 text-gray-600'; // Default
+  let color = 'bg-dark-100 text-dark-600'; // Default for values not in datalabel
 
-  // v12.0.0: Look up color from Dexie sync cache using lookupField (renamed from datalabelKey)
+  // v13.0.0: After MetadataGate, getDatalabelSync() is guaranteed to return data
   if (metadata?.lookupField) {
     const options = getDatalabelSync(metadata.lookupField);
-    if (options) {
-      const match = options.find(opt => opt.name === value);
-      if (match?.color_code) {
-        // ✅ Convert color_code (e.g., 'blue') to Tailwind classes
-        color = colorCodeToTailwindClass(match.color_code);
-      }
+    // v13.0.0: options is guaranteed non-null after MetadataGate
+    const match = options?.find(opt => opt.name === value);
+    if (match?.color_code) {
+      color = colorCodeToTailwindClass(match.color_code);
     }
   }
 
@@ -223,16 +229,18 @@ export function formatArray(value: any): FormattedValue {
 /**
  * Format reference/entity ID fields
  *
+ * v13.0.0: Hydration Gate Pattern
+ * For prefetched entities (employee, project, business, office, role, customer),
+ * getEntityInstanceNameSync() is GUARANTEED to return data after MetadataGate.
+ *
+ * For on-demand entities (not in prefetch list), falls back to truncated UUID.
+ * This is expected behavior - not all entity types are prefetched.
+ *
  * v11.0.0: Uses TanStack Query cache via getEntityInstanceNameSync() for name resolution.
- * The cache is populated when API responses with ref_data_entityInstance arrive.
- * Falls back to truncated UUID if name not found in cache.
  *
  * @param value - UUID or array of UUIDs
  * @param metadata - Field metadata with lookupEntity
  */
-// Debug flag for formatReference - set to true to trace name resolution issues
-const DEBUG_FORMAT_REFERENCE = false;
-
 export function formatReference(
   value: any,
   metadata?: FieldMetadata
@@ -249,14 +257,11 @@ export function formatReference(
     if (value.length === 0) return { display: '—' };
 
     const names = value.map(uuid => {
-      // v11.0.0: Use TanStack Query cache
       if (entityCode) {
         const name = getEntityInstanceNameSync(entityCode, uuid);
-        if (DEBUG_FORMAT_REFERENCE && !name) {
-          console.warn(`[formatReference] MISS: entityCode=${entityCode}, uuid=${uuid.substring(0, 8)}...`);
-        }
         if (name) return name;
       }
+      // Fallback for non-prefetched entities
       return String(uuid).substring(0, 8) + '...';
     });
 
@@ -266,21 +271,12 @@ export function formatReference(
   // Single UUID
   const uuid = String(value);
 
-  // v11.0.0: Try to resolve from TanStack Query cache
+  // v13.0.0: For prefetched entities, this is guaranteed to return data
   if (entityCode) {
     const name = getEntityInstanceNameSync(entityCode, uuid);
-    if (DEBUG_FORMAT_REFERENCE) {
-      if (name) {
-        // Only log misses, not hits (too noisy)
-      } else {
-        console.warn(`[formatReference] MISS: entityCode=${entityCode}, uuid=${uuid.substring(0, 8)}...`);
-      }
-    }
     if (name) return { display: name };
-  } else if (DEBUG_FORMAT_REFERENCE) {
-    console.warn(`[formatReference] NO entityCode in metadata for uuid=${uuid.substring(0, 8)}...`);
   }
 
-  // Fallback: truncated UUID
+  // Fallback: truncated UUID (for non-prefetched entities or new records)
   return { display: uuid.length > 8 ? `${uuid.substring(0, 8)}...` : uuid };
 }

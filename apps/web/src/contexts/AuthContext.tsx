@@ -11,6 +11,8 @@ import {
   prefetchEntityCodes,
   prefetchGlobalSettings,
 } from '../db/tanstack-index';
+// v13.0.0: Hydration Gate Pattern - signal when metadata is loaded
+import { useCacheContext } from '../db/Provider';
 
 interface AuthState {
   user: User | null;
@@ -35,6 +37,8 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const queryClient = useQueryClient();
+  // v13.0.0: Access cache context for metadata gate
+  const { setMetadataLoaded, clearCache } = useCacheContext();
   const [state, setState] = useState<AuthState>({
     user: null,
     token: null,
@@ -42,22 +46,41 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isAuthenticated: false,
   });
 
-  // v9.0.0: TanStack Query + Dexie handles metadata caching
-  // Prefetch all metadata (datalabels, entity codes, global settings)
-  const loadMetadata = async () => {
+  // v13.0.0: Unified metadata loading with gate signal
+  // This function loads ALL session-level metadata and signals the gate when complete
+  const loadAllMetadata = async () => {
     try {
-      // Prefetch all metadata in parallel
+      // Step 1: Prefetch core metadata in parallel
       await Promise.all([
         prefetchAllDatalabels(),
         prefetchEntityCodes(),
         prefetchGlobalSettings(),
       ]);
+
+      // Step 2: Prefetch entity instance names for dropdown caches
+      await prefetchRefDataEntityInstances(queryClient, [
+        'employee',
+        'project',
+        'business',
+        'office',
+        'role',
+        'customer',
+      ]);
+
+      // v13.0.0: Signal gate - ALL metadata is now loaded
+      // After this, getDatalabelSync() and other sync accessors are guaranteed to return data
+      setMetadataLoaded(true);
     } catch (error) {
-      // Don't throw - metadata is enhancement, not critical for auth
+      console.error('[AuthContext] Metadata prefetch failed:', error);
+      // Still signal gate - partial data is better than blocking forever
+      setMetadataLoaded(true);
     }
   };
 
   const login = async (email: string, password: string) => {
+    // v13.0.0: Close the gate while loading new session
+    setMetadataLoaded(false);
+
     try {
       const response = await authApi.login({ email, password });
       const { token, employee } = response;
@@ -75,20 +98,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       queryClient.clear();
       await resetDatabase();
 
-      // v9.0.0: Load and cache all metadata after successful login (Dexie + TanStack Query)
-      await loadMetadata();
-
-      // v8.3.2: Prefetch common entity instances for dropdown caches
-      // This populates the unified ref_data_entityInstance cache
-      // v9.1.1: Await prefetch to prevent race condition with API upserts
-      await prefetchRefDataEntityInstances(queryClient, [
-        'employee',
-        'project',
-        'business',
-        'office',
-        'role',
-        'customer',
-      ]);
+      // v13.0.0: Load ALL metadata and signal gate when complete
+      await loadAllMetadata();
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
@@ -96,6 +107,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const logout = async () => {
+    // v13.0.0: Close the gate on logout
+    setMetadataLoaded(false);
+
     try {
       if (state.token) {
         await authApi.logout();
@@ -105,8 +119,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       localStorage.removeItem('auth_token');
 
-      // v9.0.0: Clear all caches on logout for security and memory hygiene
-      await clearAllCaches();               // Dexie IndexedDB + TanStack Query cache
+      // v13.0.0: Use unified cache clearing from CacheProvider
+      await clearCache();
       clearNormalizedStore(queryClient);    // Normalized entity cache
       queryClient.clear();                  // React Query cache (redundant but safe)
 
@@ -136,19 +150,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isLoading: false,
       });
 
-      // v9.0.0: Load and cache metadata (Dexie + TanStack Query - will use cache if valid)
-      await loadMetadata();
-
-      // v8.3.2: Prefetch common entity instances for dropdown caches
-      // v9.1.1: Await prefetch to prevent race condition with API upserts
-      await prefetchRefDataEntityInstances(queryClient, [
-        'employee',
-        'project',
-        'business',
-        'office',
-        'role',
-        'customer',
-      ]);
+      // v13.0.0: Load ALL metadata and signal gate when complete
+      await loadAllMetadata();
     } catch (error) {
       console.error('Failed to refresh user:', error);
       localStorage.removeItem('auth_token');

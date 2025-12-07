@@ -3,6 +3,11 @@
 // ============================================================================
 // Main provider for the unified cache architecture
 // Handles initialization, hydration, WebSocket, and prefetch
+//
+// v13.0.0: Hydration Gate Pattern
+// - isMetadataLoaded is the gate signal for MetadataGate component
+// - AuthContext calls setMetadataLoaded(true) after prefetch completes
+// - MetadataGate blocks rendering until isMetadataLoaded === true
 // ============================================================================
 
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -38,9 +43,15 @@ interface CacheContextValue {
   isHydrated: boolean;
   /** Hydration result details */
   hydrationResult: HydrationResult | null;
-  /** Metadata prefetch complete */
+  /**
+   * v13.0.0: Metadata prefetch complete - GATE SIGNAL
+   * When true, all session-level metadata is guaranteed available:
+   * - getDatalabelSync() will return data (not null)
+   * - getEntityCodesSync() will return data (not null)
+   * - getEntityInstanceNameSync() will return names for prefetched entities
+   */
   isMetadataLoaded: boolean;
-  /** App is ready to render */
+  /** App is ready to render (hydration complete) */
   isReady: boolean;
   /** Clear all caches (for logout) */
   clearCache: () => Promise<void>;
@@ -48,8 +59,13 @@ interface CacheContextValue {
   connect: (token: string) => void;
   /** Disconnect WebSocket */
   disconnect: () => void;
-  /** Prefetch all metadata */
+  /** Prefetch all metadata (used internally) */
   prefetch: () => Promise<void>;
+  /**
+   * v13.0.0: Set metadata loaded state
+   * Called by AuthContext after all prefetch operations complete
+   */
+  setMetadataLoaded: (loaded: boolean) => void;
 }
 
 const CacheContext = createContext<CacheContextValue>({
@@ -62,6 +78,7 @@ const CacheContext = createContext<CacheContextValue>({
   connect: () => {},
   disconnect: () => {},
   prefetch: async () => {},
+  setMetadataLoaded: () => {},
 });
 
 // ============================================================================
@@ -147,7 +164,7 @@ export function CacheProvider({
     wsManager.disconnect();
   }, []);
 
-  // Prefetch all metadata
+  // Prefetch all metadata (internal use - AuthContext uses this)
   const prefetch = useCallback(async () => {
     console.log('%c[CacheProvider] Prefetching all metadata...', 'color: #74c0fc');
 
@@ -158,14 +175,26 @@ export function CacheProvider({
         prefetchEntityCodes(),
       ]);
 
-      setIsMetadataLoaded(true);
+      // v13.0.0: Don't set isMetadataLoaded here - AuthContext will call setMetadataLoaded
+      // after ALL prefetch operations complete (including prefetchRefDataEntityInstances)
       console.log(
-        '%c[CacheProvider] Metadata prefetch complete',
+        '%c[CacheProvider] Core metadata prefetch complete',
         'color: #51cf66; font-weight: bold'
       );
     } catch (error) {
       console.error('[CacheProvider] Metadata prefetch failed:', error);
       // Don't throw - app can continue with partial metadata
+    }
+  }, []);
+
+  // v13.0.0: Setter for metadata loaded state - called by AuthContext
+  const setMetadataLoaded = useCallback((loaded: boolean) => {
+    setIsMetadataLoaded(loaded);
+    if (loaded) {
+      console.log(
+        '%c[CacheProvider] ✓ Metadata gate opened - all session data loaded',
+        'color: #51cf66; font-weight: bold'
+      );
     }
   }, []);
 
@@ -191,6 +220,7 @@ export function CacheProvider({
     connect,
     disconnect,
     prefetch,
+    setMetadataLoaded,
   };
 
   return (

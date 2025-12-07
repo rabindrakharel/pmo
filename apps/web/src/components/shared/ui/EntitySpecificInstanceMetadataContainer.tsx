@@ -446,7 +446,7 @@ export function EntityHeaderTitle({
   return (
     <div className="flex flex-col min-w-0">
       {subtitle && (
-        <span className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-0.5">
+        <span className="text-xs font-medium text-dark-500 uppercase tracking-wider mb-0.5">
           {subtitle}
         </span>
       )}
@@ -460,7 +460,7 @@ export function EntityHeaderTitle({
               onChange={(e) => setInlineEditValue(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={placeholder}
-              className="text-2xl font-semibold text-slate-800 bg-slate-50 border-0 border-b-2 border-slate-300 focus:border-slate-600 focus:ring-0 px-0 py-1 w-full transition-colors duration-200 outline-none"
+              className="text-2xl font-semibold text-dark-800 bg-dark-subtle border-0 border-b-2 border-dark-300 focus:border-dark-accent focus:ring-0 px-0 py-1 w-full transition-colors duration-200 outline-none"
             />
           ) : (
             <DebouncedInput
@@ -468,13 +468,13 @@ export function EntityHeaderTitle({
               value={value}
               onChange={(newValue) => onChange?.(fieldKey, newValue)}
               placeholder={placeholder}
-              className="text-2xl font-semibold text-slate-800 bg-slate-50 border-0 border-b-2 border-slate-300 focus:border-slate-600 focus:ring-0 px-0 py-1 w-full transition-colors duration-200"
+              className="text-2xl font-semibold text-dark-800 bg-dark-subtle border-0 border-b-2 border-dark-300 focus:border-dark-accent focus:ring-0 px-0 py-1 w-full transition-colors duration-200"
             />
           )}
         </div>
       ) : (
         <h1
-          className={`text-2xl font-semibold text-slate-800 truncate leading-tight ${inlineEditable && editable ? 'cursor-text hover:text-slate-600' : ''} transition-colors duration-150`}
+          className={`text-2xl font-semibold text-dark-800 truncate leading-tight ${inlineEditable && editable ? 'cursor-text hover:text-dark-600' : ''} transition-colors duration-150`}
           onMouseDown={handleMouseDown}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseLeave}
@@ -534,9 +534,9 @@ export function EntityMetadataChip({
   if (!value) return null;
 
   const variantStyles = {
-    default: 'bg-slate-100 text-slate-600 border-slate-200',
-    muted: 'bg-slate-50 text-slate-500 border-slate-100',
-    accent: 'bg-slate-600 text-white border-slate-600',
+    default: 'bg-dark-100 text-dark-600 border-dark-200',
+    muted: 'bg-dark-subtle text-dark-500 border-dark-100',
+    accent: 'bg-dark-accent text-white border-dark-accent',
   };
 
   return (
@@ -552,7 +552,7 @@ export function EntityMetadataChip({
             e.stopPropagation();
             onCopy(value, fieldKey);
           }}
-          className="opacity-0 group-hover:opacity-100 p-0.5 -mr-1 hover:bg-slate-200/50 rounded transition-all duration-200"
+          className="opacity-0 group-hover:opacity-100 p-0.5 -mr-1 hover:bg-dark-200/50 rounded transition-all duration-200"
           title={`Copy ${label}`}
         >
           {copiedField === fieldKey ? (

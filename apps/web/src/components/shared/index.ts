@@ -65,6 +65,11 @@ export { ViewSwitcher } from './view/ViewSwitcher';
 export { LoginForm } from './auth/LoginForm';
 
 // ============================================================================
+// GATE COMPONENTS (v13.0.0 - Hydration Gate Pattern)
+// ============================================================================
+export { MetadataGate, useMetadataReady } from './gates';
+
+// ============================================================================
 // LAYOUT COMPONENTS
 // ============================================================================
 export { Layout } from './layout/Layout';

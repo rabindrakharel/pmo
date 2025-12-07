@@ -1,29 +1,28 @@
 # State Management Architecture
 
-**Version:** 11.3.1 | **Updated:** 2025-12-03
+**Version:** 13.0.0 | **Updated:** 2025-12-07 | **Status:** Production
 
 ---
 
 ## Overview
 
-The PMO frontend uses **TanStack Query + Dexie** for state management. TanStack Query manages server state with automatic background refetching, while Dexie (IndexedDB) provides offline-first persistent storage.
+The PMO frontend uses **TanStack Query + Dexie + Hydration Gate** for state management. TanStack Query manages server state, Dexie provides offline-first persistent storage, and the **Hydration Gate Pattern (v13.0.0)** guarantees all session metadata is loaded before rendering.
 
-### v11.3.1 Key Changes
+### v13.0.0: Hydration Gate Pattern
 
-**Inline Add Row Pattern:** Added `useInlineAddRow` hook implementing TanStack Query's single source of truth pattern for inline editing. Temp rows are added directly to cache, and `existingTempId` prevents duplicate rows during mutation. See Flow 6 in Cache_lifecycle.md.
-
-### v11.1.0 Key Changes
-
-**Flat Metadata Format:** Both `EntityListOfInstancesTable` and `EntityInstanceFormContainer` now use the same flat metadata format: `{ viewType, editType }`. This standardizes how metadata flows from hooks to components.
-
-### v11.0.0 Key Change: Single In-Memory Cache
-
-**Removed redundant sync stores.** TanStack Query cache is now the single source of truth for all in-memory cache access. Sync accessors (`getDatalabelSync`, `getEntityInstanceNameSync`, etc.) now read directly from `queryClient.getQueryData()` instead of separate Map-based stores.
+**CRITICAL CHANGE**: All protected routes are now wrapped in `<MetadataGate>` which blocks rendering until `isMetadataLoaded === true`. This **GUARANTEES** that sync accessors (`getDatalabelSync`, `getEntityInstanceNameSync`, etc.) will always return data (never null) for session-level stores.
 
 ```
 +-------------------------------------------------------------------------+
-|               STATE MANAGEMENT (v11.1.0 - TanStack Query + Dexie)        |
+|               STATE MANAGEMENT (v13.0.0 - Hydration Gate)                |
 +-------------------------------------------------------------------------+
+|                                                                          |
+|   HYDRATION GATE (v13.0.0 - NEW)                                        |
+|   ------------------------------                                        |
+|   - Blocks rendering until ALL session metadata loaded                  |
+|   - getDatalabelSync() GUARANTEED to return data (not null)            |
+|   - getEntityInstanceNameSync() GUARANTEED for prefetched entities     |
+|   - Eliminates race conditions with unformatted data                   |
 |                                                                          |
 |   TanStack Query (In-Memory - SINGLE SOURCE OF TRUTH)                   |
 |   ---------------------------------------------------                   |
@@ -59,33 +58,87 @@ The PMO frontend uses **TanStack Query + Dexie** for state management. TanStack 
 
 ---
 
-## Data Storage Summary
+## Hydration Gate Integration
 
-| Data Type | Storage | TTL | Persists Refresh | Multi-Tab |
-|-----------|---------|-----|------------------|-----------|
-| **Entity instances** | TanStack Query + Dexie | 5 min stale | Yes | Yes |
-| **Entity lists** | TanStack Query + Dexie | 2 min stale | Yes | Yes |
-| **Drafts (unsaved edits)** | Dexie only | Until saved | Yes | Yes |
-| **Datalabels** | TanStack Query + Dexie | 10 min | Yes | Yes |
-| **Entity codes** | TanStack Query + Dexie | 30 min | Yes | Yes |
-| **Global settings** | TanStack Query + Dexie | 30 min | Yes | Yes |
+### What is the Hydration Gate?
+
+The Hydration Gate is a pattern that **blocks rendering of protected routes** until all session-level metadata is loaded. This eliminates the race condition where components render before cache is populated.
+
+```
++-----------------------------------------------------------------------------+
+|                    BEFORE v13.0.0 (RACE CONDITION)                           |
++-----------------------------------------------------------------------------+
+|                                                                              |
+|  1. User logs in -> AuthContext starts prefetch                             |
+|  2. App renders routes IMMEDIATELY                                          |
+|  3. formatBadge() -> getDatalabelSync() -> NULL (cache empty!)              |
+|  4. Badge renders gray (BROKEN UI)                                          |
+|  5. Prefetch completes (TOO LATE)                                           |
+|                                                                              |
++-----------------------------------------------------------------------------+
+
++-----------------------------------------------------------------------------+
+|                    AFTER v13.0.0 (HYDRATION GATE)                            |
++-----------------------------------------------------------------------------+
+|                                                                              |
+|  1. User logs in                                                            |
+|  2. AuthContext: setMetadataLoaded(false) <- GATE CLOSED                   |
+|  3. AuthContext: prefetch ALL metadata                                      |
+|  4. AuthContext: setMetadataLoaded(true) <- GATE OPENS                     |
+|  5. MetadataGate: NOW render children                                       |
+|  6. formatBadge() -> getDatalabelSync() -> DATA (guaranteed!)              |
+|                                                                              |
++-----------------------------------------------------------------------------+
+```
+
+### Components
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `MetadataGate` | `components/shared/gates/MetadataGate.tsx` | Blocks rendering until `isMetadataLoaded` |
+| `CacheProvider` | `db/Provider.tsx` | Manages `isMetadataLoaded` state |
+| `AuthContext` | `contexts/AuthContext.tsx` | Calls `setMetadataLoaded(true)` after prefetch |
+| `ProtectedRoute` | `App.tsx` | Wraps children in `<MetadataGate>` |
+
+### Guarantees After Gate Opens
+
+| Accessor | Returns | Guarantee |
+|----------|---------|-----------|
+| `getDatalabelSync(key)` | `DatalabelOption[]` | **ALWAYS returns data** (not null) |
+| `getEntityCodesSync()` | `EntityCode[]` | **ALWAYS returns data** (not null) |
+| `getEntityInstanceNameSync(code, uuid)` | `string` | Returns name for prefetched entities |
+| `getGlobalSettingsSync()` | `GlobalSettings` | **ALWAYS returns data** (not null) |
 
 ---
 
-## Dexie Tables (IndexedDB)
+## Data Storage Summary
 
-| Table | Purpose | Primary Key | Indexes |
-|-------|---------|-------------|---------|
-| `entities` | Cached entity data | `_id` (entityCode:entityId) | entityCode, syncedAt, isDeleted |
-| `entityLists` | Cached list query results | `_id` (entityCode:queryHash) | entityCode, syncedAt |
-| `metadata` | Datalabels, entity codes, settings | `_id` (type:key) | type, key |
-| `drafts` | Unsaved form edits | `_id` (draft:entityCode:entityId) | entityCode, entityId, updatedAt |
+| Data Type | Storage | TTL | Persists Refresh | v13.0.0 Guarantee |
+|-----------|---------|-----|------------------|-------------------|
+| **Datalabels** | TanStack + Dexie | 10 min | Yes | **Guaranteed non-null** |
+| **Entity codes** | TanStack + Dexie | 30 min | Yes | **Guaranteed non-null** |
+| **Entity instance names** | TanStack + Dexie | 10 min | Yes | For prefetched entities |
+| **Global settings** | TanStack + Dexie | 30 min | Yes | **Guaranteed non-null** |
+| **Entity instances** | TanStack + Dexie | 5 min stale | Yes | On-demand |
+| **Entity lists** | TanStack + Dexie | 2 min stale | Yes | On-demand |
+| **Drafts** | Dexie only | Until saved | Yes | N/A |
 
 ---
 
 ## Hooks
 
-### Entity Data Hooks
+### Session-Level Hooks (Prefetched at Login)
+
+```typescript
+import {
+  useDatalabel,        // Dropdown options
+  useEntityCodes,      // Entity type definitions
+  useGlobalSettings,   // App settings
+  useEntityInstanceNames, // Name resolution
+} from '@/db/tanstack-index';
+```
+
+### On-Demand Hooks
 
 ```typescript
 import {
@@ -96,227 +149,97 @@ import {
 } from '@/db/tanstack-index';
 ```
 
-### Metadata Hooks
+### Sync Accessors (v13.0.0 - Guaranteed Non-Null)
 
 ```typescript
 import {
-  useDatalabel,        // Dropdown options
-  useEntityCodes,      // Entity type definitions
-  useGlobalSettings,   // App settings
+  getDatalabelSync,           // GUARANTEED after MetadataGate
+  getEntityCodesSync,         // GUARANTEED after MetadataGate
+  getEntityInstanceNameSync,  // For prefetched entities
+  getGlobalSettingsSync,      // GUARANTEED after MetadataGate
 } from '@/db/tanstack-index';
 
-// Sync cache for non-hook access (formatters, utilities)
-import {
-  getDatalabelSync,
-  getEntityCodesSync,
-  getGlobalSettingsSync,
-} from '@/db/tanstack-index';
+// v13.0.0: These are SAFE to call without null checks
+// (only after MetadataGate has passed)
+const options = getDatalabelSync('project_stage');  // Never null
+const codes = getEntityCodesSync();                 // Never null
 ```
 
 ### Draft Persistence Hook
 
 ```typescript
-import { useDraft, useRecoverDrafts } from '@/db/tanstack-index';
+import { useDraft } from '@/db/tanstack-index';
+
+const {
+  currentData,   // Current edited values
+  originalData,  // Original values
+  hasChanges,    // currentData !== originalData
+  updateField,   // (field, value) => void
+  undo,          // Revert last change
+  redo,          // Restore undone change
+  save,          // Persist to server
+  discard,       // Reset to original
+} = useDraft('project', projectId);
 ```
 
 ### Inline Add Row Hook (v11.3.1)
 
 ```typescript
 import {
-  useInlineAddRow,     // Reusable inline editing pattern
-  createTempRow,       // Factory for creating temp rows
-  shouldBlockNavigation, // Block navigation to temp rows
+  useInlineAddRow,
+  createTempRow,
+  shouldBlockNavigation,
 } from '@/db/cache/hooks';
+
+const {
+  editingRow,
+  editedData,
+  isAddingRow,
+  handleAddRow,
+  handleSave,
+  handleCancel,
+} = useInlineAddRow({
+  entityCode: 'project',
+  createEntity,
+  updateEntity,
+});
 ```
-
----
-
-## useEntityList Example
-
-```typescript
-function ProjectList() {
-  const {
-    data,           // Project[] from TanStack Query
-    metadata,       // Field definitions for rendering
-    refData,        // Reference lookups (entity names)
-    isLoading,      // True during initial fetch
-    isFetching,     // True during any fetch (including background)
-    isStale,        // True if data needs refresh
-    total,          // Total count from API
-    refetch,        // Manual refresh function
-  } = useEntityList<Project>('project', { limit: 50 });
-
-  // Data available immediately from Dexie (if cached)
-  // TanStack Query handles background refresh automatically
-  return (
-    <ul>
-      {data?.map(project => (
-        <li key={project.id}>{project.name}</li>
-      ))}
-    </ul>
-  );
-}
-```
-
----
-
-## useDraft Example (Draft Persistence)
-
-```typescript
-function ProjectEditor({ projectId }: { projectId: string }) {
-  const { data } = useEntity<Project>('project', projectId);
-  const draft = useDraft<Project>('project', projectId);
-
-  // Start editing - creates draft in Dexie
-  const handleStartEdit = () => {
-    if (data) draft.startEdit(data);
-  };
-
-  // Field change - persisted to Dexie immediately!
-  const handleFieldChange = (field: string, value: unknown) => {
-    draft.updateField(field, value);
-    // Survives page refresh!
-  };
-
-  // Save changes - only dirty fields sent
-  const handleSave = async () => {
-    const changes = draft.getChanges();  // { budget_amt: 75000 }
-    await api.patch(projectId, changes);
-    draft.discardDraft();
-  };
-
-  return (
-    <form>
-      <input
-        value={draft.currentData?.name || ''}
-        onChange={e => handleFieldChange('name', e.target.value)}
-      />
-      <button onClick={draft.undo} disabled={!draft.canUndo}>Undo</button>
-      <button onClick={draft.redo} disabled={!draft.canRedo}>Redo</button>
-      <button onClick={handleSave} disabled={!draft.hasChanges}>Save</button>
-    </form>
-  );
-}
-```
-
----
-
-## useInlineAddRow Example (v11.3.1)
-
-The `useInlineAddRow` hook implements TanStack Query's single source of truth pattern for inline editing. Cache is the ONLY data store - no local state copying.
-
-```typescript
-function ProjectTable() {
-  const { createEntity, updateEntity } = useOptimisticMutation('project');
-
-  const {
-    editingRow,        // Currently editing row ID (null if not editing)
-    editedData,        // Accumulated field changes
-    isAddingRow,       // True if adding new row (vs editing existing)
-    isSaving,          // Save in progress
-    handleAddRow,      // Add temp row to cache + enter edit mode
-    handleEditRow,     // Enter edit mode for existing row
-    handleFieldChange, // Update field in editedData
-    handleSave,        // Save to server (uses existingTempId for new rows)
-    handleCancel,      // Cancel edit + remove temp row from cache
-    isRowEditing,      // Check if specific row is being edited
-    isTempRow,         // Check if row ID is temp (not saved yet)
-  } = useInlineAddRow({
-    entityCode: 'project',
-    createEntity,
-    updateEntity,
-    transformForApi: (edited, original) => ({
-      ...edited,
-      // Transform display values to API format
-    }),
-  });
-
-  // Add new row
-  const handleAddClick = () => {
-    const newRow = createTempRow<Project>({
-      defaults: { dl__project_stage: 'planning' },
-      generateName: () => 'New Project',
-    });
-    handleAddRow(newRow);
-  };
-
-  // Block navigation to temp rows
-  const handleRowClick = (row: Project) => {
-    if (shouldBlockNavigation(row.id)) return; // temp_ rows can't navigate
-    navigate(`/project/${row.id}`);
-  };
-
-  return (
-    <Table>
-      {data?.map(row => (
-        <TableRow key={row.id} editing={isRowEditing(row.id)}>
-          {isRowEditing(row.id) ? (
-            // Render edit inputs
-            <EditableRow
-              data={editedData}
-              onFieldChange={handleFieldChange}
-              onSave={() => handleSave(row)}
-              onCancel={handleCancel}
-            />
-          ) : (
-            // Render display row
-            <DisplayRow data={row} onClick={() => handleRowClick(row)} />
-          )}
-        </TableRow>
-      ))}
-      <Button onClick={handleAddClick}>Add Row</Button>
-    </Table>
-  );
-}
-```
-
-**Key Pattern: `existingTempId`**
-
-When saving a new row, the hook passes `existingTempId` to `createEntity()`:
-
-```typescript
-// Inside handleSave for new rows
-await createEntity(transformedData, { existingTempId: 'temp_1234567890' });
-```
-
-This tells `useOptimisticMutation.onMutate()` to:
-1. **SKIP** adding a new temp row (one already exists in cache)
-2. **CAPTURE** previous state for rollback
-3. On success: **REPLACE** temp row with real server data
 
 ---
 
 ## Data Flow Patterns
 
-### Pattern 1: Initial Load (Cold Cache)
+### Pattern 1: Login with Hydration Gate (v13.0.0)
 
 ```
-User visits /project
+User logs in
     |
     v
-useEntityList('project')
+AuthContext.login()
     |
-    +-- TanStack Query: check memory cache
-    |   Result: MISS
-    |
-    +-- hydrateQueryCache(): check Dexie
-    |   Result: [] (empty IndexedDB)
-    |
-    +-- Fetch from API: GET /api/v1/project?limit=50
-    |       |
-    |       v
-    |   API Response:
-    |   { data: [...], ref_data_entityInstance: {...}, metadata: {...} }
-    |       |
-    |       v
-    |   1. Set TanStack Query cache
-    |   2. Persist to Dexie (db.entities.bulkPut)
-    |   3. WebSocket SUBSCRIBE for loaded entity IDs
-    |
-    +-- TanStack Query cache updated
+    +-- setMetadataLoaded(false)     <- GATE CLOSED
+    +-- API: POST /api/v1/auth/login
+    +-- setState({ isAuthenticated: true })
     |
     v
-Component re-renders with data
+loadAllMetadata()
+    |
+    +-- prefetchAllDatalabels()       <- 58 datalabel sets
+    +-- prefetchEntityCodes()         <- 23 entity types
+    +-- prefetchGlobalSettings()      <- App config
+    +-- prefetchRefDataEntityInstances() <- 300+ entity names
+    |
+    v
+setMetadataLoaded(true)              <- GATE OPENS
+    |
+    v
+ProtectedRoute renders children
+    |
+    +-- MetadataGate: isMetadataLoaded = true
+    +-- Render page components
+    |
+    v
+formatBadge() -> getDatalabelSync() -> DATA (guaranteed!)
 ```
 
 ### Pattern 2: Warm Cache (Instant Load)
@@ -348,297 +271,74 @@ User B edits project
     |
     v
 API Server:
-1. RBAC check (EDIT permission)
-2. UPDATE app.project SET ...
-3. DB trigger -> INSERT app.system_logging (sync_status='pending')
-4. Return 200 OK to User B
+1. UPDATE app.project SET ...
+2. DB trigger -> INSERT app.system_logging
+3. pg_notify('entity_changes', payload)
     |
-    | (up to 60s later)
     v
 PubSub LogWatcher polls app.system_logging
     |
-    +-- Query app.system_cache_subscription for subscribers
     +-- Push INVALIDATE via WebSocket to User A
     |
     v
 User A's WebSocketManager receives INVALIDATE
     |
-    +-- queryClient.invalidateQueries(['entity', 'project', id])
-    +-- TanStack Query auto-refetches (if observers mounted)
-    +-- GET /api/v1/project/:id
+    +-- queryClient.invalidateQueries(['entityInstanceData', 'project'])
+    +-- TanStack Query auto-refetches
     +-- Update Dexie with fresh data
     |
     v
 Component auto-updates (TanStack Query reactivity)
 ```
 
-### Pattern 4: Draft Persistence
+---
+
+## Unified Cache Architecture (v13.0.0)
 
 ```
-User starts editing
-    |
-    v
-useDraft('project', projectId)
-    |
-    +-- Create draft in Dexie drafts table
-    |   { originalData, currentData, undoStack: [], redoStack: [] }
-    |
-    v
-User modifies field
-    |
-    +-- draft.updateField('budget_amt', 75000)
-    +-- Dexie upsert (persisted to IndexedDB immediately!)
-    |
-    v
-User refreshes page (or browser restarts!)
-    |
-    v
-useRecoverDrafts()
-    |
-    +-- Query Dexie: db.drafts.toArray()
-    +-- Found! hasDrafts = true
-    +-- Show: "Recover unsaved changes?"
-    |
-    +-- Yes: Navigate to draft entity
-    +-- No: discardAllDrafts()
++-----------------------------------------------------------------------------+
+|                        v13.0.0 UNIFIED CACHE ARCHITECTURE                    |
++-----------------------------------------------------------------------------+
+|                                                                              |
+|  +------------------------------------------------------------------------+ |
+|  |                         CacheProvider                                   | |
+|  |  - Wraps QueryClientProvider (single source of truth)                  | |
+|  |  - Hydrates from IndexedDB on mount                                    | |
+|  |  - Manages WebSocket connection                                        | |
+|  |  - Exposes setMetadataLoaded() for AuthContext                        | |
+|  |  - Context: { isMetadataLoaded, syncStatus, connect, disconnect, ... } | |
+|  +------------------------------------------------------------------------+ |
+|                                    |                                        |
+|           +------------------------+------------------------+               |
+|           v                        v                        v               |
+|  +-----------------+     +-----------------+     +-----------------+        |
+|  |  TanStack Query |     |   Dexie v5      |     |   WebSocket     |        |
+|  |  (In-Memory)    |<--->|  (IndexedDB)    |     |  (Real-time)    |        |
+|  +-----------------+     +-----------------+     +-----------------+        |
+|         |                        |                        |                 |
+|         | queryClient            | Persistence            | Invalidation    |
+|         | .getQueryData()        | Tables                 | wsManager       |
+|         v                        v                        v                 |
+|  +-------------------------------------------------------------------+     |
+|  |                     UNIFIED QUERY KEYS                             |     |
+|  +-------------------------------------------------------------------+     |
+|  |  ['globalSettings']                    -> GlobalSettings            |     |
+|  |  ['datalabel', key]                    -> DatalabelOption[]         |     |
+|  |  ['entityCodes']                       -> EntityCode[]              |     |
+|  |  ['entityInstanceNames', entityCode]   -> { uuid: name }            |     |
+|  |  ['entityInstanceData', code, params]  -> EntityList                |     |
+|  |  ['entityInstance', code, id]          -> EntityInstance            |     |
+|  |  ['draft', entityCode, entityId]       -> Draft                     |     |
+|  +-------------------------------------------------------------------+     |
+|                                                                              |
++-----------------------------------------------------------------------------+
 ```
 
 ---
 
-## File Structure
+## Sync Accessors (v13.0.0)
 
-```
-apps/web/src/db/
-+-- Provider.tsx                     # CacheProvider - React context provider
-+-- index.ts                         # Public API exports
-+-- tanstack-index.ts                # Additional exports
-+-- cache/
-|   +-- client.ts                    # TanStack Query config
-|   +-- stores.ts                    # Sync accessors (getEntityInstanceNameSync, etc.)
-|   +-- keys.ts                      # Query key factories
-|   +-- hooks/                       # All data hooks
-+-- persistence/
-|   +-- schema.ts                    # Dexie schema
-|   +-- hydrate.ts                   # IndexedDB hydration
-+-- realtime/
-    +-- manager.ts                   # WebSocket + cache invalidation
-```
-
----
-
-## Unified Cache Architecture (v11.1.0)
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        v11.1.0 UNIFIED CACHE ARCHITECTURE                   │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │                         CacheProvider                                 │   │
-│  │  • Wraps QueryClientProvider (single source of truth)                │   │
-│  │  • Hydrates from IndexedDB on mount                                  │   │
-│  │  • Manages WebSocket connection                                      │   │
-│  │  • Context: { syncStatus, isHydrated, connect, disconnect, prefetch }│   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                                    │                                        │
-│           ┌────────────────────────┼────────────────────────┐               │
-│           ▼                        ▼                        ▼               │
-│  ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐       │
-│  │  TanStack Query │     │   Dexie v4      │     │   WebSocket     │       │
-│  │  (In-Memory)    │◄───►│  (IndexedDB)    │     │  (Real-time)    │       │
-│  └─────────────────┘     └─────────────────┘     └─────────────────┘       │
-│         │                        │                        │                 │
-│         │ queryClient            │ Persistence            │ Invalidation    │
-│         │ .getQueryData()        │ Tables                 │ wsManager       │
-│         │ .setQueryData()        │                        │                 │
-│         ▼                        ▼                        ▼                 │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                     UNIFIED QUERY KEYS                               │   │
-│  ├─────────────────────────────────────────────────────────────────────┤   │
-│  │  ['globalSettings']                    → GlobalSettings              │   │
-│  │  ['datalabel', key]                    → DatalabelOption[]           │   │
-│  │  ['entityCodes']                       → EntityCode[]                │   │
-│  │  ['entityInstanceNames', entityCode]   → { uuid: name }              │   │
-│  │  ['entityInstanceData', code, id]      → EntityInstance              │   │
-│  │  ['entityInstanceMetadata', code]      → ViewType/EditType           │   │
-│  │  ['entityLinks', parentCode, parentId] → LinkForwardIndex            │   │
-│  │  ['draft', entityCode, entityId]       → Draft                       │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Sync Accessors (v11.0.0)
-
-Sync accessors provide **synchronous cache access** for formatters and utilities that can't use React hooks:
-
-```
-┌────────────────────────────────────────────────────────────┐
-│           TanStack Query Cache                              │
-│  queryClient.getQueryData(['entityInstanceNames', code])    │
-│                      │                                      │
-│         ┌───────────┴───────────┐                          │
-│         ▼                       ▼                          │
-│  useEntityInstanceNames()   getEntityInstanceNameSync()     │
-│  (React hook)               (sync wrapper function)         │
-│                                                             │
-│  SAME DATA - just different access patterns                 │
-└────────────────────────────────────────────────────────────┘
-```
-
-| Sync Accessor | Usage | Returns |
-|---------------|-------|---------|
-| `getEntityInstanceNameSync(code, uuid)` | Formatters resolving UUIDs to names | `string \| null` |
-| `getDatalabelSync(key)` | Badge colors, dropdown options | `DatalabelOption[] \| null` |
-| `getEntityCodesSync()` | Entity type metadata | `EntityCode[] \| null` |
-| `getGlobalSettingsSync()` | Currency, date formats | `GlobalSettings \| null` |
-
-**Key Point**: These are NOT separate stores. They just wrap `queryClient.getQueryData()`.
-
----
-
-## App Integration
-
-```tsx
-// App.tsx
-import { CacheProvider } from '@/db';
-
-function App() {
-  return (
-    // CacheProvider includes QueryClientProvider - single source of truth
-    <CacheProvider>
-      <AuthProvider>
-        <Router>
-          {/* App routes */}
-        </Router>
-      </AuthProvider>
-    </CacheProvider>
-  );
-}
-```
-
----
-
-## Multi-Tab Sync
-
-Dexie uses shared IndexedDB storage for multi-tab sync:
-
-```
-Tab 1                                 Tab 2
------                                 -----
-+---------------+                     +---------------+
-| TanStack Query|                     | TanStack Query|
-|   + Dexie     |<---IndexedDB--->   |   + Dexie     |
-+---------------+                     +---------------+
-       |                                    |
-       |  WebSocket (leader tab)            |
-       +---> wsManager receives INVALIDATE  |
-       |     invalidates both tabs' caches  |
-       |                                    |
-       +-------- Both see same data --------+
-```
-
-- Any tab can fetch and update Dexie
-- TanStack Query cache is per-tab (in-memory)
-- Hydration from Dexie syncs state on startup
-
----
-
-## Data Flow (v11.1.0)
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           DATA FLOW (v11.1.0)                               │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  1. APP START                                                               │
-│     ─────────────                                                           │
-│     CacheProvider mounts                                                    │
-│         │                                                                   │
-│         ▼                                                                   │
-│     hydrateFromDexie() ─────► Load IndexedDB → TanStack Query cache         │
-│         │                                                                   │
-│         ▼                                                                   │
-│     isHydrated = true                                                       │
-│                                                                             │
-│  2. LOGIN                                                                   │
-│     ─────────                                                               │
-│     AuthContext.login() ────► context.prefetch()                            │
-│         │                         │                                         │
-│         │                         ├── prefetchGlobalSettings()              │
-│         │                         ├── prefetchAllDatalabels()               │
-│         │                         └── prefetchEntityCodes()                 │
-│         │                                                                   │
-│         └──────────────────► context.connect(token)                         │
-│                                   │                                         │
-│                                   └── wsManager.connect()                   │
-│                                                                             │
-│  3. ENTITY FETCH                                                            │
-│     ─────────────                                                           │
-│     useEntityInstanceData('project', { limit: 20 })                         │
-│         │                                                                   │
-│         ▼                                                                   │
-│     API Response: { data, ref_data_entityInstance, metadata }               │
-│         │                                                                   │
-│         ├── data → queryClient.setQueryData(['entityInstanceData',...])     │
-│         │                                                                   │
-│         ├── ref_data_entityInstance ──► upsertRefDataEntityInstance()       │
-│         │       │                                                           │
-│         │       └── queryClient.setQueryData(['entityInstanceNames',...])   │
-│         │                                                                   │
-│         └── metadata → queryClient.setQueryData(['entityInstanceMetadata']) │
-│                                                                             │
-│  4. RENDER                                                                  │
-│     ──────                                                                  │
-│     formatDataset(data, metadata)                                           │
-│         │                                                                   │
-│         ▼                                                                   │
-│     formatReference(uuid, { lookupEntity: 'employee' })                     │
-│         │                                                                   │
-│         ▼                                                                   │
-│     getEntityInstanceNameSync('employee', uuid) ────► 'John Smith'          │
-│                                                                             │
-│  5. WEBSOCKET INVALIDATION                                                  │
-│     ──────────────────────                                                  │
-│     wsManager receives { type: 'INVALIDATE', entity_code: 'project' }       │
-│         │                                                                   │
-│         ▼                                                                   │
-│     queryClient.invalidateQueries(['entityInstanceData', 'project'])        │
-│         │                                                                   │
-│         ▼                                                                   │
-│     TanStack Query auto-refetches → UI updates                              │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Sync Cache Pattern (Non-Hook Access) - v11.0.0
-
-For non-hook contexts (formatters, utilities), use sync accessor functions that read directly from `queryClient.getQueryData()`:
-
-```typescript
-import {
-  getDatalabelSync,
-  getEntityCodesSync,
-  getGlobalSettingsSync,
-  getEntityCodeSync,
-  getEntityInstanceNameSync,
-} from '@/db/tanstack-index';
-
-// v11.0.0: These read directly from queryClient.getQueryData()
-// Returns cached data or null
-// (populated at login via prefetchAllMetadata)
-const options = getDatalabelSync('project_stage');
-const entityCodes = getEntityCodesSync();
-const settings = getGlobalSettingsSync();
-const projectDef = getEntityCodeSync('project');
-const employeeName = getEntityInstanceNameSync('employee', uuid);
-```
-
-### How Sync Accessors Work (v11.0.0)
+### How They Work
 
 ```typescript
 // db/cache/stores.ts
@@ -648,50 +348,93 @@ export function getDatalabelSync(key: string): DatalabelOption[] | null {
     QUERY_KEYS.datalabel(normalizedKey)
   ) ?? null;
 }
-
-export function getEntityInstanceNameSync(
-  entityCode: string,
-  entityInstanceId: string
-): string | null {
-  const names = queryClient.getQueryData<Record<string, string>>(
-    QUERY_KEYS.entityInstanceNames(entityCode)
-  );
-  return names?.[entityInstanceId] ?? null;
-}
 ```
 
-**Key insight:** `queryClient.getQueryData()` is **synchronous** - it reads directly from TanStack Query's in-memory cache. No promises, no async. This enables formatters to resolve UUIDs to names without async/await.
+**Key insight:** `queryClient.getQueryData()` is **synchronous** - it reads directly from TanStack Query's in-memory cache.
+
+### v13.0.0 Guarantee
+
+After `MetadataGate` passes, sync accessors for session-level data are **guaranteed to return data**:
+
+```
++------------------------------------------------------------+
+|           TanStack Query Cache                              |
+|  queryClient.getQueryData(['datalabel', 'project_stage'])   |
+|                      |                                      |
+|         +------------+------------+                         |
+|         v                         v                         |
+|  useDatalabel()        getDatalabelSync()                   |
+|  (React hook)          (sync accessor)                      |
+|                                                             |
+|  v13.0.0: Both GUARANTEED to return data after gate opens  |
++------------------------------------------------------------+
+```
 
 ---
 
-## Initialization Flow
+## File Structure
 
 ```
-App Start
-    |
-    v
-CacheProvider mounts
-    |
-    +-- hydrateFromDexie()
-    |   -> Load entities from Dexie
-    |   -> Set TanStack Query cache
-    |   -> isHydrated = true
-    |
-    v
-User logs in (AuthContext)
-    |
-    +-- connectWebSocket(token)
-    |   -> wsManager.connect(token)
-    |   -> Flush pending subscriptions
-    |
-    +-- prefetchAllMetadata()
-        +-- prefetchAllDatalabels()  -> Dexie + sync cache
-        +-- prefetchEntityCodes()    -> Dexie + sync cache
-        +-- prefetchGlobalSettings() -> Dexie + sync cache
-        -> isMetadataLoaded = true
-    |
-    v
-App ready for use
+apps/web/src/db/
++-- Provider.tsx              # CacheProvider with setMetadataLoaded
++-- index.ts                  # Public API exports
++-- tanstack-index.ts         # Additional exports
++-- cache/
+|   +-- client.ts             # TanStack Query config
+|   +-- stores.ts             # Sync accessors
+|   +-- keys.ts               # Query key factories
+|   +-- hooks/                # All data hooks
++-- persistence/
+|   +-- schema.ts             # Dexie schema
+|   +-- hydrate.ts            # IndexedDB hydration
++-- realtime/
+    +-- manager.ts            # WebSocket + cache invalidation
+
+apps/web/src/components/shared/gates/
++-- MetadataGate.tsx          # v13.0.0 - Hydration gate component
++-- index.ts                  # Gate exports
+```
+
+---
+
+## App Integration
+
+```tsx
+// App.tsx
+import { CacheProvider } from '@/db';
+import { MetadataGate } from '@/components/shared';
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) return <LoadingSpinner />;
+  if (!isAuthenticated) return <Navigate to="/login" />;
+
+  // v13.0.0: MetadataGate ensures all session metadata is loaded
+  return (
+    <MetadataGate loadingMessage="Loading application data">
+      {children}
+    </MetadataGate>
+  );
+}
+
+function App() {
+  return (
+    <CacheProvider>
+      <AuthProvider>
+        <Router>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route element={<ProtectedRoute><Outlet /></ProtectedRoute>}>
+              <Route path="/project" element={<ProjectListPage />} />
+              {/* ... */}
+            </Route>
+          </Routes>
+        </Router>
+      </AuthProvider>
+    </CacheProvider>
+  );
+}
 ```
 
 ---
@@ -703,246 +446,48 @@ App ready for use
 | WebSocket INVALIDATE | `invalidateEntityQueries()` | Auto-refetch if observers mounted |
 | Manual refetch | `refetch()` from hook | Immediate fetch + cache update |
 | Mutation success | `invalidateQueries()` in onSuccess | Related queries refetched |
-| Logout | `clearAllCaches()` | TanStack + Dexie cleared |
+| Logout | `clearCache()` + `setMetadataLoaded(false)` | Gate closes, all caches cleared |
 | Stale timeout | Automatic | Background refetch on next access |
-
----
-
-## Bundle Size Comparison
-
-| Solution | Bundle Size | Notes |
-|----------|-------------|-------|
-| TanStack Query + Dexie | ~25KB | Production (v9.1.0) |
-| RxDB | ~150KB | Previous (v8.x) |
-| Redux + RTK Query | ~30KB | Alternative considered |
-
----
-
-## Related Documents
-
-| Document | Purpose |
-|----------|---------|
-| `docs/caching-frontend/NORMALIZED_CACHE_ARCHITECTURE.md` | TanStack Query + Dexie cache architecture |
-| `docs/caching-frontend/ref_data_entityInstance.md` | Entity reference resolution pattern |
-| `docs/ui_page/PAGE_LAYOUT_COMPONENT_ARCHITECTURE.md` | Page components and routing |
-| `docs/services/entity-infrastructure.service.md` | Entity CRUD patterns |
-| `CLAUDE.md` | Main codebase reference |
-
----
-
-**Version:** 11.3.1 | **Updated:** 2025-12-03 | **Status:** Production
-
----
-
-## Design Pattern Summary (Bullet Points)
-
-### Core Architecture (v11.1.0)
-
-- **Single QueryClient**: One `QueryClient` instance from `db/cache/client.ts` shared across entire app
-- **TanStack Query**: In-memory server state cache with auto-refetch and stale-while-revalidate
-- **Dexie (IndexedDB)**: Persistent offline storage that survives browser restart
-- **WebSocket Sync**: Real-time cache invalidation via PubSub service (port 4001)
-- **Sync Accessors**: Read directly from `queryClient.getQueryData()` (no separate Map stores)
-- **Flat Metadata Format**: Both table and form components receive `{ viewType, editType }` directly
-
-### Data Flow Pattern
-
-1. **App Start** → `hydrateQueryCache()` loads Dexie → TanStack Query
-2. **Login** → `prefetchAllMetadata()` populates all caches
-3. **Component Mount** → `useQuery` checks TanStack cache → Dexie → API
-4. **API Response** → Store in TanStack → Persist to Dexie → Upsert ref_data
-5. **WebSocket INVALIDATE** → `invalidateQueries()` → Auto-refetch → Update Dexie
-
-### Cache Types & TTLs (v11.1.0)
-
-| Cache | Query Key | Stale Time | GC Time | Persistence |
-|-------|-----------|------------|---------|-------------|
-| Entity Instance Names | `['entityInstanceNames', code]` | 10 min | 30 min | TanStack + Dexie |
-| Datalabel | `['datalabel', key]` | 10 min | 1 hour | TanStack + Dexie |
-| Entity Codes | `['entityCodes']` | 30 min | 1 hour | TanStack + Dexie |
-| Global Settings | `['globalSettings']` | 30 min | 1 hour | TanStack + Dexie |
-| Entity Instance Data | `['entityInstanceData', code, params]` | 5 min | 30 min | TanStack + Dexie |
-| Entity Instance Metadata | `['entityInstanceMetadata', code]` | 30 min | 1 hour | TanStack + Dexie |
-| Draft | `['draft', code, id]` | N/A | N/A | Dexie only |
-
----
-
-## Page & Component Caching Patterns
-
-### EntityListOfInstancesPage (List View)
-
-```
-/project, /employee, /task, etc.
-```
-
-**Cache Pattern (v11.1.0 - Two-Query Architecture):**
-- **DATA Query Key**: `['entityInstanceData', entityCode, { limit, offset, filters }]`
-- **METADATA Query Key**: `['entityInstanceMetadata', entityCode, 'entityListOfInstancesTable']`
-- **Data Source**: `useEntityInstanceData(entityCode, params)` + `useEntityInstanceMetadata(entityCode, componentType)`
-- **Metadata Format**: Flat `{ viewType, editType }` passed to `EntityListOfInstancesTable`
-- **Format**: Format-at-read via `formatDataset(data, metadata)` in `useMemo`
-- **Upsert**: API response `ref_data_entityInstance` merged into TanStack Query cache
-
-**Flow:**
-1. Component mounts → `useEntityInstanceData('project', { limit: 50 })` + `useEntityInstanceMetadata('project', 'entityListOfInstancesTable')`
-2. TanStack checks cache → HIT (instant) or MISS (fetch)
-3. Page constructs flat metadata: `{ viewType, editType }`
-4. API response `ref_data_entityInstance` merged via `queryClient.setQueryData(['entityInstanceNames', code], ...)`
-5. `formatDataset()` transforms to `FormattedRow[]`, entity references resolved via `getEntityInstanceNameSync()`
-6. Table receives flat metadata and FormattedRow[]
-
-### EntitySpecificInstancePage (Detail View)
-
-```
-/project/:id, /employee/:id, etc.
-```
-
-**Cache Pattern (v11.1.0 - Two-Query Architecture):**
-- **DATA Query Key**: `['entityInstance', entityCode, entityId]`
-- **METADATA Query Key**: `['entityInstanceMetadata', entityCode, 'entityInstanceFormContainer']`
-- **Data Source**: `useEntity(entityCode, entityId)` + `useEntityInstanceMetadata(entityCode, 'entityInstanceFormContainer')`
-- **Metadata Format**: Flat `{ viewType, editType }` passed to `EntityInstanceFormContainer`
-- **Child Tabs**: Each tab uses `['entityInstanceData', childCode, { parent_entity_code, parent_entity_instance_id }]`
-
-**Flow:**
-1. Component mounts → `useEntity('project', 'uuid-123')` + `useEntityInstanceMetadata('project', 'entityInstanceFormContainer')`
-2. Page constructs flat metadata: `const formMetadata = { viewType: formViewType, editType: formEditType }`
-3. `formatRow(rawData, formMetadata, refData)` transforms for view mode
-4. `EntityInstanceFormContainer` receives flat metadata (same format as `EntityListOfInstancesTable`)
-5. Child tabs lazy-load on click with parent filtering params
-
-### EntityCreatePage (Create Form)
-
-```
-/project/new, /employee/new, etc.
-```
-
-**Cache Pattern:**
-- **Query Key**: None (new entity)
-- **Data Source**: Empty form with field metadata
-- **Draft Storage**: `useDraft(entityCode, 'new')` → Dexie `drafts` table
-- **Dropdown Data**: `useRefDataEntityInstanceOptions(entityCode)` from unified cache
-
-**Flow:**
-1. Component mounts → Load field metadata from `['entityCodes']`
-2. Dropdowns populated from `['entityInstanceNames', lookupEntity]`
-3. User edits → Draft persisted to Dexie (survives refresh)
-4. Submit → POST API → Invalidate list queries → Navigate to detail
-
-### EntitySelect / EntityMultiSelect (Dropdowns)
-
-```
-<EntitySelect entityCode="employee" value={uuid} onChange={...} />
-```
-
-**Cache Pattern:**
-- **Query Key**: `['entityInstanceNames', entityCode]`
-- **Data Source**: `useRefDataEntityInstanceOptions(entityCode)`
-- **Data Structure**: `{ uuid: name }` lookup table
-- **Population**: Login prefetch (250+) + API upserts (incremental)
-
-**Flow:**
-1. Dropdown renders → `useRefDataEntityInstanceOptions('employee')`
-2. Cache HIT (from login prefetch) → 250 options instantly
-3. No loading spinner (data already cached)
-
-### BadgeDropdownSelect (Status Fields)
-
-```
-<BadgeDropdownSelect lookupField="dl__project_stage" value={id} onChange={...} />  // v12.0.0
-```
-
-**Cache Pattern:**
-- **Query Key**: `['datalabel', key]`
-- **Data Source**: `useDatalabel(key)`
-- **Data Structure**: `[{ id, name, color_code, sort_order }]`
-- **Population**: Login prefetch via `prefetchAllDatalabels()`
-
-**Flow:**
-1. Dropdown renders → `useDatalabel('project_stage')`
-2. Cache HIT → Options with colors displayed
-3. Non-hook access: `getDatalabelSync('project_stage')` for formatters
-
-### DynamicChildEntityTabs (Child Entity Tabs)
-
-```
-Project detail page with Task, Employee, Artifact tabs
-```
-
-**Cache Pattern:**
-- **Tab List**: From `entity.child_entity_codes` via `['entityCodes']`
-- **Tab Content**: `['entity-list', childCode, { parent_id, parent_code }]`
-- **Lazy Loading**: Each tab fetches on first click
-
-**Flow:**
-1. Parent detail loads → Get `child_entity_codes` from entity metadata
-2. Render tab headers with counts (parallel count queries)
-3. User clicks tab → Fetch child list with parent filter
-4. Child data cached independently
-
-### SettingsDataTable (Datalabel Editor)
-
-```
-/settings/data-labels, /setting/:category
-```
-
-**Cache Pattern:**
-- **Query Key**: `['datalabel', category]` or `['datalabel', 'all']`
-- **Data Source**: `useDatalabel(category)` or `useAllDatalabels()`
-- **Mutations**: Invalidate `['datalabel', key]` on save
-
-**Flow:**
-1. Settings page loads → `useAllDatalabels()` fetches all
-2. User edits → Local state (not draft, immediate save expected)
-3. Save → API PATCH → `invalidateQueries(['datalabel', key])`
-4. TanStack Query cache auto-updated via invalidation → refetch
 
 ---
 
 ## Key Design Principles
 
-### 1. Single QueryClient (CRITICAL)
+### 1. Hydration Gate First (v13.0.0)
 
-- **ONE QueryClient** from `db/cache/client.ts`
-- `CacheProvider` wraps with `QueryClientProvider`
+```
+- Block rendering until isMetadataLoaded = true
+- Formatters NEVER see null from sync accessors
+- No defensive fallbacks needed
+- Clean, simple formatter code
+```
+
+### 2. Single QueryClient
+
+```
+- ONE QueryClient from db/cache/client.ts
+- CacheProvider wraps with QueryClientProvider
 - All hooks read/write to SAME cache
-- **Anti-pattern**: Creating multiple `QueryClient` instances causes cache isolation
-
-### 2. Upsert Always Merges
-
-```typescript
-// CORRECT: Merge pattern
-queryClient.setQueryData(key, (old) => ({ ...(old || {}), ...new }));
-
-// WRONG: Replace pattern (loses existing data)
-queryClient.setQueryData(key, newData);
 ```
 
 ### 3. Prefetch is Awaited
 
 ```typescript
 // AuthContext.tsx
-await prefetchRefDataEntityInstances(queryClient, ['employee', 'project', ...]);
+await loadAllMetadata();  // Includes all prefetch operations
+setMetadataLoaded(true);  // THEN open the gate
 // Page renders AFTER cache is populated
 ```
 
 ### 4. Format-at-Read, Not Format-at-Fetch
 
+```
 - Cache stores RAW data (small, canonical)
-- Formatting happens via TanStack Query's `select` option
+- Formatting happens via TanStack Query's select option
 - Memoized by React Query
-
-### 5. Sync Cache for Non-Hook Access
-
-```typescript
-// Inside React component (hook)
-const { options } = useDatalabel('project_stage');
-
-// Outside React (formatter, utility)
-const options = getDatalabelSync('project_stage');
 ```
 
-### 6. Cache-First, Network-Second
+### 5. Cache-First, Network-Second
 
 ```
 1. Check TanStack Query memory cache
@@ -953,66 +498,28 @@ const options = getDatalabelSync('project_stage');
 
 ---
 
-## Component → Cache Mapping (v11.1.0)
+## Related Documents
 
-| Component | Cache Query Key | Hook | Metadata Format |
-|-----------|-----------------|------|-----------------|
-| `EntityListOfInstancesPage` | `['entityInstanceData', code, params]` + `['entityInstanceMetadata', code, 'entityListOfInstancesTable']` | `useEntityInstanceData` + `useEntityInstanceMetadata` | Flat `{ viewType, editType }` |
-| `EntitySpecificInstancePage` | `['entityInstance', code, id]` + `['entityInstanceMetadata', code, 'entityInstanceFormContainer']` | `useEntity` + `useEntityInstanceMetadata` | Flat `{ viewType, editType }` |
-| `EntityCreatePage` | Dexie `draft` table | `useDraft` | - |
-| `EntitySelect` | `['entityInstanceNames', code]` | `useRefDataEntityInstanceOptions` | - |
-| `BadgeDropdownSelect` | `['datalabel', key]` | `useDatalabel` | - |
-| `DynamicChildEntityTabs` | `['entityInstanceData', childCode, ...]` + `['entityInstanceMetadata', childCode, 'entityListOfInstancesTable']` | `useEntityInstanceData` + `useEntityInstanceMetadata` | Flat `{ viewType, editType }` |
-| `SettingsDataTable` | `['datalabel', category]` | `useDatalabel` | - |
-| `EntityDetailView` | `['entityInstance', code, id]` | `useEntity` | - |
-| `EntityInstanceFormContainer` | `['entityInstance', code, id]` + draft | `useEntity` + `useDraft` | Flat `{ viewType, editType }` |
+| Document | Purpose |
+|----------|---------|
+| `docs/caching-frontend/frontend_cache_design_pattern.md` | Comprehensive cache architecture (merged) |
+| `docs/design_pattern/FRONTEND_DESIGN_PATTERN.md` | Frontend patterns including Hydration Gate |
+| `docs/caching/TANSTACK_DEXIE_SYNC_ARCHITECTURE.md` | WebSocket sync |
+| `docs/services/entity-infrastructure.service.md` | Entity CRUD patterns |
+| `CLAUDE.md` | Main codebase reference |
 
 ---
 
-## Login Prefetch Sequence (v11.1.0)
+## Version History
 
-```
-1. User logs in
-   │
-2. Store token in localStorage
-   │
-3. await Promise.all([
-   │   prefetchAllDatalabels(),      // ['datalabel', *] → TanStack + Dexie
-   │   prefetchEntityCodes(),        // ['entityCodes'] → TanStack + Dexie
-   │   prefetchGlobalSettings(),     // ['globalSettings'] → TanStack + Dexie
-   │ ])
-   │
-4. await prefetchRefDataEntityInstances(queryClient, [
-   │   'employee', 'project', 'business', 'office', 'role', 'cust'
-   │ ])
-   │   // ['entityInstanceNames', code] → TanStack + Dexie (250+ per entity)
-   │
-5. setState({ isAuthenticated: true })
-   │
-6. Page renders with ALL CACHES POPULATED
-   │
-   (v11.1.0: Single in-memory cache - TanStack Query only, flat metadata format)
-```
+| Version | Date | Changes |
+|---------|------|---------|
+| 13.0.0 | 2025-12-07 | **Hydration Gate Pattern**: MetadataGate blocks rendering until all session metadata loaded. Sync accessors guaranteed non-null. |
+| 11.3.1 | 2025-12-03 | Inline add row pattern with `useInlineAddRow` hook |
+| 11.1.0 | 2025-12-02 | Flat metadata format for table and form components |
+| 11.0.0 | 2025-12-01 | Removed sync stores - TanStack Query single source of truth |
+| 9.1.0 | 2025-11-28 | TanStack Query + Dexie migration (replaced RxDB) |
 
 ---
 
-## Console Debugging (v11.1.0)
-
-```javascript
-// Check cache statistics
-import { getCacheStats } from '@/db/tanstack-index';
-getCacheStats();  // { globalSettings: true, datalabelKeys: [...], ... }
-
-// Debug ref_data_entityInstance cache
-window.__debugRefDataEntityInstance();
-
-// React Query DevTools (in development)
-// Shows all cached queries, stale state, fetch status
-
-// Check Dexie tables
-const { db } = await import('@/db/persistence/schema');
-await db.datalabel.toArray();           // All datalabels
-await db.entityInstanceNames.toArray(); // All entity names
-await db.draft.toArray();               // All drafts
-await db.entityInstanceData.toArray();  // All cached entity data
-```
+**Version:** 13.0.0 | **Updated:** 2025-12-07 | **Status:** Production

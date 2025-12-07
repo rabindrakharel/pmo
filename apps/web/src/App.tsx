@@ -7,7 +7,8 @@ import { EntityPreviewProvider } from './contexts/EntityPreviewContext';
 import { EntityMetadataProvider, useEntityMetadata } from './contexts/EntityMetadataContext';
 // v11.0.0: TanStack Query + Dexie for offline-first entity storage with WebSocket sync
 import { CacheProvider } from './db';
-import { LoginForm } from './components/shared';
+// v13.0.0: Hydration Gate Pattern - blocks rendering until metadata loaded
+import { LoginForm, MetadataGate } from './components/shared';
 import { EntityPreviewPanel } from './components/shared/preview/EntityPreviewPanel';
 import { EllipsisBounce } from './components/shared/ui/EllipsisBounce';
 // v12.2.0: Register field renderer components at app initialization
@@ -71,13 +72,29 @@ import { EntityListOfInstancesPage, EntitySpecificInstancePage, EntityCreatePage
 // Entity Configuration
 import { entityConfigs } from './lib/entityConfig';
 
+/**
+ * ProtectedRoute - Authentication + Metadata Gate
+ *
+ * v13.0.0: Implements the Hydration Gate Pattern
+ *
+ * Order of guards:
+ * 1. isLoading → Show loading spinner (auth check in progress)
+ * 2. !isAuthenticated → Redirect to login
+ * 3. MetadataGate → Block until ALL session metadata loaded
+ * 4. Children → Render protected content
+ *
+ * After MetadataGate passes:
+ * - getDatalabelSync() is GUARANTEED to return data (not null)
+ * - getEntityCodesSync() is GUARANTEED to return data (not null)
+ * - All formatters have access to complete lookup data
+ */
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <EllipsisBounce size="lg" text="Processing" />
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <EllipsisBounce size="lg" text="Authenticating" />
       </div>
     );
   }
@@ -86,7 +103,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
-  return <>{children}</>;
+  // v13.0.0: MetadataGate ensures all session-level metadata is loaded
+  // before rendering any protected content. This eliminates the race
+  // condition where formatters call getDatalabelSync() before data exists.
+  return (
+    <MetadataGate loadingMessage="Loading application data">
+      {children}
+    </MetadataGate>
+  );
 }
 
 function AppRoutes() {

@@ -1166,52 +1166,54 @@ className="bg-white border-b border-slate-200"
 
 Modern SaaS applications use subtle background variations and shadows to create visual depth and section separation. This follows the "layered surfaces" pattern used by Linear, Notion, and Figma.
 
+**IMPORTANT:** All styling uses the unified `dark-*` palette from tailwind.config.js for consistency with Layout and all components. The `dark-*` palette provides warm neutral grays that complement the overall design.
+
 ### Header Section Styling
 
 ```jsx
-// Entity detail page header with subtle gradient
-<div className="sticky top-0 z-20 bg-gradient-to-b from-white to-slate-50/80 border-b border-slate-200/80 shadow-sm">
+// Entity detail page header with subtle gradient (dark-* palette)
+<div className="sticky top-0 z-20 bg-gradient-to-b from-white to-dark-subtle/80 border-b border-dark-200 shadow-sm">
   {/* Header content */}
 </div>
 ```
 
 **Key Properties:**
-- `bg-gradient-to-b from-white to-slate-50/80` - Subtle downward gradient adds depth
-- `border-slate-200/80` - Semi-transparent border for softness
+- `bg-gradient-to-b from-white to-dark-subtle/80` - Subtle downward gradient adds depth
+- `border-dark-200` - Consistent border from design system
 - `shadow-sm` - Minimal shadow for elevation without harshness
 
 ### Content Container Styling
 
 ```jsx
-// Child entity table container with elevation
-<div className="bg-white rounded-xl shadow-sm border border-slate-200/60 overflow-hidden">
+// Child entity table container with elevation (dark-* palette)
+<div className="bg-white rounded-xl shadow-sm border border-dark-200 overflow-hidden">
   {/* Table content */}
 </div>
 ```
 
 **Key Properties:**
 - `bg-white` - Clean white surface for data clarity
-- `border-slate-200/60` - Subtle, transparent border
+- `border-dark-200` - Subtle border from design system
 - `rounded-xl` - Modern rounded corners
 - `shadow-sm` - Soft elevation
 
 ### Data Table Styling
 
 ```jsx
-// Table container with gradient toolbar
-<div className="bg-white rounded-xl shadow-sm border border-slate-200/60">
+// Table container with gradient toolbar (dark-* palette)
+<div className="bg-white rounded-xl shadow-sm border border-dark-200">
   {/* Toolbar with gradient */}
-  <div className="px-6 py-4 bg-gradient-to-b from-slate-50/80 to-white border-b border-slate-200/60">
+  <div className="px-6 py-4 bg-gradient-to-b from-dark-subtle to-white border-b border-dark-200">
     {/* Filter controls */}
   </div>
 
   {/* Table with gradient header */}
-  <thead className="bg-gradient-to-b from-slate-100/80 to-slate-50/60 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+  <thead className="bg-gradient-to-b from-dark-100 to-dark-subtle shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
     {/* Column headers */}
   </thead>
 
   {/* Pagination footer with inverse gradient */}
-  <div className="border-t border-slate-200/60 bg-gradient-to-t from-slate-50/80 to-white">
+  <div className="border-t border-dark-200 bg-gradient-to-t from-dark-subtle to-white">
     {/* Pagination controls */}
   </div>
 </div>
@@ -1221,12 +1223,23 @@ Modern SaaS applications use subtle background variations and shadows to create 
 
 | Layer | Background | Purpose |
 |-------|------------|---------|
-| Canvas | `slate-50` or Layout bg | Base layer, subtle warmth |
+| Canvas | `bg-dark-100` (Layout) | Base layer, warm neutral |
 | Primary Surface | `bg-white` | Cards, tables, content areas |
-| Header/Footer | `from-slate-50/80 to-white` | Toolbar gradients for depth |
-| Table Header | `from-slate-100/80 to-slate-50/60` | Column header prominence |
-| Borders | `border-slate-200/60` | Subtle separation |
+| Header/Footer | `from-dark-subtle to-white` | Toolbar gradients for depth |
+| Table Header | `from-dark-100 to-dark-subtle` | Column header prominence |
+| Borders | `border-dark-200` | Subtle separation |
 | Shadows | `shadow-sm` | Minimal elevation |
+
+### dark-* Palette Reference (from tailwind.config.js)
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `dark-subtle` | `#F7F7F7` | Subtle backgrounds |
+| `dark-100` | `#F5F5F5` | Light backgrounds, Layout bg |
+| `dark-200` | `#E5E5E5` | Default borders |
+| `dark-300` | `#D4D4D4` | Medium borders, inputs |
+| `dark-400` | `#A3A3A3` | Muted text |
+| `dark-hover` | `#F3F3F3` | Hover states |
 
 ### Gradient Direction Patterns
 
@@ -1240,8 +1253,8 @@ Modern SaaS applications use subtle background variations and shadows to create 
 ### Loading State Styling
 
 ```jsx
-// Consistent loading state with gradient
-<div className="flex items-center justify-center bg-gradient-to-b from-slate-50/50 to-white">
+// Consistent loading state with gradient (dark-* palette)
+<div className="flex items-center justify-center bg-gradient-to-b from-dark-subtle/50 to-white">
   <EllipsisBounce size="lg" text="Processing" />
 </div>
 ```
@@ -1252,7 +1265,7 @@ Modern SaaS applications use subtle background variations and shadows to create 
 
 | Version | Date | Changes |
 |---------|------|---------|
-| **v13.1** | **2025-12-07** | **Section visual hierarchy** - gradient backgrounds for depth, slate-based borders, improved header/table/footer separation |
+| **v13.1** | **2025-12-07** | **Section visual hierarchy** - unified dark-* palette for consistency with Layout, gradient backgrounds for depth, improved header/table/footer separation, eliminates slate-* color mixing |
 | v13.0 | 2025-12-07 | Production-grade design system, unified slate palette, zero !important, focus-visible accessibility, Button/IconButton/ButtonGroup components, typography scale with line-heights, Entity Detail Header v13.0.0 (two-line layout, hero title, metadata chips) |
 | v12.0 | 2025-11-13 | Minimalistic design system |
 | v11.0 | 2025-11-10 | YAML pattern detection |

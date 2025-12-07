@@ -74,12 +74,13 @@
 
 @layer components {
   /* Base form elements - use Tailwind classes, avoid !important */
+  /* v13.1.0: Updated to use dark-* palette for consistency */
   .form-input,
   .form-textarea,
   .form-select {
     @apply w-full bg-white text-dark-800 border border-dark-200 rounded-md;
     @apply transition-all duration-150;
-    @apply focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-500/20;
+    @apply focus:outline-none focus:border-dark-400 focus:ring-2 focus:ring-dark-accent-ring;
     @apply placeholder:text-dark-400;
   }
 
@@ -96,10 +97,11 @@
   }
 
   /* Checkbox and Radio - Custom styling */
+  /* v13.1.0: Updated to use dark-* palette for consistency */
   .form-checkbox,
   .form-radio {
-    @apply h-4 w-4 rounded border-dark-300 text-slate-600;
-    @apply focus:ring-2 focus:ring-slate-500/20 focus:ring-offset-0;
+    @apply h-4 w-4 rounded border-dark-300 text-dark-accent;
+    @apply focus:ring-2 focus:ring-dark-accent-ring focus:ring-offset-0;
     @apply transition-colors;
   }
 
