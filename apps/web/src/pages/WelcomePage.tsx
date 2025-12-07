@@ -329,14 +329,14 @@ export function WelcomePage() {
     const entity = entityMap[code];
     if (!entity) return null;
 
-    const baseClasses = 'inline-flex items-center px-3 py-2 rounded-full text-xs font-medium border transition-all';
+    const baseClasses = 'inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border transition-all';
 
     if (entity.path) {
       return (
         <Link
           key={code}
           to={entity.path}
-          className={`${baseClasses} border-purple-200 bg-purple-50 text-purple-700 hover:border-purple-400 hover:bg-purple-100 hover:shadow-sm`}
+          className={`${baseClasses} border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-400 hover:bg-slate-100 hover:shadow-sm`}
         >
           {entity.uiLabel}
         </Link>
@@ -346,7 +346,7 @@ export function WelcomePage() {
     return (
       <span
         key={code}
-        className={`${baseClasses} border-slate-200 bg-slate-50 text-slate-500 cursor-default`}
+        className={`${baseClasses} border-dark-200 bg-dark-50 text-dark-500 cursor-default`}
       >
         {entity.uiLabel}
       </span>
@@ -355,19 +355,19 @@ export function WelcomePage() {
 
   return (
     <Layout>
-      <div className="w-full bg-gradient-to-br from-slate-50 via-white to-purple-50/20 min-h-screen">
+      <div className="w-full bg-dark-canvas min-h-screen">
         <div className="w-[97%] max-w-[1536px] mx-auto px-4 py-8 space-y-8">
           {/* Hero Section - Elegant & Modern */}
-          <div className="relative overflow-hidden bg-gradient-to-br from-slate-800 via-slate-700 to-purple-900 rounded-3xl shadow-2xl border border-slate-600/50">
-            {/* Animated gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-indigo-500/10 animate-pulse"></div>
+          <div className="relative overflow-hidden bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 rounded-2xl shadow-xl border border-slate-600/30">
+            {/* Subtle gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-br from-slate-500/5 via-transparent to-slate-400/5"></div>
 
             <div className="relative px-8 md:px-12 py-10 md:py-14">
               <div className="grid lg:grid-cols-2 gap-8 items-center">
                 {/* Left Column */}
                 <div>
                   <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm mb-5">
-                    <Sparkles className="h-4 w-4 text-purple-300" />
+                    <Sparkles className="h-4 w-4 text-slate-300" />
                     <span className="text-xs font-medium text-white/90 uppercase tracking-wider">
                       AI-First Enterprise Orchestrator
                     </span>
@@ -375,7 +375,7 @@ export function WelcomePage() {
 
                   <h1 className="text-4xl md:text-5xl font-bold text-white mb-5 leading-tight tracking-tight">
                     Welcome back{user?.name ? `, ${user.name}` : ''}.
-                    <span className="block text-purple-200 mt-2">Let AI adapt to you.</span>
+                    <span className="block text-slate-300 mt-2">Let AI adapt to you.</span>
                   </h1>
 
                   <p className="text-lg text-white/85 mb-7 leading-relaxed">
@@ -413,13 +413,13 @@ export function WelcomePage() {
                 {/* Right Column - Stats */}
                 <div className="space-y-4">
                   {heroHighlights.map(highlight => (
-                    <div key={highlight.label} className="group bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/20 hover:bg-white/15 transition-all duration-200">
+                    <div key={highlight.label} className="group bg-white/10 backdrop-blur-md rounded-xl p-5 border border-white/20 hover:bg-white/15 transition-all duration-200">
                       <div className="flex items-start gap-4">
-                        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-purple-400 to-indigo-500 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                        <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-slate-500 to-slate-600 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
                           <highlight.icon className="h-6 w-6 text-white" />
                         </div>
                         <div className="flex-1">
-                          <p className="text-xs font-medium text-purple-200 uppercase tracking-wider mb-1">
+                          <p className="text-xs font-medium text-slate-300 uppercase tracking-wider mb-1">
                             {highlight.label}
                           </p>
                           <p className="text-3xl font-bold text-white mb-1">{highlight.value}</p>
@@ -429,9 +429,9 @@ export function WelcomePage() {
                     </div>
                   ))}
 
-                  <div className="bg-gradient-to-r from-purple-500/20 to-indigo-500/20 backdrop-blur-md rounded-2xl p-5 border border-purple-300/30">
+                  <div className="bg-white/10 backdrop-blur-md rounded-xl p-5 border border-white/20">
                     <p className="font-semibold text-white mb-2 flex items-center gap-2">
-                      <Bot className="h-5 w-5 text-purple-300" />
+                      <Bot className="h-5 w-5 text-slate-300" />
                       AI handles execution. You focus on outcomes.
                     </p>
                     <p className="text-sm text-white/80 leading-relaxed">
@@ -446,9 +446,9 @@ export function WelcomePage() {
           {/* Value Proposition */}
           <div className="grid gap-5 md:grid-cols-2">
             {valueProps.map((prop) => (
-              <div key={prop.title} className="group bg-white border border-slate-200 rounded-2xl p-6 hover:border-purple-300 hover:shadow-lg transition-all duration-200">
+              <div key={prop.title} className="group bg-white border border-dark-200 rounded-lg p-6 hover:border-slate-400 hover:shadow-md transition-all duration-200">
                 <div className="flex items-start gap-4 mb-3">
-                  <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-slate-600 to-purple-600 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
+                  <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
                     <prop.icon className="h-6 w-6 text-white" />
                   </div>
                   <div className="flex-1">
@@ -461,7 +461,7 @@ export function WelcomePage() {
           </div>
 
           {/* Core Problem & AI-First Solution */}
-          <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 rounded-2xl shadow-lg border border-amber-200/50 overflow-hidden">
+          <div className="bg-white rounded-lg shadow-sm border border-dark-200 overflow-hidden">
             <div className="p-8">
               <div className="grid md:grid-cols-2 gap-8">
                 <div>
@@ -539,19 +539,19 @@ export function WelcomePage() {
                     <h3 className="text-lg font-bold text-slate-800 mb-3">Why Small & Medium Businesses First</h3>
                     <div className="grid md:grid-cols-4 gap-4 text-sm text-slate-700">
                       <div className="flex items-start gap-2">
-                        <Zap className="h-4 w-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                        <Zap className="h-4 w-4 text-slate-600 mt-0.5 flex-shrink-0" />
                         <span><strong>Easy onboarding</strong> with minimal friction</span>
                       </div>
                       <div className="flex items-start gap-2">
-                        <Layers className="h-4 w-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                        <Layers className="h-4 w-4 text-slate-600 mt-0.5 flex-shrink-0" />
                         <span><strong>No rigid legacy</strong> systems</span>
                       </div>
                       <div className="flex items-start gap-2">
-                        <TrendingUp className="h-4 w-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                        <TrendingUp className="h-4 w-4 text-slate-600 mt-0.5 flex-shrink-0" />
                         <span><strong>Feel the pain</strong> and seek fast ROI</span>
                       </div>
                       <div className="flex items-start gap-2">
-                        <Activity className="h-4 w-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                        <Activity className="h-4 w-4 text-slate-600 mt-0.5 flex-shrink-0" />
                         <span><strong>Quick adoption</strong> cycles</span>
                       </div>
                     </div>
@@ -562,29 +562,29 @@ export function WelcomePage() {
           </div>
 
           {/* Semantic Highlights */}
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-lg overflow-hidden">
-            <div className="bg-gradient-to-r from-purple-500/10 to-indigo-500/10 px-8 py-6 border-b border-slate-200">
+          <div className="bg-white border border-dark-200 rounded-lg shadow-sm overflow-hidden">
+            <div className="bg-dark-50 px-8 py-6 border-b border-dark-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-purple-700 uppercase tracking-wider mb-1">Semantic Modularity</p>
-                  <h2 className="text-3xl font-bold text-slate-800">Inspired by nature, powered by agents</h2>
+                  <p className="text-sm font-semibold text-slate-600 uppercase tracking-wider mb-1">Semantic Modularity</p>
+                  <h2 className="text-2xl font-bold text-dark-800">Inspired by nature, powered by agents</h2>
                 </div>
-                <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-white rounded-full border border-purple-200">
-                  <Activity className="h-4 w-4 text-purple-600" />
-                  <span className="text-sm font-medium text-slate-700">Always-on semantic capture</span>
+                <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-white rounded-full border border-dark-200">
+                  <Activity className="h-4 w-4 text-slate-600" />
+                  <span className="text-sm font-medium text-dark-700">Always-on semantic capture</span>
                 </div>
               </div>
             </div>
             <div className="p-8">
               <div className="grid gap-6 md:grid-cols-3">
                 {semanticHighlights.map(highlight => (
-                  <div key={highlight.title} className="group bg-gradient-to-br from-slate-50 to-purple-50 rounded-xl border border-slate-200 p-6 hover:border-purple-300 hover:shadow-md transition-all duration-200">
-                    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-md">
+                  <div key={highlight.title} className="group bg-dark-50 rounded-lg border border-dark-200 p-6 hover:border-slate-400 hover:shadow-sm transition-all duration-200">
+                    <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform shadow-sm">
                       <highlight.icon className="h-6 w-6 text-white" />
                     </div>
-                    <h3 className="text-lg font-bold text-slate-800 mb-2">{highlight.title}</h3>
-                    <p className="text-sm text-slate-600 mb-3 leading-relaxed">{highlight.description}</p>
-                    <p className="text-xs font-semibold text-purple-700 uppercase tracking-wider">{highlight.detail}</p>
+                    <h3 className="text-lg font-bold text-dark-800 mb-2">{highlight.title}</h3>
+                    <p className="text-sm text-dark-600 mb-3 leading-relaxed">{highlight.description}</p>
+                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">{highlight.detail}</p>
                   </div>
                 ))}
               </div>
@@ -592,29 +592,29 @@ export function WelcomePage() {
           </div>
 
           {/* Integration Pain Section */}
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-lg overflow-hidden">
-            <div className="bg-gradient-to-r from-indigo-500/10 to-blue-500/10 px-8 py-6 border-b border-slate-200">
+          <div className="bg-white border border-dark-200 rounded-lg shadow-sm overflow-hidden">
+            <div className="bg-dark-50 px-8 py-6 border-b border-dark-200">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-indigo-500 flex items-center justify-center">
+                <div className="h-10 w-10 rounded-lg bg-slate-600 flex items-center justify-center">
                   <PlugZap className="h-5 w-5 text-white" />
                 </div>
-                <h2 className="text-3xl font-bold text-slate-800">Goodbye brittle integrations</h2>
+                <h2 className="text-2xl font-bold text-dark-800">Goodbye brittle integrations</h2>
               </div>
             </div>
             <div className="p-8 space-y-5">
               {integrationPainPoints.map(point => (
-                <div key={point.title} className="bg-gradient-to-br from-slate-50 to-indigo-50 border border-slate-200 rounded-xl p-6 hover:border-indigo-300 hover:shadow-md transition-all duration-200">
+                <div key={point.title} className="bg-dark-50 border border-dark-200 rounded-lg p-6 hover:border-slate-400 hover:shadow-sm transition-all duration-200">
                   <div className="flex items-center gap-4 mb-4">
-                    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md">
+                    <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center shadow-sm">
                       <point.icon className="h-6 w-6 text-white" />
                     </div>
-                    <h3 className="text-xl font-bold text-slate-800">{point.title}</h3>
+                    <h3 className="text-lg font-bold text-dark-800">{point.title}</h3>
                   </div>
                   <div className="space-y-2 pl-16">
-                    <p className="text-sm text-slate-600">
+                    <p className="text-sm text-dark-600">
                       <span className="font-bold text-red-600">Pain:</span> {point.pain}
                     </p>
-                    <p className="text-sm text-slate-600">
+                    <p className="text-sm text-dark-600">
                       <span className="font-bold text-emerald-600">Solution:</span> {point.solution}
                     </p>
                   </div>
@@ -627,33 +627,33 @@ export function WelcomePage() {
           <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
               <div>
-                <p className="text-sm font-semibold text-purple-700 uppercase tracking-wider mb-2">Domain-Entity Architecture</p>
-                <h2 className="text-3xl font-bold text-slate-800 mb-2">8 semantic domains powering every industry</h2>
-                <p className="text-base text-slate-600">Modular ontology where entities self-organize and AI orchestrates workflows automatically</p>
+                <p className="text-sm font-semibold text-slate-600 uppercase tracking-wider mb-2">Domain-Entity Architecture</p>
+                <h2 className="text-2xl font-bold text-dark-800 mb-2">8 semantic domains powering every industry</h2>
+                <p className="text-sm text-dark-600">Modular ontology where entities self-organize and AI orchestrates workflows automatically</p>
               </div>
               <Link
                 to="/entity-designer"
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 whitespace-nowrap"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md font-medium bg-slate-600 text-white shadow-sm hover:bg-slate-700 transition-all duration-200 whitespace-nowrap"
               >
-                <Layers className="h-5 w-5" />
+                <Layers className="h-4 w-4" />
                 View Entity Designer
               </Link>
             </div>
             <div className="grid gap-5 md:grid-cols-2">
               {domainModules.map(module => (
-                <div key={module.id} className="group bg-white border border-slate-200 rounded-2xl overflow-hidden hover:border-purple-300 hover:shadow-lg transition-all duration-200">
-                  <div className="bg-gradient-to-r from-slate-50 to-purple-50 px-6 py-5 border-b border-slate-200">
+                <div key={module.id} className="group bg-white border border-dark-200 rounded-lg overflow-hidden hover:border-slate-400 hover:shadow-md transition-all duration-200">
+                  <div className="bg-dark-50 px-6 py-5 border-b border-dark-200">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
-                        <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-slate-600 to-purple-700 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
-                          <module.icon className="h-7 w-7 text-white" />
+                        <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+                          <module.icon className="h-6 w-6 text-white" />
                         </div>
                         <div>
-                          <h3 className="text-lg font-bold text-slate-800">{module.title}</h3>
-                          <p className="text-sm text-slate-600">{module.summary}</p>
+                          <h3 className="text-base font-semibold text-dark-800">{module.title}</h3>
+                          <p className="text-sm text-dark-600">{module.summary}</p>
                         </div>
                       </div>
-                      <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-purple-100 border border-purple-200 text-purple-700">
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-slate-100 border border-slate-200 text-slate-600">
                         {module.focus}
                       </span>
                     </div>
@@ -669,13 +669,13 @@ export function WelcomePage() {
           </div>
 
           {/* Quick Actions */}
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-lg overflow-hidden">
-            <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 px-8 py-6 border-b border-slate-200">
+          <div className="bg-white border border-dark-200 rounded-lg shadow-sm overflow-hidden">
+            <div className="bg-dark-50 px-8 py-6 border-b border-dark-200">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-emerald-500 flex items-center justify-center">
+                <div className="h-10 w-10 rounded-lg bg-slate-600 flex items-center justify-center">
                   <MessageSquare className="h-5 w-5 text-white" />
                 </div>
-                <h2 className="text-3xl font-bold text-slate-800">Choose your next move</h2>
+                <h2 className="text-2xl font-bold text-dark-800">Choose your next move</h2>
               </div>
             </div>
             <div className="p-8">
@@ -684,16 +684,16 @@ export function WelcomePage() {
                   <Link
                     key={action.label}
                     to={action.path}
-                    className="group bg-gradient-to-br from-slate-50 to-emerald-50 border border-slate-200 rounded-xl p-5 hover:border-emerald-300 hover:shadow-lg transition-all duration-200 flex flex-col gap-4"
+                    className="group bg-dark-50 border border-dark-200 rounded-lg p-5 hover:border-slate-400 hover:shadow-md transition-all duration-200 flex flex-col gap-4"
                   >
-                    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
+                    <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
                       <action.icon className="h-6 w-6 text-white" />
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-base font-bold text-slate-800 mb-2">{action.label}</h3>
-                      <p className="text-sm text-slate-600 leading-relaxed">{action.description}</p>
+                      <h3 className="text-base font-semibold text-dark-800 mb-2">{action.label}</h3>
+                      <p className="text-sm text-dark-600 leading-relaxed">{action.description}</p>
                     </div>
-                    <div className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-600 group-hover:gap-3 transition-all">
+                    <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 group-hover:gap-3 transition-all">
                       Go
                       <ArrowRight className="h-4 w-4" />
                     </div>
@@ -704,48 +704,48 @@ export function WelcomePage() {
           </div>
 
           {/* Entity Catalog */}
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-lg overflow-hidden">
-            <div className="bg-gradient-to-r from-slate-700 via-slate-600 to-purple-700 px-8 py-6 border-b border-slate-600">
+          <div className="bg-white border border-dark-200 rounded-lg shadow-sm overflow-hidden">
+            <div className="bg-gradient-to-r from-slate-700 via-slate-800 to-slate-900 px-8 py-6 border-b border-slate-600">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-semibold text-purple-200 uppercase tracking-wider mb-1">Entity Catalog</p>
-                  <h2 className="text-3xl font-bold text-white">Every domain, every entity, one semantic table</h2>
+                  <p className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-1">Entity Catalog</p>
+                  <h2 className="text-2xl font-bold text-white">Every domain, every entity, one semantic table</h2>
                 </div>
                 <Link
                   to="/linkage"
-                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold bg-white text-slate-800 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 whitespace-nowrap"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md font-medium bg-white text-slate-800 shadow-sm hover:bg-slate-50 transition-all duration-200 whitespace-nowrap"
                 >
-                  <Network className="h-5 w-5" />
+                  <Network className="h-4 w-4" />
                   View Linkage Graph
                 </Link>
               </div>
             </div>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200">
-                <thead className="bg-slate-50">
+              <table className="min-w-full divide-y divide-dark-200">
+                <thead className="bg-dark-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Code</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Entity</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Domain</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Description</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Navigate</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">Code</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">Entity</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">Domain</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">Description</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">Navigate</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-slate-200">
+                <tbody className="bg-white divide-y divide-dark-100">
                   {entityCatalog.map(entity => (
-                    <tr key={entity.code} className="hover:bg-purple-50/30 transition-colors">
-                      <td className="px-6 py-4 text-sm text-slate-700 font-mono font-medium">{entity.code}</td>
-                      <td className="px-6 py-4 text-sm text-slate-800 font-semibold">{entity.uiLabel}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{domainNameMap[entity.domainId]}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{entity.description}</td>
+                    <tr key={entity.code} className="hover:bg-dark-50 transition-colors">
+                      <td className="px-6 py-4 text-sm text-dark-700 font-mono font-medium">{entity.code}</td>
+                      <td className="px-6 py-4 text-sm text-dark-800 font-semibold">{entity.uiLabel}</td>
+                      <td className="px-6 py-4 text-sm text-dark-600">{domainNameMap[entity.domainId]}</td>
+                      <td className="px-6 py-4 text-sm text-dark-600">{entity.description}</td>
                       <td className="px-6 py-4 text-sm">
                         {entity.path ? (
-                          <Link to={entity.path} className="group inline-flex items-center gap-2 text-purple-600 font-semibold hover:text-purple-700 transition-all">
+                          <Link to={entity.path} className="group inline-flex items-center gap-2 text-slate-600 font-medium hover:text-slate-800 transition-all">
                             Open
                             <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                           </Link>
                         ) : (
-                          <span className="text-slate-400 italic">Managed by AI</span>
+                          <span className="text-dark-400 italic">Managed by AI</span>
                         )}
                       </td>
                     </tr>
