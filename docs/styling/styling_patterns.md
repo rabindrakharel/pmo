@@ -2,11 +2,11 @@
 
 > **The Single Source of Truth** - Definitive styling patterns for a premium, elegant, and consistent user experience
 
-**Version:** 12.0 - MINIMALISTIC DESIGN SYSTEM
-**Theme:** Clean & Minimal - Refined Slate Accents
-**Last Updated:** 2025-11-13
-**CRITICAL:** MINIMALISTIC APPROACH - px-3 py-2, shadow-sm, rounded-md
-**Architecture:** Tailwind CSS v4 + React 19 + TypeScript
+**Version:** 13.0 - PRODUCTION-GRADE DESIGN SYSTEM
+**Theme:** Unified Slate Color Palette - Clean & Professional
+**Last Updated:** 2025-12-07
+**CRITICAL:** UNIFIED SLATE PALETTE - Zero !important declarations
+**Architecture:** Tailwind CSS v3.4 + React 19 + TypeScript
 
 ---
 
@@ -23,33 +23,41 @@
 
 ## 1. Color System
 
-### Primary Palette
+### Primary Palette (Unified Slate - v13.0)
 
 ```jsx
-// CANVAS & SURFACES
-bg-dark-50       // #FAFAFA - Page background (canvas)
-bg-dark-100      // #FFFFFF - Cards, panels, modals (surface)
-bg-dark-200      // #F5F5F5 - Hover states
-bg-dark-250      // #F0F0F0 - Active/selected states
+// CANVAS & SURFACES (tailwind.config.js: colors.dark)
+bg-dark-canvas     // #FAFAFA - Page background
+bg-dark-surface    // #FFFFFF - Cards, panels, modals
+bg-dark-muted      // #F5F5F5 - Subtle backgrounds, hover states
+bg-dark-subtle     // #F0F0F0 - Active/selected states
 
-// TEXT HIERARCHY (Always use these for consistency)
-text-dark-700    // #37352F - Primary text (headings, important content)
-text-dark-600    // #787774 - Secondary text (body, descriptions)
-text-dark-500    // #9B9A97 - Tertiary text (hints, metadata)
-text-dark-400    // #C2C1BE - Placeholder text, disabled
+// TEXT HIERARCHY (Semantic naming)
+text-dark-text-primary    // #1A1A1A - Headings, important content
+text-dark-text-secondary  // #4A4A4A - Body, descriptions
+text-dark-text-tertiary   // #787774 - Hints, metadata
+text-dark-text-muted      // #9B9A97 - Placeholder, disabled
 
-// BORDERS (Use dark-300 for everything standard)
-border-dark-300  // #E9E9E7 - Primary borders (barely visible)
-border-dark-350  // #DFDFDD - Medium emphasis
-border-dark-400  // #D5D5D3 - Strong borders
+// BORDERS (Consistent naming)
+border-dark-border         // #E5E5E5 - Default borders
+border-dark-border-strong  // #D1D1D1 - Emphasized borders
 
-// SLATE ACCENT (Primary accent color - NO BLUE/PURPLE)
-bg-slate-600     // Primary accent backgrounds
-bg-slate-700     // Dark accent backgrounds
-text-slate-600   // Primary action text
-text-slate-700   // Active/hover action text
-border-slate-500 // Accent borders on hover
-hover:bg-dark-800// #1e1e1e - Dark button hover
+// UNIFIED SLATE ACCENT (Primary accent - NO BLUE/PURPLE/EMERALD)
+bg-dark-accent       // #475569 (slate-600) - Primary buttons, active tabs
+hover:bg-slate-700   // Hover state for accent
+text-slate-600       // Action text, links
+text-slate-700       // Hover state for text
+ring-slate-500       // Focus rings
+border-slate-500     // Accent borders
+
+// LEGACY MAPPING (for backwards compatibility)
+bg-dark-50   → bg-dark-canvas
+bg-dark-100  → bg-dark-surface
+bg-dark-200  → bg-dark-muted
+bg-dark-250  → bg-dark-subtle
+bg-dark-300  → border-dark-border
+text-dark-700 → text-dark-text-primary
+text-dark-600 → text-dark-text-secondary
 ```
 
 ### Semantic Colors
@@ -80,7 +88,34 @@ font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, 
 -moz-osx-font-smoothing: grayscale;
 ```
 
-### Text Sizes (Use These Consistently)
+### Production Typography Scale (v13.0)
+
+```jsx
+// FROM designSystem.ts - text tokens with proper line-heights
+
+// HEADINGS (with tight letter-spacing)
+text.h1  // text-2xl font-bold tracking-tight leading-7 (24px)
+text.h2  // text-xl font-semibold tracking-tight leading-6 (20px)
+text.h3  // text-lg font-medium tracking-tight leading-6 (18px)
+text.h4  // text-base font-medium tracking-tight leading-5 (16px)
+
+// BODY TEXT (with proper line-heights)
+text.body      // text-sm leading-5 text-dark-text-secondary (14px)
+text.bodyLarge // text-base leading-6 text-dark-text-secondary (16px)
+text.caption   // text-xs leading-4 text-dark-text-tertiary (12px)
+
+// SPECIAL PATTERNS
+text.label     // text-xs font-medium uppercase tracking-wider text-dark-text-tertiary
+text.code      // font-mono text-sm bg-dark-muted px-1.5 py-0.5 rounded
+text.link      // text-slate-600 hover:text-slate-700 hover:underline
+
+// USAGE EXAMPLES
+<h1 className={text.h1}>Page Title</h1>
+<p className={text.body}>Body content here</p>
+<span className={text.caption}>Metadata text</span>
+```
+
+### Legacy Text Sizes (Still Supported)
 
 ```jsx
 // HEADINGS
@@ -92,49 +127,91 @@ text-base font-medium   // Subsection headers (16px)
 // BODY TEXT
 text-sm font-normal     // Default body text (14px) - MOST COMMON
 text-xs font-normal     // Small text, metadata (12px)
-text-[10px] font-medium // Labels, counts (10px)
-
-// SPECIAL PATTERNS
-text-[10px] font-medium uppercase tracking-wider  // Category labels
-text-xs font-medium     // Button text, tab labels
-font-bold              // Card headings, emphasis
+text-[10px] font-medium // Labels, counts (10px) - USE SPARINGLY
 ```
 
 ---
 
 ## 3. Component Patterns
 
-### 3.1 Buttons - MINIMALISTIC DESIGN (SLATE-600 PRIMARY)
+### 3.1 Button Component (Production-Grade v13.0)
 
-**PRIMARY BUTTON - SLATE-600 BACKGROUND (USE FOR ALL PRIMARY ACTIONS)**
+**Design Token System** - Use `designSystem.ts` button tokens:
+
+```tsx
+// IMPORT FROM DESIGN SYSTEM
+import { button } from '@/lib/designSystem';
+
+// PRIMARY BUTTON - Uses button.variant.primary
+<Button variant="primary" size="md" icon={Database}>
+  Entities (32)
+</Button>
+// Classes: bg-dark-accent text-white hover:bg-slate-700
+//          focus-visible:ring-2 focus-visible:ring-slate-500
+
+// SECONDARY BUTTON - Uses button.variant.secondary
+<Button variant="secondary" size="md" icon={Link}>
+  Entity Mapping
+</Button>
+// Classes: bg-white text-dark-text-secondary border border-dark-border
+//          hover:bg-dark-muted hover:border-dark-border-strong
+
+// GHOST BUTTON - Uses button.variant.ghost
+<Button variant="ghost" size="md" icon={Settings}>
+  Settings
+</Button>
+// Classes: text-dark-text-secondary hover:bg-dark-muted hover:text-dark-text-primary
+
+// DANGER BUTTON - Uses button.variant.danger
+<Button variant="danger" size="md" icon={Trash}>
+  Delete
+</Button>
+// Classes: bg-red-600 text-white hover:bg-red-700
+
+// BUTTON SIZES
+button.size.sm   // px-3 py-1.5 text-xs
+button.size.md   // px-4 py-2 text-sm (DEFAULT)
+button.size.lg   // px-5 py-2.5 text-base
+
+// ICON BUTTON (compact square)
+<IconButton icon={Settings} variant="ghost" />
+// Classes: p-2 rounded-lg
+
+// BUTTON GROUP (connected buttons)
+<ButtonGroup>
+  <Button variant="secondary">Option 1</Button>
+  <Button variant="secondary">Option 2</Button>
+</ButtonGroup>
+
+// BUTTON WITH RIGHT ICON
+<Button variant="primary" iconRight={ArrowRight}>
+  Continue
+</Button>
+
+// FULL WIDTH BUTTON
+<Button variant="primary" fullWidth>
+  Submit
+</Button>
+```
+
+**Legacy Inline Classes** (Still Supported):
+
 ```jsx
-// PRIMARY BUTTON PATTERN - MINIMALISTIC & ELEGANT
-<button className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all bg-slate-600 text-white shadow-sm hover:bg-slate-700">
-  <Database className="h-3.5 w-3.5" />
+// PRIMARY BUTTON
+<button className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
+                   bg-dark-accent text-white shadow-sm
+                   hover:bg-slate-700 transition-colors
+                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500">
+  <Database className="h-4 w-4" />
   <span>Entities (32)</span>
 </button>
 
-// SECONDARY BUTTON (Light Background with Border)
-<button className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all bg-white text-dark-600 border border-dark-300 hover:border-dark-400">
-  <Link className="h-3.5 w-3.5" />
+// SECONDARY BUTTON
+<button className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
+                   bg-white text-dark-text-secondary border border-dark-border
+                   hover:bg-dark-muted hover:border-dark-border-strong transition-colors">
+  <Link className="h-4 w-4" />
   <span>Entity Mapping</span>
-</button>
-
-// DANGER BUTTON (Exception - Red for destructive actions only)
-<button className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all bg-red-600 text-white shadow-sm hover:bg-red-700">
-  <Trash className="h-3.5 w-3.5" />
-  <span>Delete</span>
-</button>
-
-// SAVE/SUBMIT BUTTON (Use slate-600 like primary actions)
-<button className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all bg-slate-600 text-white shadow-sm hover:bg-slate-700">
-  <Save className="h-3.5 w-3.5" />
-  <span>Save Changes</span>
-</button>
-
-// ICON-ONLY BUTTON
-<button className="p-1 hover:bg-dark-200 rounded-md transition-colors">
-  <Settings className="h-3.5 w-3.5 text-dark-600" />
 </button>
 ```
 
@@ -201,37 +278,63 @@ font-bold              // Card headings, emphasis
 </div>
 ```
 
-### 3.4 Form Elements
+### 3.4 Form Elements (Production-Grade v13.0)
+
+**Design Token System** - Use `designSystem.ts` input tokens:
+
+```tsx
+// IMPORT FROM DESIGN SYSTEM
+import { input } from '@/lib/designSystem';
+
+// INPUT TOKENS
+input.base    // w-full rounded-lg border transition-colors
+input.default // border-dark-border bg-white text-dark-text-primary
+              // placeholder:text-dark-text-muted
+              // focus:border-slate-500 focus:ring-2 focus:ring-slate-500/20
+input.error   // border-red-500 focus:border-red-500 focus:ring-red-500/20
+input.size.sm // px-3 py-1.5 text-sm
+input.size.md // px-3 py-2 text-sm (DEFAULT)
+input.size.lg // px-4 py-2.5 text-base
+```
 
 **Input Fields**
 ```jsx
-// Text Input
+// Text Input (using tokens)
 <input
   type="text"
-  className="w-full px-3 py-1.5 text-sm border border-dark-300 rounded-lg bg-dark-100
-             text-dark-700 placeholder-dark-400
-             focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500
+  className={`${input.base} ${input.default} ${input.size.md}`}
+  placeholder="Enter value..."
+/>
+
+// Or inline (legacy)
+<input
+  type="text"
+  className="w-full px-3 py-2 text-sm border border-dark-border rounded-lg bg-white
+             text-dark-text-primary placeholder:text-dark-text-muted
+             focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500
              transition-colors"
   placeholder="Enter value..."
 />
 
 // Select Dropdown
-<select className="w-full px-3 py-1.5 text-sm border border-dark-300 rounded-lg bg-dark-100
-                   text-dark-700 focus:outline-none focus:ring-2 focus:ring-slate-500/30
-                   focus:border-slate-500 cursor-pointer transition-colors">
+<select className="w-full px-3 py-2 text-sm border border-dark-border rounded-lg bg-white
+                   text-dark-text-primary cursor-pointer
+                   focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500
+                   transition-colors">
   <option value="">Select option...</option>
   <option value="1">Option 1</option>
 </select>
 
-// Search Input
+// Search Input with Icon
 <div className="relative">
-  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-dark-400" />
+  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-dark-text-muted" />
   <input
     type="text"
     placeholder="Search..."
-    className="w-full pl-9 pr-3 py-1.5 text-sm border border-dark-300 rounded-lg bg-dark-100
-               text-dark-700 placeholder-dark-400 focus:outline-none focus:ring-2
-               focus:ring-slate-500/30 focus:border-slate-500 transition-colors"
+    className="w-full pl-9 pr-3 py-2 text-sm border border-dark-border rounded-lg bg-white
+               text-dark-text-primary placeholder:text-dark-text-muted
+               focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500
+               transition-colors"
   />
 </div>
 ```
@@ -874,6 +977,68 @@ className="group-hover:scale-110 transition-transform"   // Icon animations
 
 **This document is the single source of truth for all UI/UX decisions. Follow these patterns exactly.**
 
+---
+
+## 11. CSS Architecture (v13.0 - Zero !important)
+
+### index.css Structure
+
+```css
+/* LAYER ORDER - Proper specificity without !important */
+@layer base {
+  /* CSS custom properties */
+  :root {
+    --color-canvas: #FAFAFA;
+    --color-surface: #FFFFFF;
+    --color-accent: #475569;
+    /* ... more tokens */
+  }
+}
+
+@layer components {
+  /* Reusable component classes */
+  .btn-primary { /* ... */ }
+  .card { /* ... */ }
+}
+
+@layer utilities {
+  /* Custom utilities - override with natural specificity */
+  .scrollbar-thin { /* ... */ }
+}
+```
+
+### Zero !important Policy
+
+- **NEVER** use `!important` in new code
+- Use proper CSS specificity hierarchy
+- Use Tailwind's `@layer` directive for organization
+- Prefer component-level styles over global overrides
+
+### Focus-Visible Pattern
+
+```css
+/* Keyboard-only focus rings */
+.focus-visible:outline-none
+.focus-visible:ring-2
+.focus-visible:ring-slate-500
+.focus-visible:ring-offset-2
+
+/* Removes ugly focus outlines on mouse click */
+```
+
+---
+
+## Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| **v13.0** | **2025-12-07** | **Production-grade design system**, unified slate palette, zero !important, focus-visible accessibility, Button/IconButton/ButtonGroup components, typography scale with line-heights |
+| v12.0 | 2025-11-13 | Minimalistic design system |
+| v11.0 | 2025-11-10 | YAML pattern detection |
+| v10.0 | 2025-11-07 | Dark theme support |
+
+---
+
 **Maintained by:** PMO Platform Team
-**Version:** 12.0 - MINIMALISTIC DESIGN SYSTEM + FORM LAYOUTS
-**Last Updated:** 2025-12-04
+**Version:** 13.0 - PRODUCTION-GRADE DESIGN SYSTEM
+**Last Updated:** 2025-12-07
