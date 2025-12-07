@@ -184,6 +184,11 @@ export interface EntityListOfInstancesTableProps<T = any> {
   onCellSave?: (rowId: string, columnKey: string, value: any, record: T) => void;  // Save single cell
   focusedRowId?: string | null;  // Currently focused row (for keyboard nav)
   onRowFocus?: (rowId: string | null) => void;  // Row focus handler
+  // v13.1.0: Infinite scroll loading indicators
+  isFetchingNextPage?: boolean;    // Loading more data at bottom
+  isFetchingPreviousPage?: boolean; // Loading more data at top (bidirectional scroll)
+  hasNextPage?: boolean;           // More data available at bottom
+  hasPreviousPage?: boolean;       // More data available at top
 }
 
 export function EntityListOfInstancesTable<T = any>({
@@ -223,7 +228,12 @@ export function EntityListOfInstancesTable<T = any>({
   onCellClick,
   onCellSave,
   focusedRowId = null,
-  onRowFocus
+  onRowFocus,
+  // v13.1.0: Infinite scroll loading indicators
+  isFetchingNextPage = false,
+  isFetchingPreviousPage = false,
+  hasNextPage = false,
+  hasPreviousPage = false,
 }: EntityListOfInstancesTableProps<T>) {
   // ============================================================================
   // METADATA-DRIVEN COLUMN GENERATION (Pure Backend-Driven Architecture)
@@ -765,17 +775,18 @@ export function EntityListOfInstancesTable<T = any>({
   // Dramatically improves performance for 1000+ row tables
   const ESTIMATED_ROW_HEIGHT = 44; // px - typical row height with padding
   const VIRTUALIZATION_THRESHOLD = 50; // Only virtualize when more than this many rows
+  // v13.1.0: Increased overscan to 10 for smoother fast scrolling (prevents blank gaps)
+  const OVERSCAN_COUNT = 10;
 
   // Determine if we should use virtualization
   const shouldVirtualize = paginatedData.length > VIRTUALIZATION_THRESHOLD;
 
   // Row virtualizer - only active when we have enough rows
-  // v9.4.1: Increased overscan to 5 for smoother scrolling and better click responsiveness
   const rowVirtualizer = useVirtualizer({
     count: paginatedData.length,
     getScrollElement: () => tableContainerRef.current,
     estimateSize: useCallback(() => ESTIMATED_ROW_HEIGHT, []),
-    overscan: 5, // Render 5 extra rows for smooth scrolling and interaction
+    overscan: OVERSCAN_COUNT, // v13.1.0: Higher overscan for smoother scrolling
     enabled: shouldVirtualize,
     // Stable keys improve React reconciliation performance
     getItemKey: useCallback((index: number) => {
@@ -785,21 +796,22 @@ export function EntityListOfInstancesTable<T = any>({
   });
 
   // Helper to get row className (shared between virtualized and regular rendering)
+  // v13.1.0: Updated to use slate palette for consistency
   const getRowClassName = useCallback((isDragging: boolean, isDragOver: boolean, isEditing: boolean) => {
     return `group transition-all duration-200 ${
       isDragging
-        ? 'opacity-40 scale-[0.98] bg-dark-100'
+        ? 'opacity-40 scale-[0.98] bg-slate-100'
         : isDragOver
-          ? 'bg-dark-100/50'
+          ? 'bg-slate-100/50'
           : ''
     } ${
       isEditing
-        ? 'bg-dark-100/30'
+        ? 'bg-slate-50'
         : allowReordering && !isEditing
-          ? 'cursor-move hover:bg-dark-100/40 hover:shadow-sm'
+          ? 'cursor-move hover:bg-slate-50 hover:shadow-sm'
           : onRowClick
-            ? 'cursor-pointer hover:bg-gradient-to-r hover:from-dark-50/30 hover:to-transparent hover:shadow-sm'
-            : 'hover:bg-dark-100/30'
+            ? 'cursor-pointer hover:bg-slate-50/80'
+            : 'hover:bg-slate-50/60'
     }`;
   }, [allowReordering, onRowClick]);
 
@@ -1047,8 +1059,9 @@ export function EntityListOfInstancesTable<T = any>({
   }, [processedColumns]);
 
   // Pre-compute cell className for sticky first column
+  // v13.1.0: Updated to use white background for clean look
   const getStickyClassName = useCallback((colIndex: number) => {
-    return colIndex === 0 ? 'sticky left-0 z-20 bg-dark-100 shadow-r' : '';
+    return colIndex === 0 ? 'sticky left-0 z-20 bg-white shadow-r' : '';
   }, []);
 
   // ============================================================================
@@ -1266,19 +1279,23 @@ export function EntityListOfInstancesTable<T = any>({
   };
 
   // Scroll synchronization handlers (monday.com style bottom scrollbar)
-  const handleTableScroll = () => {
-    if (tableContainerRef.current && bottomScrollbarRef.current) {
-      bottomScrollbarRef.current.scrollLeft = tableContainerRef.current.scrollLeft;
+  const handleTableScroll = useCallback(() => {
+    const container = tableContainerRef.current;
+    if (!container) return;
+
+    // Horizontal scroll sync for bottom scrollbar
+    if (bottomScrollbarRef.current) {
+      bottomScrollbarRef.current.scrollLeft = container.scrollLeft;
 
       // Update scroll progress indicator
-      const scrollLeft = tableContainerRef.current.scrollLeft;
-      const scrollWidth = tableContainerRef.current.scrollWidth;
-      const clientWidth = tableContainerRef.current.clientWidth;
+      const scrollLeft = container.scrollLeft;
+      const scrollWidth = container.scrollWidth;
+      const clientWidth = container.clientWidth;
       const maxScroll = scrollWidth - clientWidth;
       const progress = maxScroll > 0 ? (scrollLeft / maxScroll) * 100 : 0;
       setScrollProgress(progress);
     }
-  };
+  }, []);
 
   const handleBottomScroll = () => {
     if (tableContainerRef.current && bottomScrollbarRef.current) {
@@ -1423,7 +1440,7 @@ export function EntityListOfInstancesTable<T = any>({
 
 
     return (
-      <div className="flex items-center justify-between px-6 py-4 border-t border-dark-300 bg-gradient-to-r from-dark-100/50 to-dark-100">
+      <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200/60 bg-gradient-to-t from-slate-50/80 to-white">
         <div className="flex items-center text-sm text-dark-700">
           <span className="font-normal">
             {loading ? (
@@ -1512,18 +1529,27 @@ export function EntityListOfInstancesTable<T = any>({
 
   if (loading) {
     return (
-      <div className="bg-dark-100 rounded-md shadow-sm border border-dark-300">
-        <div className="flex items-center justify-center py-12">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200/60">
+        <div className="flex items-center justify-center py-12 bg-gradient-to-b from-slate-50/50 to-white">
           <EllipsisBounce size="lg" text="Processing" />
         </div>
       </div>
     );
   }
 
+  // ============================================================================
+  // v13.1.0: ENHANCED VISUAL HIERARCHY
+  // ============================================================================
+  // Design Principles:
+  // - Clean white surface for data clarity (bg-white)
+  // - Subtle slate border for professional separation (border-slate-200/60)
+  // - Gradient toolbar for visual depth (from-slate-50/80 to-white)
+  // - Soft shadows for elevation (shadow-sm)
+  // ============================================================================
   return (
-    <div className={`bg-dark-100 rounded-xl shadow-sm border border-dark-300 overflow-hidden flex flex-col m-1 h-full ${className}`}>
+    <div className={`bg-white rounded-xl shadow-sm border border-slate-200/60 overflow-hidden flex flex-col h-full ${className}`}>
       {(filterable || columnSelection) && (
-        <div className="px-6 py-4 bg-gradient-to-r from-dark-100 to-dark-100/50 border-b border-dark-300">
+        <div className="px-6 py-4 bg-gradient-to-b from-slate-50/80 to-white border-b border-slate-200/60">
           {filterable && (
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-6">
@@ -1532,26 +1558,27 @@ export function EntityListOfInstancesTable<T = any>({
                   <span className="font-normal text-sm text-dark-700">Filter by:</span>
                 </div>
                 
+                {/* v13.1.0: Updated filter controls to slate palette */}
                 <div className="relative">
                   <select
                     value={selectedFilterColumn}
                     onChange={(e) => setSelectedFilterColumn(e.target.value)}
-                    className="appearance-none px-4 py-1.5 pr-10 w-48 border border-dark-400 rounded-xl text-sm bg-dark-100 hover:bg-dark-100 focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400 transition-all duration-200 shadow-sm font-normal text-dark-600"
+                    className="appearance-none px-4 py-1.5 pr-10 w-48 border border-slate-300 rounded-lg text-sm bg-white hover:border-slate-400 focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400 transition-all duration-200 shadow-sm font-normal text-slate-700"
                   >
-                    <option value="" className="text-dark-700">Select column...</option>
+                    <option value="" className="text-slate-500">Select column...</option>
                     {columns.filter(col => col.filterable).map(column => (
                       <option key={column.key} value={column.key}>
                         {column.title}
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="h-4 w-4 text-dark-600 absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                  <ChevronDown className="h-4 w-4 text-slate-500 absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none" />
                 </div>
 
                 {selectedFilterColumn && (
                   <div className="relative" ref={filterContainerRef}>
                     <div className="relative">
-                      <Search className="h-4 w-4 text-dark-600 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                      <Search className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
                       <input
                         type="text"
                         placeholder="Type to filter values..."
@@ -1561,12 +1588,12 @@ export function EntityListOfInstancesTable<T = any>({
                           setShowFilterDropdown(true);
                         }}
                         onFocus={() => setShowFilterDropdown(true)}
-                        className="pl-10 pr-4 py-1.5 w-64 border border-dark-300 rounded-md text-sm bg-dark-100 focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400 transition-all duration-200"
+                        className="pl-10 pr-4 py-1.5 w-64 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400 transition-all duration-200 text-slate-700 placeholder:text-slate-400"
                       />
                     </div>
 
                     {showFilterDropdown && (
-                      <div className="absolute top-full left-0 mt-2 w-80 bg-dark-100 border border-dark-300 rounded-xl shadow-sm z-50 backdrop-blur-sm max-h-64 overflow-y-auto">
+                      <div className="absolute top-full left-0 mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-64 overflow-y-auto">
                         <div className="p-2">
                           {/* v9.4.2: Use memoized filteredColumnOptions for performance */}
                           {filteredColumnOptions.map((option) => {
@@ -1592,7 +1619,7 @@ export function EntityListOfInstancesTable<T = any>({
                               return (
                                 <label
                                   key={option}
-                                  className="flex items-center px-3 py-2 hover:bg-dark-100 rounded-md cursor-pointer transition-colors group"
+                                  className="flex items-center px-3 py-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors group"
                                   onClick={(e) => {
                                     // Only handle if click was NOT on the checkbox itself
                                     if ((e.target as HTMLElement).tagName !== 'INPUT') {
@@ -1607,17 +1634,17 @@ export function EntityListOfInstancesTable<T = any>({
                                     onChange={() => {
                                       handleDropdownFilter(selectedFilterColumn, option, !isChecked);
                                     }}
-                                    className="mr-3 text-dark-700 rounded focus:ring-slate-500/30 focus:ring-offset-0 flex-shrink-0"
+                                    className="mr-3 text-slate-600 rounded focus:ring-slate-500/30 focus:ring-offset-0 flex-shrink-0"
                                   />
                                   <div className="flex-1 min-w-0">
                                     {isSettingsField ? (
                                       // Settings field - always render badge (with or without color)
-                                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorCode || 'bg-gray-100 text-gray-600'}`}>
+                                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorCode || 'bg-slate-100 text-slate-600'}`}>
                                         {option}
                                       </span>
                                     ) : (
                                       // Non-settings field - render text
-                                      <span className="text-sm text-dark-600 group-hover:text-dark-600 truncate">{option}</span>
+                                      <span className="text-sm text-slate-700 truncate">{option}</span>
                                     )}
                                   </div>
                                 </label>
@@ -1625,7 +1652,7 @@ export function EntityListOfInstancesTable<T = any>({
                             })
                           }
                           {filteredColumnOptions.length === 0 && (
-                            <div className="px-2 py-1.5 text-xs text-dark-700 text-center">
+                            <div className="px-2 py-1.5 text-xs text-slate-500 text-center">
                               No options found
                             </div>
                           )}
@@ -1718,9 +1745,9 @@ export function EntityListOfInstancesTable<T = any>({
             </div>
           )}
 
-          {/* Filter Chips */}
+          {/* Filter Chips - v13.1.0: Subtle slate border for consistency */}
           {Object.keys(dropdownFilters).length > 0 && (
-            <div className="mt-3 pt-3 border-t border-dark-300">
+            <div className="mt-3 pt-3 border-t border-slate-200/60">
               <div className="flex items-center flex-wrap gap-2">
                 <span className="text-xs text-dark-700 font-medium">Active filters:</span>
                 {Object.entries(dropdownFilters).map(([columnKey, values]) =>
@@ -1764,23 +1791,24 @@ export function EntityListOfInstancesTable<T = any>({
         </div>
       )}
 
-      <div className="relative flex flex-col flex-1" style={{ maxHeight: 'calc(100vh - 200px)', minHeight: '400px' }}>
+      {/* flex-1 allows table to fill available space; min-h-[400px] ensures minimum visibility */}
+      {/* Parent must provide height constraints (h-full, flex-1 min-h-0, or explicit height) */}
+      <div className="relative flex flex-col flex-1 min-h-[400px]">
         <div
           ref={tableContainerRef}
-          className="overflow-y-auto overflow-x-auto scrollbar-elegant flex-1"
-          style={{
-            maxHeight: '100%'}}
+          className="overflow-y-auto overflow-x-auto scrollbar-elegant flex-1 min-h-0"
           onScroll={handleTableScroll}
         >
           <table
-            className="w-full divide-y divide-dark-400"
+            className="w-full divide-y divide-slate-200/80"
             style={{
               minWidth: processedColumns.length > 7 ? `${processedColumns.length * 200}px` : '100%',
               tableLayout: processedColumns.length <= 7 ? 'auto' : 'fixed'
             }}
           >
+            {/* v13.1.0: Enhanced table header with slate gradient for visual hierarchy */}
             <thead
-              className="bg-gradient-to-r from-dark-100 to-dark-100/80 sticky top-0 z-30 shadow-sm"
+              className="bg-gradient-to-b from-slate-100/80 to-slate-50/60 sticky top-0 z-30 shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
               style={shouldVirtualize ? { display: 'block' } : undefined}
             >
               <tr style={shouldVirtualize ? { display: 'flex', width: '100%' } : undefined}>
@@ -1788,19 +1816,19 @@ export function EntityListOfInstancesTable<T = any>({
                   <th
                     key={column.key}
                     className={`px-6 py-2.5 text-left ${
-                      column.sortable ? 'cursor-pointer hover:bg-dark-100/50 transition-colors' : ''
+                      column.sortable ? 'cursor-pointer hover:bg-slate-200/40 transition-colors' : ''
                     } ${processedColumns.length > 7 ? 'min-w-[200px]' : ''} ${
-                      index === 0 ? 'sticky left-0 z-40 bg-dark-100 shadow-r' : ''
+                      index === 0 ? 'sticky left-0 z-40 bg-slate-100/90 shadow-r backdrop-blur-sm' : ''
                     } ${shouldVirtualize ? 'flex-shrink-0' : ''}`}
                     style={{
                       width: processedColumns.length > 7 ? '200px' : (column.width || 'auto'),
                       minWidth: processedColumns.length > 7 ? '200px' : '100px',
                       boxSizing: 'border-box',
                       textAlign: column.align || 'left',
-                      color: '#37352F',
+                      color: '#374151', // slate-700 for better contrast
                       font: "500 13px / 18px 'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
                       outline: 0,
-                      backgroundColor: '#FFFFFF',
+                      backgroundColor: 'transparent', // Let gradient show through
                       flex: processedColumns.length > 7 ? undefined : '1',
                     }}
                     onClick={() => column.sortable && handleSort(column.key)}
@@ -1819,12 +1847,15 @@ export function EntityListOfInstancesTable<T = any>({
                 ))}
               </tr>
             </thead>
+            {/* v13.1.0: Clean white body with subtle dividers */}
             <tbody
-              className="bg-dark-100 divide-y divide-dark-400"
+              className="bg-white divide-y divide-slate-100"
               style={shouldVirtualize ? {
                 display: 'block',
                 position: 'relative',
                 height: `${rowVirtualizer.getTotalSize()}px`,
+                // v13.1.0: Ensure background fills the entire virtualized area
+                backgroundColor: '#FFFFFF',
               } : undefined}
             >
               {shouldVirtualize ? (

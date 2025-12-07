@@ -1,6 +1,6 @@
 # EntitySpecificInstancePage
 
-**Version:** 9.7.0 | **Location:** `apps/web/src/pages/shared/EntitySpecificInstancePage.tsx` | **Updated:** 2025-12-03
+**Version:** 13.0.0 | **Location:** `apps/web/src/pages/shared/EntitySpecificInstancePage.tsx` | **Updated:** 2025-12-07
 
 ---
 
@@ -14,6 +14,8 @@ EntitySpecificInstancePage is the universal detail page that renders the detail/
 - Dexie draft persistence with undo/redo
 - Optimistic mutations for instant UI feedback
 - Dynamic child entity tabs via DynamicChildEntityTabs
+- **v13.0.0**: Modern two-line header layout with hero title + metadata chips
+- **v9.8.0**: Full-height flex layout prevents page-wide scroll for child entity tables
 
 ---
 
@@ -29,7 +31,7 @@ EntitySpecificInstancePage is the universal detail page that renders the detail/
 │  ┌─────────────────────────────────────────────────────────────────────────┐│
 │  │                          Layout Shell                                    ││
 │  │  ┌─────────────────────────────────────────────────────────────────────┐││
-│  │  │  Header: [Exit] Entity Name [Edit|Save|Cancel] [Share] [Link]       │││
+│  │  │  Header v13.0.0: [Exit] Hero Title + Metadata Chips [Actions]      │││
 │  │  └─────────────────────────────────────────────────────────────────────┘││
 │  │  ┌─────────────────────────────────────────────────────────────────────┐││
 │  │  │  DynamicChildEntityTabs                                             │││
@@ -211,10 +213,48 @@ const {
 
 ---
 
+## v13.0.0 Modern Header Design
+
+The header implements next-generation UI/UX patterns inspired by Linear, Notion, and Figma:
+
+### Two-Line Layout
+```
+Line 1: EntityHeaderTitle (hero element)
+        - Large, bold typography (text-2xl font-semibold)
+        - Inline editing with long-press
+        - Smooth hover states
+
+Line 2: EntityMetadataChipRow (pill-styled metadata)
+        - EntityMetadataChip for code (monospace, default variant)
+        - EntityMetadataChip for id (monospace, muted variant)
+        - EntityMetadataChip for created/updated timestamps (muted)
+        - EntityMetadataChip for version (accent, artifacts only)
+```
+
+### Design Principles
+- **Progressive Disclosure**: Essential info prominent, technical details subtle
+- **Visual Hierarchy**: Entity name is hero element with larger typography
+- **Pill/Chip Styling**: Secondary metadata uses rounded pill design
+- **Copy-to-Clipboard**: Hover reveals copy button with subtle animation
+- **Clean Background**: White bg with subtle border (bg-white border-slate-200)
+
+### Components
+| Component | Purpose |
+|-----------|---------|
+| `EntityHeaderTitle` | Hero title with inline editing |
+| `EntityMetadataChip` | Pill-styled metadata display |
+| `EntityHeaderContainer` | Two-line layout container |
+| `EntityMetadataChipRow` | Horizontal chip row |
+
+---
+
 ## Version History
 
 | Version | Date | Changes |
 |---------|------|---------|
+| v13.1.0 | 2025-12-07 | Section visual hierarchy - gradient backgrounds, slate borders, improved depth |
+| v13.0.0 | 2025-12-07 | Modern two-line header with hero title + metadata chips |
+| v9.8.0 | 2025-12-07 | Full-height flex layout for child entity tables (prevents page scroll) |
 | v9.7.0 | 2025-12-03 | Child entity metadata separation (two-query) |
 | v9.6.0 | 2025-11-30 | useEntityInstanceMetadata for form metadata |
 | v9.5.0 | 2025-11-28 | Optimistic mutations for instant feedback |
@@ -222,4 +262,4 @@ const {
 
 ---
 
-**Last Updated:** 2025-12-03 | **Status:** Production Ready
+**Last Updated:** 2025-12-07 | **Status:** Production Ready

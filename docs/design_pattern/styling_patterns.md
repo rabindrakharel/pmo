@@ -774,7 +774,139 @@ className="group-hover:scale-110 transition-transform"   // Icon animations
 
 ---
 
-## 10. Form Layout Patterns - MINIMALISTIC DESIGN
+## 10. Entity Detail Page Header (v13.0.0)
+
+### Modern Two-Line Header Pattern
+
+Entity detail pages use a next-generation header design inspired by Linear, Notion, and Figma. The design emphasizes:
+
+- **Visual Hierarchy**: Entity name as hero element with larger typography
+- **Progressive Disclosure**: Essential info prominent, technical details subtle
+- **Pill/Chip Styling**: Secondary metadata uses rounded pill design
+- **Copy-to-Clipboard**: Hover reveals copy button with subtle animation
+
+### Header Components
+
+| Component | Purpose | Location |
+|-----------|---------|----------|
+| `EntityHeaderTitle` | Hero title with inline editing | Line 1 |
+| `EntityMetadataChipRow` | Container for metadata chips | Line 2 |
+| `EntityMetadataChip` | Pill-styled metadata display | Line 2 |
+| `EntityHeaderContainer` | Two-line layout wrapper | Container |
+
+### Header Structure
+
+```jsx
+// Modern two-line entity detail header (v13.0.0)
+<div className="sticky top-0 z-20 bg-white border-b border-slate-200 px-4 pt-4 pb-3 flex-shrink-0">
+  <div className="w-[97%] max-w-[1536px] mx-auto">
+    <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start space-x-4 flex-1 min-w-0">
+        {/* Exit button - vertically aligned with title */}
+        <div className="pt-1">
+          <ExitButton entityCode={entityCode} isDetailPage={true} />
+        </div>
+
+        {/* Two-line header layout */}
+        <EntityHeaderContainer className="flex-1 min-w-0">
+          {/* Line 1: Hero Title */}
+          <EntityHeaderTitle
+            value={data.name || 'Untitled'}
+            inlineEditable={true}
+            onInlineSave={handleInlineSave}
+          />
+
+          {/* Line 2: Metadata Chips */}
+          <EntityMetadataChipRow>
+            <EntityMetadataChip label="code" value="PRJ-001" monospace variant="default" />
+            <EntityMetadataChip label="id" value="uuid..." monospace variant="muted" />
+            <EntityMetadataChip label="created" value="2 hours ago" variant="muted" />
+            <EntityMetadataChip label="updated" value="5 min ago" variant="muted" />
+          </EntityMetadataChipRow>
+        </EntityHeaderContainer>
+      </div>
+
+      {/* Action buttons */}
+      <div className="flex items-center space-x-2">
+        {/* Edit, Share, Link buttons */}
+      </div>
+    </div>
+  </div>
+</div>
+```
+
+### EntityHeaderTitle Component
+
+```jsx
+// Hero title - large, bold typography with inline editing
+<h1 className="text-2xl font-semibold text-slate-800 truncate leading-tight
+               cursor-text hover:text-slate-600 transition-colors duration-150">
+  Flooring Installation - Markham Industrial #2
+</h1>
+
+// Edit mode - underline input style
+<input className="text-2xl font-semibold text-slate-800 bg-slate-50
+                 border-0 border-b-2 border-slate-300
+                 focus:border-slate-600 focus:ring-0
+                 px-0 py-1 w-full transition-colors duration-200 outline-none" />
+```
+
+### EntityMetadataChip Component
+
+```jsx
+// Chip variants
+const variantStyles = {
+  default: 'bg-slate-100 text-slate-600 border-slate-200',  // Code, prominent
+  muted: 'bg-slate-50 text-slate-500 border-slate-100',     // ID, timestamps
+  accent: 'bg-slate-600 text-white border-slate-600',       // Version badge
+};
+
+// Chip structure
+<div className={`group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
+                text-xs font-medium border transition-all duration-150 hover:shadow-sm
+                ${variantStyles[variant]}`}>
+  {showLabel && <span className="opacity-60">{label}:</span>}
+  <span className={monospace ? 'font-mono' : ''}>{value}</span>
+  {onCopy && (
+    <button className="opacity-0 group-hover:opacity-100 p-0.5 -mr-1
+                      hover:bg-slate-200/50 rounded transition-all duration-200">
+      <Copy className="h-3 w-3 opacity-60 hover:opacity-100" />
+    </button>
+  )}
+</div>
+```
+
+### Chip Variant Usage
+
+| Field Type | Variant | Monospace | Show Label |
+|------------|---------|-----------|------------|
+| Code | `default` | Yes | Yes |
+| ID | `muted` | Yes | Yes |
+| Timestamps | `muted` | No | Yes |
+| Version | `accent` | No | No |
+
+### Header Background
+
+```jsx
+// Clean white background with subtle border (replaces gray-100)
+className="bg-white border-b border-slate-200"
+
+// Old style (deprecated)
+// className="bg-gray-100 shadow-sm border-b border-gray-200"
+```
+
+### Key Styling Decisions
+
+1. **White background** (`bg-white`) instead of gray for cleaner look
+2. **Slate-200 border** (`border-slate-200`) for subtle separation
+3. **2xl title** (`text-2xl font-semibold`) for hero prominence
+4. **Rounded-full chips** (`rounded-full`) for modern pill style
+5. **Subtle opacity** (`opacity-60`) for labels and copy icons
+6. **Transition animations** (`transition-all duration-150`) for polish
+
+---
+
+## 11. Form Layout Patterns - MINIMALISTIC DESIGN
 
 ### 10.1 Form Submission Editor Layout
 
@@ -1028,11 +1160,100 @@ className="group-hover:scale-110 transition-transform"   // Icon animations
 
 ---
 
+## 12. Section Visual Hierarchy (v13.1.0)
+
+### Layered Depth System
+
+Modern SaaS applications use subtle background variations and shadows to create visual depth and section separation. This follows the "layered surfaces" pattern used by Linear, Notion, and Figma.
+
+### Header Section Styling
+
+```jsx
+// Entity detail page header with subtle gradient
+<div className="sticky top-0 z-20 bg-gradient-to-b from-white to-slate-50/80 border-b border-slate-200/80 shadow-sm">
+  {/* Header content */}
+</div>
+```
+
+**Key Properties:**
+- `bg-gradient-to-b from-white to-slate-50/80` - Subtle downward gradient adds depth
+- `border-slate-200/80` - Semi-transparent border for softness
+- `shadow-sm` - Minimal shadow for elevation without harshness
+
+### Content Container Styling
+
+```jsx
+// Child entity table container with elevation
+<div className="bg-white rounded-xl shadow-sm border border-slate-200/60 overflow-hidden">
+  {/* Table content */}
+</div>
+```
+
+**Key Properties:**
+- `bg-white` - Clean white surface for data clarity
+- `border-slate-200/60` - Subtle, transparent border
+- `rounded-xl` - Modern rounded corners
+- `shadow-sm` - Soft elevation
+
+### Data Table Styling
+
+```jsx
+// Table container with gradient toolbar
+<div className="bg-white rounded-xl shadow-sm border border-slate-200/60">
+  {/* Toolbar with gradient */}
+  <div className="px-6 py-4 bg-gradient-to-b from-slate-50/80 to-white border-b border-slate-200/60">
+    {/* Filter controls */}
+  </div>
+
+  {/* Table with gradient header */}
+  <thead className="bg-gradient-to-b from-slate-100/80 to-slate-50/60 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+    {/* Column headers */}
+  </thead>
+
+  {/* Pagination footer with inverse gradient */}
+  <div className="border-t border-slate-200/60 bg-gradient-to-t from-slate-50/80 to-white">
+    {/* Pagination controls */}
+  </div>
+</div>
+```
+
+### Visual Hierarchy Principles
+
+| Layer | Background | Purpose |
+|-------|------------|---------|
+| Canvas | `slate-50` or Layout bg | Base layer, subtle warmth |
+| Primary Surface | `bg-white` | Cards, tables, content areas |
+| Header/Footer | `from-slate-50/80 to-white` | Toolbar gradients for depth |
+| Table Header | `from-slate-100/80 to-slate-50/60` | Column header prominence |
+| Borders | `border-slate-200/60` | Subtle separation |
+| Shadows | `shadow-sm` | Minimal elevation |
+
+### Gradient Direction Patterns
+
+| Element | Gradient Direction | Reason |
+|---------|-------------------|--------|
+| Page Header | `to-b` (top to bottom) | Light at top, fades down |
+| Toolbar | `to-b` (top to bottom) | Matches header pattern |
+| Table Header | `to-b` (top to bottom) | Heavier at top for emphasis |
+| Pagination | `to-t` (bottom to top) | Inverse gradient for footer |
+
+### Loading State Styling
+
+```jsx
+// Consistent loading state with gradient
+<div className="flex items-center justify-center bg-gradient-to-b from-slate-50/50 to-white">
+  <EllipsisBounce size="lg" text="Processing" />
+</div>
+```
+
+---
+
 ## Version History
 
 | Version | Date | Changes |
 |---------|------|---------|
-| **v13.0** | **2025-12-07** | **Production-grade design system**, unified slate palette, zero !important, focus-visible accessibility, Button/IconButton/ButtonGroup components, typography scale with line-heights |
+| **v13.1** | **2025-12-07** | **Section visual hierarchy** - gradient backgrounds for depth, slate-based borders, improved header/table/footer separation |
+| v13.0 | 2025-12-07 | Production-grade design system, unified slate palette, zero !important, focus-visible accessibility, Button/IconButton/ButtonGroup components, typography scale with line-heights, Entity Detail Header v13.0.0 (two-line layout, hero title, metadata chips) |
 | v12.0 | 2025-11-13 | Minimalistic design system |
 | v11.0 | 2025-11-10 | YAML pattern detection |
 | v10.0 | 2025-11-07 | Dark theme support |
@@ -1040,5 +1261,5 @@ className="group-hover:scale-110 transition-transform"   // Icon animations
 ---
 
 **Maintained by:** PMO Platform Team
-**Version:** 13.0 - PRODUCTION-GRADE DESIGN SYSTEM
+**Version:** 13.1 - SECTION VISUAL HIERARCHY
 **Last Updated:** 2025-12-07

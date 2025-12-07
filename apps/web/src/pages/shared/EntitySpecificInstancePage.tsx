@@ -1,7 +1,22 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Edit2, Save, X, Palette, Download, Share2, Link as LinkIcon, Undo2, Redo2, Edit, Trash2 } from 'lucide-react';
-import { Layout, DynamicChildEntityTabs, useDynamicChildEntityTabs, EntityInstanceFormContainer, EntityListOfInstancesTable, FilePreview, DragDropFileUpload, EntityMetadataField, EntityMetadataRow, EntityMetadataSeparator } from '../../components/shared';
+import {
+  Layout,
+  DynamicChildEntityTabs,
+  useDynamicChildEntityTabs,
+  EntityInstanceFormContainer,
+  EntityListOfInstancesTable,
+  FilePreview,
+  DragDropFileUpload,
+  // v13.0.0: Legacy component for edit mode code field
+  EntityMetadataField,
+  // v13.0.0: Modern header components (next-generation design)
+  EntityHeaderTitle,
+  EntityMetadataChip,
+  EntityHeaderContainer,
+  EntityMetadataChipRow
+} from '../../components/shared';
 import { ExitButton } from '../../components/shared/button/ExitButton';
 import { ShareModal } from '../../components/shared/modal';
 import { UnifiedLinkageModal } from '../../components/shared/modal/UnifiedLinkageModal';
@@ -11,7 +26,7 @@ import { TaskDataContainer } from '../../components/entity/task';
 import { FormDataTable, InteractiveForm, FormSubmissionEditor } from '../../components/entity/form';
 import { EmailTemplateRenderer } from '../../components/entity/marketing';
 import { getEntityConfig } from '../../lib/entityConfig';
-import { formatRelativeTime, formatFriendlyDate, transformForApi, transformFromApi } from '../../lib/frontEndFormatterService';
+import { formatRelativeTime, transformForApi, transformFromApi } from '../../lib/frontEndFormatterService';
 import { Button } from '../../components/shared/button/Button';
 import { useS3Upload } from '../../lib/hooks/useS3Upload';
 import { useSidebar } from '../../contexts/SidebarContext';
@@ -314,6 +329,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   // Metadata is entity-type level (same for all tasks), cached 30-min
   // This fixes the "empty columns" issue where metadata wasn't returned in data response
   const {
+    fields: childFields,
     viewType: childViewType,
     editType: childEditType,
     isLoading: childMetadataLoading,
@@ -323,10 +339,11 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   );
 
   // Construct child metadata in expected format for EntityListOfInstancesTable
+  // v13.1.1: Include fields array to ensure correct column ordering
   const childMetadata = useMemo(() => {
     if (!childViewType || Object.keys(childViewType).length === 0) return undefined;
-    return { viewType: childViewType, editType: childEditType };
-  }, [childViewType, childEditType]);
+    return { fields: childFields, viewType: childViewType, editType: childEditType };
+  }, [childFields, childViewType, childEditType]);
 
   // ============================================================================
   // v11.3.1: CHILD ENTITY INLINE EDITING (useInlineAddRow Pattern)
@@ -1076,120 +1093,123 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
 
   return (
     <Layout>
-        {/* Sticky Header Section - Full width, compensates for Layout's p-4 padding */}
-        {/* top-[-1rem] matches -mt-4 to prevent content showing above sticky header when scrolling */}
-        <div className="sticky top-[-1rem] z-20 bg-gray-100 shadow-sm border-b border-gray-200 -mx-4 -mt-4 px-4 pb-2 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-6 after:h-6 after:bg-gradient-to-b after:from-white after:to-transparent after:pointer-events-none">
+      {/* Full-height flex container to prevent page-wide scroll when showing child entity tables */}
+      {/* overflow-hidden ensures child content doesn't cause page scroll - table handles its own scrolling */}
+      <div className="h-full flex flex-col -mx-4 -mt-4 overflow-hidden">
+        {/* ============================================================================
+            v13.0.0: MODERN HEADER SECTION - Next-Generation Entity Detail Header
+            ============================================================================
+            Design Principles:
+            - Two-line layout: Hero title (line 1) + Metadata chips (line 2)
+            - Entity name as primary hero element with larger typography
+            - Pill/chip styling for secondary metadata (code, id, timestamps)
+            - Progressive disclosure: essential info prominent, technical details subtle
+            - Consistent with 2025 SaaS design patterns (Linear, Notion, Figma)
+            v13.1.0: Enhanced visual hierarchy
+            - Subtle gradient background (white to slate-50) for depth
+            - Improved shadow for better section separation
+            ============================================================================ */}
+        <div className="sticky top-0 z-20 bg-gradient-to-b from-white to-slate-50/80 border-b border-slate-200/80 shadow-sm px-4 pt-4 pb-3 flex-shrink-0">
           <div className="w-[97%] max-w-[1536px] mx-auto">
-          {/* Header */}
-          <div className="flex items-center justify-between py-3">
-          <div className="flex items-center space-x-4 flex-1 min-w-0">
-            {/* Exit button on left */}
-            <ExitButton entityCode={entityCode} isDetailPage={true} />
+          {/* Header with modern two-line layout */}
+          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start space-x-4 flex-1 min-w-0">
+            {/* Exit button on left - vertically centered with title */}
+            <div className="pt-1">
+              <ExitButton entityCode={entityCode} isDetailPage={true} />
+            </div>
 
-            <div className="flex-1 min-w-0 px-2">
-              {/* Compact metadata row using DRY components */}
-              <EntityMetadataRow className="overflow-x-auto">
-                {/* Name - v12.3.0: Supports inline editing via long-press */}
-                <EntityMetadataField
-                  label={`${config.displayName} name`}
-                  value={isEditing ? (editedData.name || editedData.title || '') : (data.name || data.title || `${config.displayName} Details`)}
-                  isEditing={isEditing}
-                  fieldKey="name"
-                  copiedField={copiedField}
-                  onCopy={handleCopy}
-                  onChange={handleFieldChange}
-                  placeholder="Enter name..."
-                  inputWidth="16rem"
-                  // v12.3.0: Inline editing support
-                  inlineEditable={!isEditing}
-                  onInlineSave={handleInlineSave}
-                  editable={formEditType?.name?.editable !== false}
-                />
+            {/* v13.0.0: Modern two-line header layout */}
+            <EntityHeaderContainer className="flex-1 min-w-0">
+              {/* Line 1: Hero Title - Large, bold entity name */}
+              <EntityHeaderTitle
+                value={isEditing ? String(editedData.name || editedData.title || '') : String(data.name || data.title || `${config.displayName} Details`)}
+                isEditing={isEditing}
+                fieldKey="name"
+                onChange={handleFieldChange}
+                placeholder="Enter name..."
+                inlineEditable={!isEditing}
+                onInlineSave={handleInlineSave}
+                editable={(formEditType as Record<string, { editable?: boolean }> | undefined)?.name?.editable !== false}
+              />
 
-                <EntityMetadataSeparator show={!!(data.code || id)} />
-
-                {/* Code - v12.3.0: Supports inline editing via long-press */}
+              {/* Line 2: Metadata Chips - Compact, pill-styled secondary info */}
+              <EntityMetadataChipRow>
+                {/* Code chip - monospace, prominent */}
                 {(data.code || isEditing) && (
-                  <EntityMetadataField
-                    label="code"
-                    value={isEditing ? (editedData.code || '') : data.code}
-                    isEditing={isEditing}
-                    fieldKey="code"
-                    copiedField={copiedField}
-                    onCopy={handleCopy}
-                    onChange={handleFieldChange}
-                    placeholder="CODE"
-                    inputWidth="8rem"
-                    // v12.3.0: Inline editing support
-                    inlineEditable={!isEditing}
-                    onInlineSave={handleInlineSave}
-                    editable={formEditType?.code?.editable !== false}
-                  />
+                  isEditing ? (
+                    <EntityMetadataField
+                      label="code"
+                      value={String(editedData.code || '')}
+                      isEditing={true}
+                      fieldKey="code"
+                      copiedField={copiedField}
+                      onCopy={handleCopy}
+                      onChange={handleFieldChange}
+                      placeholder="CODE"
+                      inputWidth="8rem"
+                      editable={(formEditType as Record<string, { editable?: boolean }> | undefined)?.code?.editable !== false}
+                    />
+                  ) : (
+                    <EntityMetadataChip
+                      label="code"
+                      value={String(data.code || '')}
+                      fieldKey="code"
+                      onCopy={handleCopy}
+                      copiedField={copiedField}
+                      monospace={true}
+                      variant="default"
+                    />
+                  )
                 )}
 
-                <EntityMetadataSeparator show={!!(data.code && id)} />
-
-                {/* ID - always readonly (system field) */}
-                {id && (
-                  <EntityMetadataField
+                {/* ID chip - muted style, technical info */}
+                {id && !isEditing && (
+                  <EntityMetadataChip
                     label="id"
                     value={id}
-                    isEditing={false}
                     fieldKey="id"
-                    copiedField={copiedField}
                     onCopy={handleCopy}
-                    className="text-dark-700"
-                    editable={false}
+                    copiedField={copiedField}
+                    monospace={true}
+                    variant="muted"
                   />
                 )}
 
-                {/* Created - metadata-aware: respects formViewType?.created_ts?.visible */}
-                {data.created_ts && formViewType?.created_ts?.visible !== false && (
-                  <>
-                    <EntityMetadataSeparator show={true} />
-                    <span className="text-gray-400 font-normal text-xs flex-shrink-0">created:</span>
-                    <span
-                      className="text-gray-600 font-normal text-sm"
-                      title={formatFriendlyDate(data.created_ts)}
-                    >
-                      {formatRelativeTime(data.created_ts)}
-                    </span>
-                  </>
+                {/* Created timestamp chip */}
+                {data.created_ts && (formViewType as Record<string, { visible?: boolean }> | undefined)?.created_ts?.visible !== false && !isEditing && (
+                  <EntityMetadataChip
+                    label="created"
+                    value={formatRelativeTime(String(data.created_ts))}
+                    fieldKey="created_ts"
+                    variant="muted"
+                    showLabel={true}
+                  />
                 )}
 
-                {/* Updated - metadata-aware: respects formViewType?.updated_ts?.visible */}
-                {data.updated_ts && formViewType?.updated_ts?.visible !== false && (
-                  <>
-                    <EntityMetadataSeparator show={true} />
-                    <span className="text-gray-400 font-normal text-xs flex-shrink-0">updated:</span>
-                    <span
-                      className="text-gray-600 font-normal text-sm"
-                      title={formatFriendlyDate(data.updated_ts)}
-                    >
-                      {formatRelativeTime(data.updated_ts)}
-                    </span>
-                  </>
+                {/* Updated timestamp chip */}
+                {data.updated_ts && (formViewType as Record<string, { visible?: boolean }> | undefined)?.updated_ts?.visible !== false && !isEditing && (
+                  <EntityMetadataChip
+                    label="updated"
+                    value={formatRelativeTime(String(data.updated_ts))}
+                    fieldKey="updated_ts"
+                    variant="muted"
+                    showLabel={true}
+                  />
                 )}
 
-                <EntityMetadataSeparator show={!!(entityCode === 'artifact' && data.version && id)} />
-
-                {/* Version badge (for artifacts) */}
-                {entityCode === 'artifact' && data.version && (
-                  <EntityMetadataField
+                {/* Version chip (for artifacts) */}
+                {entityCode === 'artifact' && data.version && !isEditing && (
+                  <EntityMetadataChip
                     label="version"
-                    value={`v${data.version}`}
-                    isEditing={false}
+                    value={`v${String(data.version)}`}
                     fieldKey="version"
-                    canCopy={false}
-                    badge={
-                      <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium text-gray-600 bg-gray-100 rounded">
-                        v{data.version}
-                      </span>
-                    }
+                    variant="accent"
+                    showLabel={false}
                   />
                 )}
-              </EntityMetadataRow>
-            </div>
+              </EntityMetadataChipRow>
+            </EntityHeaderContainer>
           </div>
 
           {/* Edit/Save/Cancel buttons */}
@@ -1335,8 +1355,15 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
           </div>
         </div>
 
-        {/* Content Area - Shows Overview or Child Entity Table */}
-        <div className="w-[97%] max-w-[1536px] mx-auto mt-6">
+        {/* ============================================================================
+            v13.1.0: CONTENT AREA - Layered Visual Hierarchy
+            ============================================================================
+            Design Principles:
+            - Canvas background (slate-50) creates depth separation from header
+            - Content sits on elevated surface (white cards with shadows)
+            - Subtle gradient overlay for polish
+            ============================================================================ */}
+        <div className={`w-[97%] max-w-[1536px] mx-auto mt-4 px-4 pb-4 flex-1 min-h-0 ${isOverviewTab ? 'overflow-y-auto' : 'flex flex-col'}`}>
         {isOverviewTab ? (
           // Overview Tab - Entity Details
           <>
@@ -1479,32 +1506,36 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
         ) : (
           // Child Entity Tab - Direct EntityListOfInstancesTable (no FilteredDataTable/Outlet)
           // v9.7.0: Check both data loading AND metadata loading (two-query architecture)
-          (childLoading || childMetadataLoading) ? (
-            <div className="flex items-center justify-center h-64">
-              <EllipsisBounce size="lg" text="Processing" />
-            </div>
-          ) : (
-            <EntityListOfInstancesTable
-              data={childDisplayData}
-              metadata={childMetadata}
-              loading={childLoading || childMetadataLoading}
-              pagination={childPagination}
-              onRowClick={handleChildRowClick}
-              searchable={true}
-              filterable={true}
-              columnSelection={true}
-              rowActions={childRowActions}
-              selectable={true}
-              inlineEditable={true}
-              editingRow={childEditingRow}
-              editedData={childEditedData}
-              onInlineEdit={handleChildInlineEdit}
-              onSaveInlineEdit={handleChildSave}
-              onCancelInlineEdit={handleChildCancel}
-              allowAddRow={true}
-              onAddRow={handleChildAddRow}
-            />
-          )
+          // v13.1.0: Enhanced table container with subtle elevation
+          // flex-1 min-h-0 ensures table fits within available space without page scroll
+          <div className="flex-1 min-h-0 flex flex-col bg-white rounded-xl shadow-sm border border-slate-200/60 overflow-hidden">
+            {(childLoading || childMetadataLoading) ? (
+              <div className="flex items-center justify-center h-64 bg-gradient-to-b from-slate-50/50 to-white">
+                <EllipsisBounce size="lg" text="Processing" />
+              </div>
+            ) : (
+              <EntityListOfInstancesTable
+                data={childDisplayData}
+                metadata={childMetadata}
+                loading={childLoading || childMetadataLoading}
+                pagination={childPagination}
+                onRowClick={handleChildRowClick}
+                searchable={true}
+                filterable={true}
+                columnSelection={true}
+                rowActions={childRowActions}
+                selectable={true}
+                inlineEditable={true}
+                editingRow={childEditingRow}
+                editedData={childEditedData}
+                onInlineEdit={handleChildInlineEdit}
+                onSaveInlineEdit={handleChildSave}
+                onCancelInlineEdit={handleChildCancel}
+                allowAddRow={true}
+                onAddRow={handleChildAddRow}
+              />
+            )}
+          </div>
         )}
         </div>
 
@@ -1532,6 +1563,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
 
       {/* Unified Linkage Modal */}
       <UnifiedLinkageModal {...linkageModal.modalProps} />
+      </div>
     </Layout>
   );
 }

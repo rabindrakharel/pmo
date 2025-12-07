@@ -26,7 +26,15 @@ export { LabelsDataTableWithFetching } from './dataTable/LabelsDataTableWithFetc
 // ============================================================================
 export { DynamicChildEntityTabs, useDynamicChildEntityTabs } from './entity/DynamicChildEntityTabs';
 export { EntityInstanceFormContainer } from './entity/EntityInstanceFormContainer';
+// v13.0.0: Legacy components (backward compatible)
 export { EntityMetadataField, EntityMetadataRow, EntityMetadataSeparator } from './ui/EntitySpecificInstanceMetadataContainer';
+// v13.0.0: Modern header components (next-generation design)
+export {
+  EntityHeaderTitle,
+  EntityMetadataChip,
+  EntityHeaderContainer,
+  EntityMetadataChipRow
+} from './ui/EntitySpecificInstanceMetadataContainer';
 
 // ============================================================================
 // FILE COMPONENTS

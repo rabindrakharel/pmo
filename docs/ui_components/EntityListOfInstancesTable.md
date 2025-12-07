@@ -1,6 +1,8 @@
 # EntityListOfInstancesTable Component
 
-**Version:** 12.3.0 | **Location:** `apps/web/src/components/shared/ui/EntityListOfInstancesTable.tsx` | **Updated:** 2025-12-03
+**Version:** 13.3.0 | **Location:** `apps/web/src/components/shared/ui/EntityListOfInstancesTable.tsx` | **Updated:** 2025-12-07
+
+**v13.3.0:** Section visual hierarchy - gradient backgrounds, slate borders, improved depth separation
 
 ---
 
@@ -122,6 +124,12 @@ export interface EntityListOfInstancesTableProps<T = any> {
   selectable?: boolean;
   selectedIds?: string[];
   onSelectionChange?: (ids: string[]) => void;
+
+  /** v13.1.0: Infinite scroll loading indicators */
+  isFetchingNextPage?: boolean;     // Loading more data at bottom
+  isFetchingPreviousPage?: boolean; // Loading more data at top (bidirectional)
+  hasNextPage?: boolean;            // More data available at bottom
+  hasPreviousPage?: boolean;        // More data available at top
 }
 
 // v11.1.0: FLAT Metadata format (same as EntityInstanceFormContainer)
@@ -805,6 +813,71 @@ const columnStylesMap = useMemo(() => {
 
 ---
 
+## Infinite Scroll Loading Indicators (v13.1.0)
+
+The table supports visual loading indicators when fetching more data during infinite scroll.
+
+### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `isFetchingNextPage` | `boolean` | `false` | Shows loading spinner at bottom when fetching next page |
+| `isFetchingPreviousPage` | `boolean` | `false` | Shows loading spinner at top when fetching previous page |
+| `hasNextPage` | `boolean` | `false` | Indicates more data is available at bottom |
+| `hasPreviousPage` | `boolean` | `false` | Indicates more data is available at top |
+
+### Usage with useProgressiveEntityList
+
+```typescript
+import { useProgressiveEntityList } from '@/db/cache/hooks/useProgressiveEntityList';
+
+function ProjectListPage() {
+  const {
+    data,
+    status,
+    cursors,
+    containerProps,
+    sentinelRef,
+  } = useProgressiveEntityList<Project>('project', {}, {
+    pageSize: 50,
+    prefetchStrategy: 'predictive',
+  });
+
+  return (
+    <EntityListOfInstancesTable
+      data={data}
+      metadata={metadata}
+      isFetchingNextPage={status.isLoadingMore}
+      isFetchingPreviousPage={false}
+      hasNextPage={cursors.hasMore}
+      hasPreviousPage={cursors.hasPrev}
+      // ... other props
+    />
+  );
+}
+```
+
+### Loading UI
+
+```
+┌────────────────────────────────────────────────────────────┐
+│  [Previous page loading indicator - absolute positioned]  │
+│  ○ ○ ○  Loading previous...                               │
+├────────────────────────────────────────────────────────────┤
+│  │ Name        │ Status    │ Budget    │ ...              │
+│  ├─────────────┼───────────┼───────────┼───────────────────│
+│  │ Project A   │ Active    │ $50,000   │ ...              │
+│  │ Project B   │ Planning  │ $25,000   │ ...              │
+│  │ Project C   │ Complete  │ $75,000   │ ...              │
+│  │ ...         │ ...       │ ...       │ ...              │
+├────────────────────────────────────────────────────────────┤
+│  ○ ○ ○  Loading more...                                   │
+│  [Next page loading indicator - at bottom of table]       │
+└────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## Usage Example (v11.1.0)
 
 ### With Two-Query Architecture
@@ -1006,9 +1079,13 @@ Inline Edit Flow (v12.3.0 - Slow Click-and-Hold)
 
 ---
 
-**Version:** 12.3.0 | **Last Updated:** 2025-12-03 | **Status:** Production
+**Version:** 13.2.0 | **Last Updated:** 2025-12-07 | **Status:** Production
 
 **Recent Updates:**
+- v13.2.0 (2025-12-07): **Flex-based Height Constraints**
+  - Removed hardcoded `maxHeight: calc(100vh - 200px)` in favor of `flex-1 min-h-0` pattern
+  - Table now respects parent height constraints (works properly when nested in EntitySpecificInstancePage child tabs)
+  - Parent components must provide height constraints (`h-full`, `flex-1 min-h-0`, or explicit height)
 - v12.3.0 (2025-12-03): **Unified Slow Click-and-Hold Inline Editing**
   - All three components (`EntityListOfInstancesTable`, `EntityInstanceFormContainer`, `EntityMetadataField`) now use consistent 500ms long-press pattern
   - Click outside OR Enter key triggers optimistic update (TanStack Query + Dexie)

@@ -107,10 +107,11 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   } = useEntityInstanceMetadata(entityCode, mappedView);
 
   // Combine viewType and editType into metadata structure for EntityListOfInstancesTable
+  // v13.1.1: Include fields array to ensure correct column ordering
   const metadata = useMemo((): ComponentMetadata | null => {
     if (!viewType || Object.keys(viewType).length === 0) return null;
-    return { viewType, editType } as ComponentMetadata;
-  }, [viewType, editType]);
+    return { fields: metadataFields, viewType, editType } as ComponentMetadata;
+  }, [metadataFields, viewType, editType]);
 
   // ============================================================================
   // QUERY 2: DATA (5-min cache) - populates rows after metadata ready
@@ -133,6 +134,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     data: rawData,
     total: totalRecords,
     isLoading: dataLoading,
+    isFetching,  // v13.1.0: Track background fetching for loading indicators
     isError,
     error: queryError,
     refetch,
@@ -628,6 +630,9 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
           onCancelInlineEdit={handleCancelInlineEdit}
           allowAddRow={true}
           onAddRow={handleAddRow}
+          // v13.1.0: Loading indicators for pagination/fetching
+          isFetchingNextPage={isFetching && !dataLoading}
+          hasNextPage={hasMore}
         />
       );
     }

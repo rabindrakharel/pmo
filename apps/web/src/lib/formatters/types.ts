@@ -106,8 +106,10 @@ export interface EditFieldMetadata {
  * Contains both view and edit configurations for a component
  *
  * Backend sends: metadata.entityListOfInstancesTable = { viewType: {...}, editType: {...} }
+ * v13.1.1: Added optional fields array for column ordering
  */
 export interface ComponentMetadata {
+  fields?: string[];  // Column ordering - if missing, falls back to Object.keys(viewType)
   viewType: Record<string, ViewFieldMetadata>;
   editType: Record<string, EditFieldMetadata>;
 }

@@ -355,8 +355,8 @@ export function WelcomePage() {
 
   return (
     <Layout>
-      <div className="w-full bg-dark-canvas min-h-screen">
-        <div className="w-[97%] max-w-[1536px] mx-auto px-4 py-8 space-y-8">
+      <div className="w-full bg-dark-canvas">
+        <div className="w-[97%] max-w-[1536px] mx-auto space-y-8 pb-4">
           {/* Hero Section - Elegant & Modern */}
           <div className="relative overflow-hidden bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 rounded-2xl shadow-xl border border-slate-600/30">
             {/* Subtle gradient overlay */}
