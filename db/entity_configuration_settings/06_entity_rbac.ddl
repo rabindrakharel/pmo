@@ -54,7 +54,7 @@ CREATE TABLE app.entity_rbac (
 
   -- Entity target
   entity_code varchar(50), -- Entity code (references entity.code): project, task, employee, office, business, worksite, customer, etc.
-  entity_instance_id uuid, -- Specific entity instance UUID or '11111111-1111-1111-1111-111111111111' for type-level permissions
+  entity_instance_id uuid, -- Specific entity instance UUID or '11111111-1111-1111-1111-111111111111' for Entity Code wide permissions
 
   -- Permission level (single integer 0-7 with hierarchical inheritance)
   permission integer DEFAULT 0,

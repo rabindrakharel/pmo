@@ -47,8 +47,6 @@ const EmployeeSchema = Type.Object({
 
   // Employee identification (DDL columns)
   email: Type.String(),
-  first_name: Type.String(),
-  last_name: Type.String(),
 
   // Contact information (DDL columns)
   phone: Type.Optional(Type.String()),
@@ -99,8 +97,6 @@ const CreateEmployeeSchema = Type.Object({
 
   // Employee identification (DDL columns)
   email: Type.Optional(Type.String({ format: 'email' })),
-  first_name: Type.Optional(Type.String({ minLength: 1 })),
-  last_name: Type.Optional(Type.String({ minLength: 1 })),
 
   // Contact information (DDL columns)
   phone: Type.Optional(Type.String()),
@@ -170,7 +166,7 @@ export async function empRoutes(fastify: FastifyInstance) {
     entityCode: ENTITY_CODE,
     tableName: 'employee',
     tableAlias: 'e',
-    searchFields: ['name', 'descr', 'email', 'first_name', 'last_name', 'code'],
+    searchFields: ['name', 'descr', 'email', 'code'],
     // Auto-generate defaults for required fields
     createDefaults: {
       code: () => {
@@ -190,21 +186,9 @@ export async function empRoutes(fastify: FastifyInstance) {
           data.email = `employee-${data.code}@temp.huronhome.ca`;
         }
 
-        // Handle first_name/last_name/name relationships
-        if (!data.first_name || !data.last_name) {
-          if (data.name) {
-            const nameParts = data.name.trim().split(' ');
-            data.first_name = data.first_name || nameParts[0] || 'New';
-            data.last_name = data.last_name || (nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Employee');
-          } else {
-            data.first_name = data.first_name || 'New';
-            data.last_name = data.last_name || 'Employee';
-          }
-        }
-
-        // Generate name from first_name and last_name if not provided
+        // Generate name if not provided
         if (!data.name) {
-          data.name = `${data.first_name} ${data.last_name}`;
+          data.name = 'New Employee';
         }
 
         // Check for unique email

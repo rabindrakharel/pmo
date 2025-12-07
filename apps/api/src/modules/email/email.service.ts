@@ -194,7 +194,7 @@ export async function sendEventInviteToEmployee(args: {
   try {
     // Get employee email
     const empResult = await client`
-      SELECT email, first_name, last_name
+      SELECT email, name
       FROM app.employee
       WHERE id = ${args.employeeId}::uuid AND active_flag = true
     `;
@@ -206,11 +206,11 @@ export async function sendEventInviteToEmployee(args: {
     const employee = empResult[0];
 
     if (!employee.email) {
-      console.warn(`Employee ${employee.first_name} ${employee.last_name} has no email. Skipping invite.`);
+      console.warn(`Employee ${employee.name} has no email. Skipping invite.`);
       return { success: false, error: 'Employee has no email' };
     }
 
-    const employeeName = `${employee.first_name} ${employee.last_name}`;
+    const employeeName = employee.name;
 
     // Send calendar invite
     return await sendEmail({

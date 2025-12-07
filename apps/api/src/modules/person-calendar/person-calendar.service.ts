@@ -378,7 +378,7 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
     // Send notification to assigned employee
     // First, get employee email
     const employeeResult = await client`
-      SELECT first_name, last_name, email, phone
+      SELECT name, email, phone
       FROM app.employee
       WHERE id = ${assignedEmployeeId}::uuid AND active_flag = true
     `;
@@ -387,7 +387,7 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
       const employee = employeeResult[0];
       const employeeEmail = employee.email;
       const employeePhone = employee.phone;
-      const employeeName = `${employee.first_name} ${employee.last_name}`;
+      const employeeName = employee.name;
 
       if (employeeEmail || employeePhone) {
         const empResult = await messagingService.sendPersonCalendarNotification({
@@ -496,7 +496,7 @@ export async function cancelPersonCalendar(eventId: string, cancellationReason?:
         epc.person_entity_type,
         epc.person_id::text,
         CASE
-          WHEN epc.person_entity_type = 'employee' THEN emp.first_name || ' ' || emp.last_name
+          WHEN epc.person_entity_type = 'employee' THEN emp.name
           WHEN epc.person_entity_type = 'customer' THEN cust.name
           ELSE NULL
         END as person_name,

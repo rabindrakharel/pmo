@@ -561,7 +561,7 @@ SELECT DISTINCT
   'employee',
   e.id,
   t.entity_type,
-  '11111111-1111-1111-1111-111111111111',
+  '11111111-1111-1111-1111-111111111111'::uuid,
   6,  -- CREATE
   now()
 FROM (
@@ -874,30 +874,30 @@ ON CONFLICT DO NOTHING;
 -- STEP 9: UPDATE ENTITY INSTANCE REGISTRY
 -- ============================================================================
 -- Ensure all entities with RBAC permissions are registered in entity_instance
+-- Note: entity_instance has no unique constraint, so we delete/insert
 
+-- Delete existing generated entries first
+DELETE FROM app.entity_instance WHERE entity_code IN ('project', 'task', 'business', 'employee');
+
+-- Insert projects
 INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
 SELECT DISTINCT 'project', p.id, p.name, p.code
-FROM app.project p WHERE p.active_flag = true
-ON CONFLICT (entity_code, entity_instance_id) DO UPDATE
-SET entity_instance_name = EXCLUDED.entity_instance_name, code = EXCLUDED.code;
+FROM app.project p WHERE p.active_flag = true;
 
+-- Insert tasks
 INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
 SELECT DISTINCT 'task', t.id, t.name, t.code
-FROM app.task t WHERE t.active_flag = true
-ON CONFLICT (entity_code, entity_instance_id) DO UPDATE
-SET entity_instance_name = EXCLUDED.entity_instance_name, code = EXCLUDED.code;
+FROM app.task t WHERE t.active_flag = true;
 
+-- Insert businesses
 INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
 SELECT DISTINCT 'business', b.id, b.name, b.code
-FROM app.business b WHERE b.active_flag = true
-ON CONFLICT (entity_code, entity_instance_id) DO UPDATE
-SET entity_instance_name = EXCLUDED.entity_instance_name, code = EXCLUDED.code;
+FROM app.business b WHERE b.active_flag = true;
 
+-- Insert employees
 INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
 SELECT DISTINCT 'employee', e.id, e.name, e.code
-FROM app.employee e WHERE e.active_flag = true
-ON CONFLICT (entity_code, entity_instance_id) DO UPDATE
-SET entity_instance_name = EXCLUDED.entity_instance_name, code = EXCLUDED.code;
+FROM app.employee e WHERE e.active_flag = true;
 
 -- ============================================================================
 -- RBAC & LINK VERIFICATION QUERIES

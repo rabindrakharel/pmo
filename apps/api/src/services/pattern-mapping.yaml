@@ -383,6 +383,9 @@ patterns:
 # ============================================================================
 # S3/STORAGE FIELDS
 # ============================================================================
+  # S3 photo reference (JSONB with s3_bucket + s3_key) - MUST come before generic *_photo_url
+  - { pattern: "profile_photo_url", exact: true, fieldBusinessType: s3_photo }
+
   - { pattern: "s3_bucket", exact: true, fieldBusinessType: s3_bucket }
   - { pattern: "s3_key", exact: true, fieldBusinessType: s3_key }
   - { pattern: "s3_url", exact: true, fieldBusinessType: s3_url }

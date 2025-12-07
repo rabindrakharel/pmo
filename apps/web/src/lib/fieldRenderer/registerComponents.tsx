@@ -38,6 +38,9 @@ import { DateRangeVisualizer } from '../../components/shared/ui/DateRangeVisuali
 import { DebouncedInput, DebouncedTextarea } from '../../components/shared/ui/DebouncedInput';
 import { SearchableMultiSelect } from '../../components/shared/ui/SearchableMultiSelect';
 
+// File/Photo components
+import { S3PhotoUpload, type S3PhotoData } from '../../components/shared/file/S3PhotoUpload';
+
 // Utilities
 import { getBadgeClass } from '../../lib/designSystem';
 import { getEntityInstanceNameSync } from '../../db/tanstack-index';
@@ -613,6 +616,108 @@ const DateRangeVisualizerView: React.FC<ComponentRendererProps> = ({
   return <DateRangeVisualizer startDate={startDate} endDate={endDate} />;
 };
 
+/**
+ * S3Avatar - View Mode
+ * Displays profile photo from S3 JSONB reference
+ */
+const S3AvatarView: React.FC<ComponentRendererProps> = ({ value, field }) => {
+  const [photoUrl, setPhotoUrl] = React.useState<string | null>(null);
+  const s3Data = value as S3PhotoData | null;
+
+  // Lazy import to avoid circular dependencies
+  React.useEffect(() => {
+    const loadPhoto = async () => {
+      if (s3Data?.s3_key) {
+        try {
+          const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+          const token = localStorage.getItem('auth_token');
+          const response = await fetch(`${API_BASE_URL}/api/v1/s3-backend/presigned-download`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token && { 'Authorization': `Bearer ${token}` })
+            },
+            body: JSON.stringify({ objectKey: s3Data.s3_key })
+          });
+          if (response.ok) {
+            const { url } = await response.json();
+            setPhotoUrl(url);
+          }
+        } catch (error) {
+          console.error('Failed to load S3 photo:', error);
+        }
+      } else {
+        setPhotoUrl(null);
+      }
+    };
+    loadPhoto();
+  }, [s3Data?.s3_key]);
+
+  // Size configuration from field.style
+  const size = field.style?.size || 'md';
+  const sizeClasses = {
+    sm: 'w-8 h-8',
+    md: 'w-12 h-12',
+    lg: 'w-24 h-24',
+  };
+  const avatarSize = sizeClasses[size as keyof typeof sizeClasses] || sizeClasses.md;
+
+  if (!photoUrl) {
+    return (
+      <div className={`${avatarSize} rounded-full bg-dark-200 flex items-center justify-center`}>
+        <svg className="w-1/2 h-1/2 text-dark-400" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+        </svg>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={photoUrl}
+      alt="Profile"
+      className={`${avatarSize} rounded-full object-cover`}
+    />
+  );
+};
+
+/**
+ * S3PhotoUpload - Edit Mode Wrapper
+ * Wraps S3PhotoUpload component for field registry
+ */
+const S3PhotoUploadEdit: React.FC<ComponentRendererProps> = ({
+  value,
+  field,
+  onChange,
+  disabled,
+  readonly,
+}) => {
+  // Extract entityCode and entityInstanceId from field context
+  // These are typically passed via field.style or from parent component context
+  const entityCode = field.style?.entityCode || 'employee';
+
+  // Get entityInstanceId from URL or field.style
+  // In edit mode, this is typically the current entity being edited
+  const entityInstanceId = field.style?.entityInstanceId ||
+    (typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '') ||
+    '';
+
+  const s3Data = value as S3PhotoData | null;
+  const size = field.style?.size || 'lg';
+
+  return (
+    <S3PhotoUpload
+      value={s3Data}
+      entityCode={entityCode}
+      entityInstanceId={entityInstanceId}
+      onChange={(newValue) => onChange?.(newValue)}
+      disabled={disabled}
+      readonly={readonly}
+      size={size as 'sm' | 'md' | 'lg'}
+    />
+  );
+};
+
 // ============================================================================
 // REGISTER ALL COMPONENTS
 // ============================================================================
@@ -639,6 +744,9 @@ export function registerAllComponents(): void {
   registerViewComponent('array', TagsView);  // Alias
   registerViewComponent('json', JsonView);
 
+  // S3 photo/avatar components
+  registerViewComponent('s3_avatar', S3AvatarView);
+
   // ========================================================================
   // EDIT MODE components (from edit-type-mapping.yaml)
   // ========================================================================
@@ -659,6 +767,9 @@ export function registerAllComponents(): void {
   registerEditComponent('textarea', DebouncedTextareaInputEdit);
   registerEditComponent('richtext', DebouncedTextareaInputEdit);  // Alias
   registerEditComponent('multiselect', MultiSelectEdit);
+
+  // S3 photo upload component
+  registerEditComponent('S3PhotoUpload', S3PhotoUploadEdit);
 
   console.log('[FieldRenderer] All custom components registered');
 }

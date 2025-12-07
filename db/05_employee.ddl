@@ -40,8 +40,6 @@ CREATE TABLE app.employee (
   -- Employee-specific fields
   email varchar(255),
   password_hash varchar(255),
-  first_name varchar(100),
-  last_name varchar(100),
 
   -- Contact information
   phone varchar(50),
@@ -88,7 +86,10 @@ CREATE TABLE app.employee (
   preferred_language varchar(10) DEFAULT 'en',
 
   -- Skills and certifications
-  skills_service_categories text[] DEFAULT ARRAY[]::text[] -- Array of service categories from d_service (HVAC, Plumbing, Electrical, Landscaping, General Contracting, etc.)
+  skills_service_categories text[] DEFAULT ARRAY[]::text[], -- Array of service categories from d_service (HVAC, Plumbing, Electrical, Landscaping, General Contracting, etc.)
+
+  -- Profile photo (S3 storage)
+  profile_photo_url jsonb DEFAULT NULL -- S3 storage reference: {"s3_bucket": "...", "s3_key": "..."}
 );
 
 COMMENT ON TABLE app.employee IS 'Employee entities with authentication, contact info, and organizational assignments';
@@ -105,8 +106,6 @@ INSERT INTO app.employee (
     descr,
     email,
     password_hash,
-    first_name,
-    last_name,
     phone,
     mobile,
     address_line1,
@@ -135,8 +134,6 @@ INSERT INTO app.employee (
     'Chief Executive Officer and Founder of Huron Home Services. Responsible for overall strategic direction, business development, and organizational leadership.',
     'james.miller@huronhome.ca',
     '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', -- hashed: password123
-    'James',
-    'Miller',
     '+1-519-555-0001',
     '+1-519-555-0101',
     '123 Executive Drive',
@@ -178,8 +175,6 @@ INSERT INTO app.employee (
     descr,
     email,
     password_hash,
-    first_name,
-    last_name,
     phone,
     dl__employee_employment_type,
     department,
@@ -188,10 +183,10 @@ INSERT INTO app.employee (
     manager__employee_id,
     skills_service_categories
 ) VALUES
-('EMP-002', 'Sarah Johnson', 'Chief Operating Officer responsible for day-to-day operations', 'sarah.johnson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'Sarah', 'Johnson', '+1-519-555-0002', 'Full-time', 'Operations', 'Chief Operating Officer', '2020-02-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY['HVAC', 'Plumbing', 'Electrical', 'Landscaping']::text[]),
-('EMP-003', 'Michael Chen', 'Chief Technology Officer overseeing IT infrastructure and development', 'michael.chen@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'Michael', 'Chen', '+1-519-555-0003', 'Full-time', 'Technology', 'Chief Technology Officer', '2020-03-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY[]::text[]),
-('EMP-004', 'Lisa Rodriguez', 'Vice President of Sales managing client relationships and revenue_amt', 'lisa.rodriguez@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'Lisa', 'Rodriguez', '+1-519-555-0004', 'Full-time', 'Sales', 'Vice President of Sales', '2020-04-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY['HVAC', 'Plumbing', 'Electrical', 'Landscaping', 'General Contracting']::text[]),
-('EMP-005', 'David Thompson', 'Senior Project Manager for landscaping and maintenance projects', 'david.thompson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'David', 'Thompson', '+1-519-555-0005', 'Full-time', 'Operations', 'Senior Project Manager', '2020-05-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY['Landscaping']::text[]);
+('EMP-002', 'Sarah Johnson', 'Chief Operating Officer responsible for day-to-day operations', 'sarah.johnson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', '+1-519-555-0002', 'Full-time', 'Operations', 'Chief Operating Officer', '2020-02-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY['HVAC', 'Plumbing', 'Electrical', 'Landscaping']::text[]),
+('EMP-003', 'Michael Chen', 'Chief Technology Officer overseeing IT infrastructure and development', 'michael.chen@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', '+1-519-555-0003', 'Full-time', 'Technology', 'Chief Technology Officer', '2020-03-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY[]::text[]),
+('EMP-004', 'Lisa Rodriguez', 'Vice President of Sales managing client relationships and revenue_amt', 'lisa.rodriguez@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', '+1-519-555-0004', 'Full-time', 'Sales', 'Vice President of Sales', '2020-04-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY['HVAC', 'Plumbing', 'Electrical', 'Landscaping', 'General Contracting']::text[]),
+('EMP-005', 'David Thompson', 'Senior Project Manager for landscaping and maintenance projects', 'david.thompson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', '+1-519-555-0005', 'Full-time', 'Operations', 'Senior Project Manager', '2020-05-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY['Landscaping']::text[]);
 
 -- =====================================================
 -- COMPREHENSIVE EMPLOYEE DATA GENERATION (500+ Employees)
@@ -268,9 +263,7 @@ DECLARE
         'Specialist', 'Analyst', 'Manager', 'Senior Manager', 'Director'
     ];
 
-    v_first_name text;
-    v_last_name text;
-    v_full_name text;
+    v_name text;
     v_email text;
     v_code text;
     v_city text;
@@ -292,13 +285,11 @@ DECLARE
 BEGIN
     -- Generate 500 employees (starting from EMP-026)
     FOR i IN 26..525 LOOP
-        -- Randomly select name components
-        v_first_name := v_first_names[1 + floor(random() * array_length(v_first_names, 1))::int];
-        v_last_name := v_last_names[1 + floor(random() * array_length(v_last_names, 1))::int];
-        v_full_name := v_first_name || ' ' || v_last_name;
+        -- Randomly select name components and combine
+        v_name := v_first_names[1 + floor(random() * array_length(v_first_names, 1))::int] || ' ' || v_last_names[1 + floor(random() * array_length(v_last_names, 1))::int];
 
         -- Generate email and identifiers
-        v_email := lower(v_first_name || '.' || replace(v_last_name, '''', '') || i || '@huronhome.ca');
+        v_email := lower(replace(replace(v_name, ' ', '.'), '''', '') || i || '@huronhome.ca');
         v_code := 'EMP-' || lpad(i::text, 4, '0');
 
         -- Random Canadian city and province
@@ -398,18 +389,16 @@ BEGIN
         -- Insert employee
         INSERT INTO app.employee (
             code, name, descr, email, password_hash,
-            first_name, last_name, phone, mobile,
+            phone, mobile,
             address_line1, city, province, postal_code, country,
             dl__employee_employment_type, department, title, hire_date, manager__employee_id,
             skills_service_categories
         ) VALUES (
             v_code,
-            v_full_name,
+            v_name,
             v_title || ' in ' || v_department || ' department',
             v_email,
             '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', -- password123
-            v_first_name,
-            v_last_name,
             v_phone,
             v_mobile,
             v_street_number || ' ' || v_street,

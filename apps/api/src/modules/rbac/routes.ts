@@ -647,7 +647,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
           rbac.granted_ts,
           rbac.expires_ts,
           CASE
-            WHEN rbac.person_code = 'employee' THEN COALESCE(emp.name, emp.first_name || ' ' || emp.last_name, emp.email)
+            WHEN rbac.person_code = 'employee' THEN COALESCE(emp.name, emp.email)
             WHEN rbac.person_code = 'role' THEN role.name
             ELSE NULL
           END AS person_name,
@@ -662,7 +662,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         ORDER BY
           rbac.person_code,
           CASE
-            WHEN rbac.person_code = 'employee' THEN COALESCE(emp.name, emp.first_name || ' ' || emp.last_name, emp.email)
+            WHEN rbac.person_code = 'employee' THEN COALESCE(emp.name, emp.email)
             WHEN rbac.person_code = 'role' THEN role.name
             ELSE NULL
           END,

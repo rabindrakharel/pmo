@@ -105,7 +105,7 @@ export async function enrichedCalendarRoutes(fastify: FastifyInstance) {
 
           -- Person details (employee or customer)
           CASE
-            WHEN pc.person_entity_type = 'employee' THEN emp.first_name || ' ' || emp.last_name
+            WHEN pc.person_entity_type = 'employee' THEN emp.name
             WHEN pc.person_entity_type = 'customer' THEN cust.name
             ELSE NULL
           END as person_name,
@@ -146,7 +146,7 @@ export async function enrichedCalendarRoutes(fastify: FastifyInstance) {
                 epc.person_id::text,
                 epc.event_rsvp_status,
                 CASE
-                  WHEN epc.person_entity_type = 'employee' THEN emp.first_name || ' ' || emp.last_name
+                  WHEN epc.person_entity_type = 'employee' THEN emp.name
                   WHEN epc.person_entity_type = 'customer' THEN cust.name
                   ELSE NULL
                 END as person_name,
@@ -237,7 +237,7 @@ export async function enrichedCalendarRoutes(fastify: FastifyInstance) {
 
           -- Person details
           CASE
-            WHEN pc.person_entity_type = 'employee' THEN emp.first_name || ' ' || emp.last_name
+            WHEN pc.person_entity_type = 'employee' THEN emp.name
             WHEN pc.person_entity_type = 'customer' THEN cust.name
             ELSE NULL
           END as person_name,
@@ -270,7 +270,7 @@ export async function enrichedCalendarRoutes(fastify: FastifyInstance) {
             epc.person_id::text,
             epc.event_rsvp_status,
             CASE
-              WHEN epc.person_entity_type = 'employee' THEN emp.first_name || ' ' || emp.last_name
+              WHEN epc.person_entity_type = 'employee' THEN emp.name
               WHEN epc.person_entity_type = 'customer' THEN cust.name
               ELSE NULL
             END as person_name,

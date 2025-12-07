@@ -1308,6 +1308,26 @@ fieldBusinessTypes:
       behavior: { visible: true }
       style: { size: md }
 
+  # S3 photo reference (JSONB with s3_bucket + s3_key) - renders as avatar with S3 presigned URL
+  s3_photo:
+    dtype: jsonb
+    entityListOfInstancesTable:
+      <<: *table_default
+      renderType: s3_avatar
+      style: { align: center, width: "60px", size: sm }
+    entityInstanceFormContainer:
+      <<: *form_default
+      renderType: s3_avatar
+      style: { size: lg }
+    kanbanView:
+      renderType: s3_avatar
+      behavior: { visible: true }
+      style: { size: sm }
+    gridView:
+      renderType: s3_avatar
+      behavior: { visible: true }
+      style: { size: md }
+
   signature:
     dtype: str
     entityListOfInstancesTable: *hidden

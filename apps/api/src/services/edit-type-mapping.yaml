@@ -1029,6 +1029,18 @@ fieldBusinessTypes:
       behavior: { editable: true }
       style: { accept: "image/*", maxSize: 2097152, crop: true, aspectRatio: 1 }
 
+  # S3 photo reference (JSONB with s3_bucket + s3_key) - uses S3PhotoUpload component
+  s3_photo:
+    dtype: jsonb
+    entityListOfInstancesTable:
+      inputType: readonly
+      behavior: { editable: false, filterable: false, sortable: false, visible: false }
+    entityInstanceFormContainer:
+      inputType: component
+      component: S3PhotoUpload
+      behavior: { editable: true }
+      style: { accept: "image/*", maxSize: 5242880, crop: true, aspectRatio: 1 }
+
   signature:
     dtype: str
     entityInstanceFormContainer:

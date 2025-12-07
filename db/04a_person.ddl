@@ -3,7 +3,8 @@
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 --
 -- PURPOSE:
--- Base entity that merges common fields across all person types (employee, customer, vendor, supplier).
+-- Base entity that merges common fields across all entity code that are of  person (employee, customer, vendor, supplier, role).
+-- 'employee', 'customer', 'vendor', 'supplier', 'role': are the entity(table)->code(column), or entity_code(in rest of the table)
 -- Eliminates duplication and provides unified person management.
 --
 -- DESIGN:
@@ -35,17 +36,7 @@ CREATE TABLE IF NOT EXISTS app.person (
     -- ─────────────────────────────────────────────────────────────────────────
     -- Person Identification
     -- ─────────────────────────────────────────────────────────────────────────
-    first_name varchar(100),
-    last_name varchar(100),
-    full_name varchar(255) GENERATED ALWAYS AS (
-        CASE
-            WHEN first_name IS AND last_name IS
-            THEN first_name || ' ' || last_name
-            WHEN first_name IS THEN first_name
-            WHEN last_name IS THEN last_name
-            ELSE NULL
-        END
-    ) STORED,
+    name varchar(255),
 
     -- ─────────────────────────────────────────────────────────────────────────
     -- Contact Information (Common across all person types)
@@ -76,6 +67,7 @@ CREATE TABLE IF NOT EXISTS app.person (
     employee_id uuid, -- If this person is an employee (references employee.id)
     customer_id uuid,     -- If this person is a customer (references customer.id)
     supplier_id uuid, -- If this person is a supplier (references supplier.id)
+    role_id uuid, --if this person is a role then references role.id, 
 
     -- ─────────────────────────────────────────────────────────────────────────
     -- Standard Metadata & Temporal Fields
@@ -100,9 +92,7 @@ CREATE TABLE IF NOT EXISTS app.person (
 COMMENT ON TABLE app.person IS 'Base entity for all people (employees, customers, vendors, suppliers) with common fields';
 COMMENT ON COLUMN app.person.id IS 'Unique identifier (UUID)';
 COMMENT ON COLUMN app.person.code IS 'Unique person code (e.g., PER-00001)';
-COMMENT ON COLUMN app.person.first_name IS 'First name';
-COMMENT ON COLUMN app.person.last_name IS 'Last name';
-COMMENT ON COLUMN app.person.full_name IS 'Generated full name (first + last)';
+COMMENT ON COLUMN app.person.name IS 'Person full name';
 COMMENT ON COLUMN app.person.email IS 'Primary email address';
 COMMENT ON COLUMN app.person.phone IS 'Primary phone number';
 COMMENT ON COLUMN app.person.mobile IS 'Mobile phone number';

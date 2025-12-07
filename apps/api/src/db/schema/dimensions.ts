@@ -118,8 +118,6 @@ export const dEmployee = pgTable('employee', {
   phone: text('phone'),
   
   // Personal information
-  firstName: text('first_name').notNull(),
-  lastName: text('last_name').notNull(),
   preferredName: text('preferred_name'),
   dateOfBirth: date('date_of_birth'),
   
