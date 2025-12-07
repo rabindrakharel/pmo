@@ -1,18 +1,28 @@
 import React from 'react';
 import { LucideIcon } from 'lucide-react';
+import { button, cx } from '@/lib/designSystem';
+
+// =============================================================================
+// BUTTON COMPONENT - Production Grade v13.0
+// =============================================================================
+
+type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'success' | 'ghost' | 'outline';
+type ButtonSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
 interface ButtonProps {
-  children: React.ReactNode;
-  onClick?: () => void;
+  children?: React.ReactNode;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   href?: string;
   className?: string;
-  variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'ghost';
-  size?: 'sm' | 'md' | 'lg';
+  variant?: ButtonVariant;
+  size?: ButtonSize;
   icon?: LucideIcon;
+  iconRight?: LucideIcon;
   loading?: boolean;
   disabled?: boolean;
   tooltip?: string;
   type?: 'button' | 'submit' | 'reset';
+  fullWidth?: boolean;
 }
 
 export function Button({
@@ -22,61 +32,45 @@ export function Button({
   className = '',
   variant = 'secondary',
   size = 'md',
-  icon: Icon,
+  icon: IconLeft,
+  iconRight: IconRight,
   loading = false,
   disabled = false,
   tooltip,
   type = 'button',
+  fullWidth = false,
 }: ButtonProps) {
-  // Standardized base classes following design system v12.0
-  const baseClasses = 'inline-flex items-center border font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-0';
-
-  const variantClasses = {
-    // PRIMARY - SLATE-600 MANDATORY (for ALL primary actions)
-    primary: 'bg-slate-600 text-white border-slate-600 hover:bg-slate-700 hover:border-slate-700 shadow-sm focus:ring-slate-500/50 disabled:opacity-50 disabled:cursor-not-allowed',
-
-    // SECONDARY - Light background (for secondary actions)
-    secondary: 'bg-white text-dark-700 border-dark-300 hover:border-dark-400 focus:ring-slate-500/30 disabled:opacity-50 disabled:cursor-not-allowed',
-
-    // DANGER - Red for destructive actions
-    danger: 'bg-red-600 text-white border-red-600 hover:bg-red-700 hover:border-red-700 shadow-sm focus:ring-red-500/50 disabled:opacity-50 disabled:cursor-not-allowed',
-
-    // SUCCESS - Uses slate like primary (NO GREEN per design mandate)
-    success: 'bg-slate-600 text-white border-slate-600 hover:bg-slate-700 hover:border-slate-700 shadow-sm focus:ring-slate-500/50 disabled:opacity-50 disabled:cursor-not-allowed',
-
-    // GHOST - Borderless for subtle actions
-    ghost: 'border-transparent text-dark-700 hover:bg-dark-200 focus:ring-slate-500/30 disabled:opacity-50 disabled:cursor-not-allowed',
-  };
-
-  const sizeClasses = {
-    sm: 'px-3 py-2 text-sm',         // Small (only when space is limited)
-    md: 'px-3 py-2',                  // Medium (STANDARD - USE THIS)
-    lg: 'px-5 py-3 text-lg',          // Large (emphasis)
-  };
-
-  const finalClassName = `${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`;
-
   const isDisabled = disabled || loading;
 
-  const handleClick = () => {
+  // Icon sizes based on button size
+  const iconSizes: Record<ButtonSize, string> = {
+    xs: 'h-3.5 w-3.5',
+    sm: 'h-4 w-4',
+    md: 'h-4 w-4',
+    lg: 'h-5 w-5',
+    xl: 'h-5 w-5',
+  };
+
+  const iconSize = iconSizes[size];
+
+  // Icon-only button detection
+  const isIconOnly = !children && (IconLeft || IconRight);
+
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (isDisabled) return;
     if (href) {
       window.location.href = href;
     } else if (onClick) {
-      onClick();
+      onClick(e);
     }
   };
 
-  const buttonContent = (
-    <>
-      {loading && (
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
-      )}
-      {Icon && !loading && (
-        <Icon className={`h-3.5 w-3.5 ${children ? 'mr-2' : ''}`} />
-      )}
-      {children}
-    </>
+  const buttonClasses = cx(
+    button.base,
+    button.variant[variant],
+    isIconOnly ? button.icon[size] : button.size[size],
+    fullWidth && 'w-full',
+    className
   );
 
   return (
@@ -84,21 +78,33 @@ export function Button({
       type={type}
       onClick={handleClick}
       disabled={isDisabled}
-      className={finalClassName}
+      className={buttonClasses}
       title={tooltip}
+      aria-label={tooltip}
     >
-      {buttonContent}
+      {loading ? (
+        <span className={cx('animate-spin rounded-full border-2 border-current border-t-transparent', iconSize)} />
+      ) : IconLeft ? (
+        <IconLeft className={iconSize} />
+      ) : null}
+
+      {children && <span>{children}</span>}
+
+      {!loading && IconRight && <IconRight className={iconSize} />}
     </button>
   );
 }
 
-// Create button specialized for entity creation
+// =============================================================================
+// CREATE BUTTON - Specialized for entity creation
+// =============================================================================
+
 interface CreateButtonProps {
   entityCode: string;
   onCreateClick?: () => void;
   createUrl?: string;
   className?: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: ButtonSize;
   label?: string;
 }
 
@@ -132,7 +138,10 @@ export function CreateButton({
   );
 }
 
-// Action bar component without RBAC gates
+// =============================================================================
+// ACTION BAR - Header with actions
+// =============================================================================
+
 interface ActionBarProps {
   title?: string;
   createButton?: {
@@ -153,12 +162,17 @@ export function ActionBar({
   className = '',
 }: ActionBarProps) {
   return (
-    <div className={`flex items-center justify-between bg-dark-100 px-6 py-4 border-b border-dark-300 ${className}`}>
-      <div className="flex items-center space-x-4">
-        {title && <h2 className="text-sm font-normal text-dark-600">{title}</h2>}
+    <div className={cx(
+      'flex items-center justify-between bg-white px-6 py-4 border-b border-dark-200',
+      className
+    )}>
+      <div className="flex items-center gap-4">
+        {title && (
+          <h2 className="text-sm font-medium text-dark-600">{title}</h2>
+        )}
         {scopeFilters}
       </div>
-      <div className="flex items-center space-x-3">
+      <div className="flex items-center gap-3">
         {additionalActions}
         {createButton && (
           <CreateButton
@@ -168,6 +182,91 @@ export function ActionBar({
           />
         )}
       </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// ICON BUTTON - For toolbars and actions
+// =============================================================================
+
+interface IconButtonProps {
+  icon: LucideIcon;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  variant?: 'default' | 'ghost' | 'danger';
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
+  tooltip?: string;
+  disabled?: boolean;
+  active?: boolean;
+}
+
+export function IconButton({
+  icon: Icon,
+  onClick,
+  variant = 'default',
+  size = 'md',
+  className = '',
+  tooltip,
+  disabled = false,
+  active = false,
+}: IconButtonProps) {
+  const sizeClasses = {
+    sm: 'h-7 w-7',
+    md: 'h-8 w-8',
+    lg: 'h-9 w-9',
+  };
+
+  const iconSizes = {
+    sm: 'h-4 w-4',
+    md: 'h-4 w-4',
+    lg: 'h-5 w-5',
+  };
+
+  const variantClasses = {
+    default: cx(
+      'text-dark-500 hover:text-dark-700 hover:bg-dark-100',
+      active && 'bg-dark-100 text-dark-700'
+    ),
+    ghost: cx(
+      'text-dark-400 hover:text-dark-600 hover:bg-dark-50',
+      active && 'bg-dark-50 text-dark-600'
+    ),
+    danger: 'text-red-500 hover:text-red-600 hover:bg-red-50',
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cx(
+        'inline-flex items-center justify-center rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/30 disabled:opacity-50 disabled:pointer-events-none',
+        sizeClasses[size],
+        variantClasses[variant],
+        className
+      )}
+      title={tooltip}
+      aria-label={tooltip}
+    >
+      <Icon className={iconSizes[size]} />
+    </button>
+  );
+}
+
+// =============================================================================
+// BUTTON GROUP - For grouped actions
+// =============================================================================
+
+interface ButtonGroupProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
+export function ButtonGroup({ children, className = '' }: ButtonGroupProps) {
+  return (
+    <div className={cx('inline-flex items-center gap-2', className)}>
+      {children}
     </div>
   );
 }
