@@ -651,7 +651,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
           <p className="text-red-600">{error}</p>
           <button
             onClick={() => refetch()}
-            className="mt-4 px-4 py-2 bg-dark-700 text-white rounded-md hover:bg-dark-800"
+            className="mt-4 px-4 py-2 bg-slate-600 text-white text-sm font-medium rounded-md hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-slate-500/50 focus-visible:outline-none shadow-sm transition-colors"
           >
             Retry
           </button>
@@ -663,7 +663,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     if (view === 'kanban' && config.kanban) {
       return (
         <div className="space-y-4">
-          <div className="bg-dark-100 rounded-md shadow p-6 h-full overflow-x-auto">
+          <div className="bg-white border border-dark-200 rounded-lg shadow-sm p-6 h-full overflow-x-auto">
             <KanbanView
               config={config}
               data={data}
@@ -676,7 +676,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
             <div className="flex justify-center">
               <button
                 onClick={handleLoadMore}
-                className="px-4 py-2 bg-dark-700 text-white rounded-md hover:bg-dark-800 transition-colors"
+                className="px-4 py-2 bg-slate-600 text-white text-sm font-medium rounded-md hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-slate-500/50 focus-visible:outline-none shadow-sm transition-colors"
               >
                 Load More ({data.length} of {totalRecords})
               </button>
@@ -690,7 +690,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     if (view === 'grid' && config.grid) {
       return (
         <div className="space-y-4">
-          <div className="bg-dark-100 rounded-md shadow p-6">
+          <div className="bg-white border border-dark-200 rounded-lg shadow-sm p-6">
             <GridView
               items={data}
               onItemClick={handleRowClick}
@@ -706,7 +706,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
             <div className="flex justify-center">
               <button
                 onClick={handleLoadMore}
-                className="px-4 py-2 bg-dark-700 text-white rounded-md hover:bg-dark-800 transition-colors"
+                className="px-4 py-2 bg-slate-600 text-white text-sm font-medium rounded-md hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-slate-500/50 focus-visible:outline-none shadow-sm transition-colors"
               >
                 Load More ({data.length} of {totalRecords})
               </button>
@@ -720,7 +720,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     if (view === 'calendar') {
       return (
         <div className="space-y-4">
-          <div className="bg-dark-100 rounded-md shadow p-6">
+          <div className="bg-white border border-dark-200 rounded-lg shadow-sm p-6">
             <CalendarView
               config={config}
               data={data}
@@ -732,7 +732,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
             <div className="flex justify-center">
               <button
                 onClick={handleLoadMore}
-                className="px-4 py-2 bg-dark-700 text-white rounded-md hover:bg-dark-800 transition-colors"
+                className="px-4 py-2 bg-slate-600 text-white text-sm font-medium rounded-md hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-slate-500/50 focus-visible:outline-none shadow-sm transition-colors"
               >
                 Load More ({data.length} of {totalRecords})
               </button>
@@ -766,7 +766,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
         }));
 
         return (
-          <div className="bg-dark-100 rounded-md shadow p-6">
+          <div className="bg-white border border-dark-200 rounded-lg shadow-sm p-6">
             <DAGVisualizer
               nodes={dagNodes}
             />
@@ -785,14 +785,14 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     <Layout>
       <div className="h-full flex flex-col w-[97%] max-w-[1536px] mx-auto">
         {/* Sticky Header */}
-        <div className="sticky top-0 z-10 bg-dark-100 pb-4 pt-0">
+        <div className="sticky top-0 z-10 bg-dark-50 pb-4 pt-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               {/* Back button for settings entities */}
               {isSettingsEntity && (
                 <button
                   onClick={() => navigate('/settings')}
-                  className="p-2 rounded-md text-dark-600 hover:text-dark-600 hover:bg-dark-100 transition-all"
+                  className="p-2 rounded-md text-dark-500 hover:text-dark-700 hover:bg-dark-100 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-all"
                   title="Back to Settings"
                 >
                   <ArrowLeft className="h-4 w-4 stroke-[1.5]" />
@@ -800,8 +800,8 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
               )}
               <EntityIcon className="h-5 w-5 text-dark-700 stroke-[1.5]" />
               <div>
-                <h1 className="text-sm font-normal text-dark-600">{config.pluralName}</h1>
-                <p className="mt-1 text-sm text-dark-700">
+                <h1 className="text-lg font-semibold text-dark-800 tracking-tight">{config.pluralName}</h1>
+                <p className="text-sm text-dark-500">
                   Manage and track {config.pluralName.toLowerCase()}
                 </p>
               </div>
@@ -818,9 +818,9 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
               )}
               <button
                 onClick={handleCreateClick}
-                className="inline-flex items-center px-3 py-1.5 border border-dark-400 text-sm font-normal rounded text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 transition-colors"
+                className="inline-flex items-center px-4 py-2 bg-slate-600 text-white text-sm font-medium rounded-md hover:bg-slate-700 active:bg-slate-800 focus-visible:ring-2 focus-visible:ring-slate-500/50 focus-visible:outline-none shadow-sm transition-colors"
               >
-                <Plus className="h-4 w-4 mr-2 stroke-[1.5]" />
+                <Plus className="h-4 w-4 mr-2 stroke-[2]" />
                 Create {config.displayName}
               </button>
             </div>

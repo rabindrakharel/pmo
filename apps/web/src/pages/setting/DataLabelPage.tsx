@@ -152,7 +152,7 @@ export function DataLabelPage() {
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="w-full flex items-center justify-between px-4 py-3 border border-dark-400 rounded-md bg-dark-100 hover:bg-dark-100 transition-colors"
+                  className="w-full flex items-center justify-between px-4 py-3 border border-dark-200 rounded-md bg-white hover:bg-dark-50 hover:border-dark-300 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors"
                 >
                   <div className="flex items-center gap-2 flex-wrap">
                     <Wrench className="h-5 w-5 text-dark-600 stroke-[1.5]" />

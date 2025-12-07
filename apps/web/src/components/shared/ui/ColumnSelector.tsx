@@ -73,19 +73,19 @@ export function ColumnSelector({
       {/* Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="inline-flex items-center px-3 py-1.5 border border-dark-400 text-sm font-normal rounded text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 transition-colors"
+        className="inline-flex items-center px-3 py-2 border border-dark-200 text-sm font-medium rounded-md text-dark-700 bg-white hover:bg-dark-50 hover:border-dark-300 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors"
         title="Configure columns"
       >
         <Settings className="h-4 w-4 mr-2 stroke-[1.5]" />
         Columns
-        <span className="ml-2 text-xs text-dark-700">
+        <span className="ml-2 text-xs text-dark-500">
           ({visibleCount}/{allColumns.length})
         </span>
       </button>
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-72 bg-white border border-dark-300 rounded-md shadow-sm z-50">
+        <div className="absolute right-0 mt-2 w-72 bg-white border border-dark-200 rounded-lg shadow-lg z-50">
           {/* Header */}
           <div className="px-4 py-3 border-b border-dark-300">
             <h3 className="text-sm font-medium text-dark-600">

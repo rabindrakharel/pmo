@@ -139,7 +139,7 @@ export function FormViewPage() {
           <div className="flex items-center space-x-3">
             <button
               onClick={() => navigate(`/form/${id}/edit`)}
-              className="inline-flex items-center px-4 py-2 border border-dark-400 text-sm font-normal rounded-md text-dark-600 bg-dark-100 hover:bg-dark-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dark-7000"
+              className="inline-flex items-center px-4 py-2 bg-slate-600 text-white text-sm font-medium rounded-md hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-slate-500/50 focus-visible:outline-none shadow-sm transition-colors"
               title="Edit form"
             >
               <Edit3 className="h-4 w-4 mr-2 stroke-[1.5]" />

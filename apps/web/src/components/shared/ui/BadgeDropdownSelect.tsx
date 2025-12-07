@@ -149,7 +149,7 @@ export function BadgeDropdownSelect({
           onClick?.(e);
           setDropdownOpen(!dropdownOpen);
         }}
-        className={`w-full h-9 px-2.5 py-1.5 pr-8 border border-dark-300 rounded-md focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:border-slate-400 focus-visible:outline-none bg-white shadow-sm hover:border-dark-400 transition-colors text-left ${disabled ? 'cursor-not-allowed opacity-50 bg-dark-50' : 'cursor-pointer'}`}
+        className={`w-full h-9 px-2.5 py-1.5 pr-8 border border-dark-200 rounded-md focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:border-slate-400 focus-visible:outline-none bg-white shadow-sm hover:border-dark-300 transition-colors text-left ${disabled ? 'cursor-not-allowed opacity-50 bg-dark-50' : 'cursor-pointer'}`}
         style={{
           fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
           fontSize: '13px',

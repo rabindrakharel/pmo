@@ -113,7 +113,7 @@ export function FormDataPreviewPage() {
           </div>
           <button
             onClick={handleBack}
-            className="mt-4 inline-flex items-center px-4 py-2 border border-dark-400 rounded-md text-sm font-normal text-dark-600 bg-dark-100 hover:bg-dark-100"
+            className="mt-4 inline-flex items-center px-4 py-2 border border-dark-200 rounded-md text-sm font-medium text-dark-700 bg-white hover:bg-dark-50 hover:border-dark-300 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Form Data

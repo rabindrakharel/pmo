@@ -37,7 +37,7 @@ export function ViewSwitcher({
   }
 
   return (
-    <div className={`inline-flex bg-dark-100 border border-dark-400 rounded-md ${className}`}>
+    <div className={`inline-flex bg-white border border-dark-200 rounded-md shadow-sm ${className}`}>
       {supportedViews.map((view) => {
         const Icon = viewIcons[view];
         const label = viewLabels[view];
@@ -48,12 +48,12 @@ export function ViewSwitcher({
             key={view}
             onClick={() => onChange(view)}
             className={`
-              flex items-center space-x-2 px-4 py-2 text-sm font-normal transition-colors
+              flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none
               ${isActive
-                ? 'bg-dark-100 text-dark-700 border-r border-dark-400 last:border-r-0'
-                : 'text-dark-600 hover:bg-dark-100 hover:text-dark-600 border-r border-dark-400 last:border-r-0'
+                ? 'bg-slate-100 text-slate-700 border-r border-dark-200 last:border-r-0'
+                : 'text-dark-600 hover:bg-dark-50 hover:text-dark-800 border-r border-dark-200 last:border-r-0'
               }
-              first:rounded-l-lg last:rounded-r-lg
+              first:rounded-l-md last:rounded-r-md
             `}
             title={`Switch to ${label} view`}
           >
