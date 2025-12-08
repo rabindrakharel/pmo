@@ -63,6 +63,7 @@ import { rbacRoutes } from './rbac/routes.js';
 import { entityInstanceLinkRoutes } from './entity/entity-instance-link-routes.js';
 import { sharedRoutes } from './shared/routes.js';
 import { entityInstanceLookupRoutes } from './entity-instance-lookup/routes.js';
+import { accessControlRoutes } from './access-control/routes.js';
 
 // Hierarchy entity API modules
 import { officeHierarchyRoutes } from './office-hierarchy/routes.js';
@@ -113,6 +114,9 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
 
   // RBAC permission checking routes
   await rbacRoutes(fastify);
+
+  // Access Control routes (dedicated RBAC management UI)
+  await accessControlRoutes(fastify);
 
   // Entity Instance Link routes (entity relationship management)
   await entityInstanceLinkRoutes(fastify);

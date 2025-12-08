@@ -59,7 +59,7 @@ import { DevelopersPage } from './pages/DevelopersPage';
 // Profile & Settings Pages
 import { ProfilePage } from './pages/profile';
 import { LabelsPage } from './pages/labels';
-import { DataLabelPage, IntegrationsPage, SettingsOverviewPage, EntityLinkagePage, SettingDetailPage } from './pages/setting';
+import { DataLabelPage, IntegrationsPage, SettingsOverviewPage, EntityLinkagePage, SettingDetailPage, AccessControlPage } from './pages/setting';
 import { EntityDesignerPage } from './pages/setting/EntityDesignerPage';
 import DataLabelsVisualizationPage from './pages/setting/DataLabelsVisualizationPage';
 import { SecurityPage } from './pages/security';
@@ -318,6 +318,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <IntegrationsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/access-control"
+        element={
+          <ProtectedRoute>
+            <AccessControlPage />
           </ProtectedRoute>
         }
       />

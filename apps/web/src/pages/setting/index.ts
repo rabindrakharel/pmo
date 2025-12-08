@@ -16,3 +16,6 @@ export { EntityLinkagePage } from './EntityLinkagePage';
 
 // Integrations Page
 export { IntegrationsPage } from './IntegrationsPage';
+
+// Access Control Page (RBAC Management)
+export { AccessControlPage } from './AccessControlPage';
