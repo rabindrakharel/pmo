@@ -757,10 +757,19 @@ export function SettingsOverviewPage() {
           <div className="space-y-6">
             {/* Header */}
             <div className="bg-white border border-dark-200 rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-dark-800 mb-3 flex items-center gap-2">
-                <LucideIcons.Shield className="h-5 w-5 text-slate-600" />
-                Access Control - RBAC Management
-              </h2>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-lg font-semibold text-dark-800 flex items-center gap-2">
+                  <LucideIcons.Shield className="h-5 w-5 text-slate-600" />
+                  Access Control - RBAC Management
+                </h2>
+                <button
+                  onClick={() => navigate('/settings/access-control')}
+                  className="px-4 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors text-sm font-medium shadow-sm flex items-center gap-2"
+                >
+                  <LucideIcons.ExternalLink className="h-4 w-4" />
+                  Open Full Access Control Page
+                </button>
+              </div>
               <p className="text-sm text-dark-600">
                 Manage roles, assign employees to roles, and grant entity-level permissions using the Person-Based RBAC system.
                 All changes affect the <strong>role</strong>, <strong>entity_instance</strong>, and <strong>entity_rbac</strong> tables.
