@@ -66,18 +66,20 @@ This page is **completely separate** from the existing entity/settings infrastru
 │   id (uuid)                   id (uuid)                    id (uuid)
 │   code                        person_code='role'           entity_code='role'
 │   name ─────────────────────► person_id (role.id)          entity_instance_id (role.id)
-│   role_code                   entity_code                  child_entity_code='employee'
-│   role_category               entity_instance_id           child_entity_instance_id (employee.id)
-│   ...                         permission (0-7)             relationship_type
-│                               granted_by__employee_id      created_ts
-│                               granted_ts
+│   role_code                   entity_code                  child_entity_code IN ('employee',
+│   role_category               entity_instance_id             'customer', 'vendor', 'supplier')
+│   ...                         permission (0-7)             child_entity_instance_id (person.id)
+│                               granted_by__employee_id      relationship_type='has_member'
+│                               granted_ts                   created_ts
 │                               expires_ts
 │                                                                              │
 │   PERMISSIONS TAB:                     PERSONS TAB:                          │
 │   SELECT from entity_rbac              SELECT from entity_instance_link      │
 │   WHERE person_code='role'             WHERE entity_code='role'              │
 │   AND person_id = <selected_role_id>   AND entity_instance_id = <role_id>    │
-│                                        AND child_entity_code='employee'      │
+│                                        AND child_entity_code IN              │
+│                                          ('employee','customer','vendor',    │
+│                                           'supplier')                        │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -144,18 +146,20 @@ GET    /api/v1/entity_rbac/permissions/:personType/:personId  // Get permissions
 GET /api/v1/access-control/role/:roleId/permissions
 // Response: { data: RBACRecord[], metadata, ref_data_entityInstance }
 
-// 2. Get persons (employees) assigned to a role
+// 2. Get persons (employee, customer, vendor, supplier) assigned to a role
 GET /api/v1/access-control/role/:roleId/persons
-// Response: { data: Employee[], metadata, ref_data_entityInstance }
+// Response: { data: Person[], metadata, ref_data_entityInstance }
+// Returns all person types linked via entity_instance_link
 
 // 3. Assign person to role (create entity_instance_link)
 POST /api/v1/access-control/role/:roleId/persons
-// Body: { employee_id: uuid }
-// Creates link in entity_instance_link
+// Body: { person_type: 'employee' | 'customer' | 'vendor' | 'supplier', person_id: uuid }
+// Creates link in entity_instance_link with child_entity_code = person_type
 
 // 4. Remove person from role (delete entity_instance_link)
-DELETE /api/v1/access-control/role/:roleId/persons/:employeeId
+DELETE /api/v1/access-control/role/:roleId/persons/:personType/:personId
 // Hard deletes link from entity_instance_link
+// personType: employee | customer | vendor | supplier
 
 // 5. Bulk permission operations
 POST /api/v1/access-control/role/:roleId/permissions/bulk
@@ -195,12 +199,18 @@ const PERMISSION_LEVELS = {
 
 | Column | Source Field | Display | Edit Mode | Notes |
 |--------|-------------|---------|-----------|-------|
-| Employee | `child_entity_instance_id` | Employee name | Read-only (select to add) | Via entity_instance_link |
-| Code | employee.code | Text | Read-only | Employee code |
-| Email | employee.email | Text | Read-only | Employee email |
-| Department | employee.department | Text | Read-only | |
+| Person Type | `child_entity_code` | Badge (Employee/Customer/Vendor/Supplier) | PersonTypeSelect | Type of person |
+| Person Name | `child_entity_instance_id` | Person name | Read-only (select to add) | Via entity_instance_link + person lookup |
+| Code | person.code | Text | Read-only | Person code |
+| Email | person.email | Text | Read-only | Person email |
 | Assigned Since | `created_ts` | Relative time | Read-only | When added to role |
 | Actions | - | Remove button | - | Removes from role |
+
+**Supported Person Types**:
+- `employee` - Internal staff members
+- `customer` - External customers
+- `vendor` - External vendors
+- `supplier` - External suppliers
 
 ### 5.3 Add Row Functionality
 
@@ -217,7 +227,8 @@ interface NewPermissionRow {
 **Add Person Row**:
 ```typescript
 interface NewPersonAssignment {
-  employee_id: string;           // Required - employee selector
+  person_type: 'employee' | 'customer' | 'vendor' | 'supplier';  // Required - person type dropdown
+  person_id: string;             // Required - person selector (filtered by type)
 }
 ```
 
@@ -619,6 +630,14 @@ import { Button } from '../../../components/shared/button/Button';
 import { AssignPersonModal } from './AssignPersonModal';
 import { API_CONFIG } from '../../../lib/config/api';
 
+// Person type badge colors
+const PERSON_TYPE_CONFIG: Record<string, { label: string; className: string }> = {
+  employee: { label: 'Employee', className: 'bg-blue-100 text-blue-700' },
+  customer: { label: 'Customer', className: 'bg-green-100 text-green-700' },
+  vendor: { label: 'Vendor', className: 'bg-purple-100 text-purple-700' },
+  supplier: { label: 'Supplier', className: 'bg-orange-100 text-orange-700' },
+};
+
 interface PersonsTabProps {
   roleId: string;
 }
@@ -627,7 +646,7 @@ export function PersonsTab({ roleId }: PersonsTabProps) {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  // Fetch persons assigned to this role
+  // Fetch ALL person types assigned to this role
   const { data, isLoading, error } = useQuery({
     queryKey: ['access-control', 'role', roleId, 'persons'],
     queryFn: async () => {
@@ -641,12 +660,12 @@ export function PersonsTab({ roleId }: PersonsTabProps) {
     },
   });
 
-  // Remove person from role mutation
+  // Remove person from role mutation - requires person_type and person_id
   const removeMutation = useMutation({
-    mutationFn: async (employeeId: string) => {
+    mutationFn: async ({ personType, personId }: { personType: string; personId: string }) => {
       const token = localStorage.getItem('auth_token');
       const response = await fetch(
-        `${API_CONFIG.baseUrl}/api/v1/access-control/role/${roleId}/persons/${employeeId}`,
+        `${API_CONFIG.baseUrl}/api/v1/access-control/role/${roleId}/persons/${personType}/${personId}`,
         {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${token}` }
@@ -660,7 +679,7 @@ export function PersonsTab({ roleId }: PersonsTabProps) {
     },
   });
 
-  // Row actions
+  // Row actions - need both person_type and person_id for deletion
   const rowActions = [
     {
       id: 'remove',
@@ -669,7 +688,10 @@ export function PersonsTab({ roleId }: PersonsTabProps) {
       variant: 'danger',
       onClick: (row: any) => {
         if (confirm('Are you sure you want to remove this person from the role?')) {
-          removeMutation.mutate(row.id);
+          removeMutation.mutate({
+            personType: row.person_type,  // 'employee', 'customer', 'vendor', 'supplier'
+            personId: row.person_id
+          });
         }
       }
     }
@@ -690,25 +712,25 @@ export function PersonsTab({ roleId }: PersonsTabProps) {
         </Button>
       </div>
 
-      {/* Persons Table */}
+      {/* Persons Table - supports all person types */}
       {isLoading ? (
         <div>Loading persons...</div>
       ) : error ? (
         <div className="text-red-600">Failed to load persons</div>
       ) : (
         <EntityListOfInstancesTable
-          entityCode="employee"
+          entityCode="person"  // Generic person entity
           data={data?.data || []}
           metadata={data?.metadata}
           refData={data?.ref_data_entityInstance}
-          columns={['name', 'code', 'email', 'department_scope', 'created_ts']}
+          columns={['person_type', 'name', 'code', 'email', 'assigned_ts']}
           rowActions={rowActions}
           enableInlineEdit={false}
           hideCreateButton={true}
         />
       )}
 
-      {/* Assign Person Modal */}
+      {/* Assign Person Modal - supports selecting person type */}
       <AssignPersonModal
         isOpen={isAssignModalOpen}
         onClose={() => setIsAssignModalOpen(false)}
@@ -843,7 +865,7 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
 
   // ============================================================================
   // GET /api/v1/access-control/role/:roleId/persons
-  // Get all persons (employees) assigned to a specific role
+  // Get ALL person types (employee, customer, vendor, supplier) assigned to a role
   // ============================================================================
   fastify.get('/api/v1/access-control/role/:roleId/persons', {
     preHandler: [fastify.authenticate],
@@ -864,35 +886,39 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
       return reply.status(404).send({ error: 'Role not found' });
     }
 
-    // Get employees assigned to this role via entity_instance_link
+    // Supported person types that can be assigned to roles
+    const PERSON_TYPES = ['employee', 'customer', 'vendor', 'supplier'];
+
+    // Get ALL person types assigned to this role via entity_instance_link
+    // Uses UNION to query each person type table
     const persons = await db.execute(sql`
       SELECT
-        e.id,
-        e.code,
-        e.name,
-        e.email,
-        e.department_scope,
-        e.active_flag,
+        l.child_entity_code as person_type,
+        l.child_entity_instance_id as person_id,
+        p.name,
+        p.code,
+        p.email,
         l.created_ts as assigned_ts,
         l.id as link_id
       FROM app.entity_instance_link l
-      JOIN app.employee e ON l.child_entity_instance_id = e.id
+      JOIN app.person p ON l.child_entity_instance_id = p.id
       WHERE l.entity_code = 'role'
         AND l.entity_instance_id = ${roleId}
-        AND l.child_entity_code = 'employee'
-        AND e.active_flag = true
-      ORDER BY e.name ASC
+        AND l.child_entity_code IN ('employee', 'customer', 'vendor', 'supplier')
+        AND p.active_flag = true
+      ORDER BY l.child_entity_code ASC, p.name ASC
     `);
 
     // Generate response with metadata
-    const response = await generateEntityResponse('employee', Array.from(persons), {
+    const response = await generateEntityResponse('person', Array.from(persons), {
       resultFields: [
-        { name: 'id' },
-        { name: 'code' },
+        { name: 'person_type' },
+        { name: 'person_id' },
         { name: 'name' },
+        { name: 'code' },
         { name: 'email' },
-        { name: 'department_scope' },
         { name: 'assigned_ts' },
+        { name: 'link_id' },
       ],
     });
 
@@ -901,7 +927,7 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
 
   // ============================================================================
   // POST /api/v1/access-control/role/:roleId/persons
-  // Assign a person (employee) to a role
+  // Assign a person (any type) to a role
   // ============================================================================
   fastify.post('/api/v1/access-control/role/:roleId/persons', {
     preHandler: [fastify.authenticate],
@@ -910,12 +936,21 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
         roleId: Type.String({ format: 'uuid' })
       }),
       body: Type.Object({
-        employee_id: Type.String({ format: 'uuid' })
+        person_type: Type.Union([
+          Type.Literal('employee'),
+          Type.Literal('customer'),
+          Type.Literal('vendor'),
+          Type.Literal('supplier')
+        ]),
+        person_id: Type.String({ format: 'uuid' })
       }),
     },
   }, async (request, reply) => {
     const { roleId } = request.params as { roleId: string };
-    const { employee_id } = request.body as { employee_id: string };
+    const { person_type, person_id } = request.body as {
+      person_type: 'employee' | 'customer' | 'vendor' | 'supplier';
+      person_id: string;
+    };
 
     // Verify role exists
     const roleCheck = await db.execute(sql`
@@ -926,13 +961,18 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
       return reply.status(404).send({ error: 'Role not found' });
     }
 
-    // Verify employee exists
-    const employeeCheck = await db.execute(sql`
-      SELECT id, name FROM app.employee WHERE id = ${employee_id} AND active_flag = true
+    // Verify person exists in the person table (central auth table)
+    const personCheck = await db.execute(sql`
+      SELECT id, name, entity_code FROM app.person
+      WHERE id = ${person_id}
+        AND entity_code = ${person_type}
+        AND active_flag = true
     `);
 
-    if (employeeCheck.length === 0) {
-      return reply.status(400).send({ error: 'Employee not found or inactive' });
+    if (personCheck.length === 0) {
+      return reply.status(400).send({
+        error: `${person_type} not found or inactive`
+      });
     }
 
     // Check if assignment already exists
@@ -940,51 +980,63 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
       SELECT id FROM app.entity_instance_link
       WHERE entity_code = 'role'
         AND entity_instance_id = ${roleId}
-        AND child_entity_code = 'employee'
-        AND child_entity_instance_id = ${employee_id}
+        AND child_entity_code = ${person_type}
+        AND child_entity_instance_id = ${person_id}
     `);
 
     if (existingLink.length > 0) {
-      return reply.status(400).send({ error: 'Employee is already assigned to this role' });
+      return reply.status(400).send({
+        error: `${person_type} is already assigned to this role`
+      });
     }
 
     // Create the link using entity infrastructure service
     const link = await entityInfra.set_entity_instance_link({
       entity_code: 'role',
       entity_instance_id: roleId,
-      child_entity_code: 'employee',
-      child_entity_instance_id: employee_id,
+      child_entity_code: person_type,
+      child_entity_instance_id: person_id,
       relationship_type: 'has_member',
     });
 
     return reply.status(201).send({
-      message: 'Person assigned to role successfully',
+      message: `${person_type} assigned to role successfully`,
       link,
     });
   });
 
   // ============================================================================
-  // DELETE /api/v1/access-control/role/:roleId/persons/:employeeId
-  // Remove a person (employee) from a role
+  // DELETE /api/v1/access-control/role/:roleId/persons/:personType/:personId
+  // Remove a person (any type) from a role
   // ============================================================================
-  fastify.delete('/api/v1/access-control/role/:roleId/persons/:employeeId', {
+  fastify.delete('/api/v1/access-control/role/:roleId/persons/:personType/:personId', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         roleId: Type.String({ format: 'uuid' }),
-        employeeId: Type.String({ format: 'uuid' })
+        personType: Type.Union([
+          Type.Literal('employee'),
+          Type.Literal('customer'),
+          Type.Literal('vendor'),
+          Type.Literal('supplier')
+        ]),
+        personId: Type.String({ format: 'uuid' })
       }),
     },
   }, async (request, reply) => {
-    const { roleId, employeeId } = request.params as { roleId: string; employeeId: string };
+    const { roleId, personType, personId } = request.params as {
+      roleId: string;
+      personType: 'employee' | 'customer' | 'vendor' | 'supplier';
+      personId: string;
+    };
 
     // Delete the link (hard delete)
     const result = await db.execute(sql`
       DELETE FROM app.entity_instance_link
       WHERE entity_code = 'role'
         AND entity_instance_id = ${roleId}
-        AND child_entity_code = 'employee'
-        AND child_entity_instance_id = ${employeeId}
+        AND child_entity_code = ${personType}
+        AND child_entity_instance_id = ${personId}
       RETURNING id
     `);
 
