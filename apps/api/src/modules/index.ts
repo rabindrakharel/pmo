@@ -12,6 +12,7 @@ import { empRoutes } from './employee/routes.js';
 import { taskRoutes } from './task/routes.js';
 import { projectRoutes } from './project/routes.js';
 import { roleRoutes } from './role/routes.js';
+import { personRoutes } from './person/routes.js';
 import { customerRoutes } from './customer/routes.js';
 import { formRoutes } from './form/routes.js';
 import { wikiRoutes } from './wiki/routes.js';
@@ -126,6 +127,7 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   await taskRoutes(fastify);
   await projectRoutes(fastify);
   await roleRoutes(fastify);
+  await personRoutes(fastify);
   await customerRoutes(fastify);
   await formRoutes(fastify);
   await wikiRoutes(fastify);

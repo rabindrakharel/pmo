@@ -134,18 +134,30 @@ export function AccessControlPage() {
     enabled: !!selectedRoleId
   });
 
-  // Fetch persons (members) for selected role
+  // Fetch persons (members) for selected role via entity_instance_link
+  // Uses universal /api/v1/person with parent_entity_code=role filtering
   const { data: personsData, isLoading: personsLoading } = useQuery({
     queryKey: ['access-control', 'role', selectedRoleId, 'members'],
     queryFn: async () => {
       if (!selectedRoleId) return null;
       const token = localStorage.getItem('auth_token');
       const response = await fetch(
-        `${API_CONFIG.BASE_URL}/api/v1/entity_rbac/role/${selectedRoleId}/members`,
+        `${API_CONFIG.BASE_URL}/api/v1/person?parent_entity_code=role&parent_entity_instance_id=${selectedRoleId}&limit=1000`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (!response.ok) throw new Error('Failed to fetch members');
-      return response.json();
+      const result = await response.json();
+      // Transform to expected PersonAssignment format
+      return {
+        data: result.data.map((person: any) => ({
+          person_id: person.id,
+          person_name: person.name,
+          person_email: person.email,
+          entity_code: person.entity_code,
+          assigned_ts: person.created_ts,
+          link_id: person.id // Use person id as link reference for now
+        }))
+      };
     },
     enabled: !!selectedRoleId
   });
@@ -236,19 +248,25 @@ export function AccessControlPage() {
     }
   });
 
-  // Add member mutation
+  // Add member mutation - Creates entity_instance_link between role and person
   const addMemberMutation = useMutation({
     mutationFn: async (personId: string) => {
       const token = localStorage.getItem('auth_token');
       const response = await fetch(
-        `${API_CONFIG.BASE_URL}/api/v1/entity_rbac/role/${selectedRoleId}/members`,
+        `${API_CONFIG.BASE_URL}/api/v1/entity_instance_link`,
         {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ person_id: personId })
+          body: JSON.stringify({
+            parent_entity_type: 'role',
+            parent_entity_id: selectedRoleId,
+            child_entity_type: 'person',
+            child_entity_id: personId,
+            relationship_type: 'has_member'
+          })
         }
       );
       if (!response.ok) {
@@ -264,12 +282,27 @@ export function AccessControlPage() {
     }
   });
 
-  // Remove member mutation
+  // Remove member mutation - Deletes entity_instance_link between role and person
   const removeMemberMutation = useMutation({
     mutationFn: async (personId: string) => {
       const token = localStorage.getItem('auth_token');
+      // First, find the link ID by querying for the specific link
+      const linksResponse = await fetch(
+        `${API_CONFIG.BASE_URL}/api/v1/entity_instance_link?parent_entity_type=role&parent_entity_id=${selectedRoleId}&child_entity_type=person&child_entity_id=${personId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!linksResponse.ok) throw new Error('Failed to find member link');
+      const linksData = await linksResponse.json();
+
+      if (!linksData.data || linksData.data.length === 0) {
+        throw new Error('Member link not found');
+      }
+
+      const linkId = linksData.data[0].id;
+
+      // Delete the link
       const response = await fetch(
-        `${API_CONFIG.BASE_URL}/api/v1/entity_rbac/role/${selectedRoleId}/members/${personId}`,
+        `${API_CONFIG.BASE_URL}/api/v1/entity_instance_link/${linkId}`,
         {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${token}` }

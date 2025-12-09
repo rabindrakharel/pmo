@@ -22,7 +22,8 @@
       "Bash(PGPASSWORD=$DB_PASSWORD psql:*)",
       "Bash(PGPASSWORD=app psql:*)",
       "Bash(docker ps:*)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": [],
     "ask": [],
