@@ -450,15 +450,23 @@ async delete_entity(params: {
 
 ---
 
-## RBAC System
+## RBAC System (v2.0.0 Role-Only Model)
 
 > **For comprehensive RBAC documentation including request flows, logical flows, and design patterns, see [`docs/rbac/RBAC_INFRASTRUCTURE.md`](../rbac/RBAC_INFRASTRUCTURE.md)**
+
+### Architecture Overview
+
+The PMO platform uses a **Role-Only RBAC Model** where:
+- All permissions are granted to **roles** (not directly to employees)
+- People belong to roles via `entity_instance_link` (role → person)
+- Configurable inheritance: `none`, `cascade`, or `mapped`
+- Explicit deny: `is_deny=true` blocks permission
 
 ### Permission Levels
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         PERMISSION HIERARCHY                                 │
+│                         PERMISSION HIERARCHY (0-7)                           │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  Level  Name        Description                 Implies                     │
@@ -472,75 +480,54 @@ async delete_entity(params: {
 │    6    CREATE      Create new (type-level)     DELETE + below              │
 │    7    OWNER       Full control                ALL                         │
 │                                                                              │
-│  ─────────────────────────────────────────────────────────────────────────  │
-│                                                                              │
 │  Permission Check: hasPermission(user, required) = user.level >= required   │
-│                                                                              │
-│  Example: User has EDIT (3)                                                 │
-│    ✓ Can VIEW (0)                                                           │
-│    ✓ Can COMMENT (1)                                                        │
-│    ✓ Can CONTRIBUTE (2)                                                     │
-│    ✓ Can EDIT (3)                                                           │
-│    ✗ Cannot SHARE (4)                                                       │
-│    ✗ Cannot DELETE (5)                                                      │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Permission Resolution (4 Sources)
+### Permission Resolution Flow (v2.0.0)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    PERMISSION RESOLUTION FLOW                                │
+│                    ROLE-ONLY PERMISSION RESOLUTION (v2.0.0)                  │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  check_entity_rbac(userId, 'project', projectId, Permission.EDIT)           │
+│  check_entity_rbac(personId, 'project', projectId, Permission.EDIT)         │
 │                                      │                                       │
 │                                      ▼                                       │
 │  ┌───────────────────────────────────────────────────────────────────────┐  │
-│  │               QUERY 4 PERMISSION SOURCES                              │  │
+│  │  1. FIND PERSON'S ROLES                                               │  │
+│  │     entity_instance_link WHERE entity_code = 'role'                   │  │
+│  │       AND child_entity_code = 'person'                                │  │
+│  │       AND child_entity_instance_id = personId                         │  │
 │  └───────────────────────────────────────────────────────────────────────┘  │
 │                                      │                                       │
-│     ┌────────────────────────────────┼────────────────────────────────┐     │
-│     │                                │                                │     │
-│     ▼                                ▼                                ▼     │
-│  ┌─────────────────┐   ┌─────────────────────┐   ┌─────────────────────┐   │
-│  │ SOURCE 1:       │   │ SOURCE 2:           │   │ SOURCE 3:           │   │
-│  │ Direct Employee │   │ Role-Based          │   │ Parent-VIEW         │   │
-│  │ Permissions     │   │ Permissions         │   │ Inheritance         │   │
-│  ├─────────────────┤   ├─────────────────────┤   ├─────────────────────┤   │
-│  │ entity_rbac     │   │ entity_rbac         │   │ entity_instance_link│   │
-│  │ WHERE           │   │ WHERE               │   │ → parent's RBAC     │   │
-│  │ person_code =   │   │ person_code = 'role'│   │                     │   │
-│  │   'employee'    │   │ AND person_id IN    │   │ If parent has VIEW  │   │
-│  │ AND person_id   │   │   (user's roles)    │   │ → child has VIEW    │   │
-│  │   = userId      │   │                     │   │                     │   │
-│  └────────┬────────┘   └──────────┬──────────┘   └──────────┬──────────┘   │
-│           │                       │                          │              │
-│           └───────────────────────┼──────────────────────────┘              │
-│                                   │                                         │
-│                                   ▼                                         │
-│                         ┌─────────────────────┐                             │
-│                         │ SOURCE 4:           │                             │
-│                         │ Parent-CREATE       │                             │
-│                         │ Inheritance         │                             │
-│                         ├─────────────────────┤                             │
-│                         │ If parent has CREATE│                             │
-│                         │ → child has CREATE  │                             │
-│                         │ (type-level only)   │                             │
-│                         └──────────┬──────────┘                             │
-│                                    │                                        │
-│                                    ▼                                        │
-│                         ┌─────────────────────┐                             │
-│                         │ RESULT: MAX level   │                             │
-│                         │ from all 4 sources  │                             │
-│                         │ >= required level?  │                             │
-│                         └─────────────────────┘                             │
-│                                    │                                        │
-│                          ┌─────────┴─────────┐                              │
-│                          ▼                   ▼                              │
-│                       true                false                             │
-│                    (allowed)            (forbidden)                         │
+│                                      ▼                                       │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │  2. CHECK EXPLICIT DENY (highest priority)                            │  │
+│  │     entity_rbac WHERE role_id IN (person_roles) AND is_deny = true    │  │
+│  │     → If DENY found → DENIED (stop)                                   │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                      │                                       │
+│                                      ▼                                       │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │  3. GET DIRECT ROLE PERMISSIONS                                       │  │
+│  │     entity_rbac WHERE role_id IN (person_roles)                       │  │
+│  │       AND entity_code = target AND (instance = target OR ALL_ENTITIES)│  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                      │                                       │
+│                                      ▼                                       │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │  4. GET INHERITED PERMISSIONS (cascade/mapped modes)                  │  │
+│  │     Find ancestors via entity_instance_link (recursive)               │  │
+│  │     - cascade: same permission flows to children                      │  │
+│  │     - mapped: lookup child_permissions[entity_code] or _default       │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                      │                                       │
+│                                      ▼                                       │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │  5. RETURN MAX(all permissions found) >= required ? ALLOWED : DENIED  │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -558,6 +545,14 @@ async delete_entity(params: {
 | `Permission.DELETE` | 5 | Soft delete |
 | `Permission.CREATE` | 6 | Create new (type-level) |
 | `Permission.OWNER` | 7 | Full control |
+
+### Inheritance Modes
+
+| Mode | Description |
+|------|-------------|
+| `none` | Permission applies only to target entity |
+| `cascade` | Same permission flows to all children |
+| `mapped` | Different permissions per child type (via `child_permissions` JSONB) |
 
 ---
 
@@ -1085,8 +1080,8 @@ try {
 
 ---
 
-**Document Version**: 6.0.0
-**Last Updated**: 2025-12-03
+**Document Version**: 7.0.0
+**Last Updated**: 2025-12-09
 **Status**: Production Ready
 
 ### Version History
@@ -1101,3 +1096,4 @@ try {
 | 5.1.0 | 2025-12-01 | Updated related documentation references for unified cache |
 | 5.2.0 | 2025-12-01 | **v9.7.0 Note**: Added clarification that LIST endpoints support parent filtering via `parent_entity_code`/`parent_entity_instance_id` query params |
 | 6.0.0 | 2025-12-03 | **v6.0.0**: Aligned with source of truth - added Redis caching section (5-min TTL, invalidation methods), Entity metadata methods (`get_entity()`, `get_all_entity()`, `get_parent_entity_codes()`), Entity instance lookup methods (`getEntityInstanceNames()`, `getAllEntityInstanceNames()`, `getEntityInstances()`), updated import paths to `entity-component-metadata.service.js`, added `qualifyTable()` usage in route patterns |
+| 7.0.0 | 2025-12-09 | **RBAC v2.0.0**: Updated to Role-Only model - removed direct employee permissions, added inheritance modes (none/cascade/mapped), explicit deny support |

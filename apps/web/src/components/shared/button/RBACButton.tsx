@@ -234,7 +234,7 @@ export function useRBACPermission(permission: RBACPermission) {
         }
         // For global permissions, use TIER 1 API
         else {
-          const response = await fetch(`${API_BASE_URL}/api/v1/rbac/get-permissions-by-entityCode`, {
+          const response = await fetch(`${API_BASE_URL}/api/v1/entity_rbac/get-permissions-by-entityCode`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,

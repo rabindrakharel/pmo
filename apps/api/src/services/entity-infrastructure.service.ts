@@ -24,22 +24,23 @@
  * KEY BENEFITS:
  *   • 80% reduction in infrastructure code duplication
  *   • 100% consistency across entity routes
- *   • Self-contained RBAC enforcement (role + parent inheritance)
+ *   • Self-contained RBAC enforcement (role-only + configurable inheritance)
  *   • Unified delete operations with cascade support
  *   • Zero external dependencies (no unified-data-gate coupling)
  *
- * RBAC FEATURES:
- *   • Direct employee permissions
- *   • Role-based permissions (employee → role → permissions)
- *   • Parent-VIEW inheritance (parent VIEW → child VIEW)
- *   • Parent-CREATE inheritance (parent CREATE → child CREATE)
+ * RBAC FEATURES (v2.0.0 - Role-Only Model):
+ *   • Role-based permissions only (via app.role FK)
+ *   • Person → Role mapping via entity_instance_link
+ *   • Configurable inheritance: none, cascade, mapped
+ *   • Explicit deny support (is_deny flag)
+ *   • Child permission mapping (JSONB child_permissions)
  *   • Type-level permissions (ALL_ENTITIES_ID)
  *
  * USAGE:
  *   const entityInfra = getEntityInfrastructure(db);
  *   await entityInfra.set_entity_instance_registry({...});
- *   await entityInfra.set_entity_rbac_owner(userId, entityCode, entityId);
- *   const canEdit = await entityInfra.check_entity_rbac(userId, entityCode, id, Permission.EDIT);
+ *   await entityInfra.set_entity_rbac(roleId, entityCode, entityId, permission);
+ *   const canEdit = await entityInfra.check_entity_rbac(personId, entityCode, id, Permission.EDIT);
  *
  * ============================================================================
  */
@@ -126,6 +127,12 @@ export interface DeleteEntityResult {
  * - DELETE (5): Soft delete entity (INHERITS Share + Edit + Contribute + Comment + View)
  * - CREATE (6): Create new entities - type-level only (INHERITS all lower)
  * - OWNER (7): Full control including permission management (INHERITS ALL)
+ *
+ * RBAC Model (v2.0.0 - Role-Only):
+ * - Permissions are granted to ROLES only (no direct employee permissions)
+ * - Persons get permissions through role membership via entity_instance_link
+ * - Inheritance modes: none (explicit only), cascade (same to children), mapped (per-child-type)
+ * - Explicit deny (is_deny=true) blocks permission even if granted elsewhere
  */
 export enum Permission {
   VIEW = 0,
@@ -137,6 +144,11 @@ export enum Permission {
   CREATE = 6,
   OWNER = 7
 }
+
+/**
+ * Inheritance mode for permission propagation to children
+ */
+export type InheritanceMode = 'none' | 'cascade' | 'mapped';
 
 /**
  * Special entity ID for type-level permissions
@@ -921,177 +933,179 @@ export class EntityInfrastructureService {
   }
 
   // ==========================================================================
-  // SECTION 4: Permission Management (entity_rbac)
+  // SECTION 4: Permission Management (entity_rbac) - v2.0.0 Role-Only Model
   // ==========================================================================
 
   /**
-   * Check if user has specific permission on entity
+   * Check if person has specific permission on entity
    *
-   * Permission resolution (automatic inheritance):
-   * 1. Direct employee permissions (entity_rbac)
-   * 2. Role-based permissions (employee → role → permissions)
-   * 3. Parent-VIEW inheritance (if parent has VIEW, child gains VIEW)
-   * 4. Parent-CREATE inheritance (if parent has CREATE, child gains CREATE)
+   * Permission resolution (v2.0.0 Role-Only Model):
+   * 1. Find roles for person via entity_instance_link (role → person mapping)
+   * 2. Check for explicit deny (is_deny=true) - blocks all access
+   * 3. Check direct role permissions on target entity
+   * 4. Check inherited permissions from ancestors (cascade/mapped modes)
+   *
+   * @param person_id - Person UUID (from app.person table)
+   * @param entity_code - Entity type code (e.g., 'project', 'task')
+   * @param entity_id - Entity instance ID (or ALL_ENTITIES_ID for type-level)
+   * @param required_permission - Minimum permission level required
+   * @returns true if person has required permission
    *
    * @example
-   * const canEdit = await entityInfra.checkPermission(
-   *   userId, 'project', projectId, Permission.EDIT
+   * const canEdit = await entityInfra.check_entity_rbac(
+   *   personId, 'project', projectId, Permission.EDIT
    * );
    */
   async check_entity_rbac(
-    user_id: string,
+    person_id: string,
     entity_code: string,
     entity_id: string,
     required_permission: Permission
   ): Promise<boolean> {
-    // Get maximum permission level user has on this entity
-    const maxPermission = await this.getMaxPermissionLevel(user_id, entity_code, entity_id);
+    // Get maximum permission level person has on this entity
+    const maxPermission = await this.getMaxPermissionLevel(person_id, entity_code, entity_id);
 
-    // Check if user's max permission meets or exceeds required permission
+    // Check if person's max permission meets or exceeds required permission
     return maxPermission >= required_permission;
   }
 
   /**
-   * Get maximum permission level user has on entity
+   * Get maximum permission level person has on entity
    *
-   * Checks all permission sources in priority order:
-   * 1. Direct employee permissions
-   * 2. Role-based permissions
-   * 3. Parent-VIEW inheritance (permission >= 0)
-   * 4. Parent-CREATE inheritance (permission >= 4)
+   * Checks all permission sources (v2.0.0 Role-Only Model):
+   * 1. person_roles - Find roles for this person
+   * 2. explicit_deny - Check for explicit deny (is_deny=true)
+   * 3. direct_role_perms - Direct role permissions on target entity
+   * 4. ancestor_chain - Recursive CTE to find all ancestors
+   * 5. inherited_perms - Permissions inherited from ancestors via cascade/mapped
    *
-   * @returns Permission level (-1 if no access, 0-5 for VIEW to OWNER)
+   * @returns Permission level (-1 if no access or denied, 0-7 for VIEW to OWNER)
    */
   private async getMaxPermissionLevel(
-    user_id: string,
+    person_id: string,
     entity_code: string,
     entity_id: string
   ): Promise<number> {
     const result = await this.db.execute(sql`
       WITH
-      -- ---------------------------------------------------------------------------
-      -- 1. DIRECT EMPLOYEE PERMISSIONS
-      --    Check entity_rbac for direct employee permissions
-      -- ---------------------------------------------------------------------------
-      direct_emp AS (
-        SELECT permission
-        FROM app.entity_rbac
-        WHERE person_code = 'employee'
-          AND person_id = ${user_id}::uuid
-          AND entity_code = ${entity_code}
-          AND (entity_instance_id = '11111111-1111-1111-1111-111111111111'::uuid OR entity_instance_id = ${entity_id}::uuid)
-          AND (expires_ts IS NULL OR expires_ts > NOW())
+      -- ═══════════════════════════════════════════════════════════════════════
+      -- 1. FIND ROLES FOR THIS PERSON
+      --    Person → Roles via entity_instance_link (role contains person)
+      -- ═══════════════════════════════════════════════════════════════════════
+      person_roles AS (
+        SELECT eil.entity_instance_id AS role_id
+        FROM app.entity_instance_link eil
+        WHERE eil.entity_code = 'role'
+          AND eil.child_entity_code = 'person'
+          AND eil.child_entity_instance_id = ${person_id}::uuid
       ),
 
-      -- ---------------------------------------------------------------------------
-      -- 2. ROLE-BASED PERMISSIONS
-      --    Check permissions granted to roles that user belongs to
-      -- ---------------------------------------------------------------------------
-      role_based AS (
-        SELECT rbac.permission
-        FROM app.entity_rbac rbac
-        INNER JOIN app.entity_instance_link eim
-          ON eim.entity_code = 'role'
-          AND eim.entity_instance_id = rbac.person_id
-          AND eim.child_entity_code = 'employee'
-          AND eim.child_entity_instance_id = ${user_id}::uuid
-        WHERE rbac.person_code = 'role'
-          AND rbac.entity_code = ${entity_code}
-          AND (rbac.entity_instance_id = '11111111-1111-1111-1111-111111111111'::uuid OR rbac.entity_instance_id = ${entity_id}::uuid)
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+      -- ═══════════════════════════════════════════════════════════════════════
+      -- 2. CHECK FOR EXPLICIT DENY (highest priority - blocks all access)
+      --    If any role has is_deny=true for this entity, return -999
+      -- ═══════════════════════════════════════════════════════════════════════
+      explicit_deny AS (
+        SELECT -999 AS permission
+        FROM app.entity_rbac er
+        JOIN person_roles pr ON er.role_id = pr.role_id
+        WHERE er.entity_code = ${entity_code}
+          AND (er.entity_instance_id = '11111111-1111-1111-1111-111111111111'::uuid
+               OR er.entity_instance_id = ${entity_id}::uuid)
+          AND er.is_deny = true
+          AND (er.expires_ts IS NULL OR er.expires_ts > NOW())
+        LIMIT 1
       ),
 
-      -- ---------------------------------------------------------------------------
-      -- 3. FIND PARENT ENTITY TYPES OF CURRENT ENTITY
-      --    (using entity.child_entity_codes - supports both string[] and object[] formats)
-      -- ---------------------------------------------------------------------------
-      parent_entities AS (
-        SELECT d.code AS entity_code
-        FROM app.entity d
-        WHERE EXISTS (
-          SELECT 1 FROM jsonb_array_elements_text(d.child_entity_codes) AS child
-          WHERE child = ${entity_code}
-          UNION
-          SELECT 1 FROM jsonb_array_elements(d.child_entity_codes) AS child_obj
-          WHERE child_obj->>'entity' = ${entity_code}
-        )
+      -- ═══════════════════════════════════════════════════════════════════════
+      -- 3. DIRECT ROLE PERMISSIONS ON TARGET ENTITY
+      --    Check entity_rbac for role permissions (type-level or instance)
+      -- ═══════════════════════════════════════════════════════════════════════
+      direct_role_perms AS (
+        SELECT er.permission
+        FROM app.entity_rbac er
+        JOIN person_roles pr ON er.role_id = pr.role_id
+        WHERE er.entity_code = ${entity_code}
+          AND (er.entity_instance_id = '11111111-1111-1111-1111-111111111111'::uuid
+               OR er.entity_instance_id = ${entity_id}::uuid)
+          AND er.is_deny = false
+          AND (er.expires_ts IS NULL OR er.expires_ts > NOW())
       ),
 
-      -- ---------------------------------------------------------------------------
-      -- 4. PARENT-VIEW INHERITANCE (permission >= 0)
-      --    If parent has VIEW → child gains VIEW
-      -- ---------------------------------------------------------------------------
-      parent_view AS (
-        SELECT 0 AS permission
-        FROM parent_entities pe
+      -- ═══════════════════════════════════════════════════════════════════════
+      -- 4. FIND ANCESTORS (for inheritance resolution)
+      --    Recursive CTE to traverse entity_instance_link up the hierarchy
+      -- ═══════════════════════════════════════════════════════════════════════
+      RECURSIVE ancestor_chain AS (
+        -- Base case: direct parents of the target entity
+        SELECT
+          eil.entity_code AS ancestor_code,
+          eil.entity_instance_id AS ancestor_id,
+          1 AS depth
+        FROM app.entity_instance_link eil
+        WHERE eil.child_entity_code = ${entity_code}
+          AND eil.child_entity_instance_id = ${entity_id}::uuid
 
-        -- direct employee permissions on parent
-        LEFT JOIN app.entity_rbac emp
-          ON emp.person_code = 'employee'
-          AND emp.person_id = ${user_id}
-          AND emp.entity_code = pe.entity_code
-          AND (emp.expires_ts IS NULL OR emp.expires_ts > NOW())
+        UNION ALL
 
-        -- role permissions on parent
-        LEFT JOIN app.entity_rbac rbac
-          ON rbac.person_code = 'role'
-          AND rbac.entity_code = pe.entity_code
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-
-        LEFT JOIN app.entity_instance_link eim
-          ON eim.entity_code = 'role'
-          AND eim.entity_instance_id = rbac.person_id
-          AND eim.child_entity_code = 'employee'
-          AND eim.child_entity_instance_id = ${user_id}::uuid
-
-        WHERE
-            COALESCE(emp.permission, -1) >= 0
-         OR COALESCE(rbac.permission, -1) >= 0
+        -- Recursive case: grandparents and beyond
+        SELECT
+          eil.entity_code,
+          eil.entity_instance_id,
+          ac.depth + 1
+        FROM ancestor_chain ac
+        JOIN app.entity_instance_link eil
+          ON eil.child_entity_code = ac.ancestor_code
+          AND eil.child_entity_instance_id = ac.ancestor_id
+        WHERE ac.depth < 10  -- Prevent infinite loops
       ),
 
-      -- ---------------------------------------------------------------------------
-      -- 5. PARENT-CREATE INHERITANCE (permission >= 4)
-      --    If parent has CREATE → child gains CREATE (4)
-      -- ---------------------------------------------------------------------------
-      parent_create AS (
-        SELECT 4 AS permission
-        FROM parent_entities pe
-
-        LEFT JOIN app.entity_rbac emp
-          ON emp.person_code = 'employee'
-          AND emp.person_id = ${user_id}
-          AND emp.entity_code = pe.entity_code
-          AND (emp.expires_ts IS NULL OR emp.expires_ts > NOW())
-
-        LEFT JOIN app.entity_rbac rbac
-          ON rbac.person_code = 'role'
-          AND rbac.entity_code = pe.entity_code
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-
-        LEFT JOIN app.entity_instance_link eim
-          ON eim.entity_code = 'role'
-          AND eim.entity_instance_id = rbac.person_id
-          AND eim.child_entity_code = 'employee'
-          AND eim.child_entity_instance_id = ${user_id}::uuid
-
-        WHERE
-            COALESCE(emp.permission, -1) >= 4
-         OR COALESCE(rbac.permission, -1) >= 4
+      -- ═══════════════════════════════════════════════════════════════════════
+      -- 5. INHERITED PERMISSIONS FROM ANCESTORS
+      --    Apply inheritance_mode: cascade (same permission) or mapped (per-child)
+      -- ═══════════════════════════════════════════════════════════════════════
+      inherited_perms AS (
+        SELECT
+          CASE
+            -- Cascade mode: same permission to all children
+            WHEN er.inheritance_mode = 'cascade' THEN er.permission
+            -- Mapped mode: use child_permissions JSONB for per-child-type mapping
+            WHEN er.inheritance_mode = 'mapped' THEN
+              CASE
+                -- Explicit mapping for this entity type
+                WHEN er.child_permissions ? ${entity_code}
+                  THEN (er.child_permissions->> ${entity_code})::int
+                -- Fallback to _default if exists
+                WHEN er.child_permissions ? '_default'
+                  THEN (er.child_permissions->>'_default')::int
+                -- No mapping found
+                ELSE -1
+              END
+            -- None mode: no inheritance
+            ELSE -1
+          END AS permission
+        FROM app.entity_rbac er
+        JOIN person_roles pr ON er.role_id = pr.role_id
+        JOIN ancestor_chain ac
+          ON er.entity_code = ac.ancestor_code
+          AND er.entity_instance_id = ac.ancestor_id
+        WHERE er.inheritance_mode IN ('cascade', 'mapped')
+          AND er.is_deny = false
+          AND (er.expires_ts IS NULL OR er.expires_ts > NOW())
       )
 
-      -- ---------------------------------------------------------------------------
-      -- FINAL PERMISSION UNION + MAX()
-      -- Returns highest permission from all sources
-      -- ---------------------------------------------------------------------------
-      SELECT COALESCE(MAX(permission), -1) AS max_permission
+      -- ═══════════════════════════════════════════════════════════════════════
+      -- FINAL: MAX of all permission sources, respecting deny
+      -- If explicit_deny exists (-999), it will be excluded and return -1
+      -- ═══════════════════════════════════════════════════════════════════════
+      SELECT
+        CASE
+          WHEN EXISTS (SELECT 1 FROM explicit_deny) THEN -1
+          ELSE COALESCE(MAX(permission), -1)
+        END AS max_permission
       FROM (
-        SELECT * FROM direct_emp
+        SELECT permission FROM direct_role_perms
         UNION ALL
-        SELECT * FROM role_based
-        UNION ALL
-        SELECT * FROM parent_view
-        UNION ALL
-        SELECT * FROM parent_create
+        SELECT permission FROM inherited_perms WHERE permission >= 0
       ) AS all_perms
     `);
 
@@ -1099,22 +1113,64 @@ export class EntityInfrastructureService {
   }
 
   /**
-   * Grant permission to user on entity
-   * Uses GREATEST to preserve higher permissions
+   * Grant permission to a role on entity (v2.0.0 Role-Only Model)
+   *
+   * Uses ON CONFLICT for upsert behavior - updates if exists, inserts if not.
+   *
+   * @param role_id - Role UUID (from app.role table)
+   * @param entity_code - Entity type code
+   * @param entity_id - Entity instance ID (or ALL_ENTITIES_ID for type-level)
+   * @param permission_level - Permission level (0-7)
+   * @param options - Additional options for inheritance and deny
    *
    * @example
-   * await entityInfra.grantPermission(userId, 'project', projectId, Permission.EDIT);
+   * await entityInfra.set_entity_rbac(
+   *   roleId, 'project', ALL_ENTITIES_ID, Permission.EDIT,
+   *   { inheritance_mode: 'cascade' }
+   * );
    */
   async set_entity_rbac(
-    user_id: string,
+    role_id: string,
     entity_code: string,
     entity_id: string,
-    permission_level: Permission
+    permission_level: Permission,
+    options?: {
+      inheritance_mode?: InheritanceMode;
+      child_permissions?: Record<string, number>;
+      is_deny?: boolean;
+      granted_by_person_id?: string;
+      expires_ts?: string | null;
+    }
   ): Promise<any> {
+    const inheritance_mode = options?.inheritance_mode || 'none';
+    const child_permissions = options?.child_permissions || {};
+    const is_deny = options?.is_deny || false;
+    const granted_by_person_id = options?.granted_by_person_id || null;
+    const expires_ts = options?.expires_ts || null;
+
     const result = await this.db.execute(sql`
       INSERT INTO app.entity_rbac
-      (person_code, person_id, entity_code, entity_instance_id, permission)
-      VALUES ('employee', ${user_id}, ${entity_code}, ${entity_id}, ${permission_level})
+      (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_by_person_id, expires_ts)
+      VALUES (
+        ${role_id}::uuid,
+        ${entity_code},
+        ${entity_id}::uuid,
+        ${permission_level},
+        ${inheritance_mode},
+        ${JSON.stringify(child_permissions)}::jsonb,
+        ${is_deny},
+        ${granted_by_person_id}::uuid,
+        ${expires_ts}::timestamptz
+      )
+      ON CONFLICT (role_id, entity_code, entity_instance_id)
+      DO UPDATE SET
+        permission = EXCLUDED.permission,
+        inheritance_mode = EXCLUDED.inheritance_mode,
+        child_permissions = EXCLUDED.child_permissions,
+        is_deny = EXCLUDED.is_deny,
+        granted_by_person_id = EXCLUDED.granted_by_person_id,
+        expires_ts = EXCLUDED.expires_ts,
+        updated_ts = NOW()
       RETURNING *
     `);
 
@@ -1122,31 +1178,84 @@ export class EntityInfrastructureService {
   }
 
   /**
-   * Grant OWNER permission (highest level)
-   * Called automatically when creating entity
+   * Grant OWNER permission to a role (highest level)
+   *
+   * @param role_id - Role UUID (from app.role table)
+   * @param entity_code - Entity type code
+   * @param entity_id - Entity instance ID
+   * @param inheritance_mode - How to propagate to children
    */
   async set_entity_rbac_owner(
-    user_id: string,
+    role_id: string,
     entity_code: string,
-    entity_id: string
+    entity_id: string,
+    inheritance_mode: InheritanceMode = 'none'
   ): Promise<any> {
-    return this.set_entity_rbac(user_id, entity_code, entity_id, Permission.OWNER);
+    return this.set_entity_rbac(role_id, entity_code, entity_id, Permission.OWNER, {
+      inheritance_mode
+    });
   }
 
   /**
-   * Revoke all permissions for user on entity
+   * Revoke permission for a role on entity
+   *
+   * @param role_id - Role UUID
+   * @param entity_code - Entity type code
+   * @param entity_id - Entity instance ID
    */
   async delete_entity_rbac(
-    user_id: string,
+    role_id: string,
     entity_code: string,
     entity_id: string
   ): Promise<void> {
     await this.db.execute(sql`
       DELETE FROM app.entity_rbac
-      WHERE person_id = ${user_id}
+      WHERE role_id = ${role_id}::uuid
         AND entity_code = ${entity_code}
-        AND entity_instance_id = ${entity_id}
+        AND entity_instance_id = ${entity_id}::uuid
     `);
+  }
+
+  /**
+   * Revoke all permissions for a role (across all entities)
+   *
+   * @param role_id - Role UUID
+   */
+  async delete_all_rbac_for_role(role_id: string): Promise<number> {
+    const result = await this.db.execute(sql`
+      DELETE FROM app.entity_rbac
+      WHERE role_id = ${role_id}::uuid
+    `);
+    return (result as any).count || result.length || 0;
+  }
+
+  /**
+   * Get all permissions for a specific role
+   *
+   * @param role_id - Role UUID
+   * @returns Array of permission records
+   */
+  async get_role_permissions(role_id: string): Promise<any[]> {
+    const result = await this.db.execute(sql`
+      SELECT
+        er.id,
+        er.role_id,
+        er.entity_code,
+        er.entity_instance_id,
+        er.permission,
+        er.inheritance_mode,
+        er.child_permissions,
+        er.is_deny,
+        er.granted_by_person_id,
+        er.granted_ts,
+        er.expires_ts,
+        p.name AS granted_by_name
+      FROM app.entity_rbac er
+      LEFT JOIN app.person p ON er.granted_by_person_id = p.id
+      WHERE er.role_id = ${role_id}::uuid
+      ORDER BY er.entity_code, er.entity_instance_id
+    `);
+    return result as any[];
   }
 
   /**
@@ -1191,166 +1300,124 @@ export class EntityInfrastructureService {
   }
 
   /**
-   * Get all entity IDs user can access (with role inheritance + parent inheritance)
+   * Get all entity IDs person can access (v2.0.0 Role-Only Model)
    *
+   * Uses role-based permissions with configurable inheritance (cascade/mapped).
+   *
+   * @param person_id - Person UUID
+   * @param entity_code - Entity type code
+   * @param required_permission - Minimum permission level
    * @returns Array of entity IDs (includes ALL_ENTITIES_ID if type-level access)
    */
   private async getAccessibleEntityIds(
-    user_id: string,
+    person_id: string,
     entity_code: string,
     required_permission: Permission
   ): Promise<string[]> {
-    // First check if user has type-level permission
+    // First check if person has type-level permission
     const typeLevelPermission = await this.getMaxPermissionLevel(
-      user_id,
+      person_id,
       entity_code,
       ALL_ENTITIES_ID
     );
 
     if (typeLevelPermission >= required_permission) {
-      // User has type-level access - return special marker
+      // Person has type-level access - return special marker
       return [ALL_ENTITIES_ID];
     }
 
-    // Get specific entity IDs user can access
+    // Get specific entity IDs person can access
     const result = await this.db.execute(sql`
       WITH
-      -- ---------------------------------------------------------------------------
-      -- 1. PARENT ENTITY TYPES (supports both string[] and object[] formats)
-      -- ---------------------------------------------------------------------------
-      parent_entities AS (
-        SELECT d.code AS entity_code
-        FROM app.entity d
-        WHERE EXISTS (
-          SELECT 1 FROM jsonb_array_elements_text(d.child_entity_codes) AS child
-          WHERE child = ${entity_code}
-          UNION
-          SELECT 1 FROM jsonb_array_elements(d.child_entity_codes) AS child_obj
-          WHERE child_obj->>'entity' = ${entity_code}
-        )
+      -- ═══════════════════════════════════════════════════════════════════════
+      -- 1. FIND ROLES FOR THIS PERSON
+      -- ═══════════════════════════════════════════════════════════════════════
+      person_roles AS (
+        SELECT eil.entity_instance_id AS role_id
+        FROM app.entity_instance_link eil
+        WHERE eil.entity_code = 'role'
+          AND eil.child_entity_code = 'person'
+          AND eil.child_entity_instance_id = ${person_id}::uuid
       ),
 
-      -- ---------------------------------------------------------------------------
-      -- 2. DIRECT EMPLOYEE PERMISSIONS
-      -- ---------------------------------------------------------------------------
-      direct_emp AS (
-        SELECT entity_instance_id, permission
-        FROM app.entity_rbac
-        WHERE person_code = 'employee'
-          AND person_id = ${user_id}::uuid
-          AND entity_code = ${entity_code}
-          AND entity_instance_id != '11111111-1111-1111-1111-111111111111'::uuid
-          AND (expires_ts IS NULL OR expires_ts > NOW())
+      -- ═══════════════════════════════════════════════════════════════════════
+      -- 2. EXPLICIT DENY IDS (to exclude)
+      -- ═══════════════════════════════════════════════════════════════════════
+      denied_ids AS (
+        SELECT er.entity_instance_id
+        FROM app.entity_rbac er
+        JOIN person_roles pr ON er.role_id = pr.role_id
+        WHERE er.entity_code = ${entity_code}
+          AND er.is_deny = true
+          AND (er.expires_ts IS NULL OR er.expires_ts > NOW())
       ),
 
-      -- ---------------------------------------------------------------------------
-      -- 3. ROLE-BASED PERMISSIONS
-      -- ---------------------------------------------------------------------------
-      role_based AS (
-        SELECT rbac.entity_instance_id, rbac.permission
-        FROM app.entity_rbac rbac
-        INNER JOIN app.entity_instance_link eim
-          ON eim.entity_code = 'role'
-          AND eim.entity_instance_id = rbac.person_id
-          AND eim.child_entity_code = 'employee'
-          AND eim.child_entity_instance_id = ${user_id}::uuid
-        WHERE rbac.person_code = 'role'
-          AND rbac.entity_code = ${entity_code}
-          AND rbac.entity_instance_id != '11111111-1111-1111-1111-111111111111'::uuid
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+      -- ═══════════════════════════════════════════════════════════════════════
+      -- 3. DIRECT ROLE PERMISSIONS (instance-level only, not type-level)
+      -- ═══════════════════════════════════════════════════════════════════════
+      direct_role_perms AS (
+        SELECT er.entity_instance_id, er.permission
+        FROM app.entity_rbac er
+        JOIN person_roles pr ON er.role_id = pr.role_id
+        WHERE er.entity_code = ${entity_code}
+          AND er.entity_instance_id != '11111111-1111-1111-1111-111111111111'::uuid
+          AND er.is_deny = false
+          AND (er.expires_ts IS NULL OR er.expires_ts > NOW())
       ),
 
-      -- ---------------------------------------------------------------------------
-      -- 4. PARENT ENTITIES WITH VIEW PERMISSION (permission >= 0)
-      -- ---------------------------------------------------------------------------
-      parents_with_view AS (
-        SELECT DISTINCT emp.entity_instance_id AS parent_id, pe.entity_code
-        FROM parent_entities pe
-        INNER JOIN app.entity_rbac emp
-          ON emp.person_code = 'employee'
-          AND emp.person_id = ${user_id}::uuid
-          AND emp.entity_code = pe.entity_code
-          AND emp.permission >= 0
-          AND (emp.expires_ts IS NULL OR emp.expires_ts > NOW())
-        UNION
-        SELECT DISTINCT rbac.entity_instance_id AS parent_id, pe.entity_code
-        FROM parent_entities pe
-        INNER JOIN app.entity_rbac rbac
-          ON rbac.person_code = 'role'
-          AND rbac.entity_code = pe.entity_code
-          AND rbac.permission >= 0
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        INNER JOIN app.entity_instance_link eim
-          ON eim.entity_code = 'role'
-          AND eim.entity_instance_id = rbac.person_id
-          AND eim.child_entity_code = 'employee'
-          AND eim.child_entity_instance_id = ${user_id}::uuid
+      -- ═══════════════════════════════════════════════════════════════════════
+      -- 4. FIND ALL ANCESTORS WITH CASCADE/MAPPED PERMISSIONS
+      --    And their children that are of our target entity_code
+      -- ═══════════════════════════════════════════════════════════════════════
+      inheritable_ancestors AS (
+        SELECT
+          er.entity_code AS ancestor_code,
+          er.entity_instance_id AS ancestor_id,
+          er.permission,
+          er.inheritance_mode,
+          er.child_permissions
+        FROM app.entity_rbac er
+        JOIN person_roles pr ON er.role_id = pr.role_id
+        WHERE er.inheritance_mode IN ('cascade', 'mapped')
+          AND er.is_deny = false
+          AND (er.expires_ts IS NULL OR er.expires_ts > NOW())
       ),
 
-      -- ---------------------------------------------------------------------------
-      -- 5. CHILDREN OF PARENTS WITH VIEW (inherit VIEW permission)
-      -- ---------------------------------------------------------------------------
-      children_from_view AS (
-        SELECT DISTINCT eim.child_entity_instance_id AS entity_instance_id, 0 AS permission
-        FROM parents_with_view pw
-        INNER JOIN app.entity_instance_link eim
-          ON eim.entity_code = pw.entity_code
-          AND eim.entity_instance_id = pw.parent_id
-          AND eim.child_entity_code = ${entity_code}
+      -- ═══════════════════════════════════════════════════════════════════════
+      -- 5. INHERITED PERMISSIONS
+      --    Find children of ancestors and apply inheritance rules
+      -- ═══════════════════════════════════════════════════════════════════════
+      inherited_perms AS (
+        SELECT
+          eil.child_entity_instance_id AS entity_instance_id,
+          CASE
+            WHEN ia.inheritance_mode = 'cascade' THEN ia.permission
+            WHEN ia.inheritance_mode = 'mapped' THEN
+              CASE
+                WHEN ia.child_permissions ? ${entity_code}
+                  THEN (ia.child_permissions->> ${entity_code})::int
+                WHEN ia.child_permissions ? '_default'
+                  THEN (ia.child_permissions->>'_default')::int
+                ELSE -1
+              END
+            ELSE -1
+          END AS permission
+        FROM inheritable_ancestors ia
+        JOIN app.entity_instance_link eil
+          ON eil.entity_code = ia.ancestor_code
+          AND eil.entity_instance_id = ia.ancestor_id
+          AND eil.child_entity_code = ${entity_code}
       ),
 
-      -- ---------------------------------------------------------------------------
-      -- 6. PARENT ENTITIES WITH CREATE PERMISSION (permission >= 4)
-      -- ---------------------------------------------------------------------------
-      parents_with_create AS (
-        SELECT DISTINCT emp.entity_instance_id AS parent_id, pe.entity_code
-        FROM parent_entities pe
-        INNER JOIN app.entity_rbac emp
-          ON emp.person_code = 'employee'
-          AND emp.person_id = ${user_id}::uuid
-          AND emp.entity_code = pe.entity_code
-          AND emp.permission >= 4
-          AND (emp.expires_ts IS NULL OR emp.expires_ts > NOW())
-        UNION
-        SELECT DISTINCT rbac.entity_instance_id AS parent_id, pe.entity_code
-        FROM parent_entities pe
-        INNER JOIN app.entity_rbac rbac
-          ON rbac.person_code = 'role'
-          AND rbac.entity_code = pe.entity_code
-          AND rbac.permission >= 4
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        INNER JOIN app.entity_instance_link eim
-          ON eim.entity_code = 'role'
-          AND eim.entity_instance_id = rbac.person_id
-          AND eim.child_entity_code = 'employee'
-          AND eim.child_entity_instance_id = ${user_id}::uuid
-      ),
-
-      -- ---------------------------------------------------------------------------
-      -- 7. CHILDREN OF PARENTS WITH CREATE (inherit CREATE permission)
-      -- ---------------------------------------------------------------------------
-      children_from_create AS (
-        SELECT DISTINCT eim.child_entity_instance_id AS entity_instance_id, 4 AS permission
-        FROM parents_with_create pc
-        INNER JOIN app.entity_instance_link eim
-          ON eim.entity_code = pc.entity_code
-          AND eim.entity_instance_id = pc.parent_id
-          AND eim.child_entity_code = ${entity_code}
-      ),
-
-      -- ---------------------------------------------------------------------------
-      -- UNION ALL PERMISSION SOURCES + FILTER BY REQUIRED PERMISSION
-      -- ---------------------------------------------------------------------------
+      -- ═══════════════════════════════════════════════════════════════════════
+      -- UNION ALL PERMISSION SOURCES + FILTER
+      -- ═══════════════════════════════════════════════════════════════════════
       all_permissions AS (
         SELECT entity_instance_id, MAX(permission) AS max_permission
         FROM (
-          SELECT * FROM direct_emp
+          SELECT entity_instance_id, permission FROM direct_role_perms
           UNION ALL
-          SELECT * FROM role_based
-          UNION ALL
-          SELECT * FROM children_from_view
-          UNION ALL
-          SELECT * FROM children_from_create
+          SELECT entity_instance_id, permission FROM inherited_perms WHERE permission >= 0
         ) AS perms
         GROUP BY entity_instance_id
       )
@@ -1358,6 +1425,7 @@ export class EntityInfrastructureService {
       SELECT entity_instance_id::text
       FROM all_permissions
       WHERE max_permission >= ${required_permission}
+        AND entity_instance_id NOT IN (SELECT entity_instance_id FROM denied_ids)
     `);
 
     return result.map(row => (row as Record<string, any>).entity_instance_id as string);
@@ -1489,20 +1557,26 @@ export class EntityInfrastructureService {
    * Pass the table name and data object - both INSERTs execute in one transaction.
    * If ANY step fails, ALL changes roll back - no orphan records.
    *
+   * NOTE (v2.0.0 Role-Only Model):
+   * Permissions are NOT automatically granted to creator. The creator must already
+   * have CREATE permission via their role. If parent linking is provided and the
+   * parent's role has cascade/mapped inheritance, the new entity will inherit
+   * permissions automatically.
+   *
    * @example
    * const result = await entityInfra.create_entity({
    *   entity_code: 'project',
-   *   creator_id: userId,
+   *   creator_id: personId,
    *   parent_entity_code: parent_code,
    *   parent_entity_id: parent_id,
    *   primary_table: 'app.project',
    *   primary_data: { name, code, descr, budget_allocated_amt }
    * });
-   * // Returns: { entity: insertedRow, entity_instance, rbac_granted, link_created }
+   * // Returns: { entity: insertedRow, entity_instance, link_created }
    */
   async create_entity<T extends Record<string, any> = Record<string, any>>(params: {
     entity_code: string;
-    creator_id: string;
+    creator_id: string;  // person_id for audit trail
     parent_entity_code?: string;
     parent_entity_id?: string;
     relationship_type?: string;
@@ -1513,13 +1587,11 @@ export class EntityInfrastructureService {
   }): Promise<{
     entity: T & { id: string };
     entity_instance: EntityInstance;
-    rbac_granted: boolean;
     link_created: boolean;
     link?: EntityLink;
   }> {
     const {
       entity_code,
-      creator_id,
       parent_entity_code,
       parent_entity_id,
       relationship_type = 'contains',
@@ -1535,7 +1607,7 @@ export class EntityInfrastructureService {
 
     // Use raw postgres client for transaction support
     return await client.begin(async (tx) => {
-      // Step 3: INSERT into primary table
+      // Step 1: INSERT into primary table
       const columnsStr = columns.join(', ');
       const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ');
 
@@ -1549,7 +1621,7 @@ export class EntityInfrastructureService {
       const entity_name = String((entity as any)[name_field] || '');
       const instance_code = (entity as any)[code_field] || null;
 
-      // Step 4: Register in entity_instance
+      // Step 2: Register in entity_instance
       const registryResult = await tx`
         INSERT INTO app.entity_instance
         (entity_code, entity_instance_id, entity_instance_name, code)
@@ -1558,16 +1630,9 @@ export class EntityInfrastructureService {
       `;
       const entity_instance = registryResult[0] as EntityInstance;
 
-      // Step 5: Grant OWNER permission to creator
-      await tx`
-        INSERT INTO app.entity_rbac
-        (person_code, person_id, entity_code, entity_instance_id, permission)
-        VALUES ('employee', ${creator_id}::uuid, ${entity_code}, ${entity_id}::uuid, ${Permission.OWNER})
-        ON CONFLICT (person_code, person_id, entity_code, entity_instance_id)
-        DO UPDATE SET permission = GREATEST(app.entity_rbac.permission, EXCLUDED.permission)
-      `;
-
-      // Step 6: Link to parent (if provided)
+      // Step 3: Link to parent (if provided)
+      // NOTE: Permissions are inherited from parent via cascade/mapped inheritance
+      // No direct RBAC grant - permissions flow through role assignments
       let link: EntityLink | undefined;
       if (parent_entity_code && parent_entity_id) {
         const linkResult = await tx`
@@ -1582,7 +1647,6 @@ export class EntityInfrastructureService {
       return {
         entity,
         entity_instance,
-        rbac_granted: true,
         link_created: Boolean(link),
         link
       };

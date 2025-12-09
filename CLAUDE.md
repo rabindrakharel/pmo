@@ -11,7 +11,7 @@
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4
 - **State Management**: TanStack Query + Dexie (offline-first IndexedDB) - server state + persistence
 - **Infrastructure**: AWS EC2/S3/Lambda, Terraform, Docker
-- **Version**: 9.3.0 (Dexie v4 Schema + content=metadata API)
+- **Version**: 9.4.0 (Role-Only RBAC v2.0.0 + Dexie v4 Schema)
 
 ## Critical Operations
 
@@ -39,7 +39,7 @@
 entity                   -- Entity type metadata (icons, labels, child_entity_codes) - HAS active_flag
 entity_instance          -- Instance registry (entity_instance_name, code cache) - HARD DELETE, NO active_flag
 entity_instance_link     -- Parent-child relationships - HARD DELETE, NO active_flag
-entity_rbac              -- Permissions (0=VIEW, 1=EDIT, 2=SHARE, 3=DELETE, 4=CREATE, 5=OWNER) - HARD DELETE, NO active_flag
+entity_rbac              -- Permissions (0-7: VIEW, COMMENT, CONTRIBUTE, EDIT, SHARE, DELETE, CREATE, OWNER) - HARD DELETE, NO active_flag
 ```
 
 **Delete Semantics**:
@@ -189,33 +189,54 @@ async set_entity_instance_link(params: {
 
 ---
 
-## 2. RBAC Pattern (Person-Based Permissions)
+## 2. RBAC Pattern (Role-Only Model v2.0.0)
+
+### Architecture
+
+All permissions are granted to **roles** (not directly to employees). People receive permissions through role membership via `entity_instance_link`.
+
+```
+app.role → entity_rbac (permissions) → entity (targets)
+    ↓
+entity_instance_link (role → person membership)
+    ↓
+app.person
+```
 
 ### Permission Hierarchy
 
 ```typescript
 export enum Permission {
-  VIEW   = 0,  // Read-only access
-  EDIT   = 1,  // Modify entity (implies VIEW)
-  SHARE  = 2,  // Share with others (implies EDIT, VIEW)
-  DELETE = 3,  // Soft delete (implies SHARE, EDIT, VIEW)
-  CREATE = 4,  // Create new (type-level only)
-  OWNER  = 5   // Full control (implies ALL)
+  VIEW       = 0,  // Read-only access
+  COMMENT    = 1,  // Add comments (implies VIEW)
+  CONTRIBUTE = 2,  // Insert form data (implies COMMENT)
+  EDIT       = 3,  // Modify entity (implies CONTRIBUTE)
+  SHARE      = 4,  // Share with others (implies EDIT)
+  DELETE     = 5,  // Soft delete (implies SHARE)
+  CREATE     = 6,  // Create new (type-level only)
+  OWNER      = 7   // Full control (implies ALL)
 }
 
 // Type-level permission constant
 export const ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111';
 ```
 
-### Permission Resolution (4 Sources)
+### Inheritance Modes (v2.0.0)
+
+| Mode | Description |
+|------|-------------|
+| `none` | Permission applies only to target entity |
+| `cascade` | Same permission flows to all child entities |
+| `mapped` | Different permissions per child type via `child_permissions` JSONB |
+
+### Permission Resolution Flow
 
 ```
-1. Direct Employee Permissions    → entity_rbac WHERE person_code='employee'
-2. Role-Based Permissions         → entity_rbac WHERE person_code='role'
-3. Parent-VIEW Inheritance        → If parent has VIEW, child gains VIEW
-4. Parent-CREATE Inheritance      → If parent has CREATE, child gains CREATE
-
-Result: MAX permission level from all 4 sources
+1. Find person's roles        → entity_instance_link WHERE entity_code='role'
+2. Check explicit deny        → entity_rbac WHERE is_deny=true (blocks all)
+3. Get direct role permissions → entity_rbac WHERE role_id IN (person_roles)
+4. Get inherited permissions  → Ancestor permissions with cascade/mapped modes
+5. Return MAX of all sources  → >= required level ? ALLOWED : DENIED
 ```
 
 ### RBAC Check Methods
@@ -223,7 +244,7 @@ Result: MAX permission level from all 4 sources
 ```typescript
 // Check specific permission
 const canEdit = await entityInfra.check_entity_rbac(
-  userId,           // Person UUID
+  personId,         // Person UUID (from app.person)
   'project',        // Entity type code
   projectId,        // Entity instance ID (or ALL_ENTITIES_ID for type-level)
   Permission.EDIT   // Required permission
@@ -231,7 +252,7 @@ const canEdit = await entityInfra.check_entity_rbac(
 
 // Get SQL WHERE clause for filtering
 const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
-  userId,           // Person UUID
+  personId,         // Person UUID
   'project',        // Entity type code
   Permission.VIEW,  // Required permission
   'e'               // Table alias
@@ -789,11 +810,11 @@ Dexie IndexedDB schema v4 with unified naming between TanStack Query cache keys 
 
 **Keywords:** `Dexie`, `IndexedDB`, `schema v4`, `pmo-cache-v4`, `datalabel`, `entityCode`, `globalSetting`, `entityInstanceData`, `entityInstanceMetadata`, `entityInstance`, `entityLink`, `draft`, `unified naming`, `TanStack Query keys`, `createDatalabelKey`, `createEntityInstanceKey`, `createEntityInstanceDataKey`, `createEntityLinkKey`, `createDraftKey`
 
-### 1. RBAC_INFRASTRUCTURE.md
+### 1. RBAC_INFRASTRUCTURE.md (v2.0.0 Role-Only Model)
 
-Unified RBAC documentation covering all 4 infrastructure tables (entity, entity_instance, entity_instance_link, entity_rbac). Used by API routes for permission checking and by LLMs when implementing RBAC features.
+Role-Only RBAC Model documentation covering permission system where all permissions are granted to roles (not directly to employees). Includes inheritance modes (none/cascade/mapped), explicit deny, and permission resolution flow.
 
-**Keywords:** `RBAC`, `permissions`, `entity_rbac`, `entity_instance_link`, `entity_instance`, `Permission enum`, `VIEW`, `COMMENT`, `CONTRIBUTE`, `EDIT`, `SHARE`, `DELETE`, `CREATE`, `OWNER`, `ALL_ENTITIES_ID`, `check_entity_rbac`, `set_entity_rbac_owner`, `get_entity_rbac_where_condition`, `hard delete`, `soft delete`, `person-based RBAC`, `role-based permissions`
+**Keywords:** `RBAC`, `role-only`, `permissions`, `entity_rbac`, `role_id`, `inheritance_mode`, `none`, `cascade`, `mapped`, `child_permissions`, `is_deny`, `explicit deny`, `Permission enum`, `VIEW`, `COMMENT`, `CONTRIBUTE`, `EDIT`, `SHARE`, `DELETE`, `CREATE`, `OWNER`, `ALL_ENTITIES_ID`, `check_entity_rbac`, `get_entity_rbac_where_condition`, `entity_instance_link`, `role membership`
 
 ### 2. entity-infrastructure.service.md
 
@@ -815,9 +836,17 @@ Comprehensive page and component architecture documentation. Used by LLMs when i
 
 ---
 
-**Version**: 9.3.0 | **Updated**: 2025-11-30 | **Pattern**: TanStack Query + Dexie v4 (Offline-First) + Redis Field Cache
+**Version**: 9.4.0 | **Updated**: 2025-12-09 | **Pattern**: TanStack Query + Dexie v4 (Offline-First) + Redis Field Cache + Role-Only RBAC v2.0.0
 
 **Recent Updates**:
+- v9.4.0 (2025-12-09): **RBAC v2.0.0 Role-Only Model**
+  - All permissions granted to roles (not directly to employees)
+  - Role membership via `entity_instance_link` (role → person)
+  - Inheritance modes: `none`, `cascade`, `mapped`
+  - Explicit deny with `is_deny=true`
+  - Updated Permission enum: 0-7 (VIEW, COMMENT, CONTRIBUTE, EDIT, SHARE, DELETE, CREATE, OWNER)
+  - New frontend: `AccessControlPage`, `GrantPermissionModal`, `PermissionLevelSelector`
+  - See: `docs/rbac/RBAC_INFRASTRUCTURE.md`
 - v9.3.0 (2025-11-30): **Dexie v4 Schema + content=metadata API**
   - Dexie schema v4: 8 unified tables with TanStack Query key alignment
   - Tables: `datalabel`, `entityCode`, `globalSetting`, `entityInstanceData`, `entityInstanceMetadata`, `entityInstance`, `entityLink`, `draft`

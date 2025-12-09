@@ -1,9 +1,29 @@
+/**
+ * ============================================================================
+ * RBAC API ROUTES - v2.0.0 Role-Only Model
+ * ============================================================================
+ *
+ * All routes use /api/v1/entity_rbac/ prefix to match table name.
+ *
+ * RBAC Model (v2.0.0):
+ * - Permissions are granted to ROLES only (no direct employee/person permissions)
+ * - Persons get permissions through role membership via entity_instance_link
+ * - Inheritance modes: none (explicit only), cascade (same to children), mapped (per-child-type)
+ * - Explicit deny (is_deny=true) blocks permission even if granted elsewhere
+ *
+ * ============================================================================
+ */
+
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
-// ✅ Entity Infrastructure Service - Centralized infrastructure management
-import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
+import {
+  getEntityInfrastructure,
+  Permission,
+  ALL_ENTITIES_ID,
+  type InheritanceMode
+} from '../../services/entity-infrastructure.service.js';
 
 // Helper type for permission results
 interface PermissionResult {
@@ -14,39 +34,57 @@ interface PermissionResult {
 // Module-level variable for entityInfra (initialized in rbacRoutes)
 let entityInfra: ReturnType<typeof getEntityInfrastructure>;
 
-// Helper functions for RBAC API endpoints (frontend UI needs)
-// Uses Entity Infrastructure Service to determine permissions
-async function getEmployeeEntityPermissions(employeeId: string, entityCode: string, entityId?: string): Promise<PermissionResult[]> {
-  const targetEntityId = entityId || ALL_ENTITIES_ID;
+// Permission level labels
+const PERMISSION_LABELS: Record<number, string> = {
+  0: 'View',
+  1: 'Comment',
+  2: 'Contribute',
+  3: 'Edit',
+  4: 'Share',
+  5: 'Delete',
+  6: 'Create',
+  7: 'Owner'
+};
 
-  // Test each permission level using Entity Infrastructure Service
+/**
+ * Get permission strings for a person on an entity
+ * Uses the new role-only RBAC model
+ */
+async function getPersonEntityPermissions(
+  personId: string,
+  entityCode: string,
+  entityId?: string
+): Promise<PermissionResult[]> {
+  const targetEntityId = entityId || ALL_ENTITIES_ID;
   const permissions: string[] = [];
 
-  // Test view
-  const canView = await entityInfra.check_entity_rbac(
-    employeeId, entityCode, targetEntityId, Permission.VIEW
-  );
+  // Test each permission level
+  const canView = await entityInfra.check_entity_rbac(personId, entityCode, targetEntityId, Permission.VIEW);
   if (canView) permissions.push('view');
 
-  // Test edit
-  const canEdit = await entityInfra.check_entity_rbac(
-    employeeId, entityCode, targetEntityId, Permission.EDIT
-  );
+  const canComment = await entityInfra.check_entity_rbac(personId, entityCode, targetEntityId, Permission.COMMENT);
+  if (canComment) permissions.push('comment');
+
+  const canContribute = await entityInfra.check_entity_rbac(personId, entityCode, targetEntityId, Permission.CONTRIBUTE);
+  if (canContribute) permissions.push('contribute');
+
+  const canEdit = await entityInfra.check_entity_rbac(personId, entityCode, targetEntityId, Permission.EDIT);
   if (canEdit) permissions.push('edit');
 
-  // Test delete
-  const canDelete = await entityInfra.check_entity_rbac(
-    employeeId, entityCode, targetEntityId, Permission.DELETE
-  );
+  const canShare = await entityInfra.check_entity_rbac(personId, entityCode, targetEntityId, Permission.SHARE);
+  if (canShare) permissions.push('share');
+
+  const canDelete = await entityInfra.check_entity_rbac(personId, entityCode, targetEntityId, Permission.DELETE);
   if (canDelete) permissions.push('delete');
 
-  // Test create (only for type-level)
+  // CREATE is type-level only
   if (targetEntityId === ALL_ENTITIES_ID) {
-    const canCreate = await entityInfra.check_entity_rbac(
-      employeeId, entityCode, ALL_ENTITIES_ID, Permission.CREATE
-    );
+    const canCreate = await entityInfra.check_entity_rbac(personId, entityCode, ALL_ENTITIES_ID, Permission.CREATE);
     if (canCreate) permissions.push('create');
   }
+
+  const canOwn = await entityInfra.check_entity_rbac(personId, entityCode, targetEntityId, Permission.OWNER);
+  if (canOwn) permissions.push('owner');
 
   return [{
     actionEntityId: targetEntityId,
@@ -54,38 +92,32 @@ async function getEmployeeEntityPermissions(employeeId: string, entityCode: stri
   }];
 }
 
-async function getMainPageActionPermissions(employeeId: string, entityCode: string) {
-  // Test type-level permissions using Entity Infrastructure Service
-  const canCreate = await entityInfra.check_entity_rbac(
-    employeeId, entityCode, ALL_ENTITIES_ID, Permission.CREATE
-  );
-
-  const canDelete = await entityInfra.check_entity_rbac(
-    employeeId, entityCode, ALL_ENTITIES_ID, Permission.DELETE
-  );
+/**
+ * Get main page action permissions for a person
+ */
+async function getMainPageActionPermissions(personId: string, entityCode: string) {
+  const canCreate = await entityInfra.check_entity_rbac(personId, entityCode, ALL_ENTITIES_ID, Permission.CREATE);
+  const canDelete = await entityInfra.check_entity_rbac(personId, entityCode, ALL_ENTITIES_ID, Permission.DELETE);
+  const canShare = await entityInfra.check_entity_rbac(personId, entityCode, ALL_ENTITIES_ID, Permission.SHARE);
 
   return {
     canCreate,
-    canShare: canDelete, // Share requires same level as delete
+    canShare,
     canDelete,
-    canBulkShare: canDelete,
+    canBulkShare: canShare,
     canBulkDelete: canDelete
   };
 }
 
 export async function rbacRoutes(fastify: FastifyInstance) {
-  // ═══════════════════════════════════════════════════════════════
-  // ✅ ENTITY INFRASTRUCTURE SERVICE - Initialize service instance
-  // ═══════════════════════════════════════════════════════════════
+  // Initialize Entity Infrastructure Service
   entityInfra = getEntityInfrastructure(db);
 
   // ===============================
-  // ENTITY_RBAC API ROUTES
-  // All routes use /api/v1/entity_rbac/ prefix to match table name
+  // PERMISSION CHECK ENDPOINTS
   // ===============================
 
   // TIER 1: Get comprehensive permissions by entity type (for main page data tables)
-  // Case I: Main page data table rbac buttons: project list (/project) and project detail overview (/project/{id})
   fastify.post('/api/v1/entity_rbac/get-permissions-by-entityCode', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -96,7 +128,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         200: Type.Object({
           entityCode: Type.String(),
           permissions: Type.Array(Type.Object({
-            actionEntityId: Type.String({ minLength: 0, description: "Entity ID - empty string for global permissions" }),
+            actionEntityId: Type.String(),
             actions: Type.Array(Type.String()),
           })),
         }),
@@ -113,7 +145,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      const permissions = await getEmployeeEntityPermissions(userId, entityCode);
+      const permissions = await getPersonEntityPermissions(userId, entityCode);
 
       return {
         entityCode,
@@ -129,7 +161,6 @@ export async function rbacRoutes(fastify: FastifyInstance) {
   });
 
   // TIER 2: Get permissions for specific entity (for detail page inline edit and share)
-  // Case II: Detail page inline edit and share permissions - returns permissions JSON for specific entity
   fastify.post('/api/v1/entity_rbac/check-permission-of-entity', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -142,7 +173,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
           entityCode: Type.String(),
           entityId: Type.String(),
           permissions: Type.Array(Type.Object({
-            actionEntityId: Type.String({ minLength: 0, description: "Entity ID - empty string for global permissions" }),
+            actionEntityId: Type.String(),
             actions: Type.Array(Type.String()),
           })),
         }),
@@ -159,13 +190,15 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Get permission levels for the specific entity using new system
-      const permissionResults = await getEmployeeEntityPermissions(userId, entityCode, entityId);
+      const permissionResults = await getPersonEntityPermissions(userId, entityCode, entityId);
 
       return {
         entityCode,
         entityId,
-        permissions: permissionResults,
+        permissions: permissionResults.map(p => ({
+          actionEntityId: p.actionEntityId,
+          actions: p.permissions,
+        })),
       };
     } catch (error) {
       fastify.log.error('Error getting permissions for specific entity:', error);
@@ -173,8 +206,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // TIER 3: Get permissions for action entities within parent context (for action entity tabs)
-  // Case III: Header navigation tab clicked - action entity data tables (/project/{id}/task, /project/{id}/wiki, etc.)
+  // TIER 3: Get permissions for action entities within parent context
   fastify.post('/api/v1/entity_rbac/get-permissions-by-parentEntity-actionEntity', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -189,7 +221,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
           parentEntityId: Type.String(),
           actionEntity: Type.String(),
           permissions: Type.Array(Type.Object({
-            actionEntityId: Type.String({ minLength: 0, description: "Entity ID - empty string for global permissions" }),
+            actionEntityId: Type.String(),
             actions: Type.Array(Type.String()),
           })),
         }),
@@ -212,7 +244,6 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       );
 
       if (!hasParentAccess) {
-        // If no access to parent, return empty permissions
         return {
           parentEntity,
           parentEntityId,
@@ -221,10 +252,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         };
       }
 
-      // Get all action entities of the specified type that are children of this parent
-      let childEntityIds: string[] = [];
-
-      // First, try to find relationships via entity_instance_link table
+      // Get child entities via entity_instance_link
       const hierarchyResult = await db.execute(sql`
         SELECT DISTINCT child_entity_instance_id
         FROM app.entity_instance_link
@@ -233,50 +261,23 @@ export async function rbacRoutes(fastify: FastifyInstance) {
           AND child_entity_code = ${actionEntity}
       `);
 
-      if (hierarchyResult.length > 0) {
-        childEntityIds = hierarchyResult.map(row => row.child_entity_instance_id as string);
-      } else {
-        // If no results from hierarchy mapping, try direct foreign key relationships
-        if (parentEntity === 'project' && actionEntity === 'task') {
-          const directResult = await db.execute(sql`
-            SELECT DISTINCT id
-            FROM app.task
-            WHERE project_id = ${parentEntityId}
-          `);
-          childEntityIds = directResult.map(row => row.id as string);
-        } else if (parentEntity === 'project' && actionEntity === 'wiki') {
-          const directResult = await db.execute(sql`
-            SELECT DISTINCT id
-            FROM app.wiki
-            WHERE project_id = ${parentEntityId}
-          `);
-          childEntityIds = directResult.map(row => row.id as string);
-        } else if (parentEntity === 'project' && actionEntity === 'artifact') {
-          const directResult = await db.execute(sql`
-            SELECT DISTINCT id
-            FROM app.artifact
-            WHERE project_id = ${parentEntityId}
-          `);
-          childEntityIds = directResult.map(row => row.id as string);
-        }
-        // Add more parent-action entity relationships as needed
-      }
+      const childEntityIds = hierarchyResult.map(row => row.child_entity_instance_id as string);
 
       // Get permissions for each child entity
       const permissions = [];
 
       // Check type-level permission for this action entity type
-      const typePermissionResults = await getEmployeeEntityPermissions(userId, actionEntity, ALL_ENTITIES_ID);
+      const typePermissionResults = await getPersonEntityPermissions(userId, actionEntity, ALL_ENTITIES_ID);
       if (typePermissionResults.length > 0 && typePermissionResults[0].permissions.length > 0) {
         permissions.push({
-          actionEntityId: '', // Empty string represents global permissions
+          actionEntityId: '',
           actions: typePermissionResults[0].permissions,
         });
       }
 
       // Check permissions for each specific child entity
       for (const childEntityId of childEntityIds) {
-        const permissionResults = await getEmployeeEntityPermissions(userId, actionEntity, childEntityId);
+        const permissionResults = await getPersonEntityPermissions(userId, actionEntity, childEntityId);
         if (permissionResults.length > 0 && permissionResults[0].permissions.length > 0) {
           permissions.push({
             actionEntityId: childEntityId,
@@ -289,7 +290,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         parentEntity,
         parentEntityId,
         actionEntity,
-        permissions: permissions,
+        permissions,
       };
     } catch (error) {
       fastify.log.error('Error getting permissions by parent-action entity:', error);
@@ -338,27 +339,41 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Grant permission to role or employee (upsert - creates or updates)
+  // ===============================
+  // ROLE PERMISSION MANAGEMENT
+  // ===============================
+
+  // Grant permission to a role (upsert - creates or updates)
   fastify.post('/api/v1/entity_rbac/grant-permission', {
     preHandler: [fastify.authenticate],
     schema: {
       body: Type.Object({
-        person_code: Type.Union([Type.Literal('role'), Type.Literal('employee')]),
-        person_id: Type.String({ format: 'uuid' }),
+        role_id: Type.String({ format: 'uuid' }),
         entity_code: Type.String(),
         entity_instance_id: Type.String(), // ALL_ENTITIES_ID or specific UUID
-        permission: Type.Number({ minimum: 0, maximum: 5 }),
+        permission: Type.Number({ minimum: 0, maximum: 7 }),
+        inheritance_mode: Type.Optional(Type.Union([
+          Type.Literal('none'),
+          Type.Literal('cascade'),
+          Type.Literal('mapped')
+        ])),
+        child_permissions: Type.Optional(Type.Record(Type.String(), Type.Number())),
+        is_deny: Type.Optional(Type.Boolean()),
         expires_ts: Type.Optional(Type.Union([Type.String({ format: 'date-time' }), Type.Null()])),
       }),
       response: {
         201: Type.Object({
           id: Type.String(),
-          person_code: Type.String(),
-          person_id: Type.String(),
+          role_id: Type.String(),
+          role_name: Type.Optional(Type.String()),
           entity_code: Type.String(),
           entity_instance_id: Type.String(),
           permission: Type.Number(),
-          granted_by__employee_id: Type.String(),
+          permission_label: Type.String(),
+          inheritance_mode: Type.String(),
+          child_permissions: Type.Any(),
+          is_deny: Type.Boolean(),
+          granted_by_person_id: Type.Optional(Type.Union([Type.String(), Type.Null()])),
           granted_ts: Type.String(),
           expires_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
           message: Type.String(),
@@ -370,7 +385,16 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { person_code, person_id, entity_code, entity_instance_id, permission, expires_ts } = request.body as any;
+    const {
+      role_id,
+      entity_code,
+      entity_instance_id,
+      permission,
+      inheritance_mode = 'none',
+      child_permissions = {},
+      is_deny = false,
+      expires_ts
+    } = request.body as any;
     const userId = (request as any).user?.sub;
 
     if (!userId) {
@@ -378,97 +402,53 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Verify the person exists
-      if (person_code === 'role') {
-        const roleExists = await db.execute(sql`
-          SELECT id FROM app.role WHERE id = ${person_id} AND active_flag = true
-        `);
-        if (roleExists.length === 0) {
-          return reply.status(400).send({ error: 'Role not found or inactive' });
-        }
-      } else if (person_code === 'employee') {
-        const employeeExists = await db.execute(sql`
-          SELECT id FROM app.employee WHERE id = ${person_id} AND active_flag = true
-        `);
-        if (employeeExists.length === 0) {
-          return reply.status(400).send({ error: 'Employee not found or inactive' });
-        }
+      // Verify the role exists
+      const roleResult = await db.execute(sql`
+        SELECT id, name, code FROM app.role WHERE id = ${role_id}::uuid AND active_flag = true
+      `);
+      if (roleResult.length === 0) {
+        return reply.status(400).send({ error: 'Role not found or inactive' });
       }
+      const role = roleResult[0] as any;
 
       // Verify entity_instance_id if not ALL_ENTITIES_ID
       if (entity_instance_id !== ALL_ENTITIES_ID) {
-        // Validate UUID format
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(entity_instance_id)) {
           return reply.status(400).send({ error: 'Invalid entity_instance_id format. Must be UUID or ALL_ENTITIES_ID' });
         }
       }
 
-      // Check if permission already exists
-      const existingPermission = await db.execute(sql`
-        SELECT id, permission
-        FROM app.entity_rbac
-        WHERE person_code = ${person_code}
-          AND person_id = ${person_id}
-          AND entity_code = ${entity_code}
-          AND entity_instance_id = ${entity_instance_id}
-      `);
+      // Use the entity infrastructure service to grant permission
+      const result = await entityInfra.set_entity_rbac(
+        role_id,
+        entity_code,
+        entity_instance_id,
+        permission,
+        {
+          inheritance_mode: inheritance_mode as InheritanceMode,
+          child_permissions,
+          is_deny,
+          granted_by_person_id: userId,
+          expires_ts: expires_ts || null
+        }
+      );
 
-      let result;
-      if (existingPermission.length > 0) {
-        // Update existing permission
-        result = await db.execute(sql`
-          UPDATE app.entity_rbac
-          SET permission = ${permission},
-              granted_by__employee_id = ${userId},
-              granted_ts = NOW(),
-              expires_ts = ${expires_ts || null},
-              updated_ts = NOW()
-          WHERE id = ${existingPermission[0].id}
-          RETURNING id, person_code, person_id, entity_code, entity_instance_id, permission, granted_by__employee_id, granted_ts, expires_ts
-        `);
-      } else {
-        // Insert new permission
-        result = await db.execute(sql`
-          INSERT INTO app.entity_rbac (
-            person_code,
-            person_id,
-            entity_code,
-            entity_instance_id,
-            permission,
-            granted_by__employee_id,
-            granted_ts,
-            expires_ts
-          ) VALUES (
-            ${person_code},
-            ${person_id},
-            ${entity_code},
-            ${entity_instance_id},
-            ${permission},
-            ${userId},
-            NOW(),
-            ${expires_ts || null}
-          )
-          RETURNING id, person_code, person_id, entity_code, entity_instance_id, permission, granted_by__employee_id, granted_ts, expires_ts
-        `);
-      }
-
-      if (result.length === 0) {
-        return reply.status(500).send({ error: 'Failed to grant permission' });
-      }
-
-      const granted = result[0];
       return reply.status(201).send({
-        id: granted.id,
-        person_code: granted.person_code,
-        person_id: granted.person_id,
-        entity_code: granted.entity_code,
-        entity_instance_id: granted.entity_instance_id,
-        permission: granted.permission,
-        granted_by__employee_id: granted.granted_by__employee_id,
-        granted_ts: granted.granted_ts,
-        expires_ts: granted.expires_ts,
-        message: existingPermission.length > 0 ? 'Permission updated successfully' : 'Permission granted successfully',
+        id: result.id,
+        role_id: result.role_id,
+        role_name: role.name,
+        entity_code: result.entity_code,
+        entity_instance_id: result.entity_instance_id,
+        permission: result.permission,
+        permission_label: PERMISSION_LABELS[result.permission] || 'Unknown',
+        inheritance_mode: result.inheritance_mode,
+        child_permissions: result.child_permissions,
+        is_deny: result.is_deny,
+        granted_by_person_id: result.granted_by_person_id,
+        granted_ts: result.granted_ts || new Date().toISOString(),
+        expires_ts: result.expires_ts,
+        message: 'Permission granted successfully',
       });
     } catch (error) {
       fastify.log.error('Error granting permission:', error);
@@ -476,34 +456,41 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Get permissions for a specific role or employee
-  fastify.get('/api/v1/entity_rbac/permissions/:personType/:personId', {
+  // Get permissions for a specific role
+  // NOTE: Response structure uses 'data' array to match frontend TanStack Query expectations
+  fastify.get('/api/v1/entity_rbac/role/:roleId/permissions', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        personType: Type.Union([Type.Literal('role'), Type.Literal('employee')]),
-        personId: Type.String({ format: 'uuid' }),
+        roleId: Type.String({ format: 'uuid' }),
       }),
       response: {
         200: Type.Object({
-          person_type: Type.String(),
-          person_id: Type.String(),
-          permissions: Type.Array(Type.Object({
+          role_id: Type.String(),
+          role_name: Type.String(),
+          role_code: Type.Optional(Type.String()),
+          data: Type.Array(Type.Object({
             id: Type.String(),
             entity_code: Type.String(),
             entity_instance_id: Type.String(),
+            entity_display: Type.String(),
             permission: Type.Number(),
-            granted_by__employee_id: Type.Optional(Type.String()),
-            granted_ts: Type.String(),
+            permission_label: Type.String(),
+            inheritance_mode: Type.String(),
+            child_permissions: Type.Any(),
+            is_deny: Type.Boolean(),
+            granted_by_name: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+            granted_ts: Type.Optional(Type.String()),
             expires_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
           })),
         }),
         401: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
       },
     },
   }, async (request, reply) => {
-    const { personType, personId } = request.params as any;
+    const { roleId } = request.params as any;
     const userId = (request as any).user?.sub;
 
     if (!userId) {
@@ -511,34 +498,139 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      const permissions = await db.execute(sql`
-        SELECT
-          id,
-          entity_code,
-          entity_instance_id,
-          permission,
-          granted_by__employee_id,
-          granted_ts,
-          expires_ts
-        FROM app.entity_rbac
-        WHERE person_code = ${personType}
-          AND person_id = ${personId}
-        ORDER BY entity_code ASC, entity_instance_id ASC
+      // Get role info
+      const roleResult = await db.execute(sql`
+        SELECT id, name, code FROM app.role WHERE id = ${roleId}::uuid
       `);
+      if (roleResult.length === 0) {
+        return reply.status(404).send({ error: 'Role not found' });
+      }
+      const role = roleResult[0] as any;
+
+      // Get permissions using service method
+      const permissions = await entityInfra.get_role_permissions(roleId);
 
       return {
-        person_type: personType,
-        person_id: personId,
-        permissions: permissions,
+        role_id: role.id,
+        role_name: role.name,
+        role_code: role.code,
+        data: permissions.map(p => ({
+          id: p.id,
+          entity_code: p.entity_code,
+          entity_instance_id: p.entity_instance_id,
+          entity_display: p.entity_instance_id === ALL_ENTITIES_ID
+            ? 'ALL (Type-level)'
+            : p.entity_instance_id,
+          permission: p.permission,
+          permission_label: PERMISSION_LABELS[p.permission] || 'Unknown',
+          inheritance_mode: p.inheritance_mode,
+          child_permissions: p.child_permissions,
+          is_deny: p.is_deny,
+          granted_by_name: p.granted_by_name,
+          granted_ts: p.granted_ts,
+          expires_ts: p.expires_ts,
+        })),
       };
     } catch (error) {
-      fastify.log.error('Error fetching permissions:', error);
+      fastify.log.error('Error fetching role permissions:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Update a permission
+  fastify.put('/api/v1/entity_rbac/permission/:permissionId', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        permissionId: Type.String({ format: 'uuid' }),
+      }),
+      body: Type.Object({
+        permission: Type.Optional(Type.Number({ minimum: 0, maximum: 7 })),
+        inheritance_mode: Type.Optional(Type.Union([
+          Type.Literal('none'),
+          Type.Literal('cascade'),
+          Type.Literal('mapped')
+        ])),
+        child_permissions: Type.Optional(Type.Record(Type.String(), Type.Number())),
+        is_deny: Type.Optional(Type.Boolean()),
+        expires_ts: Type.Optional(Type.Union([Type.String({ format: 'date-time' }), Type.Null()])),
+      }),
+      response: {
+        200: Type.Object({
+          id: Type.String(),
+          message: Type.String(),
+        }),
+        401: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    const { permissionId } = request.params as any;
+    const updates = request.body as any;
+    const userId = (request as any).user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    try {
+      // Check if permission exists
+      const existingResult = await db.execute(sql`
+        SELECT id FROM app.entity_rbac WHERE id = ${permissionId}::uuid
+      `);
+      if (existingResult.length === 0) {
+        return reply.status(404).send({ error: 'Permission not found' });
+      }
+
+      // Build dynamic update
+      const updateFields: string[] = [];
+      const updateValues: any[] = [];
+      let paramIndex = 1;
+
+      if (updates.permission !== undefined) {
+        updateFields.push(`permission = $${paramIndex++}`);
+        updateValues.push(updates.permission);
+      }
+      if (updates.inheritance_mode !== undefined) {
+        updateFields.push(`inheritance_mode = $${paramIndex++}`);
+        updateValues.push(updates.inheritance_mode);
+      }
+      if (updates.child_permissions !== undefined) {
+        updateFields.push(`child_permissions = $${paramIndex++}::jsonb`);
+        updateValues.push(JSON.stringify(updates.child_permissions));
+      }
+      if (updates.is_deny !== undefined) {
+        updateFields.push(`is_deny = $${paramIndex++}`);
+        updateValues.push(updates.is_deny);
+      }
+      if (updates.expires_ts !== undefined) {
+        updateFields.push(`expires_ts = $${paramIndex++}::timestamptz`);
+        updateValues.push(updates.expires_ts);
+      }
+
+      if (updateFields.length === 0) {
+        return reply.status(400).send({ error: 'No fields to update' });
+      }
+
+      updateFields.push('updated_ts = NOW()');
+      updateValues.push(permissionId);
+
+      await db.execute(sql.raw(`
+        UPDATE app.entity_rbac
+        SET ${updateFields.join(', ')}
+        WHERE id = $${paramIndex}::uuid
+      `));
+
+      return { id: permissionId, message: 'Permission updated successfully' };
+    } catch (error) {
+      fastify.log.error('Error updating permission:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
   // Revoke permission (hard delete)
-  fastify.delete('/api/v1/entity_rbac/revoke-permission/:permissionId', {
+  fastify.delete('/api/v1/entity_rbac/permission/:permissionId', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
@@ -564,16 +656,16 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     try {
       // Check if permission exists
       const permissionExists = await db.execute(sql`
-        SELECT id FROM app.entity_rbac WHERE id = ${permissionId}
+        SELECT id FROM app.entity_rbac WHERE id = ${permissionId}::uuid
       `);
 
       if (permissionExists.length === 0) {
         return reply.status(404).send({ error: 'Permission not found' });
       }
 
-      // Hard delete the permission (entity_rbac uses hard delete)
+      // Hard delete the permission
       await db.execute(sql`
-        DELETE FROM app.entity_rbac WHERE id = ${permissionId}
+        DELETE FROM app.entity_rbac WHERE id = ${permissionId}::uuid
       `);
 
       return { message: 'Permission revoked successfully' };
@@ -583,7 +675,11 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Comprehensive RBAC overview with person names and entity permissions
+  // ===============================
+  // RBAC OVERVIEW & REPORTING
+  // ===============================
+
+  // Comprehensive RBAC overview with role names and entity permissions
   fastify.get('/api/v1/entity_rbac/overview', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -591,35 +687,39 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         200: Type.Object({
           summary: Type.Object({
             total_permissions: Type.Number(),
-            role_based_permissions: Type.Number(),
-            employee_permissions: Type.Number(),
-            unique_persons: Type.Number(),
+            unique_roles: Type.Number(),
             unique_entities: Type.Number(),
+            deny_permissions: Type.Number(),
+            cascading_permissions: Type.Number(),
+            mapped_permissions: Type.Number(),
           }),
-          permissions_by_person: Type.Array(Type.Object({
-            person_type: Type.String(),
-            person_id: Type.String(),
-            person_name: Type.String(),
-            person_code: Type.Optional(Type.String()),
+          permissions_by_role: Type.Array(Type.Object({
+            role_id: Type.String(),
+            role_name: Type.String(),
+            role_code: Type.Optional(Type.String()),
             permissions: Type.Array(Type.Object({
               entity_code: Type.String(),
               entity_instance_id: Type.String(),
               entity_display: Type.String(),
               permission_level: Type.Number(),
               permission_label: Type.String(),
-              granted_ts: Type.String(),
+              inheritance_mode: Type.String(),
+              child_permissions: Type.Any(),
+              is_deny: Type.Boolean(),
+              granted_ts: Type.Optional(Type.String()),
               expires_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
             })),
           })),
           permissions_by_entity: Type.Array(Type.Object({
             entity_code: Type.String(),
             permissions: Type.Array(Type.Object({
-              person_type: Type.String(),
-              person_id: Type.String(),
-              person_name: Type.String(),
+              role_id: Type.String(),
+              role_name: Type.String(),
               entity_instance_id: Type.String(),
               permission_level: Type.Number(),
               permission_label: Type.String(),
+              inheritance_mode: Type.String(),
+              is_deny: Type.Boolean(),
             })),
           })),
         }),
@@ -635,104 +735,78 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Get all RBAC records with person and entity names
+      // Get all RBAC records with role names
       const rbacRecords = await db.execute(sql`
         SELECT
-          rbac.id,
-          rbac.person_code,
-          rbac.person_id,
-          rbac.entity_code,
-          rbac.entity_instance_id,
-          rbac.permission,
-          rbac.granted_ts,
-          rbac.expires_ts,
-          CASE
-            WHEN rbac.person_code = 'employee' THEN COALESCE(emp.name, emp.email)
-            WHEN rbac.person_code = 'role' THEN role.name
-            ELSE NULL
-          END AS person_name,
-          CASE
-            WHEN rbac.person_code = 'employee' THEN emp.code
-            WHEN rbac.person_code = 'role' THEN role.code
-            ELSE NULL
-          END AS person_code_value
-        FROM app.entity_rbac rbac
-        LEFT JOIN app.employee emp ON rbac.person_code = 'employee' AND rbac.person_id = emp.id
-        LEFT JOIN app.role role ON rbac.person_code = 'role' AND rbac.person_id = role.id
-        ORDER BY
-          rbac.person_code,
-          CASE
-            WHEN rbac.person_code = 'employee' THEN COALESCE(emp.name, emp.email)
-            WHEN rbac.person_code = 'role' THEN role.name
-            ELSE NULL
-          END,
-          rbac.entity_code,
-          rbac.permission DESC
+          er.id,
+          er.role_id,
+          r.code AS role_code,
+          r.name AS role_name,
+          er.entity_code,
+          er.entity_instance_id,
+          er.permission,
+          er.inheritance_mode,
+          er.child_permissions,
+          er.is_deny,
+          er.granted_ts,
+          er.expires_ts
+        FROM app.entity_rbac er
+        JOIN app.role r ON er.role_id = r.id
+        ORDER BY r.name, er.entity_code, er.permission DESC
       `);
 
-      // Helper function to get permission label
-      const getPermissionLabel = (level: number): string => {
-        switch (level) {
-          case 0: return 'View';
-          case 1: return 'Edit';
-          case 2: return 'Share';
-          case 3: return 'Delete';
-          case 4: return 'Create';
-          case 5: return 'Owner';
-          default: return 'Unknown';
-        }
-      };
-
-      // Group by person
-      const personMap = new Map<string, any>();
+      // Group by role
+      const roleMap = new Map<string, any>();
       const entityMap = new Map<string, any>();
-      const uniquePersons = new Set<string>();
+      const uniqueRoles = new Set<string>();
       const uniqueEntities = new Set<string>();
-      let roleBasedCount = 0;
-      let employeeCount = 0;
+      let denyCount = 0;
+      let cascadeCount = 0;
+      let mappedCount = 0;
 
       for (const record of rbacRecords) {
-        const personCode = record.person_code as string;
-        const personId = record.person_id as string;
+        const roleId = record.role_id as string;
+        const roleName = record.role_name as string;
+        const roleCode = record.role_code as string;
         const entityCode = record.entity_code as string;
         const entityInstanceId = record.entity_instance_id as string;
         const permission = record.permission as number;
-        const personName = (record.person_name as string) || 'Unknown';
-        const personCodeValue = record.person_code_value as string;
+        const inheritanceMode = record.inheritance_mode as string;
+        const childPermissions = record.child_permissions;
+        const isDeny = record.is_deny as boolean;
         const grantedTs = record.granted_ts as string;
         const expiresTs = record.expires_ts as string | null;
 
-        const personKey = `${personCode}:${personId}`;
-        uniquePersons.add(personKey);
+        uniqueRoles.add(roleId);
         uniqueEntities.add(entityCode);
 
-        if (personCode === 'role') {
-          roleBasedCount++;
-        } else {
-          employeeCount++;
-        }
+        if (isDeny) denyCount++;
+        if (inheritanceMode === 'cascade') cascadeCount++;
+        if (inheritanceMode === 'mapped') mappedCount++;
 
-        // Group by person
-        if (!personMap.has(personKey)) {
-          personMap.set(personKey, {
-            person_type: personCode,
-            person_id: personId,
-            person_name: personName,
-            person_code: personCodeValue,
+        // Group by role
+        if (!roleMap.has(roleId)) {
+          roleMap.set(roleId, {
+            role_id: roleId,
+            role_name: roleName,
+            role_code: roleCode,
             permissions: [],
           });
         }
 
-        const entity_display = entityInstanceId === '11111111-1111-1111-1111-111111111111'
+        const entityDisplay = entityInstanceId === ALL_ENTITIES_ID
           ? 'ALL (Type-level)'
           : entityInstanceId;
 
-        personMap.get(personKey).permissions.push({
+        roleMap.get(roleId).permissions.push({
           entity_code: entityCode,
           entity_instance_id: entityInstanceId,
-          entity_display: entity_display,
+          entity_display: entityDisplay,
           permission_level: permission,
-          permission_label: getPermissionLabel(permission),
+          permission_label: PERMISSION_LABELS[permission] || 'Unknown',
+          inheritance_mode: inheritanceMode,
+          child_permissions: childPermissions,
+          is_deny: isDeny,
           granted_ts: grantedTs,
           expires_ts: expiresTs,
         });
@@ -746,31 +820,371 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         }
 
         entityMap.get(entityCode).permissions.push({
-          person_type: personCode,
-          person_id: personId,
-          person_name: personName,
+          role_id: roleId,
+          role_name: roleName,
           entity_instance_id: entityInstanceId,
           permission_level: permission,
-          permission_label: getPermissionLabel(permission),
+          permission_label: PERMISSION_LABELS[permission] || 'Unknown',
+          inheritance_mode: inheritanceMode,
+          is_deny: isDeny,
         });
       }
 
       return {
         summary: {
           total_permissions: rbacRecords.length,
-          role_based_permissions: roleBasedCount,
-          employee_permissions: employeeCount,
-          unique_persons: uniquePersons.size,
+          unique_roles: uniqueRoles.size,
           unique_entities: uniqueEntities.size,
+          deny_permissions: denyCount,
+          cascading_permissions: cascadeCount,
+          mapped_permissions: mappedCount,
         },
-        permissions_by_person: Array.from(personMap.values()),
+        permissions_by_role: Array.from(roleMap.values()),
         permissions_by_entity: Array.from(entityMap.values()),
       };
     } catch (error: any) {
       fastify.log.error(`Error fetching RBAC overview: ${error.message}`, error);
-      console.error('[RBAC Overview] Full error:', error);
       return reply.status(500).send({ error: `Internal server error: ${error.message}` });
     }
   });
 
+  // Get effective access for a person (resolved permissions after inheritance)
+  // NOTE: Response structure uses 'data' array to match frontend TanStack Query expectations
+  fastify.get('/api/v1/entity_rbac/person/:personId/effective-access', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        personId: Type.String({ format: 'uuid' }),
+      }),
+      querystring: Type.Object({
+        entity_code: Type.Optional(Type.String()),
+      }),
+      response: {
+        200: Type.Object({
+          person_id: Type.String(),
+          person_name: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+          roles: Type.Array(Type.Object({
+            role_id: Type.String(),
+            role_name: Type.String(),
+          })),
+          data: Type.Array(Type.Object({
+            entity_code: Type.String(),
+            entity_name: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+            entity_icon: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+            entity_instance_id: Type.String(),
+            permission: Type.Number(),
+            is_deny: Type.Boolean(),
+            source: Type.String(), // 'direct' | 'inherited'
+            inherited_from: Type.Optional(Type.Object({
+              entity_code: Type.String(),
+              entity_name: Type.Optional(Type.String()),
+            })),
+          })),
+        }),
+        401: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    const { personId } = request.params as any;
+    const { entity_code } = request.query as any;
+    const userId = (request as any).user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    try {
+      // Get person info
+      const personResult = await db.execute(sql`
+        SELECT id, name FROM app.person WHERE id = ${personId}::uuid
+      `);
+      const personName = personResult.length > 0 ? (personResult[0] as any).name : null;
+
+      // Get roles for this person
+      const rolesResult = await db.execute(sql`
+        SELECT r.id AS role_id, r.name AS role_name
+        FROM app.entity_instance_link eil
+        JOIN app.role r ON eil.entity_instance_id = r.id
+        WHERE eil.entity_code = 'role'
+          AND eil.child_entity_code = 'person'
+          AND eil.child_entity_instance_id = ${personId}::uuid
+      `);
+
+      const roles = rolesResult.map(r => ({
+        role_id: (r as any).role_id,
+        role_name: (r as any).role_name,
+      }));
+
+      // Get effective permissions with entity metadata
+      let entityFilter = sql`1=1`;
+      if (entity_code) {
+        entityFilter = sql`er.entity_code = ${entity_code}`;
+      }
+
+      const effectiveResult = await db.execute(sql`
+        SELECT DISTINCT ON (er.entity_code, er.entity_instance_id)
+          er.entity_code,
+          er.entity_instance_id,
+          er.permission,
+          er.is_deny,
+          er.inheritance_mode,
+          e.name AS entity_name,
+          e.ui_icon AS entity_icon,
+          r.name AS role_name,
+          CASE
+            WHEN er.inheritance_mode = 'none' THEN 'direct'
+            ELSE 'inherited'
+          END AS source
+        FROM app.entity_rbac er
+        JOIN app.role r ON er.role_id = r.id
+        JOIN app.entity_instance_link eil ON eil.entity_instance_id = r.id
+        LEFT JOIN app.entity e ON e.code = er.entity_code
+        WHERE eil.entity_code = 'role'
+          AND eil.child_entity_code = 'person'
+          AND eil.child_entity_instance_id = ${personId}::uuid
+          AND (er.expires_ts IS NULL OR er.expires_ts > NOW())
+          AND ${entityFilter}
+        ORDER BY er.entity_code, er.entity_instance_id, er.permission DESC
+      `);
+
+      return {
+        person_id: personId,
+        person_name: personName,
+        roles,
+        data: effectiveResult.map(p => ({
+          entity_code: (p as any).entity_code,
+          entity_name: (p as any).entity_name,
+          entity_icon: (p as any).entity_icon,
+          entity_instance_id: (p as any).entity_instance_id,
+          permission: (p as any).permission,
+          is_deny: (p as any).is_deny,
+          source: (p as any).source,
+          inherited_from: (p as any).source === 'inherited' ? {
+            entity_code: (p as any).entity_code,
+            entity_name: (p as any).role_name,
+          } : undefined,
+        })),
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching effective access:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // ===============================
+  // ROLE-PERSON MEMBERSHIP
+  // ===============================
+
+  // Add person to role (via entity_instance_link)
+  fastify.post('/api/v1/entity_rbac/role/:roleId/members', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        roleId: Type.String({ format: 'uuid' }),
+      }),
+      body: Type.Object({
+        person_id: Type.String({ format: 'uuid' }),
+      }),
+      response: {
+        201: Type.Object({
+          role_id: Type.String(),
+          person_id: Type.String(),
+          message: Type.String(),
+        }),
+        400: Type.Object({ error: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    const { roleId } = request.params as any;
+    const { person_id } = request.body as any;
+    const userId = (request as any).user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    try {
+      // Verify role exists
+      const roleExists = await db.execute(sql`
+        SELECT id FROM app.role WHERE id = ${roleId}::uuid AND active_flag = true
+      `);
+      if (roleExists.length === 0) {
+        return reply.status(400).send({ error: 'Role not found or inactive' });
+      }
+
+      // Verify person exists
+      const personExists = await db.execute(sql`
+        SELECT id FROM app.person WHERE id = ${person_id}::uuid
+      `);
+      if (personExists.length === 0) {
+        return reply.status(400).send({ error: 'Person not found' });
+      }
+
+      // Check if already a member
+      const existingLink = await db.execute(sql`
+        SELECT id FROM app.entity_instance_link
+        WHERE entity_code = 'role'
+          AND entity_instance_id = ${roleId}::uuid
+          AND child_entity_code = 'person'
+          AND child_entity_instance_id = ${person_id}::uuid
+      `);
+
+      if (existingLink.length > 0) {
+        return reply.status(400).send({ error: 'Person is already a member of this role' });
+      }
+
+      // Add person to role via entity_instance_link
+      await db.execute(sql`
+        INSERT INTO app.entity_instance_link
+        (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
+        VALUES ('role', ${roleId}::uuid, 'person', ${person_id}::uuid, 'member')
+      `);
+
+      return reply.status(201).send({
+        role_id: roleId,
+        person_id: person_id,
+        message: 'Person added to role successfully',
+      });
+    } catch (error) {
+      fastify.log.error('Error adding person to role:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Remove person from role
+  fastify.delete('/api/v1/entity_rbac/role/:roleId/members/:personId', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        roleId: Type.String({ format: 'uuid' }),
+        personId: Type.String({ format: 'uuid' }),
+      }),
+      response: {
+        200: Type.Object({
+          message: Type.String(),
+        }),
+        401: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    const { roleId, personId } = request.params as any;
+    const userId = (request as any).user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    try {
+      // Check if link exists
+      const linkExists = await db.execute(sql`
+        SELECT id FROM app.entity_instance_link
+        WHERE entity_code = 'role'
+          AND entity_instance_id = ${roleId}::uuid
+          AND child_entity_code = 'person'
+          AND child_entity_instance_id = ${personId}::uuid
+      `);
+
+      if (linkExists.length === 0) {
+        return reply.status(404).send({ error: 'Person is not a member of this role' });
+      }
+
+      // Remove the link
+      await db.execute(sql`
+        DELETE FROM app.entity_instance_link
+        WHERE entity_code = 'role'
+          AND entity_instance_id = ${roleId}::uuid
+          AND child_entity_code = 'person'
+          AND child_entity_instance_id = ${personId}::uuid
+      `);
+
+      return { message: 'Person removed from role successfully' };
+    } catch (error) {
+      fastify.log.error('Error removing person from role:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Get role members
+  // NOTE: Response structure uses 'data' array to match frontend TanStack Query expectations
+  fastify.get('/api/v1/entity_rbac/role/:roleId/members', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        roleId: Type.String({ format: 'uuid' }),
+      }),
+      response: {
+        200: Type.Object({
+          role_id: Type.String(),
+          role_name: Type.String(),
+          data: Type.Array(Type.Object({
+            person_id: Type.String(),
+            person_name: Type.String(),
+            person_code: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+            person_email: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+            assigned_ts: Type.String(),
+            link_id: Type.String(),
+          })),
+        }),
+        401: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    const { roleId } = request.params as any;
+    const userId = (request as any).user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    try {
+      // Get role info
+      const roleResult = await db.execute(sql`
+        SELECT id, name FROM app.role WHERE id = ${roleId}::uuid
+      `);
+      if (roleResult.length === 0) {
+        return reply.status(404).send({ error: 'Role not found' });
+      }
+      const role = roleResult[0] as any;
+
+      // Get members via entity_instance_link with all required fields
+      const membersResult = await db.execute(sql`
+        SELECT
+          p.id AS person_id,
+          p.name AS person_name,
+          p.code AS person_code,
+          p.email AS person_email,
+          eil.created_ts AS assigned_ts,
+          eil.id AS link_id
+        FROM app.entity_instance_link eil
+        JOIN app.person p ON eil.child_entity_instance_id = p.id
+        WHERE eil.entity_code = 'role'
+          AND eil.entity_instance_id = ${roleId}::uuid
+          AND eil.child_entity_code = 'person'
+        ORDER BY p.name
+      `);
+
+      return {
+        role_id: role.id,
+        role_name: role.name,
+        data: membersResult.map(m => ({
+          person_id: (m as any).person_id,
+          person_name: (m as any).person_name,
+          person_code: (m as any).person_code,
+          person_email: (m as any).person_email,
+          assigned_ts: (m as any).assigned_ts?.toISOString() || new Date().toISOString(),
+          link_id: (m as any).link_id,
+        })),
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching role members:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
 }
