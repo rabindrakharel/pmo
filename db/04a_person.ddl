@@ -7,7 +7,8 @@
 -- source of truth for authentication, security, MFA, RBAC, and notification.
 -- Personal details (name, address) are stored in entity-specific tables.
 --
--- entity_code values: 'employee', 'customer', 'vendor', 'supplier', 'role'
+-- entity_code values: 'employee', 'customer', 'vendor', 'supplier'
+-- NOTE: Roles are NOT persons. Role membership is via entity_instance_link.
 --
 -- DESIGN PRINCIPLES:
 -- • Auth Centralization: ALL passwords, MFA, security questions stored HERE
@@ -25,8 +26,12 @@
 --
 -- RELATIONSHIPS:
 -- • Children: employee.person_id, customer.person_id, supplier.person_id
--- • RBAC: entity_rbac.person_id references this table
+-- • Role Membership: entity_instance_link (entity_code='role', child_entity_code='person')
 -- • Notifications: All messaging/email targets this table
+--
+-- RBAC MODEL (v2.0.0):
+-- Permissions are granted to ROLES (not directly to persons).
+-- Persons inherit permissions through role membership via entity_instance_link.
 --
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -36,11 +41,12 @@ CREATE TABLE IF NOT EXISTS app.person (
     -- ─────────────────────────────────────────────────────────────────────────
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     code varchar(100),
+    name varchar(255), -- Display name (copied from employee/customer for convenience)
 
     -- ─────────────────────────────────────────────────────────────────────────
     -- Entity Type (which entity table this person belongs to)
     -- ─────────────────────────────────────────────────────────────────────────
-    entity_code varchar(100), -- 'employee', 'customer', 'vendor', 'supplier', 'role'
+    entity_code varchar(100), -- 'employee', 'customer', 'vendor', 'supplier'
 
     -- ─────────────────────────────────────────────────────────────────────────
     -- Primary Authentication Identifier
@@ -182,7 +188,7 @@ CREATE TABLE IF NOT EXISTS app.person (
     employee_id uuid, -- If entity_code='employee', points to employee.id
     customer_id uuid, -- If entity_code='customer', points to customer.id
     supplier_id uuid, -- If entity_code='supplier', points to supplier.id
-    role_id uuid, -- If entity_code='role', points to role.id
+    -- NOTE: No role_id column. Role membership is via entity_instance_link.
 
     -- ─────────────────────────────────────────────────────────────────────────
     -- Standard Metadata & Temporal Fields
@@ -220,10 +226,11 @@ CREATE INDEX IF NOT EXISTS idx_person_supplier_id ON app.person(supplier_id) WHE
 -- Comments
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-COMMENT ON TABLE app.person IS 'Centralized authentication hub for all person types (employees, customers, suppliers). Stores auth, MFA, security, RBAC linkage. Personal details stored in entity-specific tables.';
+COMMENT ON TABLE app.person IS 'Centralized authentication hub for all person types (employees, customers, suppliers). Stores auth, MFA, security. Role membership via entity_instance_link (entity_code=role, child=person). Personal details stored in entity-specific tables.';
 COMMENT ON COLUMN app.person.id IS 'Unique identifier (UUID) - used as JWT subject';
 COMMENT ON COLUMN app.person.code IS 'Unique person code (e.g., PER-00001)';
-COMMENT ON COLUMN app.person.entity_code IS 'Entity type code: employee, customer, vendor, supplier, role';
+COMMENT ON COLUMN app.person.name IS 'Display name (copied from employee/customer for convenience in role membership)';
+COMMENT ON COLUMN app.person.entity_code IS 'Entity type code: employee, customer, vendor, supplier (NOT role - roles are separate entities)';
 COMMENT ON COLUMN app.person.email IS 'Primary email - login identifier (unique per active person)';
 COMMENT ON COLUMN app.person.password_hash IS 'Bcrypt hashed password (cost 12)';
 COMMENT ON COLUMN app.person.password_changed_ts IS 'Timestamp of last password change';

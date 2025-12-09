@@ -1024,23 +1024,78 @@ WHERE r.code IN ('TECH-FIELD');
 -- COORDINATOR ROLES - ADMINISTRATIVE SUPPORT
 -- ============================================================================
 
--- Coordinators - Create tasks and events
+-- ============================================================================
+-- PROJECT COORDINATOR (COORD-PROJ) - Specialized for project management
+-- Role: scheduling, communication, documentation, and administrative support
+-- ============================================================================
+
+-- Project Coordinator - Project access with MAPPED inheritance
+-- Share projects but granular control over child entities
 INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
 SELECT
   r.id,
-  entity_type,
+  'project',
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  4,  -- Share
+  'mapped',
+  '{"task": 3, "wiki": 3, "artifact": 2, "form": 3, "expense": 0, "revenue": 0, "_default": 0}'::jsonb,
+  false
+FROM app.role r
+WHERE r.code = 'COORD-PROJ';
+
+-- Project Coordinator - Create tasks with mapped inheritance for subtasks
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  'task',
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  6,  -- Create
+  'mapped',
+  '{"task": 6, "form": 3, "artifact": 2, "_default": 0}'::jsonb,  -- subtasks: Create, forms: Edit, artifacts: Contribute
+  false
+FROM app.role r
+WHERE r.code = 'COORD-PROJ';
+
+-- Project Coordinator - Create events (scheduling responsibility)
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  'event',
   '11111111-1111-1111-1111-111111111111'::uuid,
   6,  -- Create
   'cascade',
   '{}'::jsonb,
   false
 FROM app.role r
-CROSS JOIN (VALUES
-  ('task'), ('event'), ('interaction')
-) AS entities(entity_type)
-WHERE r.code IN ('COORD-PROJ', 'COORD-HR');
+WHERE r.code = 'COORD-PROJ';
 
--- Coordinators - Delete forms and artifacts
+-- Project Coordinator - Create interactions (stakeholder communication)
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  'interaction',
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  6,  -- Create
+  'cascade',
+  '{}'::jsonb,
+  false
+FROM app.role r
+WHERE r.code = 'COORD-PROJ';
+
+-- Project Coordinator - Manage calendar (scheduling)
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  'calendar',
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  4,  -- Share
+  'cascade',
+  '{}'::jsonb,
+  false
+FROM app.role r
+WHERE r.code = 'COORD-PROJ';
+
+-- Project Coordinator - Delete forms and artifacts (documentation oversight)
 INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
 SELECT
   r.id,
@@ -1054,9 +1109,9 @@ FROM app.role r
 CROSS JOIN (VALUES
   ('form'), ('artifact')
 ) AS entities(entity_type)
-WHERE r.code IN ('COORD-PROJ', 'COORD-HR');
+WHERE r.code = 'COORD-PROJ';
 
--- Coordinators - Share projects, customers, and wikis
+-- Project Coordinator - Share wiki and customer (documentation & communication)
 INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
 SELECT
   r.id,
@@ -1068,11 +1123,11 @@ SELECT
   false
 FROM app.role r
 CROSS JOIN (VALUES
-  ('project'), ('customer'), ('wiki'), ('calendar')
+  ('wiki'), ('customer')
 ) AS entities(entity_type)
-WHERE r.code IN ('COORD-PROJ', 'COORD-HR');
+WHERE r.code = 'COORD-PROJ';
 
--- Coordinators - Edit employees and work orders
+-- Project Coordinator - Edit employees and work orders (administrative support)
 INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
 SELECT
   r.id,
@@ -1086,9 +1141,106 @@ FROM app.role r
 CROSS JOIN (VALUES
   ('employee'), ('work_order')
 ) AS entities(entity_type)
-WHERE r.code IN ('COORD-PROJ', 'COORD-HR');
+WHERE r.code = 'COORD-PROJ';
 
--- Coordinators - View financial data
+-- Project Coordinator - Edit messages (communication responsibility)
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  'message',
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  3,  -- Edit
+  'none',
+  '{}'::jsonb,
+  false
+FROM app.role r
+WHERE r.code = 'COORD-PROJ';
+
+-- Project Coordinator - View financial data (read-only access for coordination)
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  entity_type,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  0,  -- View
+  'none',
+  '{}'::jsonb,
+  false
+FROM app.role r
+CROSS JOIN (VALUES
+  ('expense'), ('revenue'), ('invoice'), ('order'), ('quote')
+) AS entities(entity_type)
+WHERE r.code = 'COORD-PROJ';
+
+-- ============================================================================
+-- HR COORDINATOR (COORD-HR) - Specialized for HR operations
+-- ============================================================================
+
+-- HR Coordinator - Create tasks and events
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  entity_type,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  6,  -- Create
+  'cascade',
+  '{}'::jsonb,
+  false
+FROM app.role r
+CROSS JOIN (VALUES
+  ('task'), ('event'), ('interaction')
+) AS entities(entity_type)
+WHERE r.code = 'COORD-HR';
+
+-- HR Coordinator - Delete forms and artifacts
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  entity_type,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  5,  -- Delete
+  'none',
+  '{}'::jsonb,
+  false
+FROM app.role r
+CROSS JOIN (VALUES
+  ('form'), ('artifact')
+) AS entities(entity_type)
+WHERE r.code = 'COORD-HR';
+
+-- HR Coordinator - Share projects, customers, wikis, calendar
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  entity_type,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  4,  -- Share
+  'cascade',
+  '{}'::jsonb,
+  false
+FROM app.role r
+CROSS JOIN (VALUES
+  ('project'), ('customer'), ('wiki'), ('calendar')
+) AS entities(entity_type)
+WHERE r.code = 'COORD-HR';
+
+-- HR Coordinator - Edit employees and work orders
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  entity_type,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  3,  -- Edit
+  'none',
+  '{}'::jsonb,
+  false
+FROM app.role r
+CROSS JOIN (VALUES
+  ('employee'), ('work_order')
+) AS entities(entity_type)
+WHERE r.code = 'COORD-HR';
+
+-- HR Coordinator - View financial data
 INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
 SELECT
   r.id,
@@ -1102,7 +1254,7 @@ FROM app.role r
 CROSS JOIN (VALUES
   ('expense'), ('revenue'), ('invoice'), ('order')
 ) AS entities(entity_type)
-WHERE r.code IN ('COORD-PROJ', 'COORD-HR');
+WHERE r.code = 'COORD-HR';
 
 -- ============================================================================
 -- CUSTOMER ROLE - LIMITED PERMISSIONS
@@ -1653,48 +1805,37 @@ ON app.entity_instance_link (entity_code, entity_instance_id, child_entity_code)
 CREATE INDEX IF NOT EXISTS idx_entity_instance_link_child
 ON app.entity_instance_link (child_entity_code, child_entity_instance_id);
 
--- Role → Employee membership (heavily used in RBAC CTEs)
--- Query: WHERE entity_code = 'role' AND child_entity_code = 'employee' AND child_entity_instance_id = ?
+-- Role → Person membership (heavily used in RBAC CTEs per RBAC v2.0.0)
+-- Query: WHERE entity_code = 'role' AND child_entity_code = 'person' AND child_entity_instance_id = ?
 -- Partial index for this specific high-frequency pattern
-CREATE INDEX IF NOT EXISTS idx_entity_instance_link_role_employee
+CREATE INDEX IF NOT EXISTS idx_entity_instance_link_role_person
 ON app.entity_instance_link (entity_instance_id, child_entity_instance_id)
-WHERE entity_code = 'role' AND child_entity_code = 'employee';
+WHERE entity_code = 'role' AND child_entity_code = 'person';
 
 -- Unique constraint to prevent duplicate links
 CREATE UNIQUE INDEX IF NOT EXISTS idx_entity_instance_link_unique
 ON app.entity_instance_link (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id);
 
 -- ============================================================================
--- SECTION 4.3: entity_rbac INDEXES
+-- SECTION 4.3: entity_rbac INDEXES (v2.0.0 Role-Only Model)
 -- ============================================================================
 -- Used by: check_entity_rbac(), getMaxPermissionLevel(), getAccessibleEntityIds(),
 --          delete_entity(), set_entity_rbac()
 --
--- NOTE: idx_entity_rbac_unique_permission already exists (see 06_entity_rbac.ddl)
---       It handles: (person_code, person_id, entity_code, entity_instance_id)
+-- NOTE: Primary indexes defined in 06_entity_rbac.ddl:
+--   - idx_entity_rbac_unique_permission: (role_id, entity_code, entity_instance_id) UNIQUE
+--   - idx_entity_rbac_role_entity: (role_id, entity_code)
+--   - idx_entity_rbac_entity_instance: (entity_code, entity_instance_id)
+--   - idx_entity_rbac_deny: (role_id, entity_code, entity_instance_id) WHERE is_deny = true
+--   - idx_entity_rbac_inheritable: (role_id, inheritance_mode) WHERE inheritance_mode IN ('cascade', 'mapped')
+--   - idx_entity_rbac_expires: (expires_ts) WHERE expires_ts IS NOT NULL
+--
+-- Additional indexes for big_data performance (if needed):
 
--- Direct employee permission lookups (CTE: direct_emp)
--- Query: WHERE person_code = 'employee' AND person_id = ? AND entity_code = ?
-CREATE INDEX IF NOT EXISTS idx_entity_rbac_employee_entity
-ON app.entity_rbac (person_id, entity_code, entity_instance_id)
-WHERE person_code = 'employee';
-
--- Role permission lookups (CTE: role_based)
--- Query: WHERE person_code = 'role' AND entity_code = ?
-CREATE INDEX IF NOT EXISTS idx_entity_rbac_role_entity
-ON app.entity_rbac (entity_code, entity_instance_id, person_id)
-WHERE person_code = 'role';
-
--- Entity instance cleanup (for delete operations)
--- Query: WHERE entity_code = X AND entity_instance_id = Y
-CREATE INDEX IF NOT EXISTS idx_entity_rbac_entity_instance
-ON app.entity_rbac (entity_code, entity_instance_id);
-
--- Permission expiration filtering (commonly used in WHERE clauses)
--- Query: WHERE expires_ts IS NULL OR expires_ts > NOW()
--- Partial index for active (non-expired) permissions only
+-- Active (non-expired) permission lookups for role-based queries
+-- Query: WHERE role_id IN (...) AND entity_code = ? AND (expires_ts IS NULL OR expires_ts > NOW())
 CREATE INDEX IF NOT EXISTS idx_entity_rbac_active_permissions
-ON app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission)
+ON app.entity_rbac (role_id, entity_code, entity_instance_id, permission)
 WHERE expires_ts IS NULL;
 
 -- ============================================================================

@@ -57,8 +57,8 @@ interface Permission {
 interface PersonAssignment {
   person_id: string;
   person_name: string;
-  person_code?: string;
   person_email?: string;
+  entity_code?: string;
   assigned_ts: string;
   link_id: string;
 }
@@ -200,7 +200,8 @@ export function AccessControlPage() {
   // Entity labels and icons map
   const entityLabels = useMemo(() => {
     const labels: Record<string, string> = {};
-    (entitiesData || []).forEach((e: EntityOption) => {
+    const entities = entitiesData?.data || [];
+    entities.forEach((e: EntityOption) => {
       labels[e.code] = e.ui_label || e.name;
     });
     return labels;
@@ -208,7 +209,8 @@ export function AccessControlPage() {
 
   const entityIcons = useMemo(() => {
     const icons: Record<string, string> = {};
-    (entitiesData || []).forEach((e: EntityOption) => {
+    const entities = entitiesData?.data || [];
+    entities.forEach((e: EntityOption) => {
       if (e.ui_icon) icons[e.code] = e.ui_icon;
     });
     return icons;
@@ -647,10 +649,10 @@ export function AccessControlPage() {
                             <thead className="bg-dark-50">
                               <tr>
                                 <th className="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
-                                  Person
+                                  Name
                                 </th>
                                 <th className="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
-                                  Code
+                                  Type
                                 </th>
                                 <th className="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
                                   Email
@@ -674,8 +676,10 @@ export function AccessControlPage() {
                                       <span className="font-medium text-dark-800">{person.person_name}</span>
                                     </div>
                                   </td>
-                                  <td className="px-4 py-3 text-dark-600">
-                                    {person.person_code || '—'}
+                                  <td className="px-4 py-3">
+                                    <span className="px-2 py-1 text-xs font-medium bg-slate-100 text-slate-700 rounded capitalize">
+                                      {person.entity_code || '—'}
+                                    </span>
                                   </td>
                                   <td className="px-4 py-3 text-dark-600">
                                     {person.person_email || '—'}

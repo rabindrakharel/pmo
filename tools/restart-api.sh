@@ -92,14 +92,18 @@ fi
 # Check if dependencies are installed
 if [[ ! -d "node_modules" ]] || [[ ! -d "apps/api/node_modules" ]]; then
     echo -e "${YELLOW}📦 Installing dependencies...${NC}"
-    pnpm install
+    npm install
 fi
 
 echo -e "${BLUE}🔧 Starting API development server on port $API_PORT...${NC}"
 
+# Load nvm to ensure correct Node version
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
 # Start the API server in background and capture PID
 cd apps/api
-nohup pnpm dev > "../../$API_LOG_FILE" 2>&1 &
+nohup npm run dev > "../../$API_LOG_FILE" 2>&1 &
 API_PID=$!
 
 # Save PID to file

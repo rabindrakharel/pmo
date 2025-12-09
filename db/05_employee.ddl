@@ -126,6 +126,7 @@ COMMENT ON COLUMN app.employee.last_name IS 'Employee last name';
 INSERT INTO app.person (
     id,
     code,
+    name,
     entity_code,
     email,
     password_hash,
@@ -136,6 +137,7 @@ INSERT INTO app.person (
 ) VALUES (
     '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',
     'PER-001',
+    'James Miller',
     'employee',
     'james.miller@huronhome.ca',
     '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', -- password123
@@ -227,11 +229,11 @@ UPDATE app.person SET employee_id = 'e8260b1b-5efc-4611-ad33-ee76c0cf7f13' WHERE
 -- =====================================================
 
 -- Person records for C-suite
-INSERT INTO app.person (code, entity_code, email, password_hash, email_verified_flag) VALUES
-('PER-002', 'employee', 'sarah.johnson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', true),
-('PER-003', 'employee', 'michael.chen@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', true),
-('PER-004', 'employee', 'lisa.rodriguez@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', true),
-('PER-005', 'employee', 'david.thompson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', true);
+INSERT INTO app.person (code, name, entity_code, email, password_hash, email_verified_flag) VALUES
+('PER-002', 'Sarah Johnson', 'employee', 'sarah.johnson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', true),
+('PER-003', 'Michael Chen', 'employee', 'michael.chen@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', true),
+('PER-004', 'Lisa Rodriguez', 'employee', 'lisa.rodriguez@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', true),
+('PER-005', 'David Thompson', 'employee', 'david.thompson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', true);
 
 -- Employee records for C-suite
 INSERT INTO app.employee (
@@ -449,6 +451,7 @@ BEGIN
         INSERT INTO app.person (
             id,
             code,
+            name,
             entity_code,
             email,
             password_hash,
@@ -456,6 +459,7 @@ BEGIN
         ) VALUES (
             v_person_id,
             v_per_code,
+            v_full_name,
             'employee',
             v_email,
             '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', -- password123
@@ -514,70 +518,18 @@ FROM app.employee
 WHERE active_flag = true;
 
 -- =====================================================
--- ASSIGN ROLES TO EMPLOYEES VIA entity_instance_link
+-- ROLE-PERSON MEMBERSHIP
 -- =====================================================
+-- NOTE: Role-person membership assignment is done in 09_role.ddl
+-- because roles must exist before they can be linked to persons.
+-- See 09_role.ddl for the RBAC v2.0.0 role-person assignment logic.
 
--- Clear existing employee-role mappings
-DELETE FROM app.entity_instance_link WHERE child_entity_code = 'employee';
-
--- Assign roles to all employees based on their titles
-INSERT INTO app.entity_instance_link (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
-SELECT
-    'role',
-    r.id,
-    'employee',
-    e.id,
-    'assigned_to'
+-- =====================================================
+-- Sync person.name from employee.name
+-- This denormalization enables fast role-person lookups
+-- =====================================================
+UPDATE app.person p
+SET name = e.name
 FROM app.employee e
-INNER JOIN app.role r ON (
-    (e.title LIKE '%CEO%' AND r.role_code = 'CEO') OR
-    (e.title LIKE '%CFO%' OR e.title LIKE '%Chief Financial%' AND r.role_code = 'CFO') OR
-    (e.title LIKE '%CTO%' OR e.title LIKE '%Chief Technology%' AND r.role_code = 'CTO') OR
-    (e.title LIKE '%COO%' OR e.title LIKE '%Chief Operating%' AND r.role_code = 'COO') OR
-    (e.title LIKE '%Senior Vice President%' AND r.role_code = 'SVP') OR
-    (e.title LIKE '%Vice President%' AND e.department = 'Human Resources' AND r.role_code = 'VP-HR') OR
-    (e.title LIKE '%Director%' AND e.department = 'Finance' AND r.role_code = 'DIR-FIN') OR
-    (e.title LIKE '%Director%' AND e.department IN ('IT', 'Technology') AND r.role_code = 'DIR-IT') OR
-    (e.title LIKE '%Manager%' AND e.department = 'Landscaping' AND r.role_code = 'MGR-LAND') OR
-    (e.title LIKE '%Manager%' AND e.department = 'Snow Removal' AND r.role_code = 'MGR-SNOW') OR
-    (e.title LIKE '%Manager%' AND e.department = 'HVAC' AND r.role_code = 'MGR-HVAC') OR
-    (e.title LIKE '%Manager%' AND e.department = 'Plumbing' AND r.role_code = 'MGR-PLUMB') OR
-    (e.title LIKE '%Manager%' AND e.department = 'Solar Energy' AND r.role_code = 'MGR-SOLAR') OR
-    (e.title LIKE '%Field Supervisor%' AND r.role_code = 'SUP-FIELD') OR
-    (e.title LIKE '%Senior Technician%' AND r.role_code = 'TECH-SR') OR
-    (e.title LIKE '%Field Technician%' AND r.role_code = 'TECH-FIELD') OR
-    (e.title LIKE '%Project Coordinator%' AND r.role_code = 'COORD-PROJ') OR
-    (e.title LIKE '%Financial Analyst%' AND r.role_code = 'ANALYST-FIN') OR
-    (e.title LIKE '%HR Coordinator%' AND r.role_code = 'COORD-HR') OR
-    (e.title LIKE '%IT Administrator%' AND r.role_code = 'ADMIN-IT') OR
-    (e.title LIKE '%Seasonal Worker%' AND r.role_code = 'SEASONAL')
-)
-WHERE e.active_flag = true;
-
--- Assign generic field technician role to any employee without a role match
-INSERT INTO app.entity_instance_link (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
-SELECT
-    'role',
-    (SELECT id FROM app.role WHERE role_code = 'TECH-FIELD'),
-    'employee',
-    e.id,
-    'assigned_to'
-FROM app.employee e
-WHERE e.active_flag = true
-  AND NOT EXISTS (
-    SELECT 1 FROM app.entity_instance_link eim
-    WHERE eim.child_entity_instance_id = e.id
-      AND eim.child_entity_code = 'employee'
-      AND eim.entity_code = 'role'
-  );
-
--- Show statistics
-SELECT
-    r.name as role_name,
-    COUNT(*) as employee_count
-FROM app.entity_instance_link eim
-INNER JOIN app.role r ON r.id = eim.entity_instance_id
-WHERE eim.entity_code = 'role'
-  AND eim.child_entity_code = 'employee'
-GROUP BY r.name
-ORDER BY employee_count DESC;
+WHERE e.person_id = p.id
+  AND p.entity_code = 'employee';

@@ -987,7 +987,7 @@ export class EntityInfrastructureService {
     entity_id: string
   ): Promise<number> {
     const result = await this.db.execute(sql`
-      WITH
+      WITH RECURSIVE
       -- ═══════════════════════════════════════════════════════════════════════
       -- 1. FIND ROLES FOR THIS PERSON
       --    Person → Roles via entity_instance_link (role contains person)
@@ -1035,7 +1035,7 @@ export class EntityInfrastructureService {
       -- 4. FIND ANCESTORS (for inheritance resolution)
       --    Recursive CTE to traverse entity_instance_link up the hierarchy
       -- ═══════════════════════════════════════════════════════════════════════
-      RECURSIVE ancestor_chain AS (
+      ancestor_chain AS (
         -- Base case: direct parents of the target entity
         SELECT
           eil.entity_code AS ancestor_code,
@@ -1249,9 +1249,10 @@ export class EntityInfrastructureService {
         er.granted_by_person_id,
         er.granted_ts,
         er.expires_ts,
-        p.name AS granted_by_name
+        COALESCE(ei.entity_instance_name, p.email) AS granted_by_name
       FROM app.entity_rbac er
       LEFT JOIN app.person p ON er.granted_by_person_id = p.id
+      LEFT JOIN app.entity_instance ei ON ei.entity_code = 'person' AND ei.entity_instance_id = p.id
       WHERE er.role_id = ${role_id}::uuid
       ORDER BY er.entity_code, er.entity_instance_id
     `);

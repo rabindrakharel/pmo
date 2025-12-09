@@ -30,7 +30,7 @@
 -- • project → task, wiki, artifact, form, cost, revenue
 -- • office → business, task, artifact, wiki, form, cost, revenue
 -- • cust → project, artifact, form, cost, revenue
--- • role → employee
+-- • role → person (role membership per RBAC v2.0.0)
 -- • task → form, artifact, employee, cost, revenue
 -- • form → artifact
 -- • quote → work_order

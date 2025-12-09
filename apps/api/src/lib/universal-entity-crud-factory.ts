@@ -752,7 +752,9 @@ export function createEntityListEndpoint(
       }
 
     } catch (error) {
-      fastify.log.error(`Error fetching ${ENTITY_CODE} list:`, error as any);
+      const err = error as Error;
+      fastify.log.error(`Error fetching ${ENTITY_CODE} list: ${err.message || 'Unknown error'}`);
+      if (err.stack) fastify.log.error(err.stack);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

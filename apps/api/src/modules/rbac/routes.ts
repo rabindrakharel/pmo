@@ -532,7 +532,9 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         })),
       };
     } catch (error) {
-      fastify.log.error('Error fetching role permissions:', error);
+      const err = error as Error;
+      fastify.log.error(`Error fetching role permissions: ${err.message}`);
+      if (err.stack) fastify.log.error(err.stack);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -1124,8 +1126,8 @@ export async function rbacRoutes(fastify: FastifyInstance) {
           data: Type.Array(Type.Object({
             person_id: Type.String(),
             person_name: Type.String(),
-            person_code: Type.Optional(Type.Union([Type.String(), Type.Null()])),
             person_email: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+            entity_code: Type.Optional(Type.Union([Type.String(), Type.Null()])),
             assigned_ts: Type.String(),
             link_id: Type.String(),
           })),
@@ -1153,13 +1155,14 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       }
       const role = roleResult[0] as any;
 
-      // Get members via entity_instance_link with all required fields
+      // Get members via entity_instance_link
+      // Returns: entity_code (employee, customer, vendor, supplier), name, email, assigned date
       const membersResult = await db.execute(sql`
         SELECT
           p.id AS person_id,
-          p.name AS person_name,
-          p.code AS person_code,
+          COALESCE(p.name, p.email) AS person_name,
           p.email AS person_email,
+          p.entity_code AS entity_code,
           eil.created_ts AS assigned_ts,
           eil.id AS link_id
         FROM app.entity_instance_link eil
@@ -1167,7 +1170,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         WHERE eil.entity_code = 'role'
           AND eil.entity_instance_id = ${roleId}::uuid
           AND eil.child_entity_code = 'person'
-        ORDER BY p.name
+        ORDER BY COALESCE(p.name, p.email)
       `);
 
       return {
@@ -1176,8 +1179,8 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         data: membersResult.map(m => ({
           person_id: (m as any).person_id,
           person_name: (m as any).person_name,
-          person_code: (m as any).person_code,
           person_email: (m as any).person_email,
+          entity_code: (m as any).entity_code,
           assigned_ts: (m as any).assigned_ts?.toISOString() || new Date().toISOString(),
           link_id: (m as any).link_id,
         })),

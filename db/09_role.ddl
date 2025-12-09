@@ -13,9 +13,9 @@
 -- • DELETE: DELETE /api/v1/role/{id}, active_flag=false, to_ts=now() (soft delete)
 -- • LIST: GET /api/v1/role, filters by role_category, RBAC enforced
 --
--- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Children: employee (via entity_instance_link)
--- • RBAC: entity_rbac
+-- RELATIONSHIPS (NO FOREIGN KEYS per RBAC v2.0.0):
+-- • Children: person (via entity_instance_link - role membership)
+-- • RBAC: entity_rbac (permissions granted to roles, not persons directly)
 --
 -- ============================================================================
 
@@ -305,3 +305,75 @@ INSERT INTO app.role (code, name, "descr", role_code, role_category, system_role
  '["administrative_support", "general_assistance", "flexible_schedule"]',
  0, 'High School',
  '{"flexible_schedule": true, "administrative_support": true, "general_assistance": true, "entry_level": true}');
+
+-- =====================================================
+-- REGISTER ROLES IN ENTITY_INSTANCE
+-- =====================================================
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+SELECT 'role', id, name, code
+FROM app.role
+WHERE active_flag = true;
+
+-- =====================================================
+-- ASSIGN ROLES TO PERSONS VIA entity_instance_link (RBAC v2.0.0)
+-- =====================================================
+-- Per RBAC v2.0.0 Role-Only Model:
+-- - Roles link to PERSONS (not employees)
+-- - Persons get permissions through role membership
+-- - Employee is the entity_code stored in person.entity_code
+
+-- Clear existing role-person mappings
+DELETE FROM app.entity_instance_link WHERE entity_code = 'role' AND child_entity_code = 'person';
+
+-- Assign roles to persons based on employee title matching
+-- Title → Role Mapping:
+--   Chief Executive Officer → CEO
+--   Chief Technology Officer → CTO
+--   Chief Operating Officer → COO
+--   Vice President of Sales → SVP
+--   Director → DIR-FIN
+--   Senior Project Manager → ADMIN-IT
+--   Manager → MGR-LAND
+--   Senior Manager → MGR-SNOW
+--   Field Supervisor → SUP-FIELD
+--   Senior Technician → TECH-SR
+--   Field Technician → TECH-FIELD
+--   Coordinator → COORD-PROJ
+--   Analyst → ANALYST-FIN
+--   Specialist → COORD-HR
+--   Seasonal Worker → SEASONAL
+
+INSERT INTO app.entity_instance_link (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
+SELECT 'role', r.id, 'person', p.id, 'member'
+FROM app.employee e
+INNER JOIN app.person p ON p.id = e.person_id
+INNER JOIN app.role r ON r.role_code = CASE e.title
+    WHEN 'Chief Executive Officer' THEN 'CEO'
+    WHEN 'Chief Technology Officer' THEN 'CTO'
+    WHEN 'Chief Operating Officer' THEN 'COO'
+    WHEN 'Vice President of Sales' THEN 'SVP'
+    WHEN 'Director' THEN 'DIR-FIN'
+    WHEN 'Senior Project Manager' THEN 'ADMIN-IT'
+    WHEN 'Manager' THEN 'MGR-LAND'
+    WHEN 'Senior Manager' THEN 'MGR-SNOW'
+    WHEN 'Field Supervisor' THEN 'SUP-FIELD'
+    WHEN 'Senior Technician' THEN 'TECH-SR'
+    WHEN 'Field Technician' THEN 'TECH-FIELD'
+    WHEN 'Coordinator' THEN 'COORD-PROJ'
+    WHEN 'Analyst' THEN 'ANALYST-FIN'
+    WHEN 'Specialist' THEN 'COORD-HR'
+    WHEN 'Seasonal Worker' THEN 'SEASONAL'
+    ELSE 'TECH-FIELD'  -- Default fallback
+END
+WHERE e.active_flag = true;
+
+-- Show statistics (role → person membership)
+SELECT
+    r.name as role_name,
+    COUNT(*) as member_count
+FROM app.entity_instance_link eil
+INNER JOIN app.role r ON r.id = eil.entity_instance_id
+WHERE eil.entity_code = 'role'
+  AND eil.child_entity_code = 'person'
+GROUP BY r.name
+ORDER BY member_count DESC;

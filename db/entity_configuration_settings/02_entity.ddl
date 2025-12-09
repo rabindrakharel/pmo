@@ -19,7 +19,7 @@
 -- • project → task, wiki, artifact, form, cost, revenue
 -- • task → form, artifact, cost, revenue, employee (assignees)
 -- • cust → project, artifact, form, cost, revenue
--- • role → employee
+-- • role → person (role membership per RBAC v2.0.0)
 -- • form, quote, order → (have children per child_entity_codes JSONB)
 -- • Leaf nodes: employee, wiki, artifact, worksite, reports, service, product, etc.
 --
@@ -125,7 +125,7 @@ VALUES (
   50
 );
 
--- Role entity type (has 2 child types)
+-- Role entity type (has 1 child type - person for role membership per RBAC v2.0.0)
 INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'role',
@@ -134,7 +134,7 @@ VALUES (
   'UserCheck',
   'role',
   'd',
-  '["rbac", "employee"]'::jsonb,
+  '["person"]'::jsonb,
   60
 );
 

@@ -117,8 +117,9 @@ export function GrantPermissionModal({
         headers: { Authorization: `Bearer ${token}` }
       });
       if (response.ok) {
-        const data = await response.json();
-        setEntities(data || []);
+        const result = await response.json();
+        // API returns {data: [...]} structure
+        setEntities(Array.isArray(result) ? result : (result.data || []));
       }
     } catch (err) {
       console.error('Error fetching entities:', err);
@@ -133,7 +134,7 @@ export function GrantPermissionModal({
 
     try {
       const token = localStorage.getItem('auth_token');
-      const payload = {
+      const payload: Record<string, unknown> = {
         role_id: roleId,
         entity_code: entityCode,
         entity_instance_id: scope === 'all' ? ALL_ENTITIES_ID : entityInstanceId,
@@ -141,8 +142,11 @@ export function GrantPermissionModal({
         inheritance_mode: inheritanceMode,
         child_permissions: inheritanceMode === 'mapped' ? childPermissions : {},
         is_deny: isDeny,
-        expires_ts: expiresTs || null
       };
+      // Only include expires_ts if it has a value (not empty string)
+      if (expiresTs && expiresTs.trim() !== '') {
+        payload.expires_ts = new Date(expiresTs).toISOString();
+      }
 
       const response = await fetch(
         `${API_CONFIG.BASE_URL}/api/v1/entity_rbac/grant-permission`,

@@ -392,3 +392,13 @@ INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instanc
 SELECT 'customer', id, name, code
 FROM app.customer
 WHERE active_flag = true;
+
+-- ============================================================================
+-- Sync person.name from customer first_name/last_name
+-- This denormalization enables fast role-person lookups
+-- ============================================================================
+UPDATE app.person p
+SET name = c.first_name || ' ' || c.last_name
+FROM app.customer c
+WHERE c.person_id = p.id
+  AND p.entity_code = 'customer';

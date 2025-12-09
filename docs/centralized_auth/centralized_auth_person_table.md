@@ -108,13 +108,14 @@ CREATE TABLE IF NOT EXISTS app.person (
     -- ============================================================
     -- ENTITY LINKAGE
     -- ============================================================
-    entity_code VARCHAR(100),  -- 'employee', 'customer', 'vendor', 'supplier', 'role'
+    entity_code VARCHAR(100),  -- 'employee', 'customer', 'vendor', 'supplier'
+    -- NOTE: Roles are NOT persons. Role membership is via entity_instance_link.
 
     -- Direct entity references (only one should be populated based on entity_code)
     employee_id UUID REFERENCES app.employee(id),
     customer_id UUID REFERENCES app.customer(id),
     supplier_id UUID REFERENCES app.supplier(id),
-    role_id UUID REFERENCES app.role(id),
+    -- NOTE: No role_id. Role membership is via entity_instance_link.
 
     -- ============================================================
     -- CORE AUTHENTICATION
@@ -225,7 +226,7 @@ CREATE TABLE IF NOT EXISTS app.person (
     -- ============================================================
     CONSTRAINT person_email_unique UNIQUE (email),
     CONSTRAINT person_entity_code_check CHECK (
-        entity_code IN ('employee', 'customer', 'vendor', 'supplier', 'role')
+        entity_code IN ('employee', 'customer', 'vendor', 'supplier')
     )
 );
 
