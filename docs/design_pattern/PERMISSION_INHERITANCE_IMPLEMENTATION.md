@@ -1,12 +1,13 @@
 # Permission Inheritance to Children - Implementation Design
 
-> **Status**: Design Phase
+> **Status**: IMPLEMENTED
 > **Version**: 2.0.0
 > **Date**: 2025-12-09
+> **Commits**: `052fd5d`, `3328fb1`, `f1397e8`
 
 ## Overview
 
-Replace the current RBAC model with a simplified **role-only** permission system:
+The Role-Only RBAC Model v2.0.0 is now **fully implemented**. This document serves as the design reference.
 
 1. **Remove direct employee permissions** - No `person_code='employee'` in entity_rbac
 2. **Role-based only** - All permissions granted to roles (from `app.role` table)
@@ -72,32 +73,24 @@ Replace the current RBAC model with a simplified **role-only** permission system
 
 ---
 
-## Current State (TO BE REMOVED)
+## Previous Model (REMOVED in v2.0.0)
 
-### Old Code Locations to Remove
+The following code/patterns from the old dual-model (employee + role) have been **removed**:
 
-| File | Lines | What to Remove |
-|------|-------|----------------|
-| `entity-infrastructure.service.ts` | :976-984 | `direct_emp` CTE (employee permissions) |
-| `entity-infrastructure.service.ts` | :1004-1018 | `parent_entities` CTE |
-| `entity-infrastructure.service.ts` | :1020-1050 | `parent_view` CTE (hardcoded VIEW=0) |
-| `entity-infrastructure.service.ts` | :1052-1080 | `parent_create` CTE (hardcoded CREATE=4) |
-| `entity-infrastructure.service.ts` | :1088 | UNION of `direct_emp` |
-| `entity-infrastructure.service.ts` | :1092-1094 | UNION of `parent_view`, `parent_create` |
-| `entity-infrastructure.service.ts` | :1236-1244 | `direct_emp` CTE in getAccessibleEntityIds |
-| `entity-infrastructure.service.ts` | :1263-1288 | `parents_with_view` CTE |
-| `entity-infrastructure.service.ts` | :1290-1300 | `children_from_view` CTE |
-| `entity-infrastructure.service.ts` | :1302-1327 | `parents_with_create` CTE |
-| `entity-infrastructure.service.ts` | :1329-1339 | `children_from_create` CTE |
-| `entity-infrastructure.service.ts` | :1347 | UNION of `direct_emp` |
-| `entity-infrastructure.service.ts` | :1351-1353 | UNION of `children_from_view`, `children_from_create` |
+| What Was Removed | Description |
+|------------------|-------------|
+| `person_code` column | No longer polymorphic - only roles |
+| `person_id` column | Replaced by `role_id` FK |
+| `direct_emp` CTE | No direct employee permission lookups |
+| `parent_view` / `parent_create` CTEs | Replaced by configurable inheritance modes |
+| Employee/Role toggle in UI | Only roles shown in AccessControlPage |
 
-### Problems with Current Approach
+### Problems Solved
 
-1. **Dual permission sources**: Both employee-direct AND role-based (complex)
-2. **Hardcoded inheritance**: Only VIEW(0) and CREATE(4) - no flexibility
-3. **person_code column**: Polymorphic design adds complexity
-4. **No FK constraints**: person_id not enforced
+1. **Simplified**: Single permission source (roles only) instead of dual employee+role
+2. **Configurable inheritance**: Now supports `none`, `cascade`, `mapped` modes
+3. **Clean FK**: `role_id` references `app.role` with proper FK constraint
+4. **Explicit deny**: `is_deny=true` blocks permission even if granted elsewhere
 
 ---
 
