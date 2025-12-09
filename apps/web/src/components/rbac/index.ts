@@ -9,5 +9,6 @@ export type { InheritanceMode } from './InheritanceModeSelector';
 export { ChildPermissionMapper } from './ChildPermissionMapper';
 export { PermissionRuleCard, PermissionRuleCardSkeleton } from './PermissionRuleCard';
 export { EffectiveAccessTable } from './EffectiveAccessTable';
+export { RolePermissionsMatrix, RolePermissionsMatrixSkeleton } from './RolePermissionsMatrix';
 export { GrantPermissionModal } from './GrantPermissionModal';
 export { RoleAccessControlPanel } from './RoleAccessControlPanel';

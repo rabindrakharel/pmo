@@ -585,44 +585,36 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Permission not found' });
       }
 
-      // Build dynamic update
-      const updateFields: string[] = [];
-      const updateValues: any[] = [];
-      let paramIndex = 1;
+      // Build dynamic update using SQL template literals
+      const setClauses: ReturnType<typeof sql>[] = [];
 
       if (updates.permission !== undefined) {
-        updateFields.push(`permission = $${paramIndex++}`);
-        updateValues.push(updates.permission);
+        setClauses.push(sql`permission = ${updates.permission}`);
       }
       if (updates.inheritance_mode !== undefined) {
-        updateFields.push(`inheritance_mode = $${paramIndex++}`);
-        updateValues.push(updates.inheritance_mode);
+        setClauses.push(sql`inheritance_mode = ${updates.inheritance_mode}`);
       }
       if (updates.child_permissions !== undefined) {
-        updateFields.push(`child_permissions = $${paramIndex++}::jsonb`);
-        updateValues.push(JSON.stringify(updates.child_permissions));
+        setClauses.push(sql`child_permissions = ${JSON.stringify(updates.child_permissions)}::jsonb`);
       }
       if (updates.is_deny !== undefined) {
-        updateFields.push(`is_deny = $${paramIndex++}`);
-        updateValues.push(updates.is_deny);
+        setClauses.push(sql`is_deny = ${updates.is_deny}`);
       }
       if (updates.expires_ts !== undefined) {
-        updateFields.push(`expires_ts = $${paramIndex++}::timestamptz`);
-        updateValues.push(updates.expires_ts);
+        setClauses.push(sql`expires_ts = ${updates.expires_ts}::timestamptz`);
       }
 
-      if (updateFields.length === 0) {
+      if (setClauses.length === 0) {
         return reply.status(400).send({ error: 'No fields to update' });
       }
 
-      updateFields.push('updated_ts = NOW()');
-      updateValues.push(permissionId);
+      setClauses.push(sql`updated_ts = NOW()`);
 
-      await db.execute(sql.raw(`
+      await db.execute(sql`
         UPDATE app.entity_rbac
-        SET ${updateFields.join(', ')}
-        WHERE id = $${paramIndex}::uuid
-      `));
+        SET ${sql.join(setClauses, sql`, `)}
+        WHERE id = ${permissionId}::uuid
+      `);
 
       return { id: permissionId, message: 'Permission updated successfully' };
     } catch (error) {

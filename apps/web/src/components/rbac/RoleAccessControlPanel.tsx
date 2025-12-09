@@ -8,7 +8,7 @@ import {
   PermissionRuleCard,
   PermissionRuleCardSkeleton,
   GrantPermissionModal,
-  EffectiveAccessTable
+  RolePermissionsMatrix
 } from './index';
 import type { InheritanceMode } from './index';
 
@@ -39,11 +39,6 @@ interface Permission {
   entity_name?: string;
   entity_ui_label?: string;
   entity_ui_icon?: string;
-}
-
-interface PersonAssignment {
-  person_id: string;
-  person_name: string;
 }
 
 interface EntityOption {
@@ -86,44 +81,8 @@ export function RoleAccessControlPanel({
     enabled: !!roleId
   });
 
-  // Fetch persons (members) for role - needed for Effective Access tab
-  const { data: personsData } = useQuery({
-    queryKey: ['access-control', 'role', roleId, 'members'],
-    queryFn: async () => {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(
-        `${API_CONFIG.BASE_URL}/api/v1/person?parent_entity_code=role&parent_entity_instance_id=${roleId}&limit=1000`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (!response.ok) throw new Error('Failed to fetch members');
-      const result = await response.json();
-      return {
-        data: result.data.map((person: any) => ({
-          person_id: person.id,
-          person_name: person.name
-        }))
-      };
-    },
-    enabled: !!roleId && activeTab === 'effective'
-  });
-
-  // Fetch effective access for role
-  const { data: effectiveData, isLoading: effectiveLoading } = useQuery({
-    queryKey: ['access-control', 'role', roleId, 'effective'],
-    queryFn: async () => {
-      const token = localStorage.getItem('auth_token');
-      const firstPerson = personsData?.data?.[0];
-      if (!firstPerson) return { data: [] };
-
-      const response = await fetch(
-        `${API_CONFIG.BASE_URL}/api/v1/entity_rbac/person/${firstPerson.person_id}/effective-access`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (!response.ok) throw new Error('Failed to fetch effective access');
-      return response.json();
-    },
-    enabled: !!roleId && activeTab === 'effective' && !!personsData?.data?.length
-  });
+  // Note: Permission Matrix tab uses permissionsData directly via RolePermissionsMatrix
+  // No separate person-based query needed - the matrix shows the role's direct permissions
 
   // Fetch entity options for labels/icons
   const { data: entitiesData } = useQuery({
@@ -212,7 +171,7 @@ export function RoleAccessControlPanel({
           <div className="flex gap-1">
             {[
               { id: 'permissions' as DetailTab, label: 'Permissions', icon: LucideIcons.Shield, count: permissionsData?.data?.length },
-              { id: 'effective' as DetailTab, label: 'Effective Access', icon: LucideIcons.Eye, count: null }
+              { id: 'effective' as DetailTab, label: 'Permission Matrix', icon: LucideIcons.Grid3X3, count: null }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -325,41 +284,22 @@ export function RoleAccessControlPanel({
             </div>
           )}
 
-          {/* Effective Access Tab */}
+          {/* Permission Matrix Tab */}
           {activeTab === 'effective' && (
             <div className="p-6">
-              {!personsData?.data?.length ? (
-                <div className="text-center py-12 text-dark-500">
-                  <div className="p-4 bg-dark-100 rounded-2xl inline-block mb-3">
-                    <LucideIcons.UserX className="h-10 w-10 text-dark-300" />
-                  </div>
-                  <p className="text-sm font-medium">No members to check</p>
-                  <p className="text-xs text-dark-400 mt-1">
-                    Add members in the People tab to see their effective access
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                    <div className="flex items-start gap-3">
-                      <LucideIcons.Info className="h-5 w-5 text-slate-500 mt-0.5 flex-shrink-0" />
-                      <div className="text-sm text-slate-700">
-                        <p className="font-medium">Effective Access Preview</p>
-                        <p className="mt-1 text-slate-600">
-                          Showing resolved permissions for <strong>{personsData.data[0]?.person_name}</strong> after inheritance calculation.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <EffectiveAccessTable
-                    permissions={effectiveData?.data || []}
-                    isLoading={effectiveLoading}
-                    entityLabels={entityLabels}
-                    entityIcons={entityIcons}
-                  />
-                </>
-              )}
+              <RolePermissionsMatrix
+                roleId={roleId}
+                roleName={roleName}
+                permissions={permissionsData?.data || []}
+                isLoading={permissionsLoading}
+                entityLabels={entityLabels}
+                entityIcons={entityIcons}
+                onRevoke={(permissionId) => {
+                  if (confirm('Are you sure you want to revoke this permission?')) {
+                    revokePermissionMutation.mutate(permissionId);
+                  }
+                }}
+              />
             </div>
           )}
         </div>

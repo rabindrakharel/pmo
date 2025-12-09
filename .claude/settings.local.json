@@ -29,7 +29,9 @@
       "Bash(mv:*)",
       "Bash(npx tsc:*)",
       "Bash(cat:*)",
-      "Bash(nvm use:*)"
+      "Bash(nvm use:*)",
+      "Bash(npm run build:*)",
+      "Bash(bash:*)"
     ],
     "deny": [],
     "ask": [],
