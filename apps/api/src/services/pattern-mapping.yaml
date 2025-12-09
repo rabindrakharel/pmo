@@ -464,5 +464,10 @@ patterns:
   - { pattern: "version", exact: true, fieldBusinessType: version }
   - { pattern: "*_version", exact: false, fieldBusinessType: version }
 
+# ============================================================================
+# INTERNAL LINK FIELDS (for entity_instance_link relationships)
+# ============================================================================
+  - { pattern: "entity_instance_link_id", exact: true, fieldBusinessType: systemInternal_linkId }
+
 # Default fallback
 defaultFieldBusinessType: text

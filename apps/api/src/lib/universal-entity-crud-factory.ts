@@ -544,6 +544,12 @@ export function createEntityListEndpoint(
         ? sql`WHERE ${sql.join(conditions, sql` AND `)}`
         : sql``;
 
+      // v9.5.0: Include entity_instance_link_id when parent context provided (for unlink operations)
+      const hasParentContext = parent_entity_code && parent_entity_instance_id;
+      const selectClause = hasParentContext
+        ? sql`${sql.raw(TABLE_ALIAS)}.*, eil.id AS entity_instance_link_id`
+        : sql`${sql.raw(TABLE_ALIAS)}.*`;
+
       // Parse requested components
       const requestedComponents = (view
         ? view.split(',').map((v: string) => v.trim())
@@ -628,8 +634,9 @@ export function createEntityListEndpoint(
         );
 
         // Fetch limit+1 to detect hasMore without count query
+        // v9.5.0: Use selectClause to conditionally include entity_instance_link_id
         const cursorDataQuery = sql`
-          SELECT DISTINCT ${sql.raw(TABLE_ALIAS)}.*
+          SELECT DISTINCT ${selectClause}
           FROM app.${sql.raw(TABLE_NAME)} ${sql.raw(TABLE_ALIAS)}
           ${joinClause}
           ${cursorWhereClause}
@@ -707,8 +714,9 @@ export function createEntityListEndpoint(
         `;
 
         // Data query
+        // v9.5.0: Use selectClause to conditionally include entity_instance_link_id
         const dataQuery = sql`
-          SELECT DISTINCT ${sql.raw(TABLE_ALIAS)}.*
+          SELECT DISTINCT ${selectClause}
           FROM app.${sql.raw(TABLE_NAME)} ${sql.raw(TABLE_ALIAS)}
           ${joinClause}
           ${whereClause}
@@ -1394,6 +1402,108 @@ export function createEntityDeleteEndpoint(
 }
 
 // ============================================================================
+// UNLINK ENDPOINT FACTORY (v9.5.0)
+// ============================================================================
+
+/**
+ * Create DELETE /api/v1/{parent}/{parentId}/{child}/{childId}/link endpoint
+ *
+ * Removes the parent-child relationship without deleting the child entity.
+ * Used in child entity tabs to unlink a child from parent.
+ *
+ * RBAC: Requires EDIT permission on PARENT entity (modifying parent's children)
+ *
+ * @example
+ * createEntityUnlinkEndpoint(fastify);
+ * // Creates: DELETE /api/v1/:parentEntity/:parentId/:childEntity/:childId/link
+ */
+export function createEntityUnlinkEndpoint(fastify: FastifyInstance): void {
+  const entityInfra = getEntityInfrastructure(db);
+
+  fastify.delete('/api/v1/:parentEntity/:parentId/:childEntity/:childId/link', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        parentEntity: Type.String(),
+        parentId: Type.String({ format: 'uuid' }),
+        childEntity: Type.String(),
+        childId: Type.String({ format: 'uuid' })
+      }),
+      response: {
+        200: Type.Object({
+          success: Type.Boolean(),
+          action: Type.String(),
+          parent_entity: Type.String(),
+          parent_id: Type.String(),
+          child_entity: Type.String(),
+          child_id: Type.String()
+        }),
+        401: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })
+      }
+    }
+  }, async (request, reply) => {
+    const { parentEntity, parentId, childEntity, childId } = request.params as {
+      parentEntity: string;
+      parentId: string;
+      childEntity: string;
+      childId: string;
+    };
+    const userId = (request as any).user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    try {
+      // RBAC: Check EDIT permission on PARENT entity (unlinking modifies parent's child list)
+      const canEditParent = await entityInfra.check_entity_rbac(
+        userId, parentEntity, parentId, Permission.EDIT
+      );
+
+      if (!canEditParent) {
+        return reply.status(403).send({
+          error: `No permission to unlink ${childEntity} from this ${parentEntity}`
+        });
+      }
+
+      // Delete the link only - child entity remains in system
+      const rowsDeleted = await entityInfra.delete_entity_instance_link_by_context({
+        parent_entity_code: parentEntity,
+        parent_entity_id: parentId,
+        child_entity_code: childEntity,
+        child_entity_id: childId
+      });
+
+      if (rowsDeleted === 0) {
+        return reply.status(404).send({
+          error: `Link not found between ${parentEntity}/${parentId} and ${childEntity}/${childId}`
+        });
+      }
+
+      fastify.log.info(`Unlinked ${childEntity} ${childId} from ${parentEntity} ${parentId}`);
+
+      return reply.status(200).send({
+        success: true,
+        action: 'unlinked',
+        parent_entity: parentEntity,
+        parent_id: parentId,
+        child_entity: childEntity,
+        child_id: childId
+      });
+
+    } catch (error: any) {
+      fastify.log.error(`Error unlinking ${childEntity} from ${parentEntity}:`, error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  fastify.log.info('✓ Universal unlink endpoint created: DELETE /api/v1/:parent/:parentId/:child/:childId/link');
+}
+
+// ============================================================================
 // UNIFIED FACTORY - Creates All CRUD Endpoints
 // ============================================================================
 
@@ -1507,6 +1617,7 @@ export default {
   createEntityPatchEndpoint,
   createEntityPutEndpoint,
   createEntityDeleteEndpoint,
+  createEntityUnlinkEndpoint,
 
   // Unified factory
   createUniversalEntityRoutes,

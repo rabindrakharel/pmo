@@ -18,7 +18,7 @@ import {
   EntityMetadataChipRow
 } from '../../components/shared';
 import { ExitButton } from '../../components/shared/button/ExitButton';
-import { ShareModal } from '../../components/shared/modal';
+import { ShareModal, DeleteOrUnlinkModal, type ParentContext } from '../../components/shared/modal';
 import { UnifiedLinkageModal } from '../../components/shared/modal/UnifiedLinkageModal';
 import { useLinkageModal } from '../../hooks/useLinkageModal';
 import { WikiContentRenderer } from '../../components/entity/wiki';
@@ -191,6 +191,12 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isGeneratingShareUrl, setIsGeneratingShareUrl] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  // v9.5.0: Delete/Unlink modal state for child entity tabs
+  const [deleteUnlinkModal, setDeleteUnlinkModal] = useState<{
+    open: boolean;
+    record: any | null;
+  }>({ open: false, record: null });
 
   // Keyboard shortcut hints
   const { shortcuts } = useShortcutHints();
@@ -496,12 +502,46 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
     handleChildFieldChange(field, value);
   }, [handleChildFieldChange]);
 
-  // Child delete handler
-  const handleChildDelete = useCallback(async (record: any) => {
+  // v9.5.0: Child remove action handler - shows DeleteOrUnlinkModal
+  const handleChildRemoveAction = useCallback((record: any) => {
     if (!childConfig || !currentChildEntity) return;
-    if (!window.confirm('Are you sure you want to delete this record?')) return;
+    setDeleteUnlinkModal({ open: true, record });
+  }, [childConfig, currentChildEntity]);
 
-    const rawRecord = record.raw || record;
+  // v9.5.0: Child unlink handler - removes link only, child entity remains
+  const handleChildUnlink = useCallback(async () => {
+    if (!childConfig || !currentChildEntity || !deleteUnlinkModal.record || !id) return;
+
+    const rawRecord = deleteUnlinkModal.record.raw || deleteUnlinkModal.record;
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+
+      // Call the unlink endpoint: DELETE /api/v1/:parent/:parentId/:child/:childId/link
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/api/v1/${entityCode}/${id}/${currentChildEntity}/${rawRecord.id}/link`,
+        { method: 'DELETE', headers }
+      );
+
+      if (response.ok) {
+        await refetchChild();
+        setDeleteUnlinkModal({ open: false, record: null });
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to unlink ${currentChildEntity}`);
+      }
+    } catch (error: any) {
+      console.error('Error unlinking child record:', error);
+      throw error; // Re-throw to let modal handle the error display
+    }
+  }, [childConfig, currentChildEntity, deleteUnlinkModal.record, id, entityCode, refetchChild]);
+
+  // v9.5.0: Child actual delete handler - permanently deletes the child entity
+  const handleChildActualDelete = useCallback(async () => {
+    if (!childConfig || !currentChildEntity || !deleteUnlinkModal.record) return;
+
+    const rawRecord = deleteUnlinkModal.record.raw || deleteUnlinkModal.record;
 
     try {
       const token = localStorage.getItem('auth_token');
@@ -514,14 +554,16 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
 
       if (response.ok) {
         await refetchChild();
+        setDeleteUnlinkModal({ open: false, record: null });
       } else {
-        alert(`Failed to delete ${currentChildEntity}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to delete ${currentChildEntity}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting child record:', error);
-      alert('An error occurred while deleting.');
+      throw error; // Re-throw to let modal handle the error display
     }
-  }, [childConfig, currentChildEntity, refetchChild]);
+  }, [childConfig, currentChildEntity, deleteUnlinkModal.record, refetchChild]);
 
   // Child row click handler - navigate to child entity detail page
   const handleChildRowClick = useCallback((item: any) => {
@@ -545,6 +587,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   }, [currentChildEntity, navigate]);
 
   // Child row actions
+  // v9.5.0: 'Remove' action shows DeleteOrUnlinkModal for choice between unlink and delete
   const childRowActions: RowAction[] = useMemo(() => [
     {
       key: 'edit',
@@ -554,13 +597,13 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
       onClick: handleChildEditRow
     },
     {
-      key: 'delete',
-      label: 'Delete',
+      key: 'remove',
+      label: 'Remove',
       icon: <Trash2 className="h-4 w-4" />,
       variant: 'danger' as const,
-      onClick: handleChildDelete
+      onClick: handleChildRemoveAction
     }
-  ], [handleChildEditRow, handleChildDelete]);
+  ], [handleChildEditRow, handleChildRemoveAction]);
 
   // Prepare tabs with Overview as first tab - MUST be before any returns
   const allTabs = React.useMemo(() => {
@@ -1563,6 +1606,30 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
 
       {/* Unified Linkage Modal */}
       <UnifiedLinkageModal {...linkageModal.modalProps} />
+
+      {/* v9.5.0: Delete or Unlink Modal for child entity tabs */}
+      {deleteUnlinkModal.record && currentChildEntity && (
+        <DeleteOrUnlinkModal
+          isOpen={deleteUnlinkModal.open}
+          onClose={() => setDeleteUnlinkModal({ open: false, record: null })}
+          parentContext={{
+            entityCode,
+            entityId: id!,
+            entityName: data?.name || data?.title
+          }}
+          childEntity={currentChildEntity}
+          childEntityName={
+            deleteUnlinkModal.record.raw?.name ||
+            deleteUnlinkModal.record.raw?.title ||
+            deleteUnlinkModal.record.name ||
+            deleteUnlinkModal.record.title ||
+            currentChildEntity
+          }
+          childEntityId={deleteUnlinkModal.record.raw?.id || deleteUnlinkModal.record.id}
+          onUnlink={handleChildUnlink}
+          onDelete={handleChildActualDelete}
+        />
+      )}
       </div>
     </Layout>
   );

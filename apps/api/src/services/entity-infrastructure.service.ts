@@ -805,6 +805,35 @@ export class EntityInfrastructureService {
   }
 
   /**
+   * Delete linkage by context (parent + child entities and IDs)
+   * Used by unlink endpoint: DELETE /api/v1/:parent/:parentId/:child/:childId/link
+   *
+   * @param parent_entity_code Parent entity type code
+   * @param parent_entity_id Parent entity instance UUID
+   * @param child_entity_code Child entity type code
+   * @param child_entity_id Child entity instance UUID
+   * @returns Number of rows deleted (0 if no matching link found)
+   */
+  async delete_entity_instance_link_by_context(params: {
+    parent_entity_code: string;
+    parent_entity_id: string;
+    child_entity_code: string;
+    child_entity_id: string;
+  }): Promise<number> {
+    const { parent_entity_code, parent_entity_id, child_entity_code, child_entity_id } = params;
+
+    const result = await this.db.execute(sql`
+      DELETE FROM app.entity_instance_link
+      WHERE entity_code = ${parent_entity_code}
+        AND entity_instance_id = ${parent_entity_id}
+        AND child_entity_code = ${child_entity_code}
+        AND child_entity_instance_id = ${child_entity_id}
+    `);
+
+    return (result as any).rowCount || 0;
+  }
+
+  /**
    * Get child entity IDs of specific type
    * Used for parent-child filtering in routes
    */

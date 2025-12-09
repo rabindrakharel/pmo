@@ -1738,3 +1738,21 @@ fieldBusinessTypes:
       <<: *hidden
     dagView:
       <<: *hidden
+
+  # Entity instance link ID - hidden from all views, used for unlink operations
+  systemInternal_linkId:
+    dtype: uuid
+    entityListOfInstancesTable:
+      <<: *hidden
+      renderType: text
+    entityInstanceFormContainer:
+      <<: *hidden
+      renderType: text
+    kanbanView:
+      <<: *hidden
+    gridView:
+      <<: *hidden
+    calendarView:
+      <<: *hidden
+    dagView:
+      <<: *hidden

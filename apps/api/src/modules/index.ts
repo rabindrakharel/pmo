@@ -7,6 +7,9 @@ import { metaRoutes } from './meta/routes.js';
 import { settingRoutes } from './setting/routes.js';
 import { datalabelRoutes } from './datalabel/routes.js';
 
+// Universal Entity CRUD Factory (v9.5.0: includes unlink endpoint)
+import { createEntityUnlinkEndpoint } from '@/lib/universal-entity-crud-factory.js';
+
 // Entity-based API modules
 import { empRoutes } from './employee/routes.js';
 import { taskRoutes } from './task/routes.js';
@@ -121,6 +124,10 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
 
   // Entity Instance Link routes (entity relationship management)
   await entityInstanceLinkRoutes(fastify);
+
+  // v9.5.0: Universal unlink endpoint for child entity tabs
+  // DELETE /api/v1/:parent/:parentId/:child/:childId/link
+  createEntityUnlinkEndpoint(fastify);
 
   // Entity-based API routes (all require entity-based RBAC)
   await empRoutes(fastify);
