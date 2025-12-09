@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { cn } from '../../lib/utils';
 import * as LucideIcons from 'lucide-react';
 import { PermissionLevelSelector, PermissionBadge, getPermissionLabel, PERMISSION_LEVELS } from './PermissionLevelSelector';
 import { InheritanceModeSelector, InheritanceModeBadge, InheritanceMode } from './InheritanceModeSelector';
@@ -241,23 +240,21 @@ export function GrantPermissionModal({
                   type="button"
                   onClick={() => step.number < currentStep && setCurrentStep(step.number)}
                   disabled={step.number > currentStep}
-                  className={cn(
-                    "flex items-center gap-2 transition-colors",
+                  className={`flex items-center gap-2 transition-colors ${
                     step.number === currentStep
                       ? "text-slate-700"
                       : step.number < currentStep
                         ? "text-dark-600 hover:text-slate-600"
                         : "text-dark-400"
-                  )}
+                  }`}
                 >
-                  <div className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-colors",
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
                     step.number === currentStep
                       ? "bg-slate-600 text-white"
                       : step.number < currentStep
                         ? "bg-slate-200 text-slate-700"
                         : "bg-dark-200 text-dark-500"
-                  )}>
+                  }`}>
                     {step.number < currentStep ? (
                       <LucideIcons.Check className="h-4 w-4" />
                     ) : (
@@ -270,10 +267,9 @@ export function GrantPermissionModal({
                   </div>
                 </button>
                 {index < STEPS.length - 1 && (
-                  <div className={cn(
-                    "flex-1 h-0.5 mx-2 rounded",
+                  <div className={`flex-1 h-0.5 mx-2 rounded ${
                     step.number < currentStep ? "bg-slate-300" : "bg-dark-200"
-                  )} />
+                  }`} />
                 )}
               </React.Fragment>
             ))}
@@ -318,12 +314,11 @@ export function GrantPermissionModal({
                         Scope
                       </label>
                       <div className="space-y-3">
-                        <label className={cn(
-                          "flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all",
+                        <label className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
                           scope === 'all'
                             ? "border-slate-500 bg-slate-50"
                             : "border-dark-200 hover:border-dark-300"
-                        )}>
+                        }`}>
                           <input
                             type="radio"
                             checked={scope === 'all'}
@@ -346,12 +341,11 @@ export function GrantPermissionModal({
                           </div>
                         </label>
 
-                        <label className={cn(
-                          "flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all",
+                        <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
                           scope === 'specific'
                             ? "border-slate-500 bg-slate-50"
                             : "border-dark-200 hover:border-dark-300"
-                        )}>
+                        }`}>
                           <input
                             type="radio"
                             checked={scope === 'specific'}
@@ -468,12 +462,11 @@ export function GrantPermissionModal({
                     <label className="block text-sm font-medium text-dark-700 mb-3">
                       Special Options
                     </label>
-                    <label className={cn(
-                      "flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all",
+                    <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
                       isDeny
                         ? "border-red-400 bg-red-50"
                         : "border-dark-200 hover:border-dark-300"
-                    )}>
+                    }`}>
                       <input
                         type="checkbox"
                         checked={isDeny}

@@ -1,5 +1,4 @@
 import React from 'react';
-import { cn } from '../../lib/utils';
 import * as LucideIcons from 'lucide-react';
 
 export type InheritanceMode = 'none' | 'cascade' | 'mapped';
@@ -94,18 +93,15 @@ export function InheritanceModeSelector({
             type="button"
             onClick={() => !disabled && onChange(mode.id)}
             disabled={disabled}
-            className={cn(
-              "flex flex-col items-center p-4 rounded-xl border-2 transition-all",
+            className={`flex flex-col items-center p-4 rounded-xl border-2 transition-all ${
               value === mode.id
                 ? "border-slate-500 bg-slate-50 text-slate-700"
-                : "border-dark-200 bg-white text-dark-500 hover:border-dark-300 hover:bg-dark-50",
-              disabled && "opacity-50 cursor-not-allowed"
-            )}
+                : "border-dark-200 bg-white text-dark-500 hover:border-dark-300 hover:bg-dark-50"
+            } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
           >
-            <div className={cn(
-              "mb-2",
+            <div className={`mb-2 ${
               value === mode.id ? "text-slate-600" : "text-dark-400"
-            )}>
+            }`}>
               {mode.icon}
             </div>
             <div className="text-sm font-semibold">{mode.label}</div>
@@ -149,11 +145,9 @@ export function InheritanceModeBadge({ mode, size = 'md' }: InheritanceModeBadge
   const { label, className, icon: Icon } = config[mode];
 
   return (
-    <span className={cn(
-      "inline-flex items-center gap-1 px-2 py-0.5 rounded font-medium",
-      className,
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-medium ${className} ${
       size === 'sm' ? 'text-xs' : 'text-sm'
-    )}>
+    }`}>
       <Icon className={size === 'sm' ? 'h-3 w-3' : 'h-4 w-4'} />
       {label}
     </span>

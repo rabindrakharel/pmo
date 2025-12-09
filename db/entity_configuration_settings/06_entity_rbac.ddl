@@ -267,7 +267,7 @@ CREATE TABLE app.entity_rbac (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Role-based permission (v2.0.0 - role only, no direct person permissions)
-  role_id uuid NOT NULL REFERENCES app.role(id) ON DELETE CASCADE,
+  role_id uuid NOT NULL, -- References app.role.id (loosely coupled, no FK)
 
   -- Entity target
   entity_code varchar(50) NOT NULL, -- Entity type code (references entity.code)
@@ -283,7 +283,7 @@ CREATE TABLE app.entity_rbac (
   is_deny boolean NOT NULL DEFAULT false, -- Explicit deny (blocks permission even if granted elsewhere)
 
   -- Permission lifecycle management
-  granted_by_person_id uuid REFERENCES app.person(id), -- Who granted this permission (audit trail)
+  granted_by_person_id uuid, -- Who granted this permission (audit trail, loosely coupled)
   granted_ts timestamptz DEFAULT now(),
   expires_ts timestamptz, -- Optional expiration for temporary permissions
 

@@ -20,7 +20,7 @@
 -- ============================================================================
 
 CREATE TABLE app.role (
-  id uuid DEFAULT gen_random_uuid(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Standard fields (common across all entities) - ALWAYS FIRST
   code varchar(100),

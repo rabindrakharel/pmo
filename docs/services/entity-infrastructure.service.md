@@ -311,11 +311,15 @@
 │  │ Column                  │ Type       │ Description                    │  │
 │  ├─────────────────────────┼────────────┼────────────────────────────────┤  │
 │  │ id                      │ UUID       │ Primary key                    │  │
-│  │ person_id               │ UUID       │ User or role UUID              │  │
-│  │ person_code             │ VARCHAR    │ 'employee' or 'role'           │  │
+│  │ role_id                 │ UUID FK    │ References app.role(id)        │  │
 │  │ entity_code             │ VARCHAR    │ Entity type code               │  │
 │  │ entity_instance_id      │ UUID       │ Specific entity or ALL_ENTITIES_ID│
 │  │ permission              │ INTEGER    │ 0-7 permission level           │  │
+│  │ inheritance_mode        │ VARCHAR    │ 'none', 'cascade', 'mapped'    │  │
+│  │ child_permissions       │ JSONB      │ Per-child-type permissions     │  │
+│  │ is_deny                 │ BOOLEAN    │ Explicit deny (blocks access)  │  │
+│  │ granted_by_person_id    │ UUID       │ Who granted (audit)            │  │
+│  │ granted_ts              │ TIMESTAMP  │ When granted                   │  │
 │  │ expires_ts              │ TIMESTAMP  │ Optional expiration            │  │
 │  │ created_ts              │ TIMESTAMP  │ Created timestamp              │  │
 │  │ updated_ts              │ TIMESTAMP  │ Updated timestamp              │  │
@@ -905,17 +909,27 @@ const taskIds = await entityInfra.get_entity_instance_link_children(
 const tabs = await entityInfra.get_dynamic_child_entity_tabs('project');
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PERMISSION GRANTS
+// PERMISSION GRANTS (Role-Only Model v2.0.0)
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Grant OWNER permission
-await entityInfra.set_entity_rbac_owner(userId, 'project', projectId);
+// Grant OWNER permission to role (UPSERT - same role+entity_code+instance → UPDATE)
+await entityInfra.set_entity_rbac(roleId, 'project', ALL_ENTITIES_ID, Permission.OWNER, {
+  inheritance_mode: 'mapped',
+  child_permissions: { task: 3, _default: 0 },
+  is_deny: false,
+  granted_by_person_id: currentUserId
+});
 
-// Grant specific permission
-await entityInfra.set_entity_rbac(userId, 'project', projectId, Permission.EDIT);
+// Grant specific permission with cascade inheritance
+await entityInfra.set_entity_rbac(roleId, 'project', projectId, Permission.EDIT, {
+  inheritance_mode: 'cascade'
+});
 
-// Revoke permission
-await entityInfra.delete_entity_rbac(userId, 'project', projectId);
+// Get all permissions for a role
+const permissions = await entityInfra.get_role_permissions(roleId);
+
+// Revoke permission by ID (HARD DELETE)
+await entityInfra.delete_entity_rbac_by_id(permissionId);
 ```
 
 ---
@@ -1073,14 +1087,14 @@ try {
 |----------|------|-------------|
 | Entity Metadata Caching | `docs/caching-backend/ENTITY_METADATA_CACHING.md` | Redis caching for metadata |
 | Entity Component Metadata Service | `docs/services/entity-component-metadata.service.md` | Metadata generation |
-| RBAC Infrastructure | `docs/rbac/RBAC_INFRASTRUCTURE.md` | Full RBAC details |
+| RBAC Access Control | `docs/rbac/access_control.md` | Full RBAC details, API routes, UI/UX |
 | Unified Cache Architecture | `docs/caching-frontend/NORMALIZED_CACHE_ARCHITECTURE.md` | TanStack Query + Dexie unified cache |
 | State Management | `docs/state_management/STATE_MANAGEMENT.md` | Frontend state management overview |
 | Entity Endpoint Design | `docs/api/entity_endpoint_design.md` | API endpoint patterns |
 
 ---
 
-**Document Version**: 7.0.0
+**Document Version**: 7.1.0
 **Last Updated**: 2025-12-09
 **Status**: Production Ready
 
@@ -1097,3 +1111,4 @@ try {
 | 5.2.0 | 2025-12-01 | **v9.7.0 Note**: Added clarification that LIST endpoints support parent filtering via `parent_entity_code`/`parent_entity_instance_id` query params |
 | 6.0.0 | 2025-12-03 | **v6.0.0**: Aligned with source of truth - added Redis caching section (5-min TTL, invalidation methods), Entity metadata methods (`get_entity()`, `get_all_entity()`, `get_parent_entity_codes()`), Entity instance lookup methods (`getEntityInstanceNames()`, `getAllEntityInstanceNames()`, `getEntityInstances()`), updated import paths to `entity-component-metadata.service.js`, added `qualifyTable()` usage in route patterns |
 | 7.0.0 | 2025-12-09 | **RBAC v2.0.0**: Updated to Role-Only model - removed direct employee permissions, added inheritance modes (none/cascade/mapped), explicit deny support |
+| 7.1.0 | 2025-12-09 | Updated `entity_rbac` table schema (`role_id` FK, `inheritance_mode`, `child_permissions`, `is_deny`, `granted_by_person_id`, `granted_ts`), updated permission grant API examples, updated doc reference to `access_control.md` |

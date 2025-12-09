@@ -4,7 +4,6 @@ import { Layout } from '../../components/shared';
 import { API_CONFIG } from '../../lib/config/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as LucideIcons from 'lucide-react';
-import { cn } from '../../lib/utils';
 
 // RBAC Components (Role-Only Model v2.0.0)
 import {
@@ -403,18 +402,16 @@ export function AccessControlPage() {
                         setSelectedRoleId(role.id);
                         setActiveTab('permissions');
                       }}
-                      className={cn(
-                        "w-full px-4 py-3.5 text-left transition-all",
+                      className={`w-full px-4 py-3.5 text-left transition-all ${
                         selectedRoleId === role.id
                           ? "bg-slate-50 border-l-3 border-l-slate-600"
                           : "hover:bg-dark-50 border-l-3 border-l-transparent"
-                      )}
+                      }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className={cn(
-                          "p-2 rounded-lg",
+                        <div className={`p-2 rounded-lg ${
                           selectedRoleId === role.id ? "bg-slate-200" : "bg-dark-100"
-                        )}>
+                        }`}>
                           <LucideIcons.Users className="h-4 w-4 text-dark-600" />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -488,20 +485,18 @@ export function AccessControlPage() {
                       <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
-                        className={cn(
-                          "px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2",
+                        className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
                           activeTab === tab.id
                             ? "border-slate-600 text-slate-700"
                             : "border-transparent text-dark-500 hover:text-dark-700"
-                        )}
+                        }`}
                       >
                         <tab.icon className="h-4 w-4" />
                         {tab.label}
                         {tab.count !== null && tab.count !== undefined && (
-                          <span className={cn(
-                            "px-1.5 py-0.5 text-xs rounded-full",
+                          <span className={`px-1.5 py-0.5 text-xs rounded-full ${
                             activeTab === tab.id ? "bg-slate-200 text-slate-700" : "bg-dark-100 text-dark-600"
-                          )}>
+                          }`}>
                             {tab.count}
                           </span>
                         )}

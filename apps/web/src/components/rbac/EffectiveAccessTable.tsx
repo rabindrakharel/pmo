@@ -1,5 +1,4 @@
 import React, { useState, useMemo } from 'react';
-import { cn } from '../../lib/utils';
 import * as LucideIcons from 'lucide-react';
 import { PermissionBadge, getPermissionLabel, PERMISSION_LEVELS } from './PermissionLevelSelector';
 
@@ -138,12 +137,11 @@ export function EffectiveAccessTable({
               key={source}
               type="button"
               onClick={() => setFilterSource(source)}
-              className={cn(
-                "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                 filterSource === source
                   ? "bg-white text-dark-800 shadow-sm"
                   : "text-dark-500 hover:text-dark-700"
-              )}
+              }`}
             >
               {source === 'all' ? 'All' : source === 'direct' ? 'Direct' : 'Inherited'}
             </button>
@@ -180,17 +178,15 @@ export function EffectiveAccessTable({
               {filteredPermissions.map((perm, index) => (
                 <tr
                   key={`${perm.entity_code}-${index}`}
-                  className={cn(
-                    "hover:bg-dark-50 transition-colors",
-                    perm.is_deny && "bg-red-50 hover:bg-red-100"
-                  )}
+                  className={`hover:bg-dark-50 transition-colors ${
+                    perm.is_deny ? "bg-red-50 hover:bg-red-100" : ""
+                  }`}
                 >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <div className={cn(
-                        "p-1.5 rounded-md",
+                      <div className={`p-1.5 rounded-md ${
                         perm.is_deny ? "bg-red-100 text-red-600" : "bg-dark-100 text-dark-600"
-                      )}>
+                      }`}>
                         {getIcon(perm.entity_code, perm.entity_icon)}
                       </div>
                       <div>
@@ -207,10 +203,9 @@ export function EffectiveAccessTable({
                       {!perm.is_deny && (
                         <div className="w-24 h-1.5 bg-dark-100 rounded-full overflow-hidden">
                           <div
-                            className={cn(
-                              "h-full rounded-full",
+                            className={`h-full rounded-full ${
                               PERMISSION_LEVELS.find(l => l.value === perm.permission)?.color || 'bg-slate-500'
-                            )}
+                            }`}
                             style={{ width: `${((perm.permission + 1) / 8) * 100}%` }}
                           />
                         </div>

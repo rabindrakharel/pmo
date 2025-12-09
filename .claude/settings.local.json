@@ -291,7 +291,9 @@
       "Bash(./tools/monitor-all.sh:*)",
       "Bash(terraform fmt:*)",
       "Bash(terraform validate:*)",
-      "Bash(pnpm -F @pmo/api run type-check:*)"
+      "Bash(pnpm -F @pmo/api run type-check:*)",
+      "Bash(git -C /home/rabin/projects/pmo clean:*)",
+      "Bash(if grep -q \"id uuid DEFAULT gen_random_uuid(),\" \"$f\")"
     ],
     "deny": [],
     "ask": [],

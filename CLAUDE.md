@@ -11,7 +11,7 @@
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4
 - **State Management**: TanStack Query + Dexie (offline-first IndexedDB) - server state + persistence
 - **Infrastructure**: AWS EC2/S3/Lambda, Terraform, Docker
-- **Version**: 9.4.0 (Role-Only RBAC v2.0.0 + Dexie v4 Schema)
+- **Version**: 9.5.0 (Role-Only RBAC v2.0.0 + Dexie v4 Schema + Delete/Unlink Pattern)
 
 ## Critical Operations
 
@@ -146,6 +146,45 @@ fastify.delete('/api/v1/project/:id', async (request, reply) => {
   return reply.send(result);
 });
 ```
+
+### UNLINK Pattern (Relationship Only)
+
+Removes parent-child relationship without deleting the child entity. Used in child entity tabs.
+
+| Operation | Primary Table | entity_instance | entity_instance_link | entity_rbac |
+|-----------|---------------|-----------------|---------------------|-------------|
+| **Unlink** | Untouched | Untouched | DELETE | Untouched |
+| **Delete** | DELETE | DELETE | DELETE (all) | DELETE |
+
+```typescript
+// Unlink endpoint: DELETE /api/v1/{parent}/{parentId}/{child}/{childId}/link
+fastify.delete('/api/v1/:parentEntity/:parentId/:childEntity/:childId/link', async (request, reply) => {
+  const { parentEntity, parentId, childEntity, childId } = request.params;
+  const userId = request.user.sub;
+
+  // RBAC: Check EDIT on PARENT (unlinking modifies parent's child list)
+  const canEditParent = await entityInfra.check_entity_rbac(
+    userId, parentEntity, parentId, Permission.EDIT
+  );
+  if (!canEditParent) return reply.status(403).send({ error: 'Forbidden' });
+
+  // Delete link only - child entity remains in system
+  await entityInfra.delete_entity_instance_link({
+    entity_code: parentEntity,
+    entity_instance_id: parentId,
+    child_entity_code: childEntity,
+    child_entity_instance_id: childId
+  });
+
+  return reply.send({ success: true, action: 'unlinked' });
+});
+```
+
+**RBAC for Unlink vs Delete:**
+- **Unlink**: Requires `EDIT` on **parent** entity (modifying parent's children)
+- **Delete**: Requires `DELETE` on **child** entity (destroying the entity)
+
+See: `docs/ui_components/DeleteOrUnlinkModal.md` for full UI/UX documentation.
 
 ### Helper Methods (for routes not using transactional pattern)
 
@@ -765,12 +804,17 @@ Request → RBAC Check (CREATE) → RBAC Check (EDIT parent) → TRANSACTION {
 
 DELETE Flow (Transactional)
 ───────────────────────────
-Request → RBAC Check (DELETE) → TRANSACTION {
+Request → RBAC Check (DELETE on child) → TRANSACTION {
   UPDATE/DELETE primary table
   DELETE entity_instance
   DELETE entity_instance_link (as parent & child)
   DELETE entity_rbac
 } → Response
+
+UNLINK Flow (Relationship Only)
+───────────────────────────────
+Request → RBAC Check (EDIT on parent) → DELETE entity_instance_link → Response
+(Child entity remains in system, only relationship removed)
 ```
 
 ---
@@ -791,6 +835,7 @@ Request → RBAC Check (DELETE) → TRANSACTION {
 | **entity-component-metadata.service.md** | `docs/services/` | Backend metadata generation (BFF) + Redis field cache |
 | **frontEndFormatterService.md** | `docs/services/` | Frontend rendering (pure renderer) |
 | **RefData README.md** | `docs/refData/` | Entity reference resolution pattern |
+| **DeleteOrUnlinkModal.md** | `docs/ui_components/` | Delete vs Unlink modal for child entity tabs |
 
 ### 0. TANSTACK_DEXIE_SYNC_ARCHITECTURE.md
 
@@ -836,9 +881,16 @@ Comprehensive page and component architecture documentation. Used by LLMs when i
 
 ---
 
-**Version**: 9.4.0 | **Updated**: 2025-12-09 | **Pattern**: TanStack Query + Dexie v4 (Offline-First) + Redis Field Cache + Role-Only RBAC v2.0.0
+**Version**: 9.5.0 | **Updated**: 2025-12-09 | **Pattern**: TanStack Query + Dexie v4 (Offline-First) + Redis Field Cache + Role-Only RBAC v2.0.0
 
 **Recent Updates**:
+- v9.5.0 (2025-12-09): **Delete vs Unlink Pattern for Child Entity Tabs**
+  - New `DeleteOrUnlinkModal` for context-aware removal in child entity tabs
+  - **Unlink**: Removes `entity_instance_link` only, child entity remains (requires EDIT on parent)
+  - **Delete**: Transactional delete of primary + entity_instance + links + rbac (requires DELETE on child)
+  - Same `EntityListOfInstancesTable` component with `parentContext` prop for conditional behavior
+  - New API endpoint: `DELETE /api/v1/{parent}/{parentId}/{child}/{childId}/link`
+  - See: `docs/ui_components/DeleteOrUnlinkModal.md`
 - v9.4.0 (2025-12-09): **RBAC v2.0.0 Role-Only Model**
   - All permissions granted to roles (not directly to employees)
   - Role membership via `entity_instance_link` (role → person)

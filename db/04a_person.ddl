@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS app.person (
     -- ─────────────────────────────────────────────────────────────────────────
     -- Standard Entity Fields
     -- ─────────────────────────────────────────────────────────────────────────
-    id uuid DEFAULT gen_random_uuid(),
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     code varchar(100),
 
     -- ─────────────────────────────────────────────────────────────────────────

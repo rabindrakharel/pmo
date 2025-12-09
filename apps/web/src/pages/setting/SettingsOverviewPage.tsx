@@ -4,7 +4,6 @@ import { Layout } from '../../components/shared';
 import { useSettings } from '../../contexts/SettingsContext';
 import { AddDatalabelModal } from '../../components/shared/modals/AddDatalabelModal';
 import { EntityConfigurationModal } from '../../components/settings/EntityConfigurationModal';
-import { PermissionManagementModal } from '../../components/settings/PermissionManagementModal';
 import { API_CONFIG } from '../../lib/config/api';
 import * as LucideIcons from 'lucide-react';
 import { getIconComponent } from '../../lib/iconMapping';
@@ -100,8 +99,6 @@ export function SettingsOverviewPage() {
   const [showEntityIconPicker, setShowEntityIconPicker] = useState(false);
   const [iconSearchQuery, setIconSearchQuery] = useState('');
 
-  // Permission management modal
-  const [showPermissionModal, setShowPermissionModal] = useState(false);
 
   // RBAC overview data (using /api/v1/entity_rbac/overview endpoint)
   const [rbacOverview, setRbacOverview] = useState<any>(null);
@@ -837,10 +834,10 @@ export function SettingsOverviewPage() {
                   Grant entity permissions to roles and employees. Uses <strong>entity_id_rbac_map</strong> with permission levels 0-5.
                 </p>
                 <button
-                  onClick={() => setShowPermissionModal(true)}
+                  onClick={() => navigate('/settings/access-control')}
                   className="w-full px-4 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors text-sm font-medium shadow-sm"
                 >
-                  Grant Permissions →
+                  Manage Permissions →
                 </button>
                 <div className="mt-4 text-xs text-dark-500">
                   <p className="font-medium text-dark-700 mb-1">Permission Levels:</p>
@@ -860,11 +857,11 @@ export function SettingsOverviewPage() {
                   Permissions Overview
                 </h3>
                 <button
-                  onClick={() => setShowPermissionModal(true)}
+                  onClick={() => navigate('/settings/access-control')}
                   className="px-3 py-1.5 bg-slate-600 text-white text-sm rounded-md hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors font-medium flex items-center gap-2 shadow-sm"
                 >
-                  <LucideIcons.Plus className="h-3.5 w-3.5" />
-                  Grant Permission
+                  <LucideIcons.Settings className="h-3.5 w-3.5" />
+                  Manage Access
                 </button>
               </div>
 
@@ -1675,16 +1672,6 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
           onSave={handleSaveEntityConfig}
         />
       )}
-
-      {/* Permission Management Modal */}
-      <PermissionManagementModal
-        isOpen={showPermissionModal}
-        onClose={() => setShowPermissionModal(false)}
-        onSave={() => {
-          setShowPermissionModal(false);
-          // Optionally refresh data
-        }}
-      />
     </Layout>
   );
 }

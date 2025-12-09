@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { cn } from '../../lib/utils';
 import * as LucideIcons from 'lucide-react';
 import { PermissionBadge, PERMISSION_LEVELS, getPermissionLabel } from './PermissionLevelSelector';
 import { InheritanceModeBadge, InheritanceMode } from './InheritanceModeSelector';
@@ -61,25 +60,21 @@ export function PermissionRuleCard({
   };
 
   return (
-    <div className={cn(
-      "bg-white border rounded-xl overflow-hidden transition-all",
+    <div className={`bg-white border rounded-xl overflow-hidden transition-all ${
       permission.is_deny
         ? "border-red-300 shadow-red-100"
-        : "border-dark-200 hover:border-dark-300",
-      isExpanded && "shadow-lg"
-    )}>
+        : "border-dark-200 hover:border-dark-300"
+    } ${isExpanded ? "shadow-lg" : ""}`}>
       {/* Header */}
       <div className="p-4">
         <div className="flex items-start gap-3">
           {/* Entity Icon */}
-          <div className={cn(
-            "p-2.5 rounded-lg",
+          <div className={`p-2.5 rounded-lg ${
             permission.is_deny ? "bg-red-100" : "bg-dark-100"
-          )}>
-            <IconComponent className={cn(
-              "h-5 w-5",
+          }`}>
+            <IconComponent className={`h-5 w-5 ${
               permission.is_deny ? "text-red-600" : "text-dark-600"
-            )} />
+            }`} />
           </div>
 
           {/* Main Content */}
@@ -120,10 +115,9 @@ export function PermissionRuleCard({
           <div className="mt-3 flex items-center gap-2">
             <div className="flex-1 h-2 bg-dark-100 rounded-full overflow-hidden">
               <div
-                className={cn(
-                  "h-full rounded-full transition-all",
+                className={`h-full rounded-full transition-all ${
                   PERMISSION_LEVELS.find(l => l.value === permission.permission)?.color || 'bg-slate-500'
-                )}
+                }`}
                 style={{ width: `${getBarWidth(permission.permission)}%` }}
               />
             </div>
@@ -233,10 +227,9 @@ export function PermissionRuleCard({
                         <div className="flex items-center gap-2">
                           <div className="w-16 h-1.5 bg-dark-100 rounded-full overflow-hidden">
                             <div
-                              className={cn(
-                                "h-full rounded-full",
+                              className={`h-full rounded-full ${
                                 PERMISSION_LEVELS.find(l => l.value === level)?.color || 'bg-slate-500'
-                              )}
+                              }`}
                               style={{ width: `${getBarWidth(level)}%` }}
                             />
                           </div>

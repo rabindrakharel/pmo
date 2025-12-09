@@ -808,7 +808,7 @@ fieldBusinessTypes:
 
 ---
 
-**Last Updated**: 2025-12-04
+**Last Updated**: 2025-12-09
 **Version**: 11.0.0+
 **Status**: Production - YAML is sole source of truth
 **Legacy Code**: Fully removed in v11.0.0

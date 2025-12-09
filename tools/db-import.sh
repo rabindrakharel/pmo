@@ -145,12 +145,10 @@ validate_all_ddls() {
     local schema_file="01_schema_create.ddl"
 
     # Entity Configuration (db/entity_configuration_settings/)
-    # Note: 04_entity_instance_backfill.ddl runs AFTER all business entities
     local entity_config_files=(
         "02_domain.ddl"
         "02_entity.ddl"
         "03_entity_instance.ddl"
-        "04_entity_instance_backfill.ddl"
         "05_entity_instance_link.ddl"
         "06_entity_rbac.ddl"
     )
@@ -208,7 +206,6 @@ validate_all_ddls() {
         "46_event_organizer_link.ddl"
         "47_person_calendar.ddl"
         "48_event_person_calendar.ddl"
-        "49_rbac_seed_data.ddl"
     )
 
     # Big data file (always included)
@@ -219,19 +216,19 @@ validate_all_ddls() {
     validate_ddl "$DB_PATH/$schema_file"
 
     # Validate entity configuration files
-    print_status $CYAN "  Entity Configuration (6 files)..."
+    print_status $CYAN "  Entity Configuration (5 files)..."
     for file in "${entity_config_files[@]}"; do
         validate_ddl "$DB_PATH/entity_configuration_settings/$file"
     done
 
     # Validate infrastructure files
-    print_status $CYAN "  Infrastructure (5 files)..."
+    print_status $CYAN "  Infrastructure (6 files)..."
     for file in "${infrastructure_files[@]}"; do
         validate_ddl "$DB_PATH/$file"
     done
 
     # Validate business entity files
-    print_status $CYAN "  Business Entities (43 files)..."
+    print_status $CYAN "  Business Entities (41 files)..."
     for file in "${business_entity_files[@]}"; do
         validate_ddl "$DB_PATH/$file"
     done
@@ -240,9 +237,9 @@ validate_all_ddls() {
     print_status $CYAN "  Big Data (1 file)..."
     validate_ddl "$DB_PATH/$big_data_file"
 
-    # Count: 1 schema + 6 entity config + 5 infrastructure + 43 business + 1 big data = 56 files
+    # Count: 1 schema + 5 entity config + 6 infrastructure + 41 business + 1 big data = 54 files
     local total_files=$((1 + ${#entity_config_files[@]} + ${#infrastructure_files[@]} + ${#business_entity_files[@]} + 1))
-    print_status $GREEN "✅ All $total_files DDL files validated (1 schema + 6 entity config + 5 infrastructure + 43 business + 1 big data)"
+    print_status $GREEN "✅ All $total_files DDL files validated (1 schema + 5 entity config + 6 infrastructure + 41 business + 1 big data)"
 }
 
 # Function to drop existing schema
@@ -265,14 +262,14 @@ drop_schema() {
 
 # Function to import all DDL files
 import_ddls() {
-    print_status $BLUE "📥 Importing 56 DDL files in sequential dependency order..."
+    print_status $BLUE "📥 Importing 54 DDL files in sequential dependency order..."
 
     # ===== SCHEMA CREATION (01) =====
     print_status $CYAN "  🏗️  Schema Creation..."
     execute_sql "$DB_PATH/01_schema_create.ddl" "01: Schema setup (drop and recreate)"
 
     # ===== ENTITY CONFIGURATION (entity_configuration_settings/ 02-06) =====
-    print_status $CYAN "  ⚙️  Entity Configuration (5 files - backfill runs after business entities)..."
+    print_status $CYAN "  ⚙️  Entity Configuration (5 files)..."
     execute_sql "$DB_PATH/entity_configuration_settings/02_domain.ddl" "02: Domain master table (10 business domains)"
     execute_sql "$DB_PATH/entity_configuration_settings/02_entity.ddl" "02: Entity metadata (27+ entity types)"
     execute_sql "$DB_PATH/entity_configuration_settings/03_entity_instance.ddl" "03: Entity instance registry"
@@ -356,19 +353,11 @@ import_ddls() {
     execute_sql "$DB_PATH/47_person_calendar.ddl" "47: Person calendar (availability slots)"
     execute_sql "$DB_PATH/48_event_person_calendar.ddl" "48: Event-person calendar (RSVP tracking)"
 
-    # ===== SEED DATA (49) =====
-    print_status $CYAN "  🌱 RBAC Seed Data..."
-    execute_sql "$DB_PATH/49_rbac_seed_data.ddl" "49: RBAC permission seed data (roles & employees)"
-
-    # ===== ENTITY INSTANCE BACKFILL (runs after all business entities) =====
-    print_status $CYAN "  📋 Entity Instance Backfill..."
-    execute_sql "$DB_PATH/entity_configuration_settings/04_entity_instance_backfill.ddl" "04: Backfill entity_instance registry from all entities"
-
     # ===== BIG DATA (300 businesses, 3K projects, 30K tasks) =====
     print_status $CYAN "  📊 Big Data (300 businesses, 3K projects, 30K tasks)..."
     execute_sql "$DB_PATH/big_data.sql" "Big Data: 300 businesses + 3,000 projects + 30,000 tasks"
 
-    print_status $GREEN "✅ All 56 DDL files imported successfully!"
+    print_status $GREEN "✅ All 54 DDL files imported successfully!"
 }
 
 # Function to validate schema after import
@@ -423,14 +412,14 @@ validate_schema() {
 print_summary() {
     print_status $PURPLE "📋 IMPORT SUMMARY"
     print_status $PURPLE "===================="
-    print_status $CYAN "• 56 DDL files imported in sequential dependency order"
+    print_status $CYAN "• 54 DDL files imported in sequential dependency order"
     print_status $CYAN "• Schema → Domain → Entity Config → Settings → Business Entities"
     print_status $CYAN ""
     print_status $CYAN "  File Organization:"
     print_status $CYAN "    1. Schema Creation (1 file)"
-    print_status $CYAN "    2. Entity Configuration (6 files) - domain, entity metadata, registry, links, RBAC"
-    print_status $CYAN "    3. Infrastructure (5 files) - settings, logging, person, attachment, sync subscriptions"
-    print_status $CYAN "    4. Business Entities (43 files) - organized by domain"
+    print_status $CYAN "    2. Entity Configuration (5 files) - domain, entity metadata, registry, links, RBAC"
+    print_status $CYAN "    3. Infrastructure (6 files) - settings, logging, person, attachment, sync subscriptions"
+    print_status $CYAN "    4. Business Entities (41 files) - organized by domain"
     print_status $CYAN "    5. Big Data (1 file) - 300 businesses, 3K projects, 30K tasks"
     print_status $CYAN ""
     print_status $CYAN "  Domains:"
@@ -456,7 +445,7 @@ print_summary() {
 
 # Main execution
 main() {
-    print_status $PURPLE "🚀 PMO ENTERPRISE DATABASE IMPORT (56 DDL FILES)"
+    print_status $PURPLE "🚀 PMO ENTERPRISE DATABASE IMPORT (54 DDL FILES)"
     print_status $PURPLE "=================================================="
 
     if [ "$DRY_RUN" = true ]; then

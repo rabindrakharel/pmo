@@ -209,5 +209,128 @@ be super smart, and next generation expert and compare this approach with other 
   /home/rabin/projects/pmo/docs/s3_service\
   /home/rabin/projects/pmo/docs/styling_patterns.md\
   /home/rabin/projects/pmo/docs/datamodel/datamodel.md\
-  /home/rabin/projects/pmo/docs/settings/settings.md 
+  /home/rabin/projects/pmo/docs/settings/settings.md
+────────────────────────────────────────────────────────
+
+## Feature Design Thought Process
+
+When designing a new feature that touches multiple layers (DB, API, Frontend), follow this systematic approach:
+
+### Phase 1: Understand the User's Intent
+- [ ] What is the user trying to accomplish?
+- [ ] What are the possible outcomes or user choices?
+- [ ] What data/tables are affected by each outcome?
+- [ ] What is the scope? (Single entity, parent-child, cross-entity)
+
+### Phase 2: Analyze Existing Patterns
+- [ ] **Check CLAUDE.md** - Does a similar pattern exist? (CRUD, RBAC, linking, sharing)
+- [ ] **Check entity-infrastructure.service.ts** - What transactional methods exist?
+- [ ] **Check universal-entity-crud-factory.ts** - How are similar endpoints structured?
+- [ ] **Search for similar components** - Grep for modal patterns, handlers, hooks
+- [ ] **Check pattern-mapping.yaml** - How are similar field types handled?
+
+### Phase 3: Identify Coherence Points
+Navigate and verify each layer:
+
+**Backend:**
+1. **Infrastructure Service** (`entity-infrastructure.service.ts`)
+   - Does a method already exist for this operation?
+   - What parameters does it need?
+   - Is it transactional (multi-table)?
+
+2. **API Endpoints** (`universal-entity-crud-factory.ts`, module routes)
+   - How are similar endpoints structured?
+   - What query parameters are used?
+   - What does the SELECT return? Is new data needed?
+
+3. **RBAC Patterns**
+   - What permission level makes sense for this operation?
+   - Check existing similar endpoints for precedent
+   - Document the permission rationale
+
+4. **YAML Pattern Detection** (`pattern-mapping.yaml`, `view-type-mapping.yaml`, `edit-type-mapping.yaml`)
+   - How will new fields be typed?
+   - Should field be visible or hidden in UI?
+
+**Frontend:**
+5. **Component Props**
+   - What props exist for similar operations?
+   - How is context/state passed from parent?
+
+6. **Page Integration**
+   - How are handlers wired to child components?
+   - What context is available at each level?
+
+7. **State Management**
+   - What TanStack Query hooks exist?
+   - What cache keys need invalidation?
+
+### Phase 4: Identify Conflicts & Coherence Issues
+- [ ] **API Response Gap** - Does the endpoint return all needed data?
+- [ ] **RBAC Mismatch** - Does existing code use different permission than intended?
+- [ ] **Multiple Patterns** - Are there conflicting approaches in the codebase?
+- [ ] **UI Visibility** - Do new fields need YAML config to show/hide?
+- [ ] **Breaking Changes** - Will this affect existing functionality?
+
+### Phase 5: Document Before Implementing
+Create documentation in appropriate location:
+- **UI/UX Spec**: `docs/ui_components/{ComponentName}.md`
+- **Design Pattern**: Section in `docs/design_pattern/FRONTEND_DESIGN_PATTERN.md`
+- **LLM Reference**: Update `CLAUDE.md` with new pattern
+- **Service Docs**: Update `docs/services/` if new methods added
+
+### Phase 6: Implementation Checklist Structure
+Organize by layer with priority:
+
+| Priority | Layer | Category | Action |
+|----------|-------|----------|--------|
+| HIGH | Backend | API Response | Add missing fields to SELECT |
+| HIGH | Backend | YAML Config | Add field → fieldBusinessType mapping |
+| HIGH | Backend | Endpoint | Add new route handler |
+| MEDIUM | Backend | Service | Add helper methods |
+| HIGH | Frontend | Component | Create/modify component |
+| MEDIUM | Frontend | Page | Wire handlers and props |
+| LOW | Docs | Reference | Update CLAUDE.md, design patterns |
+
+### Key Files to Check for Any Entity Feature
+```
+Backend:
+├── CLAUDE.md                                    # LLM reference, patterns
+├── apps/api/src/services/
+│   ├── entity-infrastructure.service.ts         # Transactional CRUD
+│   ├── pattern-mapping.yaml                     # Column → fieldBusinessType
+│   ├── view-type-mapping.yaml                   # View rendering config
+│   └── edit-type-mapping.yaml                   # Edit input config
+├── apps/api/src/lib/
+│   └── universal-entity-crud-factory.ts         # API endpoint factory
+└── apps/api/src/modules/{entity}/
+    └── routes.ts                                # Entity-specific endpoints
+
+Frontend:
+├── apps/web/src/components/shared/ui/
+│   └── EntityListOfInstancesTable.tsx           # Data table component
+├── apps/web/src/pages/shared/
+│   └── EntitySpecificInstancePage.tsx           # Detail page with child tabs
+├── apps/web/src/components/shared/entity/
+│   └── DynamicChildEntityTabs.tsx               # Child entity tab container
+└── apps/web/src/db/tanstack-hooks/
+    └── *.ts                                     # TanStack Query hooks
+
+Documentation:
+├── docs/ui_components/                          # UI component specs
+├── docs/design_pattern/                         # Architecture patterns
+├── docs/services/                               # Service documentation
+└── docs/rbac/                                   # Permission patterns
+```
+
+### Questions to Ask Before Implementation
+1. **Same component, different behavior?** → Use props/context to conditionally render
+2. **New field in API response?** → Check SELECT clause, add YAML config
+3. **Hidden from UI?** → Use `systemInternal_*` fieldBusinessType pattern
+4. **RBAC required?** → Check permission level, document rationale
+5. **Affects multiple tables?** → Use transactional methods from entity-infrastructure.service
+6. **Similar pattern exists?** → Reuse existing modal/component patterns
+7. **Cache invalidation needed?** → Identify TanStack Query keys to invalidate
+8. **Breaking existing behavior?** → Create NEW endpoint vs modifying existing
+
 ────────────────────────────────────────────────────────

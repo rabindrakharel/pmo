@@ -1,5 +1,4 @@
 import React from 'react';
-import { cn } from '../../lib/utils';
 import * as LucideIcons from 'lucide-react';
 import { PERMISSION_LEVELS, PermissionBadge } from './PermissionLevelSelector';
 

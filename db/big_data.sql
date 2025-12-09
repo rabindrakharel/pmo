@@ -1,9 +1,192 @@
 -- ============================================================================
--- BIG DATA: 300 Businesses + 3,000 Projects + 30,000 Tasks
+-- BIG DATA: CONSOLIDATED DATA GENERATION + RBAC + INDEXES
 -- ============================================================================
 --
 -- RUN MANUALLY: psql -h localhost -p 5434 -U app -d app -f db/big_data.sql
 -- NOT included in db-import.sh (run separately for performance testing)
+--
+-- MERGED FILES:
+--   - entity_configuration_settings/04_entity_instance_backfill.ddl
+--   - Original big_data.sql content (300 businesses, 3K projects, 30K tasks)
+--   - 49_rbac_seed_data.ddl
+--   - entity_configuration_settings/07_entity_indexes.ddl
+--
+-- EXECUTION ORDER:
+--   1. Entity Instance Backfill (registry population)
+--   2. Big Data Generation (businesses, projects, tasks)
+--   3. RBAC Seed Data (role permissions)
+--   4. Entity Infrastructure Indexes (performance)
+--
+-- ============================================================================
+
+
+-- ############################################################################
+-- SECTION 1: ENTITY INSTANCE REGISTRY BACKFILL
+-- ############################################################################
+-- Populates entity_instance table with all existing entity instances from
+-- primary tables. This enables:
+--   - Entity dropdown caches (prefetchEntityInstances on login)
+--   - ref_data_entityInstance resolution in API responses
+--   - Entity name lookups for foreign key references
+-- ============================================================================
+
+-- ============================================================================
+-- CUSTOMER 360 DOMAIN
+-- ============================================================================
+
+-- Backfill employees (primary entity for dropdowns)
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+SELECT 'employee', id, name, code
+FROM app.employee
+WHERE active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- Backfill offices
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+SELECT 'office', id, name, code
+FROM app.office
+WHERE active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- Backfill businesses
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+SELECT 'business', id, name, code
+FROM app.business
+WHERE active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- Backfill customers
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+SELECT 'customer', id, name, code
+FROM app.cust
+WHERE active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- Backfill roles
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+SELECT 'role', id, name, code
+FROM app.role
+WHERE active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- Backfill suppliers
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+SELECT 'supplier', id, name, code
+FROM app.supplier
+WHERE active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- Backfill worksites
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+SELECT 'worksite', id, name, code
+FROM app.worksite
+WHERE active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- ============================================================================
+-- OPERATIONS DOMAIN
+-- ============================================================================
+
+-- Backfill projects
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+SELECT 'project', id, name, code
+FROM app.project
+WHERE active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- Backfill tasks
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+SELECT 'task', id, name, code
+FROM app.task
+WHERE active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- Backfill work orders
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+SELECT 'work_order', id, name, code
+FROM app.work_order
+WHERE active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- Backfill services
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+SELECT 'service', id, name, code
+FROM app.service
+WHERE active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- ============================================================================
+-- PRODUCT & INVENTORY DOMAIN
+-- ============================================================================
+
+-- Backfill products
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+SELECT 'product', id, name, code
+FROM app.product
+WHERE active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- Backfill inventory
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+SELECT 'inventory', id, name, code
+FROM app.inventory
+WHERE active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- ============================================================================
+-- ORDER & FULFILLMENT DOMAIN
+-- ============================================================================
+
+-- Backfill quotes
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+SELECT 'quote', id, name, code
+FROM app.quote
+WHERE active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- Backfill orders
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+SELECT 'order', id, name, code
+FROM app.order
+WHERE active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- Backfill shipments
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+SELECT 'shipment', id, name, code
+FROM app.shipment
+WHERE active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- Backfill invoices
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+SELECT 'invoice', id, name, code
+FROM app.invoice
+WHERE active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- ============================================================================
+-- FINANCIAL DOMAIN
+-- ============================================================================
+
+-- Backfill revenue
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+SELECT 'revenue', id, name, code
+FROM app.revenue
+WHERE active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- Backfill expenses
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
+SELECT 'expense', id, name, code
+FROM app.expense
+WHERE active_flag = true
+ON CONFLICT DO NOTHING;
+
+
+-- ############################################################################
+-- SECTION 2: BIG DATA GENERATION (300 Businesses + 3K Projects + 30K Tasks)
+-- ############################################################################
 --
 -- Distribution (1:10 ratios):
 -- - 300 businesses (Canadian home services operational teams)
@@ -17,7 +200,7 @@
 -- ============================================================================
 
 -- ============================================================================
--- STEP 1: GENERATE 300 BUSINESSES
+-- STEP 2.1: GENERATE 300 BUSINESSES
 -- ============================================================================
 
 DO $$
@@ -72,7 +255,7 @@ DECLARE
     business_descr text;
 
 BEGIN
-    RAISE NOTICE 'Step 1: Generating 300 businesses...';
+    RAISE NOTICE 'Step 2.1: Generating 300 businesses...';
 
     FOR i IN 1..300 LOOP
         business_id := gen_random_uuid();
@@ -135,7 +318,7 @@ BEGIN
 END $$;
 
 -- ============================================================================
--- STEP 2: GENERATE 3,000 PROJECTS (10 per business)
+-- STEP 2.2: GENERATE 3,000 PROJECTS (10 per business)
 -- ============================================================================
 
 DO $$
@@ -209,7 +392,7 @@ DECLARE
     project_count integer := 0;
 
 BEGIN
-    RAISE NOTICE 'Step 2: Generating 3,000 projects (10 per business)...';
+    RAISE NOTICE 'Step 2.2: Generating 3,000 projects (10 per business)...';
 
     -- Loop through all businesses with generated=true
     FOR business_rec IN
@@ -304,7 +487,7 @@ BEGIN
 END $$;
 
 -- ============================================================================
--- STEP 3: GENERATE 30,000 TASKS (10 per project)
+-- STEP 2.3: GENERATE 30,000 TASKS (10 per project)
 -- ============================================================================
 
 DO $$
@@ -360,7 +543,7 @@ DECLARE
     task_phase integer;
 
 BEGIN
-    RAISE NOTICE 'Step 3: Generating 30,000 tasks (10 per project)...';
+    RAISE NOTICE 'Step 2.3: Generating 30,000 tasks (10 per project)...';
 
     -- Loop through all projects with generated=true
     FOR project_rec IN
@@ -457,7 +640,7 @@ BEGIN
 END $$;
 
 -- ============================================================================
--- VERIFICATION QUERIES
+-- BIG DATA VERIFICATION QUERIES
 -- ============================================================================
 
 -- Summary counts
@@ -539,8 +722,460 @@ SELECT 'Projects' as entity, COUNT(*) as total FROM app.project WHERE active_fla
 UNION ALL
 SELECT 'Tasks' as entity, COUNT(*) as total FROM app.task WHERE active_flag = true;
 
+
+-- ############################################################################
+-- SECTION 3: RBAC SEED DATA - ROLE-BASED PERMISSIONS (v2.0.0)
+-- ############################################################################
+--
+-- ARCHITECTURE (v2.0.0 Role-Only Model):
+-- Permissions are granted to ROLES only (no direct employee/person permissions).
+-- Persons get permissions through role membership via entity_instance_link.
+--
+-- PERMISSION LEVEL MODEL (0-7):
+--   0 = View:       Read access to entity data
+--   1 = Comment:    Add comments on entities
+--   2 = Contribute: Form submission, task updates, wiki edits
+--   3 = Edit:       Modify existing entity fields
+--   4 = Share:      Share entity with others
+--   5 = Delete:     Soft delete entity
+--   6 = Create:     Create new entities (type-level only)
+--   7 = Owner:      Full control including permission management
+--
+-- INHERITANCE MODES:
+--   none:    Permission applies ONLY to the specific entity (no children inherit)
+--   cascade: Same permission level applies to ALL children (recursive)
+--   mapped:  Different permission levels per child entity type (via child_permissions JSONB)
 -- ============================================================================
--- STEP 4: TYPE-LEVEL CREATE PERMISSIONS FOR 500 EMPLOYEES
+
+-- Clear existing RBAC data for clean re-import
+DELETE FROM app.entity_rbac;
+
+-- ============================================================================
+-- CEO ROLE - FULL OWNERSHIP (LEVEL 7) WITH CASCADE INHERITANCE
+-- ============================================================================
+-- CEO role gets Owner (7) permission on ALL entities with cascade inheritance
+-- This means all child entities automatically inherit Owner permission
+
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT
+  r.id,
+  entity_type,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  7,  -- Owner
+  'cascade',  -- All children inherit same permission
+  '{}'::jsonb,
+  false,
+  now()
+FROM app.role r
+CROSS JOIN (VALUES
+  ('artifact'), ('business'), ('business_hierarchy'), ('calendar'), ('customer'),
+  ('employee'), ('event'), ('expense'), ('form'), ('interaction'),
+  ('inventory'), ('invoice'), ('message'), ('message_schema'), ('office'),
+  ('office_hierarchy'), ('order'), ('product'), ('product_hierarchy'), ('project'),
+  ('quote'), ('revenue'), ('role'), ('service'),
+  ('shipment'), ('task'), ('wiki'), ('workflow'), ('workflow_automation'),
+  ('work_order'), ('worksite'), ('person')
+) AS entities(entity_type)
+WHERE r.code = 'CEO';
+
+-- ============================================================================
+-- MANAGER ROLES - DEPARTMENT LEADERSHIP PERMISSIONS
+-- ============================================================================
+-- Department managers can create projects and tasks, with cascade inheritance
+-- Child entities inherit the same permission level
+
+-- Managers - Create projects with cascade to child entities
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  entity_type,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  6,  -- Create
+  'cascade',  -- Children (tasks, artifacts) inherit Create permission
+  '{}'::jsonb,
+  false
+FROM app.role r
+CROSS JOIN (VALUES
+  ('project'), ('work_order'), ('quote')
+) AS entities(entity_type)
+WHERE r.code IN ('DEPT-MGR', 'MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
+
+-- Managers - Create tasks with mapped inheritance (tasks can contain subtasks, forms)
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  'task',
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  6,  -- Create
+  'mapped',  -- Different permissions for different child types
+  '{"task": 6, "form": 3, "artifact": 3, "_default": 0}'::jsonb,  -- subtasks: Create, forms/artifacts: Edit
+  false
+FROM app.role r
+WHERE r.code IN ('DEPT-MGR', 'MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
+
+-- Managers - Delete permissions on operational entities
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  entity_type,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  5,  -- Delete
+  'none',  -- Delete permission doesn't cascade automatically
+  '{}'::jsonb,
+  false
+FROM app.role r
+CROSS JOIN (VALUES
+  ('expense'), ('artifact'), ('wiki')
+) AS entities(entity_type)
+WHERE r.code IN ('DEPT-MGR', 'MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
+
+-- Managers - Share resources and operational data
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  entity_type,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  4,  -- Share
+  'cascade',  -- Can share child entities too
+  '{}'::jsonb,
+  false
+FROM app.role r
+CROSS JOIN (VALUES
+  ('worksite'), ('customer'), ('form'), ('inventory'), ('service'), ('product')
+) AS entities(entity_type)
+WHERE r.code IN ('DEPT-MGR', 'MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
+
+-- Managers - Edit employee records and schedules
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  entity_type,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  3,  -- Edit
+  'none',  -- No inheritance for personnel records
+  '{}'::jsonb,
+  false
+FROM app.role r
+CROSS JOIN (VALUES
+  ('employee'), ('calendar'), ('event')
+) AS entities(entity_type)
+WHERE r.code IN ('DEPT-MGR', 'MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
+
+-- Managers - View financial data
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  entity_type,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  0,  -- View
+  'none',
+  '{}'::jsonb,
+  false
+FROM app.role r
+CROSS JOIN (VALUES
+  ('revenue'), ('invoice'), ('order')
+) AS entities(entity_type)
+WHERE r.code IN ('DEPT-MGR', 'MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
+
+-- ============================================================================
+-- SUPERVISOR ROLES - FIELD OPERATIONS LEADERSHIP
+-- ============================================================================
+
+-- Supervisors - Create tasks
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  'task',
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  6,  -- Create
+  'cascade',
+  '{}'::jsonb,
+  false
+FROM app.role r
+WHERE r.code IN ('SUP-FIELD', 'TECH-SR');
+
+-- Supervisors - Delete operational artifacts
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  'artifact',
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  5,  -- Delete
+  'none',
+  '{}'::jsonb,
+  false
+FROM app.role r
+WHERE r.code IN ('SUP-FIELD', 'TECH-SR');
+
+-- Supervisors - Share customer and worksite information
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  entity_type,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  4,  -- Share
+  'none',
+  '{}'::jsonb,
+  false
+FROM app.role r
+CROSS JOIN (VALUES
+  ('worksite'), ('customer'), ('interaction')
+) AS entities(entity_type)
+WHERE r.code IN ('SUP-FIELD', 'TECH-SR');
+
+-- Supervisors - Edit work orders and forms
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  entity_type,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  3,  -- Edit
+  'none',
+  '{}'::jsonb,
+  false
+FROM app.role r
+CROSS JOIN (VALUES
+  ('work_order'), ('form'), ('wiki'), ('event')
+) AS entities(entity_type)
+WHERE r.code IN ('SUP-FIELD', 'TECH-SR');
+
+-- Supervisors - Comment on projects
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  'project',
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  1,  -- Comment
+  'none',
+  '{}'::jsonb,
+  false
+FROM app.role r
+WHERE r.code IN ('SUP-FIELD', 'TECH-SR');
+
+-- Supervisors - View inventory and products
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  entity_type,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  0,  -- View
+  'none',
+  '{}'::jsonb,
+  false
+FROM app.role r
+CROSS JOIN (VALUES
+  ('inventory'), ('product'), ('service')
+) AS entities(entity_type)
+WHERE r.code IN ('SUP-FIELD', 'TECH-SR');
+
+-- ============================================================================
+-- TECHNICIAN ROLES - FIELD OPERATIONS EXECUTION
+-- ============================================================================
+
+-- Technicians - Edit tasks, forms, and work orders
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  entity_type,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  3,  -- Edit
+  'none',
+  '{}'::jsonb,
+  false
+FROM app.role r
+CROSS JOIN (VALUES
+  ('task'), ('form'), ('work_order'), ('interaction')
+) AS entities(entity_type)
+WHERE r.code IN ('TECH-FIELD');
+
+-- Technicians - Comment on projects and artifacts
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  entity_type,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  1,  -- Comment
+  'none',
+  '{}'::jsonb,
+  false
+FROM app.role r
+CROSS JOIN (VALUES
+  ('project'), ('artifact'), ('wiki')
+) AS entities(entity_type)
+WHERE r.code IN ('TECH-FIELD');
+
+-- Technicians - View customers, worksites, and inventory
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  entity_type,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  0,  -- View
+  'none',
+  '{}'::jsonb,
+  false
+FROM app.role r
+CROSS JOIN (VALUES
+  ('customer'), ('worksite'), ('inventory'), ('product'), ('service')
+) AS entities(entity_type)
+WHERE r.code IN ('TECH-FIELD');
+
+-- ============================================================================
+-- COORDINATOR ROLES - ADMINISTRATIVE SUPPORT
+-- ============================================================================
+
+-- Coordinators - Create tasks and events
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  entity_type,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  6,  -- Create
+  'cascade',
+  '{}'::jsonb,
+  false
+FROM app.role r
+CROSS JOIN (VALUES
+  ('task'), ('event'), ('interaction')
+) AS entities(entity_type)
+WHERE r.code IN ('COORD-PROJ', 'COORD-HR');
+
+-- Coordinators - Delete forms and artifacts
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  entity_type,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  5,  -- Delete
+  'none',
+  '{}'::jsonb,
+  false
+FROM app.role r
+CROSS JOIN (VALUES
+  ('form'), ('artifact')
+) AS entities(entity_type)
+WHERE r.code IN ('COORD-PROJ', 'COORD-HR');
+
+-- Coordinators - Share projects, customers, and wikis
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  entity_type,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  4,  -- Share
+  'cascade',
+  '{}'::jsonb,
+  false
+FROM app.role r
+CROSS JOIN (VALUES
+  ('project'), ('customer'), ('wiki'), ('calendar')
+) AS entities(entity_type)
+WHERE r.code IN ('COORD-PROJ', 'COORD-HR');
+
+-- Coordinators - Edit employees and work orders
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  entity_type,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  3,  -- Edit
+  'none',
+  '{}'::jsonb,
+  false
+FROM app.role r
+CROSS JOIN (VALUES
+  ('employee'), ('work_order')
+) AS entities(entity_type)
+WHERE r.code IN ('COORD-PROJ', 'COORD-HR');
+
+-- Coordinators - View financial data
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  entity_type,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  0,  -- View
+  'none',
+  '{}'::jsonb,
+  false
+FROM app.role r
+CROSS JOIN (VALUES
+  ('expense'), ('revenue'), ('invoice'), ('order')
+) AS entities(entity_type)
+WHERE r.code IN ('COORD-PROJ', 'COORD-HR');
+
+-- ============================================================================
+-- CUSTOMER ROLE - LIMITED PERMISSIONS
+-- ============================================================================
+-- Customers get limited permissions via a CUSTOMER role (if exists)
+
+-- Create customer role permissions (View only for their entities)
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  entity_type,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  0,  -- View
+  'none',
+  '{}'::jsonb,
+  false
+FROM app.role r
+CROSS JOIN (VALUES
+  ('project'), ('task'), ('quote'), ('invoice')
+) AS entities(entity_type)
+WHERE r.code = 'CUSTOMER';
+
+-- Customers can create interactions (submit forms, send messages)
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+SELECT
+  r.id,
+  entity_type,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  6,  -- Create
+  'none',
+  '{}'::jsonb,
+  false
+FROM app.role r
+CROSS JOIN (VALUES
+  ('form'), ('interaction')
+) AS entities(entity_type)
+WHERE r.code = 'CUSTOMER';
+
+-- ============================================================================
+-- ROLE-PERSON MEMBERSHIP LINKS
+-- ============================================================================
+-- Link persons to roles via entity_instance_link
+-- This establishes the role membership that RBAC resolution uses
+
+-- CEO Role membership
+INSERT INTO app.entity_instance_link (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
+SELECT 'role', r.id, 'person', p.id, 'member'
+FROM app.role r, app.person p
+WHERE r.code = 'CEO'
+  AND p.email = 'james.miller@huronhome.ca'
+  AND p.active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- COO Role membership
+INSERT INTO app.entity_instance_link (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
+SELECT 'role', r.id, 'person', p.id, 'member'
+FROM app.role r, app.person p
+WHERE r.code = 'COO'
+  AND p.email = 'sarah.johnson@huronhome.ca'
+  AND p.active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- CTO Role membership
+INSERT INTO app.entity_instance_link (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
+SELECT 'role', r.id, 'person', p.id, 'member'
+FROM app.role r, app.person p
+WHERE r.code = 'CTO'
+  AND p.email = 'michael.chen@huronhome.ca'
+  AND p.active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- ============================================================================
+-- STEP 3.4: TYPE-LEVEL CREATE PERMISSIONS FOR 500 EMPLOYEES
 -- ============================================================================
 -- Each employee gets CREATE (6) permission on ~8 random entity types
 -- Uses efficient set-based SQL instead of loops
@@ -581,7 +1216,7 @@ ON CONFLICT DO NOTHING;
 DROP TABLE IF EXISTS temp_entity_types;
 
 -- ============================================================================
--- STEP 5: INSTANCE-LEVEL PERMISSIONS ON PROJECTS
+-- STEP 3.5: INSTANCE-LEVEL PERMISSIONS ON PROJECTS
 -- ============================================================================
 -- Distribute ~3000 projects across 500 employees with varying permission levels
 -- Uses efficient set-based SQL
@@ -659,7 +1294,7 @@ WHERE (
 ON CONFLICT DO NOTHING;
 
 -- ============================================================================
--- STEP 6: INSTANCE-LEVEL PERMISSIONS ON TASKS
+-- STEP 3.6: INSTANCE-LEVEL PERMISSIONS ON TASKS
 -- ============================================================================
 -- Distribute 30K tasks across 500 employees
 
@@ -699,7 +1334,7 @@ WHERE (
 ON CONFLICT DO NOTHING;
 
 -- ============================================================================
--- STEP 7: INSTANCE-LEVEL PERMISSIONS ON BUSINESSES
+-- STEP 3.7: INSTANCE-LEVEL PERMISSIONS ON BUSINESSES
 -- ============================================================================
 -- Distribute 306 businesses across employees
 
@@ -738,12 +1373,12 @@ WHERE (
 ON CONFLICT DO NOTHING;
 
 -- ============================================================================
--- STEP 8: GENERATE ENTITY INSTANCE LINKS (HIERARCHIES)
+-- STEP 3.8: GENERATE ENTITY INSTANCE LINKS (HIERARCHIES)
 -- ============================================================================
 -- Create parent-child relationships for entity navigation
 -- Uses efficient set-based SQL
 
--- 8a: Link projects to tasks (project → task) - ~10 tasks per project
+-- 3.8a: Link projects to tasks (project → task) - ~10 tasks per project
 INSERT INTO app.entity_instance_link (
   entity_code, entity_instance_id,
   child_entity_code, child_entity_instance_id,
@@ -765,7 +1400,7 @@ WHERE (
 )
 ON CONFLICT DO NOTHING;
 
--- 8b: Link businesses to projects (business → project) - ~10 projects per business
+-- 3.8b: Link businesses to projects (business → project) - ~10 projects per business
 INSERT INTO app.entity_instance_link (
   entity_code, entity_instance_id,
   child_entity_code, child_entity_instance_id,
@@ -786,7 +1421,7 @@ WHERE (
 )
 ON CONFLICT DO NOTHING;
 
--- 8c: Link employees to tasks (employee → task) - ~60 tasks per employee
+-- 3.8c: Link employees to tasks (employee → task) - ~60 tasks per employee
 INSERT INTO app.entity_instance_link (
   entity_code, entity_instance_id,
   child_entity_code, child_entity_instance_id,
@@ -807,7 +1442,7 @@ WHERE (
 )
 ON CONFLICT DO NOTHING;
 
--- 8d: Link employees to projects (employee → project) - ~120 projects per employee
+-- 3.8d: Link employees to projects (employee → project) - ~120 projects per employee
 INSERT INTO app.entity_instance_link (
   entity_code, entity_instance_id,
   child_entity_code, child_entity_instance_id,
@@ -828,7 +1463,7 @@ WHERE (
 )
 ON CONFLICT DO NOTHING;
 
--- 8e: Link offices to employees - ~83 employees per office
+-- 3.8e: Link offices to employees - ~83 employees per office
 INSERT INTO app.entity_instance_link (
   entity_code, entity_instance_id,
   child_entity_code, child_entity_instance_id,
@@ -849,7 +1484,7 @@ WHERE (
 )
 ON CONFLICT DO NOTHING;
 
--- 8f: Link worksites to projects - ~500 projects per worksite
+-- 3.8f: Link worksites to projects - ~500 projects per worksite
 INSERT INTO app.entity_instance_link (
   entity_code, entity_instance_id,
   child_entity_code, child_entity_instance_id,
@@ -871,7 +1506,7 @@ WHERE (
 ON CONFLICT DO NOTHING;
 
 -- ============================================================================
--- STEP 9: UPDATE ENTITY INSTANCE REGISTRY
+-- STEP 3.9: UPDATE ENTITY INSTANCE REGISTRY
 -- ============================================================================
 -- Ensure all entities with RBAC permissions are registered in entity_instance
 -- Note: entity_instance has no unique constraint, so we delete/insert
@@ -958,9 +1593,154 @@ FROM app.entity_instance
 GROUP BY entity_code
 ORDER BY instance_count DESC;
 
+-- Update table comment
+COMMENT ON TABLE app.entity_rbac IS 'Role-based RBAC system (v2.0.0). Permissions granted to roles only via role_id FK. Persons get permissions through role membership via entity_instance_link. Inheritance modes: none, cascade, mapped. SEED DATA LOADED from big_data.sql';
+
+
+-- ############################################################################
+-- SECTION 4: ENTITY INFRASTRUCTURE INDEXES
+-- ############################################################################
+-- Performance indexes for entity_instance, entity_instance_link, entity_rbac,
+-- and entity tables based on query patterns in entity-infrastructure.service.ts
+--
+-- QUERY PATTERNS OPTIMIZED:
+--   1. entity_instance lookups by (entity_code, entity_instance_id)
+--   2. entity_instance_link parent→child and child→parent queries
+--   3. entity_rbac permission checks (employee + role inheritance)
+--   4. entity JSONB child_entity_codes containment queries
+--
+-- DATA VOLUMES (as of big_data.sql):
+--   - entity_instance: ~34K records
+--   - entity_instance_link: ~156K records
+--   - entity_rbac: ~200K records
+--   - entity: ~50 records
+--
 -- ============================================================================
+
+-- ============================================================================
+-- SECTION 4.1: entity_instance INDEXES
+-- ============================================================================
+-- Used by: validate_entity_instance_registry(), getEntityInstanceNames(),
+--          getAllEntityInstanceNames(), set_entity_instance_registry()
+
+-- Primary lookup pattern: (entity_code, entity_instance_id) - used in ~15 methods
+-- CRITICAL: This is the most frequently hit pattern
+CREATE UNIQUE INDEX IF NOT EXISTS idx_entity_instance_code_id
+ON app.entity_instance (entity_code, entity_instance_id);
+
+-- Name lookups for dropdowns and search (getAllEntityInstanceNames)
+-- ORDER BY entity_instance_name ASC
+CREATE INDEX IF NOT EXISTS idx_entity_instance_code_name
+ON app.entity_instance (entity_code, entity_instance_name);
+
+-- Entity code only (for getEntityInstances grouped query)
+CREATE INDEX IF NOT EXISTS idx_entity_instance_entity_code
+ON app.entity_instance (entity_code);
+
+-- ============================================================================
+-- SECTION 4.2: entity_instance_link INDEXES
+-- ============================================================================
+-- Used by: get_entity_instance_link_children(), getAccessibleEntityIds(),
+--          delete_entity(), role membership queries in RBAC CTEs
+
+-- Parent → Child lookups (most common pattern)
+-- Query: WHERE entity_code = X AND entity_instance_id = Y AND child_entity_code = Z
+CREATE INDEX IF NOT EXISTS idx_entity_instance_link_parent
+ON app.entity_instance_link (entity_code, entity_instance_id, child_entity_code);
+
+-- Child → Parent lookups (for delete cascades and reverse navigation)
+-- Query: WHERE child_entity_code = X AND child_entity_instance_id = Y
+CREATE INDEX IF NOT EXISTS idx_entity_instance_link_child
+ON app.entity_instance_link (child_entity_code, child_entity_instance_id);
+
+-- Role → Employee membership (heavily used in RBAC CTEs)
+-- Query: WHERE entity_code = 'role' AND child_entity_code = 'employee' AND child_entity_instance_id = ?
+-- Partial index for this specific high-frequency pattern
+CREATE INDEX IF NOT EXISTS idx_entity_instance_link_role_employee
+ON app.entity_instance_link (entity_instance_id, child_entity_instance_id)
+WHERE entity_code = 'role' AND child_entity_code = 'employee';
+
+-- Unique constraint to prevent duplicate links
+CREATE UNIQUE INDEX IF NOT EXISTS idx_entity_instance_link_unique
+ON app.entity_instance_link (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id);
+
+-- ============================================================================
+-- SECTION 4.3: entity_rbac INDEXES
+-- ============================================================================
+-- Used by: check_entity_rbac(), getMaxPermissionLevel(), getAccessibleEntityIds(),
+--          delete_entity(), set_entity_rbac()
+--
+-- NOTE: idx_entity_rbac_unique_permission already exists (see 06_entity_rbac.ddl)
+--       It handles: (person_code, person_id, entity_code, entity_instance_id)
+
+-- Direct employee permission lookups (CTE: direct_emp)
+-- Query: WHERE person_code = 'employee' AND person_id = ? AND entity_code = ?
+CREATE INDEX IF NOT EXISTS idx_entity_rbac_employee_entity
+ON app.entity_rbac (person_id, entity_code, entity_instance_id)
+WHERE person_code = 'employee';
+
+-- Role permission lookups (CTE: role_based)
+-- Query: WHERE person_code = 'role' AND entity_code = ?
+CREATE INDEX IF NOT EXISTS idx_entity_rbac_role_entity
+ON app.entity_rbac (entity_code, entity_instance_id, person_id)
+WHERE person_code = 'role';
+
+-- Entity instance cleanup (for delete operations)
+-- Query: WHERE entity_code = X AND entity_instance_id = Y
+CREATE INDEX IF NOT EXISTS idx_entity_rbac_entity_instance
+ON app.entity_rbac (entity_code, entity_instance_id);
+
+-- Permission expiration filtering (commonly used in WHERE clauses)
+-- Query: WHERE expires_ts IS NULL OR expires_ts > NOW()
+-- Partial index for active (non-expired) permissions only
+CREATE INDEX IF NOT EXISTS idx_entity_rbac_active_permissions
+ON app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission)
+WHERE expires_ts IS NULL;
+
+-- ============================================================================
+-- SECTION 4.4: entity TABLE INDEXES
+-- ============================================================================
+-- Used by: get_parent_entity_codes(), get_entity(), get_all_entity()
+--
+-- NOTE: entity_pkey (code) already exists as primary key
+
+-- JSONB containment queries for child_entity_codes
+-- Query: WHERE child_entity_codes @> '["task"]'::jsonb
+-- GIN index for efficient JSONB containment operations
+CREATE INDEX IF NOT EXISTS idx_entity_child_codes_gin
+ON app.entity USING GIN (child_entity_codes jsonb_path_ops);
+
+-- Active entities filter (used in most entity queries)
+-- Query: WHERE active_flag = true ORDER BY display_order
+CREATE INDEX IF NOT EXISTS idx_entity_active_order
+ON app.entity (display_order, code)
+WHERE active_flag = true;
+
+-- ============================================================================
+-- VERIFY INDEX CREATION
+-- ============================================================================
+
+DO $$
+DECLARE
+  idx_count INTEGER;
+BEGIN
+  SELECT COUNT(*)
+  INTO idx_count
+  FROM pg_indexes
+  WHERE schemaname = 'app'
+    AND tablename IN ('entity', 'entity_instance', 'entity_instance_link', 'entity_rbac');
+
+  RAISE NOTICE '============================================';
+  RAISE NOTICE 'ENTITY INFRASTRUCTURE INDEXES CREATED';
+  RAISE NOTICE '============================================';
+  RAISE NOTICE 'Total indexes on infrastructure tables: %', idx_count;
+  RAISE NOTICE '============================================';
+END $$;
+
+
+-- ############################################################################
 -- CLEANUP SCRIPT (run if needed to remove generated data)
--- ============================================================================
+-- ############################################################################
 --
 -- To remove ONLY the big data (keep seed data):
 --

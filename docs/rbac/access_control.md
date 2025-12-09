@@ -1,1242 +1,565 @@
-# Access Control Page Design Document
+# RBAC Access Control - Complete Technical Reference
 
-> Next-generation interface for role management, person assignment, and RBAC grants/revokes
+> Role-Only RBAC Model v2.0.0 - Backend routes, business logic, data flow, and integration patterns
 
-**Version**: 1.0.0
-**Date**: 2025-12-08
-**Status**: Design Phase
+**Version**: 2.0.0 | **Updated**: 2025-12-09 | **Status**: Production
 
 ---
 
-## 1. Executive Summary
+## 1. Architecture Overview
 
-The Access Control page is a **dedicated, standalone interface** for managing:
-1. **Roles** - organizational functions and responsibilities
-2. **Role-Person Assignments** - linking employees/persons to roles via `entity_instance_link`
-3. **RBAC Grants/Revokes** - managing permissions in `entity_rbac` table
+### 1.1 Role-Only Model Principle
 
-This page is **completely separate** from the existing entity/settings infrastructure and provides a purpose-built UI for access control administration.
-
----
-
-## 2. Architecture Overview
-
-### 2.1 Page Structure
+All permissions are granted to **roles**, not directly to people. People receive permissions through role membership.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  ACCESS CONTROL PAGE (/settings/access-control)                             │
+│                    ROLE-ONLY RBAC DATA FLOW                                  │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  ┌──────────────────┐  ┌──────────────────────────────────────────────────┐ │
-│  │   ROLE LIST      │  │   ROLE DETAIL (Selected Role)                    │ │
-│  │   ─────────────  │  │   ─────────────────────────────────────────────  │ │
-│  │                  │  │                                                   │ │
-│  │   [CEO]          │  │   Role: CEO - Chief Executive Officer            │ │
-│  │   [COO]          │  │                                                   │ │
-│  │   [CFO] ◀─────── │  │   ┌─────────────┬─────────────┐                  │ │
-│  │   [CTO]          │  │   │ Permissions │   Persons   │                  │ │
-│  │   [MGR-LAND]     │  │   └─────────────┴─────────────┘                  │ │
-│  │   [MGR-HVAC]     │  │                                                   │ │
-│  │   [SUP-FIELD]    │  │   ┌─────────────────────────────────────────────┐│ │
-│  │   [TECH-FIELD]   │  │   │ [+ Add Permission]                         ││ │
-│  │   ...            │  │   │                                             ││ │
-│  │                  │  │   │ entity_code | permission | granted_by | ... ││ │
-│  │   [+ Add Role]   │  │   │ ──────────────────────────────────────────  ││ │
-│  │                  │  │   │ project     | Owner (7)  | James M.   | ... ││ │
-│  │                  │  │   │ task        | Create (6) | James M.   | ... ││ │
-│  │                  │  │   │ employee    | View (0)   | Sarah J.   | ... ││ │
-│  │                  │  │   │                                             ││ │
-│  │                  │  │   └─────────────────────────────────────────────┘│ │
-│  │                  │  │                                                   │ │
-│  └──────────────────┘  └──────────────────────────────────────────────────┘ │
+│   app.role ──────────────► app.entity_rbac ◄──────────── app.entity          │
+│   (who holds)               (permissions)                (what is protected) │
+│        │                         │                                           │
+│        │                         │ role_id FK                                │
+│        ▼                         ▼                                           │
+│   entity_instance_link      RBAC checks resolve                              │
+│   (role → person)           person → roles → permissions                     │
+│        │                                                                     │
+│        ▼                                                                     │
+│   app.person ──────────────────────────────────────────────────────────────► │
+│   (employees, customers)                                                     │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 Data Model
+### 1.2 Infrastructure Tables
+
+| Table | Delete Behavior | Purpose |
+|-------|-----------------|---------|
+| `app.entity_rbac` | Hard delete | Role → Entity permission grants |
+| `app.entity_instance_link` | Hard delete | Role → Person membership |
+| `app.role` | Soft delete (`active_flag`) | Role definitions |
+| `app.person` | Soft delete (`active_flag`) | People (employees, customers, vendors) |
+
+---
+
+## 2. Permission System
+
+### 2.1 Permission Levels (0-7)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           DATA FLOW                                          │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│   app.role                    app.entity_rbac              app.entity_instance_link
-│   ──────────                  ───────────────              ──────────────────────
-│   id (uuid)                   id (uuid)                    id (uuid)
-│   code                        person_code='role'           entity_code='role'
-│   name ─────────────────────► person_id (role.id)          entity_instance_id (role.id)
-│   role_code                   entity_code                  child_entity_code IN ('employee',
-│   role_category               entity_instance_id             'customer', 'vendor', 'supplier')
-│   ...                         permission (0-7)             child_entity_instance_id (person.id)
-│                               granted_by__employee_id      relationship_type='has_member'
-│                               granted_ts                   created_ts
-│                               expires_ts
-│                                                                              │
-│   PERMISSIONS TAB:                     PERSONS TAB:                          │
-│   SELECT from entity_rbac              SELECT from entity_instance_link      │
-│   WHERE person_code='role'             WHERE entity_code='role'              │
-│   AND person_id = <selected_role_id>   AND entity_instance_id = <role_id>    │
-│                                        AND child_entity_code IN              │
-│                                          ('employee','customer','vendor',    │
-│                                           'supplier')                        │
-│                                                                              │
+│  Level  Name        Implies              Use Case                           │
+│  ─────  ────        ───────              ────────                           │
+│    0    VIEW        -                    Read-only access                   │
+│    1    COMMENT     VIEW                 Add comments to records            │
+│    2    CONTRIBUTE  COMMENT              Insert form data                   │
+│    3    EDIT        CONTRIBUTE           Modify existing records            │
+│    4    SHARE       EDIT                 Share with other users             │
+│    5    DELETE      SHARE                Soft delete records                │
+│    6    CREATE      DELETE               Create new instances (type-level)  │
+│    7    OWNER       ALL                  Full control                       │
 └─────────────────────────────────────────────────────────────────────────────┘
+
+Permission Check: user.level >= required_level → ALLOWED
 ```
 
----
+### 2.2 Type-Level vs Instance-Level
 
-## 3. Component Architecture
+| Scope | `entity_instance_id` | Example |
+|-------|---------------------|---------|
+| Type-level | `11111111-1111-1111-1111-111111111111` (ALL_ENTITIES_ID) | "Can CREATE any project" |
+| Instance-level | Specific UUID | "Can EDIT project X only" |
 
-### 3.1 Page Components
+### 2.3 Inheritance Modes
 
-```typescript
-// apps/web/src/pages/settings/AccessControlPage.tsx
+| Mode | Description | SQL Logic |
+|------|-------------|-----------|
+| `none` | Permission applies only to target | Direct lookup only |
+| `cascade` | Same permission flows to all children | Recursive join via `entity_instance_link` |
+| `mapped` | Different permission per child type | `child_permissions` JSONB lookup |
 
-AccessControlPage
-├── Layout (shared)
-├── AccessControlRoleList          // Left sidebar - role listing
-│   └── EntityListOfInstancesTable (reused)
-└── AccessControlRoleDetail        // Right panel - selected role detail
-    ├── RoleDetailHeader           // Role name, code, category
-    └── AccessControlTabs
-        ├── PermissionsTab         // RBAC grants for this role
-        │   └── EntityListOfInstancesTable (reused, inline editing)
-        └── PersonsTab             // Employees assigned to this role
-            └── EntityListOfInstancesTable (reused, inline editing)
-```
-
-### 3.2 Route Configuration
-
-```typescript
-// apps/web/src/App.tsx (add to routes)
-
-// Access Control - Dedicated page under settings
-<Route path="/settings/access-control" element={<AccessControlPage />} />
-<Route path="/settings/access-control/role/:roleId" element={<AccessControlPage />} />
-<Route path="/settings/access-control/role/:roleId/:tab" element={<AccessControlPage />} />
-```
-
----
-
-## 4. API Endpoints
-
-### 4.1 Existing Endpoints (Reuse)
-
-```typescript
-// Role CRUD - already exists in apps/api/src/modules/role/routes.ts
-GET    /api/v1/role                    // List all roles
-GET    /api/v1/role/:id                // Get single role
-POST   /api/v1/role                    // Create role
-PATCH  /api/v1/role/:id                // Update role
-DELETE /api/v1/role/:id                // Soft delete role
-
-// RBAC Management - already exists in apps/api/src/modules/rbac/routes.ts
-POST   /api/v1/entity_rbac/grant-permission     // Grant/update permission
-DELETE /api/v1/entity_rbac/revoke-permission/:id // Revoke permission
-GET    /api/v1/entity_rbac/permissions/:personType/:personId  // Get permissions for role/employee
-```
-
-### 4.2 New Endpoints Required
-
-```typescript
-// apps/api/src/modules/access-control/routes.ts
-
-// 1. Get RBAC records for a specific role (with metadata for rendering)
-GET /api/v1/access-control/role/:roleId/permissions
-// Response: { data: RBACRecord[], metadata, ref_data_entityInstance }
-
-// 2. Get persons (employee, customer, vendor, supplier) assigned to a role
-GET /api/v1/access-control/role/:roleId/persons
-// Response: { data: Person[], metadata, ref_data_entityInstance }
-// Returns all person types linked via entity_instance_link
-
-// 3. Assign person to role (create entity_instance_link)
-POST /api/v1/access-control/role/:roleId/persons
-// Body: { person_type: 'employee' | 'customer' | 'vendor' | 'supplier', person_id: uuid }
-// Creates link in entity_instance_link with child_entity_code = person_type
-
-// 4. Remove person from role (delete entity_instance_link)
-DELETE /api/v1/access-control/role/:roleId/persons/:personType/:personId
-// Hard deletes link from entity_instance_link
-// personType: employee | customer | vendor | supplier
-
-// 5. Bulk permission operations
-POST /api/v1/access-control/role/:roleId/permissions/bulk
-// Body: { permissions: Array<{entity_code, permission, expires_ts?}> }
-```
-
----
-
-## 5. Data Table Specifications
-
-### 5.1 Permissions Tab DataTable
-
-| Column | Source Field | Display | Edit Mode | Notes |
-|--------|-------------|---------|-----------|-------|
-| Entity Type | `entity_code` | Badge | EntityTypeSelect dropdown | Shows entity name from entity table |
-| Instance | `entity_instance_id` | "ALL" or EntityInstanceName | EntityInstanceSelect | ALL_ENTITIES_ID → "Type-level" |
-| Permission | `permission` | Badge with color | PermissionSelect dropdown | 0-7 with labels |
-| Granted By | `granted_by__employee_id` | Employee name | Read-only | Uses ref_data_entityInstance |
-| Granted At | `granted_ts` | Relative time | Read-only | Auto-set on create/update |
-| Expires At | `expires_ts` | Date/time or "Never" | DateTimePicker | Optional expiration |
-| Actions | - | Edit/Delete buttons | Save/Cancel | Standard row actions |
-
-**Permission Level Rendering**:
-```typescript
-const PERMISSION_LEVELS = {
-  0: { label: 'View', color: 'bg-slate-100 text-slate-700' },
-  1: { label: 'Comment', color: 'bg-blue-100 text-blue-700' },
-  3: { label: 'Edit', color: 'bg-green-100 text-green-700' },
-  4: { label: 'Share', color: 'bg-yellow-100 text-yellow-700' },
-  5: { label: 'Delete', color: 'bg-orange-100 text-orange-700' },
-  6: { label: 'Create', color: 'bg-purple-100 text-purple-700' },
-  7: { label: 'Owner', color: 'bg-red-100 text-red-700' },
-};
-```
-
-### 5.2 Persons Tab DataTable
-
-| Column | Source Field | Display | Edit Mode | Notes |
-|--------|-------------|---------|-----------|-------|
-| Person Type | `child_entity_code` | Badge (Employee/Customer/Vendor/Supplier) | PersonTypeSelect | Type of person |
-| Person Name | `child_entity_instance_id` | Person name | Read-only (select to add) | Via entity_instance_link + person lookup |
-| Code | person.code | Text | Read-only | Person code |
-| Email | person.email | Text | Read-only | Person email |
-| Assigned Since | `created_ts` | Relative time | Read-only | When added to role |
-| Actions | - | Remove button | - | Removes from role |
-
-**Supported Person Types**:
-- `employee` - Internal staff members
-- `customer` - External customers
-- `vendor` - External vendors
-- `supplier` - External suppliers
-
-### 5.3 Add Row Functionality
-
-**Add Permission Row**:
-```typescript
-interface NewPermissionRow {
-  entity_code: string;           // Required - dropdown of all entity types
-  entity_instance_id: string;    // Default: ALL_ENTITIES_ID, or select instance
-  permission: number;            // Required - 0-7 dropdown
-  expires_ts?: string | null;    // Optional - datetime picker
-}
-```
-
-**Add Person Row**:
-```typescript
-interface NewPersonAssignment {
-  person_type: 'employee' | 'customer' | 'vendor' | 'supplier';  // Required - person type dropdown
-  person_id: string;             // Required - person selector (filtered by type)
-}
-```
-
----
-
-## 6. Frontend Implementation
-
-### 6.1 Access Control Page Component
-
-```typescript
-// apps/web/src/pages/settings/AccessControlPage.tsx
-
-import React, { useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Layout } from '../../components/shared';
-import { AccessControlRoleList } from './components/AccessControlRoleList';
-import { AccessControlRoleDetail } from './components/AccessControlRoleDetail';
-
-export function AccessControlPage() {
-  const { roleId, tab = 'permissions' } = useParams();
-  const navigate = useNavigate();
-
-  const handleRoleSelect = useCallback((id: string) => {
-    navigate(`/settings/access-control/role/${id}/permissions`);
-  }, [navigate]);
-
-  const handleTabChange = useCallback((newTab: string) => {
-    if (roleId) {
-      navigate(`/settings/access-control/role/${roleId}/${newTab}`);
-    }
-  }, [roleId, navigate]);
-
-  return (
-    <Layout title="Access Control">
-      <div className="flex h-full">
-        {/* Left Panel - Role List */}
-        <div className="w-80 border-r border-slate-200 overflow-y-auto">
-          <AccessControlRoleList
-            selectedRoleId={roleId}
-            onSelect={handleRoleSelect}
-          />
-        </div>
-
-        {/* Right Panel - Role Detail */}
-        <div className="flex-1 overflow-y-auto">
-          {roleId ? (
-            <AccessControlRoleDetail
-              roleId={roleId}
-              activeTab={tab}
-              onTabChange={handleTabChange}
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full text-slate-500">
-              Select a role to view details
-            </div>
-          )}
-        </div>
-      </div>
-    </Layout>
-  );
-}
-```
-
-### 6.2 Role List Component
-
-```typescript
-// apps/web/src/pages/settings/components/AccessControlRoleList.tsx
-
-import React from 'react';
-import { Shield, Plus } from 'lucide-react';
-import { useEntityList } from '../../../db/tanstack-index';
-import { Button } from '../../../components/shared/button/Button';
-
-interface AccessControlRoleListProps {
-  selectedRoleId?: string;
-  onSelect: (roleId: string) => void;
-}
-
-export function AccessControlRoleList({ selectedRoleId, onSelect }: AccessControlRoleListProps) {
-  const { data: roles, isLoading } = useEntityList('role', {
-    limit: 100,
-    sort: 'role_category,name'
-  });
-
-  // Group roles by category
-  const groupedRoles = React.useMemo(() => {
-    if (!roles?.data) return {};
-    return roles.data.reduce((acc, role) => {
-      const category = role.role_category || 'other';
-      if (!acc[category]) acc[category] = [];
-      acc[category].push(role);
-      return acc;
-    }, {} as Record<string, any[]>);
-  }, [roles?.data]);
-
-  const categoryLabels: Record<string, string> = {
-    executive: 'Executive',
-    management: 'Management',
-    operational: 'Operational',
-    technical: 'Technical',
-    administrative: 'Administrative',
-    other: 'Other'
-  };
-
-  return (
-    <div className="p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
-          <Shield className="w-5 h-5" />
-          Roles
-        </h2>
-        <Button variant="ghost" size="sm">
-          <Plus className="w-4 h-4" />
-        </Button>
-      </div>
-
-      {isLoading ? (
-        <div className="text-slate-500">Loading roles...</div>
-      ) : (
-        <div className="space-y-4">
-          {Object.entries(groupedRoles).map(([category, categoryRoles]) => (
-            <div key={category}>
-              <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
-                {categoryLabels[category] || category}
-              </h3>
-              <div className="space-y-1">
-                {categoryRoles.map((role: any) => (
-                  <button
-                    key={role.id}
-                    onClick={() => onSelect(role.id)}
-                    className={[
-                      'w-full text-left px-3 py-2 rounded-md text-sm transition-colors',
-                      selectedRoleId === role.id
-                        ? 'bg-slate-100 text-slate-900 font-medium'
-                        : 'text-slate-700 hover:bg-slate-50'
-                    ].join(' ')}
-                  >
-                    <div className="font-medium">{role.name}</div>
-                    <div className="text-xs text-slate-500">{role.code}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-```
-
-### 6.3 Role Detail Component
-
-```typescript
-// apps/web/src/pages/settings/components/AccessControlRoleDetail.tsx
-
-import React from 'react';
-import { Shield, Users } from 'lucide-react';
-import { useEntity } from '../../../db/tanstack-index';
-import { PermissionsTab } from './PermissionsTab';
-import { PersonsTab } from './PersonsTab';
-
-interface AccessControlRoleDetailProps {
-  roleId: string;
-  activeTab: string;
-  onTabChange: (tab: string) => void;
-}
-
-export function AccessControlRoleDetail({
-  roleId,
-  activeTab,
-  onTabChange
-}: AccessControlRoleDetailProps) {
-  const { data: role, isLoading } = useEntity('role', roleId);
-
-  const tabs = [
-    { id: 'permissions', label: 'Permissions', icon: Shield },
-    { id: 'persons', label: 'Persons', icon: Users },
-  ];
-
-  if (isLoading) {
-    return <div className="p-6">Loading role details...</div>;
+**Mapped Mode Example**:
+```json
+{
+  "inheritance_mode": "mapped",
+  "child_permissions": {
+    "task": 3,
+    "employee": 0,
+    "_default": 0
   }
-
-  if (!role) {
-    return <div className="p-6 text-red-600">Role not found</div>;
-  }
-
-  return (
-    <div className="p-6">
-      {/* Role Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">{role.name}</h1>
-        <div className="flex items-center gap-4 mt-2 text-sm text-slate-600">
-          <span className="px-2 py-1 bg-slate-100 rounded">{role.code}</span>
-          <span>{role.role_category}</span>
-        </div>
-        {role.descr && (
-          <p className="mt-2 text-slate-600">{role.descr}</p>
-        )}
-      </div>
-
-      {/* Tab Navigation */}
-      <div className="border-b border-slate-200 mb-6">
-        <nav className="flex gap-4">
-          {tabs.map(tab => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => onTabChange(tab.id)}
-                className={[
-                  'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors',
-                  isActive
-                    ? 'border-slate-700 text-slate-900'
-                    : 'border-transparent text-slate-500 hover:text-slate-700'
-                ].join(' ')}
-              >
-                <Icon className="w-4 h-4" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
-
-      {/* Tab Content */}
-      {activeTab === 'permissions' && <PermissionsTab roleId={roleId} />}
-      {activeTab === 'persons' && <PersonsTab roleId={roleId} />}
-    </div>
-  );
 }
 ```
 
-### 6.4 Permissions Tab Component
+### 2.4 Explicit Deny
 
-```typescript
-// apps/web/src/pages/settings/components/PermissionsTab.tsx
+When `is_deny = true`, blocks permission even if granted elsewhere. Checked **first** in resolution flow.
 
-import React, { useState } from 'react';
-import { Plus } from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { EntityListOfInstancesTable } from '../../../components/shared';
-import { Button } from '../../../components/shared/button/Button';
-import { AddPermissionModal } from './AddPermissionModal';
-import { API_CONFIG } from '../../../lib/config/api';
+---
 
-interface PermissionsTabProps {
-  roleId: string;
-}
+## 3. Permission Resolution Flow
 
-export function PermissionsTab({ roleId }: PermissionsTabProps) {
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const queryClient = useQueryClient();
+### 3.1 Algorithm
 
-  // Fetch permissions for this role
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['access-control', 'role', roleId, 'permissions'],
-    queryFn: async () => {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(
-        `${API_CONFIG.baseUrl}/api/v1/access-control/role/${roleId}/permissions`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (!response.ok) throw new Error('Failed to fetch permissions');
-      return response.json();
-    },
-  });
-
-  // Revoke permission mutation
-  const revokeMutation = useMutation({
-    mutationFn: async (permissionId: string) => {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(
-        `${API_CONFIG.baseUrl}/api/v1/entity_rbac/revoke-permission/${permissionId}`,
-        {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      if (!response.ok) throw new Error('Failed to revoke permission');
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['access-control', 'role', roleId, 'permissions']);
-    },
-  });
-
-  // Update permission mutation (inline edit)
-  const updateMutation = useMutation({
-    mutationFn: async (params: { id: string; updates: any }) => {
-      const token = localStorage.getItem('auth_token');
-      // Use grant-permission endpoint which upserts
-      const response = await fetch(
-        `${API_CONFIG.baseUrl}/api/v1/entity_rbac/grant-permission`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            person_code: 'role',
-            person_id: roleId,
-            ...params.updates
-          })
-        }
-      );
-      if (!response.ok) throw new Error('Failed to update permission');
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['access-control', 'role', roleId, 'permissions']);
-    },
-  });
-
-  // Row actions for the data table
-  const rowActions = [
-    {
-      id: 'delete',
-      label: 'Revoke',
-      icon: 'Trash2',
-      variant: 'danger',
-      onClick: (row: any) => {
-        if (confirm('Are you sure you want to revoke this permission?')) {
-          revokeMutation.mutate(row.id);
-        }
-      }
-    }
-  ];
-
-  return (
-    <div>
-      {/* Header with Add button */}
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-medium text-slate-800">RBAC Permissions</h3>
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={() => setIsAddModalOpen(true)}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Permission
-        </Button>
-      </div>
-
-      {/* Permissions Table */}
-      {isLoading ? (
-        <div>Loading permissions...</div>
-      ) : error ? (
-        <div className="text-red-600">Failed to load permissions</div>
-      ) : (
-        <EntityListOfInstancesTable
-          entityCode="rbac"
-          data={data?.data || []}
-          metadata={data?.metadata}
-          refData={data?.ref_data_entityInstance}
-          columns={[
-            'entity_code',
-            'entity_instance_id',
-            'permission',
-            'granted_by__employee_id',
-            'granted_ts',
-            'expires_ts'
-          ]}
-          rowActions={rowActions}
-          enableInlineEdit={true}
-          onRowUpdate={(id, updates) => updateMutation.mutate({ id, updates })}
-          hideCreateButton={true}
-        />
-      )}
-
-      {/* Add Permission Modal */}
-      <AddPermissionModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        roleId={roleId}
-        onSuccess={() => {
-          setIsAddModalOpen(false);
-          queryClient.invalidateQueries(['access-control', 'role', roleId, 'permissions']);
-        }}
-      />
-    </div>
-  );
-}
+```
+check_entity_rbac(personId, entityCode, entityId, requiredLevel)
+│
+├─► 1. Find Person's Roles
+│      Query entity_instance_link WHERE entity_code='role' AND child_entity_code='person'
+│      Result: Array of role_ids
+│
+├─► 2. Check Explicit Deny (highest priority)
+│      Query entity_rbac WHERE role_id IN (roles) AND is_deny=true
+│      If found → DENIED (stop)
+│
+├─► 3. Check Direct Permissions
+│      Query entity_rbac WHERE role_id IN (roles)
+│        AND entity_code = target AND entity_instance_id IN (targetId, ALL_ENTITIES_ID)
+│
+├─► 4. Check Inherited Permissions (if inheritance_mode != 'none')
+│      Recursive ancestor walk via entity_instance_link
+│      For cascade: same permission level
+│      For mapped: lookup child_permissions[entityCode] or _default
+│
+└─► 5. Return MAX(all permissions found) >= requiredLevel
 ```
 
-### 6.5 Persons Tab Component
+### 3.2 SQL Pattern (Simplified)
 
-```typescript
-// apps/web/src/pages/settings/components/PersonsTab.tsx
+```sql
+-- Step 1: Get person's roles
+WITH person_roles AS (
+  SELECT entity_instance_id AS role_id
+  FROM app.entity_instance_link
+  WHERE entity_code = 'role'
+    AND child_entity_code = 'person'
+    AND child_entity_instance_id = $person_id
+),
 
-import React, { useState } from 'react';
-import { Plus, UserMinus } from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { EntityListOfInstancesTable } from '../../../components/shared';
-import { Button } from '../../../components/shared/button/Button';
-import { AssignPersonModal } from './AssignPersonModal';
-import { API_CONFIG } from '../../../lib/config/api';
+-- Step 2: Check explicit deny
+explicit_deny AS (
+  SELECT 1 FROM app.entity_rbac er
+  JOIN person_roles pr ON er.role_id = pr.role_id
+  WHERE er.entity_code = $entity_code
+    AND er.entity_instance_id IN ($entity_id, '11111111-...')
+    AND er.is_deny = true
+    AND (er.expires_ts IS NULL OR er.expires_ts > NOW())
+),
 
-// Person type badge colors
-const PERSON_TYPE_CONFIG: Record<string, { label: string; className: string }> = {
-  employee: { label: 'Employee', className: 'bg-blue-100 text-blue-700' },
-  customer: { label: 'Customer', className: 'bg-green-100 text-green-700' },
-  vendor: { label: 'Vendor', className: 'bg-purple-100 text-purple-700' },
-  supplier: { label: 'Supplier', className: 'bg-orange-100 text-orange-700' },
-};
+-- Step 3: Get direct permissions
+direct_perms AS (
+  SELECT er.permission
+  FROM app.entity_rbac er
+  JOIN person_roles pr ON er.role_id = pr.role_id
+  WHERE er.entity_code = $entity_code
+    AND er.entity_instance_id IN ($entity_id, '11111111-...')
+    AND er.is_deny = false
+    AND (er.expires_ts IS NULL OR er.expires_ts > NOW())
+)
 
-interface PersonsTabProps {
-  roleId: string;
-}
-
-export function PersonsTab({ roleId }: PersonsTabProps) {
-  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
-  const queryClient = useQueryClient();
-
-  // Fetch ALL person types assigned to this role
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['access-control', 'role', roleId, 'persons'],
-    queryFn: async () => {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(
-        `${API_CONFIG.baseUrl}/api/v1/access-control/role/${roleId}/persons`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (!response.ok) throw new Error('Failed to fetch persons');
-      return response.json();
-    },
-  });
-
-  // Remove person from role mutation - requires person_type and person_id
-  const removeMutation = useMutation({
-    mutationFn: async ({ personType, personId }: { personType: string; personId: string }) => {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(
-        `${API_CONFIG.baseUrl}/api/v1/access-control/role/${roleId}/persons/${personType}/${personId}`,
-        {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      if (!response.ok) throw new Error('Failed to remove person from role');
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['access-control', 'role', roleId, 'persons']);
-    },
-  });
-
-  // Row actions - need both person_type and person_id for deletion
-  const rowActions = [
-    {
-      id: 'remove',
-      label: 'Remove from Role',
-      icon: 'UserMinus',
-      variant: 'danger',
-      onClick: (row: any) => {
-        if (confirm('Are you sure you want to remove this person from the role?')) {
-          removeMutation.mutate({
-            personType: row.person_type,  // 'employee', 'customer', 'vendor', 'supplier'
-            personId: row.person_id
-          });
-        }
-      }
-    }
-  ];
-
-  return (
-    <div>
-      {/* Header with Add button */}
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-medium text-slate-800">Assigned Persons</h3>
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={() => setIsAssignModalOpen(true)}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Assign Person
-        </Button>
-      </div>
-
-      {/* Persons Table - supports all person types */}
-      {isLoading ? (
-        <div>Loading persons...</div>
-      ) : error ? (
-        <div className="text-red-600">Failed to load persons</div>
-      ) : (
-        <EntityListOfInstancesTable
-          entityCode="person"  // Generic person entity
-          data={data?.data || []}
-          metadata={data?.metadata}
-          refData={data?.ref_data_entityInstance}
-          columns={['person_type', 'name', 'code', 'email', 'assigned_ts']}
-          rowActions={rowActions}
-          enableInlineEdit={false}
-          hideCreateButton={true}
-        />
-      )}
-
-      {/* Assign Person Modal - supports selecting person type */}
-      <AssignPersonModal
-        isOpen={isAssignModalOpen}
-        onClose={() => setIsAssignModalOpen(false)}
-        roleId={roleId}
-        onSuccess={() => {
-          setIsAssignModalOpen(false);
-          queryClient.invalidateQueries(['access-control', 'role', roleId, 'persons']);
-        }}
-      />
-    </div>
-  );
-}
+-- Step 4-5: Return max (if no deny)
+SELECT CASE WHEN EXISTS (SELECT 1 FROM explicit_deny)
+  THEN -999
+  ELSE COALESCE(MAX(permission), -1)
+END FROM direct_perms;
 ```
 
 ---
 
-## 7. Backend Implementation
+## 4. API Routes Reference
 
-### 7.1 Access Control Routes Module
+### 4.1 Route File
+
+**Location**: `apps/api/src/modules/rbac/routes.ts`
+
+### 4.2 Permission Check Endpoints
+
+| Route | Method | Business Logic |
+|-------|--------|----------------|
+| `/api/v1/entity_rbac/get-permissions-by-entityCode` | POST | Get type-level permissions for entity (main page actions) |
+| `/api/v1/entity_rbac/check-permission-of-entity` | POST | Get instance-level permissions (detail page inline edit) |
+| `/api/v1/entity_rbac/get-permissions-by-parentEntity-actionEntity` | POST | Get child entity permissions within parent context |
+| `/api/v1/entity_rbac/main-page-actions` | POST | Get canCreate/canShare/canDelete flags |
+
+**Request Flow**:
+```
+Frontend component → POST /api/v1/entity_rbac/get-permissions-by-entityCode
+                     { entityCode: 'project' }
+                  → entityInfra.check_entity_rbac() for each level (0-7)
+                  → { entityCode, permissions: [{ actionEntityId, actions: ['view','edit',...] }] }
+```
+
+### 4.3 Role Permission Management
+
+| Route | Method | Business Logic | SQL Pattern |
+|-------|--------|----------------|-------------|
+| `GET /api/v1/entity_rbac/role/:roleId/permissions` | GET | List role's permissions | SELECT * FROM entity_rbac WHERE role_id = ? |
+| `POST /api/v1/entity_rbac/grant-permission` | POST | Grant/upsert permission | INSERT ... ON CONFLICT DO UPDATE |
+| `PUT /api/v1/entity_rbac/permission/:id` | PUT | Update existing permission | UPDATE entity_rbac SET ... WHERE id = ? |
+| `DELETE /api/v1/entity_rbac/permission/:id` | DELETE | Hard delete permission | DELETE FROM entity_rbac WHERE id = ? |
+
+**Grant Permission Request**:
+```typescript
+POST /api/v1/entity_rbac/grant-permission
+{
+  role_id: "uuid",
+  entity_code: "project",
+  entity_instance_id: "11111111-1111-1111-1111-111111111111", // ALL_ENTITIES_ID
+  permission: 7,
+  inheritance_mode: "mapped",
+  child_permissions: { "task": 3, "_default": 0 },
+  is_deny: false,
+  expires_ts: null
+}
+```
+
+**Business Logic**:
+1. Validate role exists and is active
+2. Validate entity_instance_id format (UUID or ALL_ENTITIES_ID)
+3. Call `entityInfra.set_entity_rbac()` which does UPSERT
+4. Return created/updated permission with role_name
+
+### 4.4 Role Membership Management
+
+| Route | Method | Business Logic | SQL Pattern |
+|-------|--------|----------------|-------------|
+| `GET /api/v1/entity_rbac/role/:roleId/members` | GET | List role members | SELECT p.* FROM entity_instance_link eil JOIN person p... |
+| `POST /api/v1/entity_rbac/role/:roleId/members` | POST | Add person to role | INSERT INTO entity_instance_link |
+| `DELETE /api/v1/entity_rbac/role/:roleId/members/:personId` | DELETE | Remove person | DELETE FROM entity_instance_link |
+
+**Add Member Request**:
+```typescript
+POST /api/v1/entity_rbac/role/:roleId/members
+{ person_id: "uuid" }
+```
+
+**SQL for Add Member**:
+```sql
+INSERT INTO app.entity_instance_link
+  (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
+VALUES ('role', $roleId, 'person', $personId, 'member')
+```
+
+### 4.5 Effective Access & Reporting
+
+| Route | Method | Business Logic |
+|-------|--------|----------------|
+| `GET /api/v1/entity_rbac/person/:personId/effective-access` | GET | Compute resolved permissions after inheritance |
+| `GET /api/v1/entity_rbac/overview` | GET | Summary stats: total permissions, by role, by entity |
+
+**Effective Access Query Pattern**:
+```sql
+SELECT DISTINCT ON (er.entity_code, er.entity_instance_id)
+  er.entity_code, er.permission, er.is_deny,
+  CASE WHEN er.inheritance_mode = 'none' THEN 'direct' ELSE 'inherited' END AS source
+FROM app.entity_rbac er
+JOIN app.role r ON er.role_id = r.id
+JOIN app.entity_instance_link eil ON eil.entity_instance_id = r.id
+WHERE eil.child_entity_code = 'person'
+  AND eil.child_entity_instance_id = $personId
+  AND (er.expires_ts IS NULL OR er.expires_ts > NOW())
+ORDER BY er.entity_code, er.entity_instance_id, er.permission DESC
+```
+
+---
+
+## 5. Service Integration
+
+### 5.1 Entity Infrastructure Service
+
+**Location**: `apps/api/src/services/entity-infrastructure.service.ts`
+
+| Method | Purpose | Used By |
+|--------|---------|---------|
+| `check_entity_rbac(personId, entityCode, entityId, level)` | Boolean permission check | All routes needing RBAC |
+| `get_entity_rbac_where_condition(personId, entityCode, level, alias)` | SQL WHERE clause | Entity list routes |
+| `set_entity_rbac(roleId, entityCode, entityId, permission, options)` | Grant/upsert permission | grant-permission route |
+| `get_role_permissions(roleId)` | List role's permissions | role permissions route |
+
+### 5.2 Route Integration Pattern
 
 ```typescript
-// apps/api/src/modules/access-control/routes.ts
+// In any entity route (e.g., project/routes.ts)
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '@/services/entity-infrastructure.service.js';
 
-import type { FastifyInstance } from 'fastify';
-import { Type } from '@sinclair/typebox';
-import { db } from '@/db/index.js';
-import { sql } from 'drizzle-orm';
-import {
-  getEntityInfrastructure,
-  Permission,
-  ALL_ENTITIES_ID
-} from '@/services/entity-infrastructure.service.js';
-import { generateEntityResponse } from '@/services/entity-component-metadata.service.js';
-
-const PERMISSION_LABELS: Record<number, string> = {
-  0: 'View',
-  1: 'Comment',
-  3: 'Edit',
-  4: 'Share',
-  5: 'Delete',
-  6: 'Create',
-  7: 'Owner',
-};
-
-export async function accessControlRoutes(fastify: FastifyInstance) {
+fastify.get('/api/v1/project', async (request, reply) => {
+  const userId = request.user.sub;
   const entityInfra = getEntityInfrastructure(db);
 
-  // ============================================================================
-  // GET /api/v1/access-control/role/:roleId/permissions
-  // Get all RBAC permissions granted to a specific role
-  // ============================================================================
-  fastify.get('/api/v1/access-control/role/:roleId/permissions', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        roleId: Type.String({ format: 'uuid' })
-      }),
-    },
-  }, async (request, reply) => {
-    const { roleId } = request.params as { roleId: string };
-    const userId = (request as any).user?.sub;
-
-    // Verify role exists
-    const roleCheck = await db.execute(sql`
-      SELECT id, name, code FROM app.role WHERE id = ${roleId} AND active_flag = true
-    `);
-
-    if (roleCheck.length === 0) {
-      return reply.status(404).send({ error: 'Role not found' });
-    }
-
-    // Get all permissions for this role
-    const permissions = await db.execute(sql`
-      SELECT
-        r.id,
-        r.person_code,
-        r.person_id,
-        r.entity_code,
-        r.entity_instance_id,
-        r.permission,
-        r.granted_by__employee_id,
-        r.granted_ts,
-        r.expires_ts,
-        r.created_ts,
-        r.updated_ts,
-        e.name as entity_name,
-        e.ui_label as entity_ui_label
-      FROM app.entity_rbac r
-      LEFT JOIN app.entity e ON r.entity_code = e.code
-      WHERE r.person_code = 'role'
-        AND r.person_id = ${roleId}
-      ORDER BY r.entity_code ASC, r.permission DESC
-    `);
-
-    // Build ref_data_entityInstance for granted_by lookup
-    const grantedByIds = [...new Set(
-      permissions
-        .filter(p => p.granted_by__employee_id)
-        .map(p => p.granted_by__employee_id as string)
-    )];
-
-    let refData: Record<string, Record<string, string>> = { employee: {} };
-
-    if (grantedByIds.length > 0) {
-      const employees = await db.execute(sql`
-        SELECT id, name FROM app.employee WHERE id = ANY(${grantedByIds}::uuid[])
-      `);
-
-      employees.forEach((emp: any) => {
-        refData.employee[emp.id] = emp.name;
-      });
-    }
-
-    // Generate response with metadata
-    const response = await generateEntityResponse('rbac', Array.from(permissions), {
-      resultFields: [
-        { name: 'id' },
-        { name: 'entity_code' },
-        { name: 'entity_instance_id' },
-        { name: 'permission' },
-        { name: 'granted_by__employee_id' },
-        { name: 'granted_ts' },
-        { name: 'expires_ts' },
-      ],
-    });
-
-    return reply.send({
-      ...response,
-      ref_data_entityInstance: refData,
-    });
-  });
-
-  // ============================================================================
-  // GET /api/v1/access-control/role/:roleId/persons
-  // Get ALL person types (employee, customer, vendor, supplier) assigned to a role
-  // ============================================================================
-  fastify.get('/api/v1/access-control/role/:roleId/persons', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        roleId: Type.String({ format: 'uuid' })
-      }),
-    },
-  }, async (request, reply) => {
-    const { roleId } = request.params as { roleId: string };
-
-    // Verify role exists
-    const roleCheck = await db.execute(sql`
-      SELECT id FROM app.role WHERE id = ${roleId} AND active_flag = true
-    `);
-
-    if (roleCheck.length === 0) {
-      return reply.status(404).send({ error: 'Role not found' });
-    }
-
-    // Supported person types that can be assigned to roles
-    const PERSON_TYPES = ['employee', 'customer', 'vendor', 'supplier'];
-
-    // Get ALL person types assigned to this role via entity_instance_link
-    // Uses UNION to query each person type table
-    const persons = await db.execute(sql`
-      SELECT
-        l.child_entity_code as person_type,
-        l.child_entity_instance_id as person_id,
-        p.name,
-        p.code,
-        p.email,
-        l.created_ts as assigned_ts,
-        l.id as link_id
-      FROM app.entity_instance_link l
-      JOIN app.person p ON l.child_entity_instance_id = p.id
-      WHERE l.entity_code = 'role'
-        AND l.entity_instance_id = ${roleId}
-        AND l.child_entity_code IN ('employee', 'customer', 'vendor', 'supplier')
-        AND p.active_flag = true
-      ORDER BY l.child_entity_code ASC, p.name ASC
-    `);
-
-    // Generate response with metadata
-    const response = await generateEntityResponse('person', Array.from(persons), {
-      resultFields: [
-        { name: 'person_type' },
-        { name: 'person_id' },
-        { name: 'name' },
-        { name: 'code' },
-        { name: 'email' },
-        { name: 'assigned_ts' },
-        { name: 'link_id' },
-      ],
-    });
-
-    return reply.send(response);
-  });
-
-  // ============================================================================
-  // POST /api/v1/access-control/role/:roleId/persons
-  // Assign a person (any type) to a role
-  // ============================================================================
-  fastify.post('/api/v1/access-control/role/:roleId/persons', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        roleId: Type.String({ format: 'uuid' })
-      }),
-      body: Type.Object({
-        person_type: Type.Union([
-          Type.Literal('employee'),
-          Type.Literal('customer'),
-          Type.Literal('vendor'),
-          Type.Literal('supplier')
-        ]),
-        person_id: Type.String({ format: 'uuid' })
-      }),
-    },
-  }, async (request, reply) => {
-    const { roleId } = request.params as { roleId: string };
-    const { person_type, person_id } = request.body as {
-      person_type: 'employee' | 'customer' | 'vendor' | 'supplier';
-      person_id: string;
-    };
-
-    // Verify role exists
-    const roleCheck = await db.execute(sql`
-      SELECT id FROM app.role WHERE id = ${roleId} AND active_flag = true
-    `);
-
-    if (roleCheck.length === 0) {
-      return reply.status(404).send({ error: 'Role not found' });
-    }
-
-    // Verify person exists in the person table (central auth table)
-    const personCheck = await db.execute(sql`
-      SELECT id, name, entity_code FROM app.person
-      WHERE id = ${person_id}
-        AND entity_code = ${person_type}
-        AND active_flag = true
-    `);
-
-    if (personCheck.length === 0) {
-      return reply.status(400).send({
-        error: `${person_type} not found or inactive`
-      });
-    }
-
-    // Check if assignment already exists
-    const existingLink = await db.execute(sql`
-      SELECT id FROM app.entity_instance_link
-      WHERE entity_code = 'role'
-        AND entity_instance_id = ${roleId}
-        AND child_entity_code = ${person_type}
-        AND child_entity_instance_id = ${person_id}
-    `);
-
-    if (existingLink.length > 0) {
-      return reply.status(400).send({
-        error: `${person_type} is already assigned to this role`
-      });
-    }
-
-    // Create the link using entity infrastructure service
-    const link = await entityInfra.set_entity_instance_link({
-      entity_code: 'role',
-      entity_instance_id: roleId,
-      child_entity_code: person_type,
-      child_entity_instance_id: person_id,
-      relationship_type: 'has_member',
-    });
-
-    return reply.status(201).send({
-      message: `${person_type} assigned to role successfully`,
-      link,
-    });
-  });
-
-  // ============================================================================
-  // DELETE /api/v1/access-control/role/:roleId/persons/:personType/:personId
-  // Remove a person (any type) from a role
-  // ============================================================================
-  fastify.delete('/api/v1/access-control/role/:roleId/persons/:personType/:personId', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        roleId: Type.String({ format: 'uuid' }),
-        personType: Type.Union([
-          Type.Literal('employee'),
-          Type.Literal('customer'),
-          Type.Literal('vendor'),
-          Type.Literal('supplier')
-        ]),
-        personId: Type.String({ format: 'uuid' })
-      }),
-    },
-  }, async (request, reply) => {
-    const { roleId, personType, personId } = request.params as {
-      roleId: string;
-      personType: 'employee' | 'customer' | 'vendor' | 'supplier';
-      personId: string;
-    };
-
-    // Delete the link (hard delete)
-    const result = await db.execute(sql`
-      DELETE FROM app.entity_instance_link
-      WHERE entity_code = 'role'
-        AND entity_instance_id = ${roleId}
-        AND child_entity_code = ${personType}
-        AND child_entity_instance_id = ${personId}
-      RETURNING id
-    `);
-
-    if (result.length === 0) {
-      return reply.status(404).send({ error: 'Assignment not found' });
-    }
-
-    return reply.send({ message: 'Person removed from role successfully' });
-  });
-
-  // ============================================================================
-  // POST /api/v1/access-control/role/:roleId/permissions/bulk
-  // Bulk grant permissions to a role
-  // ============================================================================
-  fastify.post('/api/v1/access-control/role/:roleId/permissions/bulk', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        roleId: Type.String({ format: 'uuid' })
-      }),
-      body: Type.Object({
-        permissions: Type.Array(Type.Object({
-          entity_code: Type.String(),
-          entity_instance_id: Type.Optional(Type.String()),
-          permission: Type.Number({ minimum: 0, maximum: 7 }),
-          expires_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-        }))
-      }),
-    },
-  }, async (request, reply) => {
-    const { roleId } = request.params as { roleId: string };
-    const { permissions } = request.body as {
-      permissions: Array<{
-        entity_code: string;
-        entity_instance_id?: string;
-        permission: number;
-        expires_ts?: string | null;
-      }>
-    };
-    const userId = (request as any).user?.sub;
-
-    // Verify role exists
-    const roleCheck = await db.execute(sql`
-      SELECT id FROM app.role WHERE id = ${roleId} AND active_flag = true
-    `);
-
-    if (roleCheck.length === 0) {
-      return reply.status(404).send({ error: 'Role not found' });
-    }
-
-    // Grant each permission (upsert pattern)
-    const results = [];
-    for (const perm of permissions) {
-      const entityInstanceId = perm.entity_instance_id || ALL_ENTITIES_ID;
-
-      const result = await db.execute(sql`
-        INSERT INTO app.entity_rbac (
-          person_code,
-          person_id,
-          entity_code,
-          entity_instance_id,
-          permission,
-          granted_by__employee_id,
-          granted_ts,
-          expires_ts
-        ) VALUES (
-          'role',
-          ${roleId},
-          ${perm.entity_code},
-          ${entityInstanceId},
-          ${perm.permission},
-          ${userId},
-          NOW(),
-          ${perm.expires_ts || null}
-        )
-        ON CONFLICT (person_code, person_id, entity_code, entity_instance_id)
-        DO UPDATE SET
-          permission = EXCLUDED.permission,
-          granted_by__employee_id = EXCLUDED.granted_by__employee_id,
-          granted_ts = NOW(),
-          expires_ts = EXCLUDED.expires_ts,
-          updated_ts = NOW()
-        RETURNING id, entity_code, permission
-      `);
-
-      results.push(result[0]);
-    }
-
-    return reply.status(201).send({
-      message: `${results.length} permission(s) granted successfully`,
-      permissions: results,
-    });
-  });
-}
-```
-
-### 7.2 Register Routes
-
-```typescript
-// apps/api/src/modules/index.ts (add to existing)
-
-import { accessControlRoutes } from './access-control/routes.js';
-
-// In the registerRoutes function:
-await server.register(accessControlRoutes);
-```
-
----
-
-## 8. Metadata Configuration
-
-### 8.1 RBAC Entity Metadata (for Permission Rendering)
-
-The RBAC table uses the existing pattern-detection system. Key fields:
-
-| Field | Pattern Detection | viewType | editType |
-|-------|------------------|----------|----------|
-| `entity_code` | `*_code` → text | text | EntityTypeSelect |
-| `entity_instance_id` | uuid | text (with "ALL" special display) | EntityInstanceSelect |
-| `permission` | integer | PermissionBadge (custom) | PermissionSelect (custom) |
-| `granted_by__employee_id` | `*__employee_id` | entityInstanceId | readonly |
-| `granted_ts` | `*_ts` | timestamp | readonly |
-| `expires_ts` | `*_ts` | timestamp | datetime-local |
-
-### 8.2 Custom Permission Renderer
-
-```typescript
-// apps/web/src/components/shared/ui/PermissionBadge.tsx
-
-import React from 'react';
-
-interface PermissionBadgeProps {
-  level: number;
-}
-
-const PERMISSION_CONFIG: Record<number, { label: string; className: string }> = {
-  0: { label: 'View', className: 'bg-slate-100 text-slate-700' },
-  1: { label: 'Comment', className: 'bg-blue-100 text-blue-700' },
-  3: { label: 'Edit', className: 'bg-green-100 text-green-700' },
-  4: { label: 'Share', className: 'bg-yellow-100 text-yellow-700' },
-  5: { label: 'Delete', className: 'bg-orange-100 text-orange-700' },
-  6: { label: 'Create', className: 'bg-purple-100 text-purple-700' },
-  7: { label: 'Owner', className: 'bg-red-100 text-red-700' },
-};
-
-export function PermissionBadge({ level }: PermissionBadgeProps) {
-  const config = PERMISSION_CONFIG[level] || { label: `Level ${level}`, className: 'bg-gray-100 text-gray-700' };
-
-  return (
-    <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${config.className}`}>
-      {config.label} ({level})
-    </span>
+  // Get RBAC WHERE clause
+  const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
+    userId, 'project', Permission.VIEW, 'e'
   );
+
+  // Query with RBAC filter
+  const projects = await db.execute(sql`
+    SELECT e.* FROM app.project e
+    WHERE ${rbacCondition} AND e.active_flag = true
+  `);
+});
+
+fastify.post('/api/v1/project', async (request, reply) => {
+  const userId = request.user.sub;
+
+  // Check CREATE permission (type-level)
+  const canCreate = await entityInfra.check_entity_rbac(
+    userId, 'project', ALL_ENTITIES_ID, Permission.CREATE
+  );
+  if (!canCreate) return reply.status(403).send({ error: 'Forbidden' });
+
+  // Create project...
+});
+```
+
+---
+
+## 6. Frontend Integration
+
+### 6.1 TanStack Query Cache Keys
+
+| Query Key | Endpoint | Purpose |
+|-----------|----------|---------|
+| `['access-control', 'roles']` | `GET /api/v1/role` | Role list |
+| `['access-control', 'role', roleId, 'permissions']` | `GET /api/v1/entity_rbac/role/:roleId/permissions` | Role's permissions |
+| `['access-control', 'role', roleId, 'members']` | `GET /api/v1/entity_rbac/role/:roleId/members` | Role's members |
+| `['access-control', 'role', roleId, 'effective']` | `GET /api/v1/entity_rbac/person/:personId/effective-access` | Resolved permissions |
+
+### 6.2 Cache Invalidation
+
+```typescript
+// After granting permission
+queryClient.invalidateQueries(['access-control', 'role', roleId, 'permissions']);
+queryClient.invalidateQueries(['access-control', 'role', roleId, 'effective']);
+
+// After adding/removing member
+queryClient.invalidateQueries(['access-control', 'role', roleId, 'members']);
+```
+
+### 6.3 Response Format
+
+All endpoints return TanStack Query-compatible format with `data` array:
+
+```typescript
+// GET /api/v1/entity_rbac/role/:roleId/permissions
+{
+  role_id: "uuid",
+  role_name: "CEO",
+  data: [
+    {
+      id: "perm-uuid",
+      entity_code: "project",
+      entity_instance_id: "11111111-1111-1111-1111-111111111111",
+      entity_display: "ALL (Type-level)",
+      permission: 7,
+      permission_label: "Owner",
+      inheritance_mode: "mapped",
+      child_permissions: { "task": 3, "_default": 0 },
+      is_deny: false,
+      granted_ts: "2025-12-09T10:00:00Z"
+    }
+  ]
 }
 ```
 
 ---
 
-## 9. Implementation Checklist
+## 7. Database Schema
 
-### Phase 1: Backend API
-- [ ] Create `apps/api/src/modules/access-control/routes.ts`
-- [ ] Register routes in `apps/api/src/modules/index.ts`
-- [ ] Test endpoints with test credentials
+### 7.1 entity_rbac Table
 
-### Phase 2: Frontend Components
-- [ ] Create `apps/web/src/pages/settings/AccessControlPage.tsx`
-- [ ] Create `AccessControlRoleList.tsx`
-- [ ] Create `AccessControlRoleDetail.tsx`
-- [ ] Create `PermissionsTab.tsx`
-- [ ] Create `PersonsTab.tsx`
-- [ ] Create `AddPermissionModal.tsx`
-- [ ] Create `AssignPersonModal.tsx`
+```sql
+CREATE TABLE app.entity_rbac (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  role_id uuid NOT NULL REFERENCES app.role(id) ON DELETE CASCADE,
+  entity_code varchar(50) NOT NULL,
+  entity_instance_id uuid NOT NULL,  -- UUID or ALL_ENTITIES_ID
+  permission integer NOT NULL DEFAULT 0,  -- 0-7
+  inheritance_mode varchar(20) NOT NULL DEFAULT 'none',
+  child_permissions jsonb NOT NULL DEFAULT '{}',
+  is_deny boolean NOT NULL DEFAULT false,
+  granted_by_person_id uuid REFERENCES app.person(id),
+  granted_ts timestamptz DEFAULT now(),
+  expires_ts timestamptz,
+  created_ts timestamptz DEFAULT now(),
+  updated_ts timestamptz DEFAULT now()
+);
 
-### Phase 3: Metadata & Rendering
-- [ ] Create `PermissionBadge.tsx` component
-- [ ] Create `PermissionSelect.tsx` component
-- [ ] Update entity-component-metadata for permission field handling
+-- Unique: one permission per role per entity instance
+CREATE UNIQUE INDEX idx_entity_rbac_unique
+ON app.entity_rbac (role_id, entity_code, entity_instance_id);
 
-### Phase 4: Routes & Navigation
-- [ ] Add routes to `App.tsx`
-- [ ] Add navigation link to settings sidebar
+-- Fast inheritance lookups
+CREATE INDEX idx_entity_rbac_inheritance
+ON app.entity_rbac (entity_code, entity_instance_id, inheritance_mode)
+WHERE inheritance_mode != 'none';
+```
 
-### Phase 5: Testing
-- [ ] Test role listing
-- [ ] Test permission grant/revoke
-- [ ] Test person assignment/removal
-- [ ] Test inline editing
-- [ ] Test with different user roles
+### 7.2 Role Membership (entity_instance_link)
+
+```sql
+-- Role → Person membership
+INSERT INTO app.entity_instance_link (
+  entity_code,           -- 'role'
+  entity_instance_id,    -- role.id
+  child_entity_code,     -- 'person'
+  child_entity_instance_id,  -- person.id
+  relationship_type      -- 'member'
+) VALUES ('role', $roleId, 'person', $personId, 'member');
+```
+
+---
+
+## 8. Business Rules
+
+### 8.1 Permission Grant Rules
+
+1. **Role must exist and be active** - Check `active_flag = true`
+2. **Entity code must be valid** - Check against `app.entity` table
+3. **UPSERT behavior** - Same role + entity_code + entity_instance_id → UPDATE
+4. **Expiration optional** - `expires_ts IS NULL` means permanent
+5. **Granted_by tracked** - Current user's person_id
+
+### 8.2 Permission Check Rules
+
+1. **Explicit deny wins** - `is_deny = true` blocks even if granted elsewhere
+2. **Expired permissions ignored** - `expires_ts < NOW()` filtered out
+3. **MAX wins** - Multiple permissions → highest level applies
+4. **Inheritance checked recursively** - Walk ancestor chain via `entity_instance_link`
+5. **Type-level checked** - Both specific ID and ALL_ENTITIES_ID checked
+
+### 8.3 Membership Rules
+
+1. **One link per person-role pair** - Duplicate check before INSERT
+2. **Person must exist** - Validate against `app.person`
+3. **Hard delete on removal** - No soft delete for membership links
+
+---
+
+## 9. Error Handling
+
+| HTTP Code | Condition | Response |
+|-----------|-----------|----------|
+| 400 | Invalid role_id, person_id, or duplicate | `{ error: "Role not found" }` |
+| 401 | Missing or invalid JWT | `{ error: "User not authenticated" }` |
+| 403 | Permission denied | `{ error: "Forbidden" }` |
+| 404 | Permission or member not found | `{ error: "Permission not found" }` |
+| 500 | Database error | `{ error: "Internal server error" }` |
 
 ---
 
 ## 10. Related Documentation
 
-- [RBAC Infrastructure](./RBAC_INFRASTRUCTURE.md)
-- [Entity Infrastructure Service](../services/entity-infrastructure.service.md)
-- [Entity Component Metadata Service](../services/entity-component-metadata.service.md)
-- [ref_data_entityInstance Pattern](../caching-frontend/ref_data_entityInstance.md)
+| Document | Path | Purpose |
+|----------|------|---------|
+| AccessControlPage UI | `docs/ui_pages/AccessControlPage.md` | Frontend components and state |
+| Entity Infrastructure | `docs/services/entity-infrastructure.service.md` | Service API |
+| DDL Schema | `db/entity_configuration_settings/06_entity_rbac.ddl` | Database schema |
+
+---
+
+## 11. UI/UX Design Patterns
+
+### 11.1 Component Architecture
+
+| Component | Purpose | Location |
+|-----------|---------|----------|
+| `AccessControlPage` | Main RBAC management page | `pages/setting/` |
+| `GrantPermissionModal` | 4-step wizard for granting permissions | `components/rbac/` |
+| `PermissionLevelSelector` | Visual bar chart permission picker | `components/rbac/` |
+| `InheritanceModeSelector` | None/Cascade/Mapped selector | `components/rbac/` |
+| `ChildPermissionMapper` | Per-child-type permission table | `components/rbac/` |
+| `PermissionRuleCard` | Display single permission with inheritance | `components/rbac/` |
+| `EffectiveAccessTable` | Show resolved permissions with source | `components/rbac/` |
+| `PermissionBadge` | Inline permission level badge | `components/rbac/` |
+
+### 11.2 Permission Level Visual Selector
+
+```
+                                              ┌───────┐
+                                              │ OWNER │
+                                     ┌───────┐│   7   │
+                                     │CREATE ││       │
+                            ┌───────┐│   6   ││       │
+                            │DELETE ││       ││       │
+                   ┌───────┐│   5   ││       ││       │
+                   │ SHARE ││       ││       ││       │
+          ┌───────┐│   4   ││       ││       ││       │
+          │ EDIT  ││       ││       ││       ││       │
+ ┌───────┐│   3   ││       ││       ││       ││       │
+ │COMMENT││       ││       ││       ││       ││       │
+ │   1   ││       ││       ││       ││       ││       │
+─┴───────┴┴───────┴┴───────┴┴───────┴┴───────┴┴───────┴─
+     ▲ Selected (click to change)
+```
+
+### 11.3 Inheritance Mode Visual Selector
+
+```
+┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
+│        ●        │  │        ●        │  │    ●   ●   ●    │
+│                 │  │       /|\       │  │   /|\ /|\ /|\   │
+│                 │  │      / | \      │  │  E=3 W=0 T=5    │
+│                 │  │     ●  ●  ●     │  │  ●   ●   ●      │
+│                 │  │   (same level)  │  │ (different)     │
+├─────────────────┤  ├─────────────────┤  ├─────────────────┤
+│      NONE       │  │     CASCADE     │  │     MAPPED      │
+│  This entity    │  │  Same to all    │  │  Different per  │
+│  only           │  │  children       │  │  child type     │
+└─────────────────┘  └─────────────────┘  └─────────────────┘
+```
+
+### 11.4 Permission Card Display
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  🏢 Office (All Instances)                           OWNER (7)  │
+│                                                                  │
+│  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  │
+│                                                                  │
+│  Inheritance: Mapped                                             │
+│  ├─ Business     DELETE (5)   ▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░            │
+│  ├─ Project      EDIT (3)     ▓▓▓▓▓▓░░░░░░░░░░░░░░░░            │
+│  ├─ Task         EDIT (3)     ▓▓▓▓▓▓░░░░░░░░░░░░░░░░            │
+│  └─ _default     VIEW (0)     ▓░░░░░░░░░░░░░░░░░░░░░            │
+│                                                                  │
+│  Granted: 2025-01-15                         [Edit] [Revoke]    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 11.5 Effective Access Table
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Effective Access for "CEO Role"                                 │
+├─────────────────────────────────────────────────────────────────┤
+│  Entity Type     Access Level   Source                          │
+├─────────────────────────────────────────────────────────────────┤
+│  Office          OWNER (7)      Direct                          │
+│  Business        DELETE (5)     ← Inherited from Office         │
+│  Project         EDIT (3)       ← Inherited from Office         │
+│  Task            EDIT (3)       ← Inherited from Project        │
+│  Wiki            ⛔ DENIED      Direct (Explicit Deny)          │
+└─────────────────────────────────────────────────────────────────┘
+
+Legend:
+  Direct    = Permission granted directly to this role
+  Inherited = Permission inherited from parent entity
+  ⛔ DENIED = Explicit deny blocks all access
+```
+
+### 11.6 Conditional Class Pattern (Modern)
+
+All RBAC components use **template literals** for conditional classes (no external dependencies):
+
+```tsx
+// Modern approach - zero dependencies
+className={`base-class ${isActive ? "active-class" : "inactive-class"}`}
+className={`base-class ${condition ? "conditional-class" : ""}`}
+```
 
 ---
 
 **Version History**:
-- v1.0.0 (2025-12-08): Initial design document
+- v2.1.0 (2025-12-09): Added UI/UX design patterns, template literal styling
+- v2.0.0 (2025-12-09): Role-Only Model - removed dual person_code/person_id, added role_id FK, inheritance modes, explicit deny
+- v1.0.0 (2025-11-20): Initial dual model (employee + role)

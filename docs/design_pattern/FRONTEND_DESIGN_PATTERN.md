@@ -1,6 +1,6 @@
 # PMO Frontend Design Pattern - Comprehensive Architecture Guide
 
-> **Version**: 13.0.0 | **Updated**: 2025-12-07
+> **Version**: 13.1.0 | **Updated**: 2025-12-09
 > **Pattern**: TanStack Query + Dexie + Metadata-Driven Rendering + **Hydration Gate Pattern**
 
 ---
@@ -26,6 +26,7 @@
 17. [Component Re-render Lifecycle](#17-component-re-render-lifecycle)
 18. [Error Handling & Rollback](#18-error-handling--rollback)
 19. [Performance Optimizations](#19-performance-optimizations)
+20. [**Delete vs Unlink Pattern (Child Entity Tabs)**](#20-delete-vs-unlink-pattern-child-entity-tabs)
 
 ---
 
@@ -343,6 +344,7 @@ function MyComponent() {
   {/* Settings Pages */}
   <Route path="/settings" element={<SettingsOverviewPage />} />
   <Route path="/settings/:settingType" element={<SettingDetailPage />} />
+  <Route path="/settings/access-control" element={<AccessControlPage />} />
 </Routes>
 ```
 
@@ -1462,10 +1464,7 @@ EntityListOfInstancesPage
     <tr
       key={rowId}
       onClick={() => !isEditing && onRowClick?.(row)}
-      className={cn(
-        isEditing && 'bg-blue-50',
-        focusedRowId === rowId && 'ring-2 ring-blue-500'
-      )}
+      className={`${isEditing ? 'bg-blue-50' : ''} ${focusedRowId === rowId ? 'ring-2 ring-blue-500' : ''}`}
     >
       {visibleColumnsList.map((column) => (
         <td key={column.key}>
@@ -1514,7 +1513,7 @@ function renderViewCell(column: Column, row: FormattedRow | any) {
   // Badge with color
   if (styleClass) {
     return (
-      <span className={cn('px-2 py-1 rounded-full text-sm', styleClass)}>
+      <span className={`px-2 py-1 rounded-full text-sm ${styleClass}`}>
         {displayValue}
       </span>
     );
@@ -2753,6 +2752,106 @@ queryKey: ['entityInstanceData', 'project', { limit: 20000 }]
 
 ---
 
+## 20. Delete vs Unlink Pattern (Child Entity Tabs)
+
+### 20.1 Context-Aware Removal Actions
+
+When deleting a record from a **child entity tab** (e.g., tasks under a project), users should choose between:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    DELETE VS UNLINK PATTERN                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  CONTEXT DETECTION:                                                          │
+│  ──────────────────                                                          │
+│  • parentContext EXISTS → Show DeleteOrUnlinkModal (2 options)              │
+│  • parentContext UNDEFINED → Standard delete confirmation                    │
+│                                                                              │
+│  DATA IMPACT:                                                                │
+│  ─────────────                                                               │
+│  ┌─────────────┬───────────────┬─────────────────┬──────────────────────┐   │
+│  │ Operation   │ Primary Table │ entity_instance │ entity_instance_link │   │
+│  ├─────────────┼───────────────┼─────────────────┼──────────────────────┤   │
+│  │ UNLINK      │ Untouched     │ Untouched       │ DELETE               │   │
+│  │ DELETE      │ DELETE        │ DELETE          │ DELETE (all)         │   │
+│  └─────────────┴───────────────┴─────────────────┴──────────────────────┘   │
+│                                                                              │
+│  RBAC REQUIREMENTS:                                                          │
+│  ───────────────────                                                         │
+│  • UNLINK: EDIT permission on PARENT entity (modifying parent's children)   │
+│  • DELETE: DELETE permission on CHILD entity (destroying the entity)        │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 20.2 Component Integration
+
+```typescript
+// EntityListOfInstancesTable receives parentContext from child entity tabs
+interface EntityListOfInstancesTableProps<T> {
+  // ... existing props ...
+
+  /** Parent context for child entity tabs - enables Unlink option */
+  parentContext?: {
+    entityCode: string;    // e.g., 'project'
+    entityId: string;      // e.g., 'uuid-123'
+    entityName?: string;   // e.g., 'Kitchen Renovation'
+  };
+
+  onDelete?: (record: T) => void;
+  onUnlink?: (record: T) => void;  // NEW
+}
+
+// Delete button logic
+const handleDeleteClick = (row: T) => {
+  if (parentContext) {
+    // Show modal with Unlink/Delete options
+    setShowDeleteOrUnlinkModal(true);
+    setSelectedRecord(row);
+  } else {
+    // Standard delete confirmation
+    if (confirm('Delete this record?')) {
+      onDelete?.(row);
+    }
+  }
+};
+```
+
+### 20.3 API Endpoints
+
+| Action | Endpoint | RBAC Check |
+|--------|----------|------------|
+| **Unlink** | `DELETE /api/v1/{parent}/{parentId}/{child}/{childId}/link` | EDIT on parent |
+| **Delete** | `DELETE /api/v1/{child}/{childId}` | DELETE on child |
+
+### 20.4 Hidden `entity_instance_link_id` Field
+
+Child entity lists include `entity_instance_link_id` (hidden from UI) for programmatic unlink:
+
+```typescript
+// API response when parent context provided
+{
+  "data": [
+    {
+      "id": "task-uuid",
+      "name": "Task Name",
+      "entity_instance_link_id": "link-uuid"  // Hidden field for unlink
+    }
+  ]
+}
+
+// YAML configuration hides field from all views
+// pattern-mapping.yaml:
+//   { pattern: "entity_instance_link_id", exact: true, fieldBusinessType: systemInternal_linkId }
+// view-type-mapping.yaml + edit-type-mapping.yaml:
+//   systemInternal_linkId: { visible: false, editable: false }
+```
+
+**Full Documentation:** See [`docs/ui_components/DeleteOrUnlinkModal.md`](../ui_components/DeleteOrUnlinkModal.md)
+
+---
+
 ## Summary
 
 This design pattern document captures the complete frontend architecture of the PMO platform:
@@ -2767,5 +2866,6 @@ This design pattern document captures the complete frontend architecture of the 
 8. **Sync/Async Cache Access**: Hooks for components, sync functions for formatters
 9. **WebSocket Invalidation**: Real-time cache updates across tabs/users
 10. **Performance**: Virtualization, memoization, query deduplication
+11. **Delete vs Unlink**: Context-aware removal in child entity tabs with RBAC-aware permissions
 
 This architecture enables a highly responsive, offline-capable, real-time collaborative entity management system.

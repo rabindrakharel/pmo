@@ -1,5 +1,4 @@
 import React from 'react';
-import { cn } from '../../lib/utils';
 import * as LucideIcons from 'lucide-react';
 
 /**
@@ -154,23 +153,19 @@ export function PermissionLevelSelector({
               key={level.value}
               type="button"
               onClick={() => onChange(level.value)}
-              className={cn(
-                "flex-1 flex flex-col justify-end rounded-t-lg transition-all duration-200 relative group",
-                isSelected ? level.selectedClass : level.defaultClass,
-                "hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500"
-              )}
+              className={`flex-1 flex flex-col justify-end rounded-t-lg transition-all duration-200 relative group hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 ${
+                isSelected ? level.selectedClass : level.defaultClass
+              }`}
               style={{ height: `${heightPercent}%` }}
               title={`${level.label}: ${level.description}`}
             >
               <div className="p-2 text-center">
-                <Icon className={cn(
-                  "h-4 w-4 mx-auto mb-1",
+                <Icon className={`h-4 w-4 mx-auto mb-1 ${
                   isSelected ? "text-white" : "text-current"
-                )} />
-                <div className={cn(
-                  "text-xs font-bold",
+                }`} />
+                <div className={`text-xs font-bold ${
                   isSelected ? "text-white" : "text-current"
-                )}>
+                }`}>
                   {level.value}
                 </div>
               </div>
@@ -192,7 +187,7 @@ export function PermissionLevelSelector({
           const Icon = selected.icon;
           return (
             <>
-              <div className={cn("p-2 rounded-lg", selected.color)}>
+              <div className={`p-2 rounded-lg ${selected.color}`}>
                 <Icon className="h-5 w-5 text-white" />
               </div>
               <div>
@@ -244,10 +239,7 @@ export function PermissionBadge({ level, isDeny = false, size = 'md' }: Permissi
 
   if (isDeny) {
     return (
-      <span className={cn(
-        "inline-flex items-center gap-1 px-2 py-0.5 rounded font-medium bg-red-100 text-red-700",
-        size === 'sm' ? 'text-xs' : 'text-sm'
-      )}>
+      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-medium bg-red-100 text-red-700 ${size === 'sm' ? 'text-xs' : 'text-sm'}`}>
         <LucideIcons.Ban className={size === 'sm' ? 'h-3 w-3' : 'h-4 w-4'} />
         DENY
       </span>
@@ -256,10 +248,7 @@ export function PermissionBadge({ level, isDeny = false, size = 'md' }: Permissi
 
   if (!permission) {
     return (
-      <span className={cn(
-        "inline-block px-2 py-0.5 rounded font-medium bg-dark-100 text-dark-700",
-        size === 'sm' ? 'text-xs' : 'text-sm'
-      )}>
+      <span className={`inline-block px-2 py-0.5 rounded font-medium bg-dark-100 text-dark-700 ${size === 'sm' ? 'text-xs' : 'text-sm'}`}>
         Level {level}
       </span>
     );
@@ -268,11 +257,7 @@ export function PermissionBadge({ level, isDeny = false, size = 'md' }: Permissi
   const Icon = permission.icon;
 
   return (
-    <span className={cn(
-      "inline-flex items-center gap-1 px-2 py-0.5 rounded font-medium",
-      permission.selectedClass,
-      size === 'sm' ? 'text-xs' : 'text-sm'
-    )}>
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-medium ${permission.selectedClass} ${size === 'sm' ? 'text-xs' : 'text-sm'}`}>
       <Icon className={size === 'sm' ? 'h-3 w-3' : 'h-4 w-4'} />
       {permission.label}
     </span>
