@@ -21,7 +21,10 @@
 --   - ADDED:   is_deny (explicit deny flag)
 --   - CHANGED: granted_by__employee_id → granted_by_person_id
 --
--- PERMISSION RESOLUTION MODEL (v2.0.0):
+-- ============================================================================
+-- PERMISSION RESOLUTION MODEL (v2.0.0)
+-- ============================================================================
+--
 -- When checking permissions for person_id, the system resolves via:
 --   1. Find roles: entity_instance_link WHERE entity_code='role' AND child_entity_code='person'
 --   2. Check explicit deny: entity_rbac WHERE is_deny=true
@@ -29,12 +32,18 @@
 --   4. Inherited perms: traverse ancestors via entity_instance_link, apply inheritance_mode
 --   Result: MAX(direct permissions, inherited permissions), blocked by deny
 --
--- INHERITANCE MODES:
+-- ============================================================================
+-- INHERITANCE MODES
+-- ============================================================================
+--
 --   none:    Permission applies ONLY to the specific entity (no children inherit)
 --   cascade: Same permission level applies to ALL children (recursive)
 --   mapped:  Different permission levels per child entity type (via child_permissions JSONB)
 --
--- PERMISSION LEVEL MODEL (Integer 0-7):
+-- ============================================================================
+-- PERMISSION LEVEL MODEL (Integer 0-7)
+-- ============================================================================
+--
 --   permission = 0  --> View:        Read access to entity data
 --   permission = 1  --> Comment:     Add comments on entities (INHERITS View)
 --   permission = 2  --> Contribute:  Form submission, task updates, wiki edits (INHERITS Comment + View)
@@ -46,6 +55,208 @@
 --
 -- PERMISSION HIERARCHY (Automatic Inheritance via >= operator):
 --   Owner [7] >= Create [6] >= Delete [5] >= Share [4] >= Edit [3] >= Contribute [2] >= Comment [1] >= View [0]
+--
+-- ============================================================================
+-- API INTEGRATION: HOW THE TABLE SERVES THE API
+-- ============================================================================
+--
+-- The entity_rbac table is the authorization backbone for ALL entity API endpoints.
+-- Every API call goes through RBAC checks before data access.
+--
+-- API ENDPOINT → PERMISSION MAPPING:
+-- ┌──────────────────────────────────────────────────────────────────────────┐
+-- │ HTTP Method   │ Endpoint Pattern           │ Permission Required         │
+-- ├──────────────────────────────────────────────────────────────────────────┤
+-- │ GET           │ /api/v1/{entity}           │ VIEW (0) - filtered by RBAC │
+-- │ GET           │ /api/v1/{entity}/{id}      │ VIEW (0) on specific ID     │
+-- │ POST          │ /api/v1/{entity}           │ CREATE (6) type-level       │
+-- │ PATCH/PUT     │ /api/v1/{entity}/{id}      │ EDIT (3) on specific ID     │
+-- │ DELETE        │ /api/v1/{entity}/{id}      │ DELETE (5) on specific ID   │
+-- │ POST          │ /api/v1/{entity}/{id}/link │ EDIT (3) on parent entity   │
+-- └──────────────────────────────────────────────────────────────────────────┘
+--
+-- SPECIAL PERMISSION BEHAVIORS:
+--
+--   CREATE (6) - Type-Level Only:
+--     • Uses entity_instance_id = '11111111-1111-1111-1111-111111111111' (ALL_ENTITIES_ID)
+--     • Grants ability to create NEW instances of this entity type
+--     • Example: Role "PM" with CREATE on "project" type can create any project
+--     • When creating under a parent, EDIT permission on parent is also required
+--
+--   OWNER (7) - Full Control:
+--     • Can manage permissions (grant/revoke) on the entity
+--     • Auto-granted to creator of an entity via entity_infrastructure.create_entity()
+--     • Can delegate lower permissions to other roles
+--
+--   VIEW (0) - List Filtering:
+--     • GET list endpoints use get_entity_rbac_where_condition() to filter results
+--     • User only sees entities they have VIEW permission on
+--     • Combined with inheritance to traverse parent→child relationships
+--
+-- API SERVICE METHODS (entity-infrastructure.service.ts):
+-- ┌──────────────────────────────────────────────────────────────────────────┐
+-- │ check_entity_rbac(personId, entityCode, entityId, requiredPermission)    │
+-- │   → Returns boolean: true if person has >= required permission           │
+-- │   → Used in: Route handlers before data operations                       │
+-- │                                                                          │
+-- │ get_entity_rbac_where_condition(personId, entityCode, permission, alias) │
+-- │   → Returns SQL WHERE clause filtering entities user can access          │
+-- │   → Used in: LIST endpoints to filter visible entities                   │
+-- │                                                                          │
+-- │ set_entity_rbac(roleId, entityCode, entityId, permission, options)       │
+-- │   → Grants permission to role (INSERT or UPDATE via unique constraint)   │
+-- │   → Used in: AccessControlPage grant permission wizard                   │
+-- │                                                                          │
+-- │ delete_entity_rbac(roleId, entityCode, entityId)                         │
+-- │   → Revokes permission (HARD DELETE from table)                          │
+-- │   → Used in: AccessControlPage revoke permission action                  │
+-- └──────────────────────────────────────────────────────────────────────────┘
+--
+-- ============================================================================
+-- DATA SEMANTICS: WHAT EACH ROW REPRESENTS
+-- ============================================================================
+--
+-- Each row represents ONE permission grant: "Role X can do Y on entity Z"
+--
+-- EXAMPLE ROWS AND THEIR MEANING:
+--
+-- 1. Type-Level CREATE Permission (CEO can create any project):
+--    ┌──────────────────────────────────────────────────────────────────────┐
+--    │ role_id: 'ceo-uuid'                                                  │
+--    │ entity_code: 'project'                                               │
+--    │ entity_instance_id: '11111111-1111-1111-1111-111111111111'  ← ALL    │
+--    │ permission: 6  ← CREATE                                              │
+--    │ inheritance_mode: 'cascade'                                          │
+--    │ child_permissions: {}                                                │
+--    │ is_deny: false                                                       │
+--    └──────────────────────────────────────────────────────────────────────┘
+--    MEANING: CEO role can CREATE new projects and has CREATE permission
+--             that cascades to all child entities of any project.
+--
+-- 2. Instance-Level EDIT Permission (PM can edit specific project):
+--    ┌──────────────────────────────────────────────────────────────────────┐
+--    │ role_id: 'pm-uuid'                                                   │
+--    │ entity_code: 'project'                                               │
+--    │ entity_instance_id: 'project-123-uuid'  ← Specific instance          │
+--    │ permission: 3  ← EDIT                                                │
+--    │ inheritance_mode: 'mapped'                                           │
+--    │ child_permissions: {"task": 3, "wiki": 2, "_default": 0}             │
+--    │ is_deny: false                                                       │
+--    └──────────────────────────────────────────────────────────────────────┘
+--    MEANING: PM role can EDIT project-123 specifically. Child inheritance:
+--             - Tasks under project-123: EDIT (3) permission
+--             - Wikis under project-123: CONTRIBUTE (2) permission
+--             - Other child types: VIEW (0) permission
+--
+-- 3. Explicit DENY (Contractor blocked from Finance data):
+--    ┌──────────────────────────────────────────────────────────────────────┐
+--    │ role_id: 'contractor-uuid'                                           │
+--    │ entity_code: 'business'                                              │
+--    │ entity_instance_id: 'finance-dept-uuid'  ← Finance department        │
+--    │ permission: 0  ← Irrelevant when is_deny=true                        │
+--    │ inheritance_mode: 'cascade'                                          │
+--    │ child_permissions: {}                                                │
+--    │ is_deny: true  ← BLOCKS ACCESS                                       │
+--    └──────────────────────────────────────────────────────────────────────┘
+--    MEANING: Contractor role CANNOT access Finance department or ANY of
+--             its children, even if granted access through another role.
+--             Deny takes precedence over all grants.
+--
+-- 4. Temporary Permission (Auditor access expires):
+--    ┌──────────────────────────────────────────────────────────────────────┐
+--    │ role_id: 'auditor-uuid'                                              │
+--    │ entity_code: 'project'                                               │
+--    │ entity_instance_id: '11111111-1111-1111-1111-111111111111'            │
+--    │ permission: 0  ← VIEW only                                           │
+--    │ inheritance_mode: 'cascade'                                          │
+--    │ child_permissions: {}                                                │
+--    │ is_deny: false                                                       │
+--    │ expires_ts: '2025-12-31 23:59:59'  ← Expires end of year             │
+--    └──────────────────────────────────────────────────────────────────────┘
+--    MEANING: Auditor can VIEW all projects until Dec 31, 2025. After that,
+--             permission automatically becomes invalid (cleanup job removes).
+--
+-- ============================================================================
+-- ENTITY-ROLE INTERACTION PATTERNS
+-- ============================================================================
+--
+-- HOW DIFFERENT ENTITY TYPES USE PERMISSIONS:
+--
+-- 1. ORGANIZATIONAL HIERARCHY (office, business, department):
+--    └─ Permissions typically granted with inheritance_mode='cascade'
+--    └─ Example: Manager of Office A gets OWNER on office, cascades to all
+--       projects, tasks, employees under that office
+--    └─ API: GET /api/v1/project filters by office ancestry if user only
+--       has office-level permission
+--
+-- 2. PROJECT-CENTRIC ENTITIES (project, task, milestone):
+--    └─ Permissions often granted with inheritance_mode='mapped'
+--    └─ Example: PM gets EDIT(3) on project, tasks get EDIT(3), but wikis
+--       only get CONTRIBUTE(2) - different child types, different perms
+--    └─ API: POST /api/v1/project/{id}/task requires EDIT on parent project
+--
+-- 3. HR ENTITIES (employee, role, person):
+--    └─ Typically need type-level CREATE permission for HR managers
+--    └─ Instance permissions for viewing own data (self-service)
+--    └─ API: PATCH /api/v1/employee/{id} checks EDIT on that employee
+--
+-- 4. REFERENCE DATA (datalabel_*, settings):
+--    └─ Usually type-level permissions only (no instance tracking)
+--    └─ Admin roles get CREATE/EDIT on settings entities
+--    └─ API: Settings pages check type-level permission
+--
+-- ROLE-TO-ENTITY PERMISSION MATRIX (Typical Configuration):
+-- ┌──────────────────────────────────────────────────────────────────────────┐
+-- │ Role        │ Entity Type │ Permission │ Inheritance │ Notes            │
+-- ├──────────────────────────────────────────────────────────────────────────┤
+-- │ CEO         │ ALL types   │ OWNER (7)  │ cascade     │ Full system      │
+-- │ Manager     │ office      │ OWNER (7)  │ cascade     │ Own office tree  │
+-- │ PM          │ project     │ EDIT (3)   │ mapped      │ Own projects     │
+-- │ Team Lead   │ task        │ EDIT (3)   │ none        │ Assigned tasks   │
+-- │ Employee    │ project     │ VIEW (0)   │ cascade     │ Read-only        │
+-- │ HR Admin    │ employee    │ CREATE (6) │ none        │ Manage employees │
+-- │ Contractor  │ project     │ CONTRIBUTE │ none        │ Submit work only │
+-- │ Auditor     │ ALL types   │ VIEW (0)   │ cascade     │ Read-only, temp  │
+-- └──────────────────────────────────────────────────────────────────────────┘
+--
+-- ============================================================================
+-- PERMISSION RESOLUTION EXAMPLES
+-- ============================================================================
+--
+-- SCENARIO: Can user "James" (person_id) EDIT task-456?
+--
+-- Step 1: Find James's roles
+--   SELECT entity_instance_id FROM entity_instance_link
+--   WHERE entity_code = 'role'
+--     AND child_entity_code = 'person'
+--     AND child_entity_instance_id = 'james-uuid';
+--   → Returns: ['pm-role-uuid', 'employee-role-uuid']
+--
+-- Step 2: Check explicit deny on task-456 or its ancestors
+--   SELECT * FROM entity_rbac
+--   WHERE role_id IN ('pm-role-uuid', 'employee-role-uuid')
+--     AND entity_code = 'task'
+--     AND entity_instance_id = 'task-456-uuid'
+--     AND is_deny = true;
+--   → If found: DENIED (stop here)
+--
+-- Step 3: Check direct permission on task-456
+--   SELECT MAX(permission) FROM entity_rbac
+--   WHERE role_id IN ('pm-role-uuid', 'employee-role-uuid')
+--     AND entity_code = 'task'
+--     AND (entity_instance_id = 'task-456-uuid'
+--          OR entity_instance_id = '11111111-1111-1111-1111-111111111111');
+--   → Returns: 3 (EDIT from PM role)
+--
+-- Step 4: Check inherited permission from parent (project-123 → task-456)
+--   a) Find parent: entity_instance_link where child = task-456
+--      → project-123-uuid
+--   b) Check PM role permission on project-123:
+--      → permission=3, inheritance_mode='mapped', child_permissions={"task":3}
+--   c) Resolve mapped: child_permissions['task'] = 3 (EDIT)
+--   → Inherited permission: 3
+--
+-- Step 5: Return MAX(direct=3, inherited=3) >= required(3) → ALLOWED
 --
 -- ============================================================================
 
