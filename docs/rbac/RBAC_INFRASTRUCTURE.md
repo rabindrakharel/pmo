@@ -2,7 +2,7 @@
 
 > **Authoritative documentation for the PMO platform's Role-Based Access Control system**
 
-**Version:** 6.0.0 | **Location:** `apps/api/src/services/entity-infrastructure.service.ts`
+**Version:** 6.1.0 | **Location:** `apps/api/src/services/entity-infrastructure.service.ts`
 
 ---
 
@@ -920,6 +920,105 @@ ORDER BY e.created_ts DESC;
 
 ---
 
+## Future Design Direction (Planned)
+
+> **Status:** PLANNED - To be implemented in a future version
+
+### RBAC Simplification: Role-Only Permissions
+
+The current system supports two permission sources via `person_code`:
+- `'employee'` - Direct permissions to employees
+- `'role'` - Permissions to roles (inherited by members)
+
+**Future Change:** The system will be simplified to **role-only permissions**:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                    FUTURE RBAC DESIGN - ROLE-ONLY PERMISSIONS                         │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                      │
+│  CURRENT DESIGN (to be deprecated):                                                   │
+│  ─────────────────────────────────                                                   │
+│  entity_rbac                                                                         │
+│    person_code: 'employee' | 'role'   ← Employee-specific permissions WILL BE REMOVED│
+│    person_id: employee_id | role_id                                                  │
+│                                                                                      │
+│  FUTURE DESIGN:                                                                      │
+│  ──────────────                                                                      │
+│  entity_rbac                                                                         │
+│    person_code: 'role'                ← ONLY role-based permissions                  │
+│    person_id: role_id                 ← Always references app.role table             │
+│                                                                                      │
+│  entity_instance_link (role-person mapping)                                          │
+│    entity_code: 'role'                ← Parent is role                               │
+│    entity_instance_id: role_id        ← From app.role table                          │
+│    child_entity_code: 'person'        ← Child is person (not employee)               │
+│    child_entity_instance_id: person_id← From app.person table                        │
+│                                                                                      │
+│  KEY CHANGES:                                                                        │
+│  ────────────                                                                        │
+│  1. Remove employee-specific permissions (person_code='employee')                    │
+│  2. RBAC will ONLY be role-based (person_code='role')                                │
+│  3. Role-to-person mapping via entity_instance_link table                            │
+│  4. Always reference role from app.role table                                        │
+│  5. Always reference person from app.person table (not employee)                     │
+│                                                                                      │
+│  MIGRATION NOTES:                                                                    │
+│  ────────────────                                                                    │
+│  - Existing employee permissions must be converted to role assignments               │
+│  - Create 1:1 roles for users who need individual permissions                        │
+│  - Update get_entity_rbac_where_condition() to remove employee CTE                   │
+│  - Update check_entity_rbac() to remove direct employee permission checks            │
+│                                                                                      │
+│  BENEFITS:                                                                           │
+│  ─────────                                                                           │
+│  - Simpler permission model (roles only)                                             │
+│  - Consistent linkage pattern (all relationships via entity_instance_link)           │
+│  - Clearer separation: role table = permissions, person table = identity             │
+│  - Easier auditing (all permissions trace back to roles)                             │
+│                                                                                      │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Future Permission Resolution (Simplified)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│               FUTURE PERMISSION RESOLUTION (Role-Only)                               │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                      │
+│  User requests access to entity                                                      │
+│           │                                                                          │
+│           ▼                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────────────────────┐│
+│  │  STEP 1: Get user's roles from entity_instance_link                             ││
+│  │  ───────────────────────────────────────────────────                            ││
+│  │  SELECT entity_instance_id AS role_id                                           ││
+│  │  FROM entity_instance_link                                                      ││
+│  │  WHERE entity_code = 'role'                                                     ││
+│  │    AND child_entity_code = 'person'                                             ││
+│  │    AND child_entity_instance_id = {personId}                                    ││
+│  └─────────────────────────────────────────────────────────────────────────────────┘│
+│           │                                                                          │
+│           ▼                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────────────────────┐│
+│  │  STEP 2: Get permissions from those roles                                       ││
+│  │  ────────────────────────────────────────                                       ││
+│  │  SELECT MAX(permission) FROM entity_rbac                                        ││
+│  │  WHERE person_code = 'role'                                                     ││
+│  │    AND person_id IN (user's role IDs)                                           ││
+│  │    AND entity_code = {entityCode}                                               ││
+│  │    AND (entity_instance_id = ALL_ENTITIES_ID OR entity_instance_id = {entityId})││
+│  └─────────────────────────────────────────────────────────────────────────────────┘│
+│           │                                                                          │
+│           ▼                                                                          │
+│  (Parent inheritance CTEs remain unchanged)                                          │
+│                                                                                      │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## Related Documentation
 
 | Document | Path | Description |
@@ -936,6 +1035,7 @@ ORDER BY e.created_ts DESC;
 
 | Version | Date | Changes |
 |---------|------|---------|
+| **6.1.0** | **2025-12-07** | Added **Future Design Direction** section documenting planned role-only RBAC simplification |
 | 6.0.0 | 2025-12-03 | **Complete rewrite**: Added request flow diagrams, logical flow algorithm, permission resolution sequence, caching strategy, route integration patterns |
 | 5.0.0 | 2025-11-22 | Added transactional methods |
 | 4.0.0 | 2025-11-21 | Entity Infrastructure Service standardization |
@@ -945,4 +1045,4 @@ ORDER BY e.created_ts DESC;
 
 ---
 
-**Last Updated:** 2025-12-03 | **Status:** Production Ready
+**Last Updated:** 2025-12-07 | **Status:** Production Ready
