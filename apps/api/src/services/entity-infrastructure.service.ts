@@ -822,15 +822,18 @@ export class EntityInfrastructureService {
   }): Promise<number> {
     const { parent_entity_code, parent_entity_id, child_entity_code, child_entity_id } = params;
 
+    // Use RETURNING to get deleted rows - postgres-js returns array of deleted records
     const result = await this.db.execute(sql`
       DELETE FROM app.entity_instance_link
       WHERE entity_code = ${parent_entity_code}
-        AND entity_instance_id = ${parent_entity_id}
+        AND entity_instance_id = ${parent_entity_id}::uuid
         AND child_entity_code = ${child_entity_code}
-        AND child_entity_instance_id = ${child_entity_id}
+        AND child_entity_instance_id = ${child_entity_id}::uuid
+      RETURNING id
     `);
 
-    return (result as any).rowCount || 0;
+    // result.length = number of rows deleted
+    return result.length;
   }
 
   /**

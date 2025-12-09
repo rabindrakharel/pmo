@@ -126,13 +126,15 @@ export function CacheProvider({
 
   // Hydrate from Dexie on mount
   useEffect(() => {
+    console.log('%c[CacheProvider] MOUNTING - Starting hydration from Dexie...', 'color: #fcc419; font-weight: bold');
     hydrateFromDexie()
       .then((result) => {
         setHydrationResult(result);
         setIsHydrated(true);
         console.log(
           `%c[CacheProvider] Hydrated from IndexedDB: ${result.counts.total} records`,
-          'color: #51cf66; font-weight: bold'
+          'color: #51cf66; font-weight: bold',
+          result.counts
         );
       })
       .catch((error) => {

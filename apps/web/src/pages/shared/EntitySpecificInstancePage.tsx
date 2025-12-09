@@ -25,6 +25,7 @@ import { WikiContentRenderer } from '../../components/entity/wiki';
 import { TaskDataContainer } from '../../components/entity/task';
 import { FormDataTable, InteractiveForm, FormSubmissionEditor } from '../../components/entity/form';
 import { EmailTemplateRenderer } from '../../components/entity/marketing';
+import { RoleAccessControlPanel } from '../../components/rbac';
 import { getEntityConfig } from '../../lib/entityConfig';
 import { formatRelativeTime, transformForApi, transformFromApi } from '../../lib/frontEndFormatterService';
 import { Button } from '../../components/shared/button/Button';
@@ -1140,27 +1141,22 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
       {/* overflow-hidden ensures child content doesn't cause page scroll - table handles its own scrolling */}
       <div className="h-full flex flex-col -mx-4 -mt-4 overflow-hidden">
         {/* ============================================================================
-            v13.0.0: MODERN HEADER SECTION - Next-Generation Entity Detail Header
+            v14.0.0: HEADER SECTION - per styling_patterns.md Section 10 & 12
             ============================================================================
             Design Principles:
             - Two-line layout: Hero title (line 1) + Metadata chips (line 2)
-            - Entity name as primary hero element with larger typography
-            - Pill/chip styling for secondary metadata (code, id, timestamps)
-            - Progressive disclosure: essential info prominent, technical details subtle
-            - Consistent with 2025 SaaS design patterns (Linear, Notion, Figma)
-            v13.1.0: Enhanced visual hierarchy with unified dark-* palette
-            - Subtle gradient background (white to dark-subtle) for depth
-            - Consistent with Layout and EntityListOfInstancesTable
+            - Entity name as primary hero element (text-xl font-semibold)
+            - Pill/chip styling for secondary metadata (rounded-full)
+            - Minimalistic tabs (bg-slate-600 active, bg-white inactive)
+            - Gradient background per Section 12 visual hierarchy
             ============================================================================ */}
-        <div className="sticky top-0 z-20 bg-gradient-to-b from-white to-dark-subtle/80 border-b border-dark-200 shadow-sm px-4 pt-4 pb-3 flex-shrink-0">
+        <div className="sticky top-0 z-20 bg-gradient-to-b from-white to-dark-subtle/80 border-b border-slate-200 shadow-sm px-4 pt-3 pb-2 flex-shrink-0">
           <div className="w-[97%] max-w-[1536px] mx-auto">
-          {/* Header with modern two-line layout */}
+          {/* Header with two-line layout */}
           <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start space-x-4 flex-1 min-w-0">
-            {/* Exit button on left - vertically centered with title */}
-            <div className="pt-1">
-              <ExitButton entityCode={entityCode} isDetailPage={true} />
-            </div>
+          <div className="flex items-center space-x-4 flex-1 min-w-0">
+            {/* Exit button on left */}
+            <ExitButton entityCode={entityCode} isDetailPage={true} />
 
             {/* v13.0.0: Modern two-line header layout */}
             <EntityHeaderContainer className="flex-1 min-w-0">
@@ -1383,7 +1379,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
           </div>
           </div>
 
-          {/* Sticky Tabs Section */}
+          {/* Sticky Tabs Section - Compact pill tabs */}
           {allTabs && allTabs.length > 0 && (
             <DynamicChildEntityTabs
               title={data?.name || data?.title || config.displayName}
@@ -1392,7 +1388,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
               parentName={data?.name || data?.title}
               tabs={allTabs}
               showBackButton={false}
-              className="mt-3"
+              className="mt-2"
             />
           )}
           </div>
@@ -1546,6 +1542,12 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
               }}
             />
           </div>
+        ) : currentChildEntity === 'access-control' && entityCode === 'role' ? (
+          // v9.5.0: Custom Access Controls tab for role entity (RBAC management)
+          <RoleAccessControlPanel
+            roleId={id!}
+            roleName={data?.name || ''}
+          />
         ) : (
           // Child Entity Tab - Direct EntityListOfInstancesTable (no FilteredDataTable/Outlet)
           // v9.7.0: Check both data loading AND metadata loading (two-query architecture)
@@ -1612,20 +1614,21 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
         <DeleteOrUnlinkModal
           isOpen={deleteUnlinkModal.open}
           onClose={() => setDeleteUnlinkModal({ open: false, record: null })}
-          parentContext={{
-            entityCode,
-            entityId: id!,
-            entityName: data?.name || data?.title
-          }}
-          childEntity={currentChildEntity}
-          childEntityName={
+          entityCode={currentChildEntity}
+          entityLabel={childConfig?.displayName || currentChildEntity}
+          entityName={
             deleteUnlinkModal.record.raw?.name ||
             deleteUnlinkModal.record.raw?.title ||
             deleteUnlinkModal.record.name ||
             deleteUnlinkModal.record.title ||
             currentChildEntity
           }
-          childEntityId={deleteUnlinkModal.record.raw?.id || deleteUnlinkModal.record.id}
+          parentContext={{
+            entityCode,
+            entityId: id!,
+            entityName: data?.name || data?.title,
+            entityLabel: config?.displayName
+          }}
           onUnlink={handleChildUnlink}
           onDelete={handleChildActualDelete}
         />

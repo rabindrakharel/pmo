@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { apiClient } from '@/lib/api';
 import { QUERY_KEYS, DEXIE_KEYS } from '../keys';
-import { SESSION_STORE_CONFIG, STORE_STALE_TIMES } from '../constants';
+import { STORE_STALE_TIMES, STORE_GC_TIMES } from '../constants';
 import type { DatalabelOption, UseDatalabelResult } from '../types';
 import {
   getDatalabel,
@@ -37,10 +37,31 @@ export function useDatalabel(key: string): UseDatalabelResult {
   const query = useQuery<DatalabelOption[]>({
     queryKey: QUERY_KEYS.datalabel(normalizedKey),
     queryFn: async () => {
-      // Layer 2: Check Dexie
+      // v14.0.0: Stale-While-Revalidate Pattern
+      // 1. Check Dexie first - if fresh enough, return immediately (no API call)
+      // 2. If stale or missing, fetch from API
+      // 3. On API error, fallback to Dexie cache
       const cached = await getDatalabel(normalizedKey);
 
-      // Layer 3: Fetch from API
+      // If Dexie has data, return it - TanStack Query will background refetch if stale
+      // This provides instant UI rendering from IndexedDB
+      if (cached && cached.length > 0) {
+        // Still update from API in background (non-blocking)
+        apiClient.get<{ data: DatalabelOption[] }>(
+          `/api/v1/datalabel/${normalizedKey}`
+        ).then(response => {
+          const options = response.data?.data || [];
+          if (options.length > 0) {
+            setDatalabel(normalizedKey, options);
+          }
+        }).catch(() => {
+          // Silently ignore - we have cached data
+        });
+
+        return cached;
+      }
+
+      // No cache - must fetch from API
       try {
         const response = await apiClient.get<{ data: DatalabelOption[] }>(
           `/api/v1/datalabel/${normalizedKey}`
@@ -60,7 +81,9 @@ export function useDatalabel(key: string): UseDatalabelResult {
       }
     },
     staleTime: STORE_STALE_TIMES.datalabel,
-    gcTime: SESSION_STORE_CONFIG.gcTime,
+    // v14.0.0: Use STORE_GC_TIMES.datalabel (Infinity) to NEVER garbage collect
+    // Datalabels are critical for badge colors and dropdowns - must persist for entire session
+    gcTime: STORE_GC_TIMES.datalabel,
     placeholderData: [],
   });
 
@@ -125,7 +148,8 @@ export function useAllDatalabels(): {
       return allDatalabels;
     },
     staleTime: STORE_STALE_TIMES.datalabel,
-    gcTime: SESSION_STORE_CONFIG.gcTime,
+    // v14.0.0: Use STORE_GC_TIMES.datalabel (Infinity) to NEVER garbage collect
+    gcTime: STORE_GC_TIMES.datalabel,
   });
 
   return {

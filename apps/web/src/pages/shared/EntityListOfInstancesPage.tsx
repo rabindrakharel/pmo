@@ -9,6 +9,7 @@ import { GridView } from '../../components/shared/ui/GridView';
 import { CalendarView } from '../../components/shared/ui/CalendarView';
 import { DAGVisualizer } from '../../components/workflow/DAGVisualizer';
 import { HierarchyGraphView } from '../../components/hierarchy/HierarchyGraphView';
+import { DeleteOrUnlinkModal } from '../../components/shared/modal/DeleteOrUnlinkModal';
 import { useViewMode } from '../../lib/hooks/useViewMode';
 import { getEntityConfig, type ViewMode } from '../../lib/entityConfig';
 import { getEntityIcon } from '../../lib/entityIcons';
@@ -181,6 +182,10 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [editedData, setEditedData] = useState<any>({});
   const [isAddingRow, setIsAddingRow] = useState(false);
+
+  // v9.5.1: Delete confirmation modal state (replaces window.confirm)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteModalRecord, setDeleteModalRecord] = useState<any>(null);
 
   // Combine raw data with any appended data from pagination
   // v11.3.0: No more localData - cache is single source of truth
@@ -528,12 +533,19 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     setIsAddingRow(true);
   }, [queryClient, entityCode]);
 
-  const handleDelete = useCallback(async (record: any) => {
+  // v9.5.1: Open delete confirmation modal instead of window.confirm
+  const handleDeleteClick = useCallback((record: any) => {
     if (!config) return;
-    if (!window.confirm('Are you sure you want to delete this record?')) return;
+    setDeleteModalRecord(record);
+    setDeleteModalOpen(true);
+  }, [config]);
+
+  // v9.5.1: Actual delete handler called from modal
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteModalRecord) return;
 
     // v8.0.0: Handle FormattedRow objects
-    const rawRecord = record.raw || record;
+    const rawRecord = deleteModalRecord.raw || deleteModalRecord;
 
     // ============================================================================
     // v9.5.0: OPTIMISTIC DELETE - Row removed immediately, API syncs in background
@@ -545,8 +557,9 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     } catch (error) {
       // Error handling and rollback handled by useOptimisticMutation onError callback
       debugCache('Optimistic delete: Failed', { entityCode, recordId: rawRecord.id });
+      throw error; // Re-throw so modal can display error
     }
-  }, [config, entityCode, deleteEntity]);
+  }, [deleteModalRecord, entityCode, deleteEntity]);
 
   // Row actions for EntityListOfInstancesTable
   const rowActions: RowAction[] = useMemo(() => {
@@ -576,11 +589,11 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
       label: 'Delete',
       icon: <Trash2 className="h-4 w-4" />,
       variant: 'danger',
-      onClick: handleDelete
+      onClick: handleDeleteClick
     });
 
     return actions;
-  }, [handleDelete]);
+  }, [handleDeleteClick]);
 
   if (!config) {
     return (
@@ -832,6 +845,26 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
           {renderContent()}
         </div>
       </div>
+
+      {/* v9.5.1: Delete confirmation modal (replaces window.confirm) */}
+      <DeleteOrUnlinkModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setDeleteModalRecord(null);
+        }}
+        entityCode={entityCode}
+        entityLabel={config?.displayName}
+        entityName={
+          deleteModalRecord?.raw?.name ||
+          deleteModalRecord?.name ||
+          deleteModalRecord?.raw?.code ||
+          deleteModalRecord?.code ||
+          'this record'
+        }
+        // No parentContext = standalone mode (delete confirmation only)
+        onDelete={handleDeleteConfirm}
+      />
     </Layout>
   );
 }

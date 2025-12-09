@@ -1,6 +1,6 @@
 # State Management Architecture
 
-**Version:** 13.0.0 | **Updated:** 2025-12-07 | **Status:** Production
+**Version:** 14.0.0 | **Updated:** 2025-12-09 | **Status:** Production
 
 ---
 
@@ -113,15 +113,17 @@ The Hydration Gate is a pattern that **blocks rendering of protected routes** un
 
 ## Data Storage Summary
 
-| Data Type | Storage | TTL | Persists Refresh | v13.0.0 Guarantee |
-|-----------|---------|-----|------------------|-------------------|
-| **Datalabels** | TanStack + Dexie | 10 min | Yes | **Guaranteed non-null** |
-| **Entity codes** | TanStack + Dexie | 30 min | Yes | **Guaranteed non-null** |
-| **Entity instance names** | TanStack + Dexie | 10 min | Yes | For prefetched entities |
-| **Global settings** | TanStack + Dexie | 30 min | Yes | **Guaranteed non-null** |
-| **Entity instances** | TanStack + Dexie | 5 min stale | Yes | On-demand |
-| **Entity lists** | TanStack + Dexie | 2 min stale | Yes | On-demand |
-| **Drafts** | Dexie only | Until saved | Yes | N/A |
+| Data Type | Storage | staleTime | gcTime | Dexie TTL | v14.0.0 Guarantee |
+|-----------|---------|-----------|--------|-----------|-------------------|
+| **Datalabels** | TanStack + Dexie | 10 min | **Infinity** | 24 hours | **Guaranteed non-null** |
+| **Entity codes** | TanStack + Dexie | 30 min | **Infinity** | 24 hours | **Guaranteed non-null** |
+| **Entity instance names** | TanStack + Dexie | 10 min | 1 hour | 24 hours | For prefetched entities |
+| **Global settings** | TanStack + Dexie | 10 min | 1 hour | 24 hours | **Guaranteed non-null** |
+| **Entity instances** | TanStack + Dexie | 1 min | 30 min | 30 min | On-demand |
+| **Entity lists** | TanStack + Dexie | 1 min | 30 min | 30 min | On-demand |
+| **Drafts** | Dexie only | N/A | N/A | Until saved | N/A |
+
+**v14.0.0 Key Change:** Datalabels and entity codes now have `gcTime: Infinity` to prevent mid-session garbage collection. See [Cache Disappearance RCA](../caching-frontend/frontend_cache_design_pattern.md#13-cache-disappearance-rca--industry-best-practices-v1400).
 
 ---
 
@@ -496,6 +498,41 @@ setMetadataLoaded(true);  // THEN open the gate
 4. Store in both caches
 ```
 
+### 6. TTL Alignment (v14.0.0)
+
+```
+CRITICAL: gcTime >= hydration maxAge (TanStack Query best practice)
+
+For Session-Level Stores:
+  HYDRATION_CONFIG.maxAge ≤ SESSION_STORE_CONFIG.persistMaxAge
+  (24 hours)               (24 hours)
+
+  STORE_GC_TIMES.datalabel = Infinity   (NEVER garbage collect)
+  STORE_GC_TIMES.entityCodes = Infinity (NEVER garbage collect)
+
+For On-Demand Stores:
+  gcTime (30 min) ≥ persistMaxAge (30 min)  ✓
+```
+
+### 7. Stale-While-Revalidate from Dexie (v14.0.0)
+
+```typescript
+// useDatalabel queryFn pattern
+queryFn: async () => {
+  // 1. Check Dexie first
+  const cached = await getDatalabel(key);
+
+  // 2. If Dexie has data, return immediately + background refresh
+  if (cached && cached.length > 0) {
+    apiClient.get(...).then(...);  // Non-blocking
+    return cached;  // Instant UI from IndexedDB
+  }
+
+  // 3. No cache - fetch from API
+  return await apiClient.get(...);
+}
+```
+
 ---
 
 ## Related Documents
@@ -514,6 +551,7 @@ setMetadataLoaded(true);  // THEN open the gate
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 14.0.0 | 2025-12-09 | **Cache Disappearance Fix**: Aligned hydration maxAge with persistMaxAge (24h). Applied `gcTime: Infinity` to datalabel/entityCodes. Implemented stale-while-revalidate pattern (Dexie-first). |
 | 13.0.0 | 2025-12-07 | **Hydration Gate Pattern**: MetadataGate blocks rendering until all session metadata loaded. Sync accessors guaranteed non-null. |
 | 11.3.1 | 2025-12-03 | Inline add row pattern with `useInlineAddRow` hook |
 | 11.1.0 | 2025-12-02 | Flat metadata format for table and form components |
@@ -522,4 +560,4 @@ setMetadataLoaded(true);  // THEN open the gate
 
 ---
 
-**Version:** 13.0.0 | **Updated:** 2025-12-07 | **Status:** Production
+**Version:** 14.0.0 | **Updated:** 2025-12-09 | **Status:** Production

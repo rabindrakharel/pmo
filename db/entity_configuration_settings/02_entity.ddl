@@ -99,7 +99,8 @@ VALUES (
   30
 );
 
--- Task entity type (has 5 child types)
+-- Task entity type (has 4 child types)
+-- NOTE: task_data is NOT a child entity - it's rendered via custom TaskDataContainer component (activity feed)
 INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'task',
@@ -108,7 +109,7 @@ VALUES (
   'CheckSquare',
   'task',
   'f',
-  '["task_data", "form", "artifact", "expense", "revenue"]'::jsonb,
+  '["form", "artifact", "expense", "revenue"]'::jsonb,
   40
 );
 

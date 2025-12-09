@@ -1,8 +1,8 @@
 # Page, Layout & Component Architecture
 
-> **Version:** 11.2.0 | PMO Enterprise Platform
+> **Version:** 14.0.0 | PMO Enterprise Platform
 > **Status:** Production Ready
-> **Updated:** 2025-12-02
+> **Updated:** 2025-12-09
 
 ## Executive Summary
 
@@ -15,6 +15,7 @@ This document describes the complete frontend architecture including:
 - **Three-Layer Component Hierarchy** with backend-driven rendering
 - **Settings System** for runtime datalabel management
 - **v11.0.0 Unified Cache** - TanStack Query as single in-memory cache (no sync stores)
+- **v14.0.0 Unified DeleteOrUnlinkModal** - Context-aware delete/unlink for standalone lists and child entity tabs
 
 **Core Principles:**
 - **Config-driven, not code-driven** - Entity behavior defined in `entityConfig.ts`
@@ -776,12 +777,43 @@ EntityListOfInstancesPage
 ├── useMemo(formatDataset)           // Format-at-read transformation
 ├── EntityListOfInstancesTable       // Table view (default)
 │   ├── Pagination                   // Client-side pagination
-│   └── InlineEdit                   // Direct cell editing
+│   ├── InlineEdit                   // Direct cell editing
+│   └── DeleteOrUnlinkModal          // v14.0.0: Delete confirmation (no unlink option)
 ├── KanbanView                       // Kanban board
 │   └── KanbanColumn[]               // Status columns
 ├── GridView                         // Card grid
 ├── CalendarView                     // Event calendar
 └── HierarchyGraphView / DAGVisualizer  // Graph views
+```
+
+**Delete Modal (v14.0.0):**
+
+On standalone list pages (`/task`, `/project`), the `DeleteOrUnlinkModal` operates in **Delete-only mode**:
+- No `parentContext` prop is passed
+- Modal shows simple delete confirmation
+- Single "Delete" button (no radio selection)
+- Requires `DELETE` permission on the entity
+- API: `DELETE /api/v1/{entity}/{id}`
+
+```typescript
+// EntityListOfInstancesPage.tsx - Delete handler
+const handleDelete = async (record: T) => {
+  // Opens DeleteOrUnlinkModal in delete-only mode (no parentContext)
+  setDeleteModalRecord(record);
+  setIsDeleteModalOpen(true);
+};
+
+// Modal usage (no parentContext = delete-only mode)
+<DeleteOrUnlinkModal
+  isOpen={isDeleteModalOpen}
+  onClose={() => setIsDeleteModalOpen(false)}
+  record={deleteModalRecord}
+  entityCode={entityCode}
+  entityLabel={entityLabel}
+  // NO parentContext = delete-only mode
+  onDelete={handleDeleteConfirm}
+  isProcessing={isDeleting}
+/>
 ```
 
 **Key Code Pattern:**
@@ -851,6 +883,8 @@ EntitySpecificInstancePage
 │   └── useEntityChildren()        // Fetch tabs from entity.child_entity_codes
 ├── EntityInstanceFormContainer    // Overview tab content
 │   └── frontEndFormatterService   // Field renderers
+├── EntityListOfInstancesTable     // Child entity tab content
+│   └── DeleteOrUnlinkModal        // v14.0.0: Unlink OR Delete options
 ├── WikiContentRenderer            // Wiki entity special view
 ├── InteractiveForm                // Form entity special view
 ├── EmailTemplateRenderer          // Marketing entity special view
@@ -858,6 +892,74 @@ EntitySpecificInstancePage
 ├── FilePreview                    // Artifact/cost/revenue preview
 ├── ShareModal                     // Sharing dialog
 └── UnifiedLinkageModal            // Entity relationships
+```
+
+**Delete/Unlink Modal for Child Entity Tabs (v14.0.0):**
+
+On child entity tabs (`/project/:id/task`), the `DeleteOrUnlinkModal` operates in **Unlink+Delete mode**:
+- `parentContext` prop IS passed (parent entity info)
+- Modal shows radio selection: "Unlink from {Parent}" OR "Delete permanently"
+- **Unlink**: Removes relationship only, child entity remains in system
+- **Delete**: Completely removes child entity and all its relationships
+- RBAC: Unlink requires `EDIT` on parent, Delete requires `DELETE` on child
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                  CHILD TAB DELETE/UNLINK FLOW                    │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Route: /project/:projectId/task                                │
+│                                                                  │
+│  User clicks delete icon on task row                            │
+│              ↓                                                   │
+│  Modal opens with TWO OPTIONS:                                  │
+│                                                                  │
+│  ○ Unlink from "Kitchen Renovation"                            │
+│    - Task remains in system, accessible at /task/:taskId        │
+│    - Only removes link to this project                          │
+│    - API: DELETE /api/v1/project/:projectId/task/:taskId/link   │
+│    - RBAC: Requires EDIT on PROJECT (parent)                    │
+│                                                                  │
+│  ○ Delete "Install Cabinets" permanently                        │
+│    - Task is completely removed from system                     │
+│    - All links to this task are also deleted                    │
+│    - API: DELETE /api/v1/task/:taskId                           │
+│    - RBAC: Requires DELETE on TASK (child)                      │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+```typescript
+// EntitySpecificInstancePage.tsx - Child tab table with parentContext
+<EntityListOfInstancesTable
+  data={childDisplayData}
+  metadata={childMetadata}
+  entityCode={currentChildEntity}
+  entityLabel={childEntityLabel}
+  // v14.0.0: Pass parent context for unlink+delete modal
+  parentContext={{
+    entityCode: entityCode,        // e.g., 'project'
+    entityId: id,                  // Parent entity UUID
+    entityName: data?.name,        // e.g., 'Kitchen Renovation'
+    entityLabel: entityLabel,      // e.g., 'Project'
+  }}
+  onDelete={handleChildDelete}
+  onUnlink={handleChildUnlink}
+/>
+
+// Delete handler - calls child entity DELETE endpoint
+const handleChildDelete = async (record: T) => {
+  await api.delete(`/api/v1/${currentChildEntity}/${record.id}`);
+  refetchChildData();
+};
+
+// Unlink handler - calls link DELETE endpoint (v14.0.0)
+const handleChildUnlink = async (record: T) => {
+  await api.delete(
+    `/api/v1/${entityCode}/${id}/${currentChildEntity}/${record.id}/link`
+  );
+  refetchChildData();
+};
 ```
 
 **Key Code Pattern (v11.1.0 - Two-Query Architecture with Flat Metadata):**
@@ -1834,16 +1936,19 @@ apps/web/src/
 | [STATE_MANAGEMENT.md](../state_management/STATE_MANAGEMENT.md) | TanStack + Dexie state |
 | [entity-component-metadata.service.md](../services/entity-component-metadata.service.md) | Backend metadata generation |
 | [frontend_datasetFormatter.md](../services/frontend_datasetFormatter.md) | Frontend rendering |
+| [DeleteOrUnlinkModal.md](../ui_components/DeleteOrUnlinkModal.md) | Delete/Unlink modal component spec |
+| [EntityListOfInstancesTable.md](../ui_components/EntityListOfInstancesTable.md) | Data table component spec |
 
 ---
 
-**Version:** 11.2.0
-**Last Updated:** 2025-12-02
+**Version:** 14.0.0
+**Last Updated:** 2025-12-09
 **Status:** Production Ready
 
 **Version History:**
 | Version | Date | Changes |
 |---------|------|---------|
+| 14.0.0 | 2025-12-09 | **Unified DeleteOrUnlinkModal**: Added `DeleteOrUnlinkModal` integration for both standalone list pages (delete-only mode) and child entity tabs (unlink+delete mode). Modal behavior determined by `parentContext` prop presence. Updated `EntityListOfInstancesTable` with new props: `parentContext`, `onDelete`, `onUnlink`, `entityCode`, `entityLabel`. |
 | 11.2.0 | 2025-12-02 | **Offline-safe optimistic rollback**: Fixed critical bug where optimistic updates didn't revert when API server was down. `onError` now uses direct `setQueryData()` rollback from captured `allPreviousListData` Map instead of `invalidateQueries()`. Rollback works without network access. |
 | 11.1.0 | 2025-12-02 | **Flat metadata format**: Both `EntityListOfInstancesTable` and `EntityInstanceFormContainer` now receive flat `{ viewType, editType }` format. Components support both flat and nested formats for backward compatibility but flat is standard. Entity reference fields use `getEntityInstanceNameSync()` reading from TanStack Query cache. |
 | 11.0.0 | 2025-12-02 | **Removed sync stores**: TanStack Query cache is single in-memory source of truth. Sync accessors (`getDatalabelSync`, `getEntityInstanceNameSync`) now read from `queryClient.getQueryData()`. Removed redundant Map-based stores. |

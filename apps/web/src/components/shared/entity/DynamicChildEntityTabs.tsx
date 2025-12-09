@@ -52,8 +52,8 @@ export function DynamicChildEntityTabs({
 
   return (
     <div className={className}>
-      {/* Tab Navigation - JIRA-style horizontal tabs with underline indicator */}
-      <nav className="flex gap-1" aria-label="Project navigation">
+      {/* Tab Navigation - Minimalistic style per styling_patterns.md Section 3.2 */}
+      <nav className="flex items-center gap-2" aria-label="Project navigation">
         {tabs.map((tab) => {
           const isActive = activeTab?.id === tab.id;
           const IconComponent = tab.icon || getIconComponent(null);
@@ -65,33 +65,28 @@ export function DynamicChildEntityTabs({
               disabled={tab.disabled}
               title={tab.tooltip}
               className={[
-                'relative flex items-center gap-2 px-3 py-2.5 text-sm font-medium rounded-md transition-all focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none',
+                'flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none',
                 isActive
-                  ? 'text-slate-700 bg-slate-100'
+                  ? 'bg-slate-600 text-white shadow-sm'
                   : tab.disabled
                   ? 'text-dark-400 cursor-not-allowed'
-                  : 'text-dark-600 hover:text-dark-800 hover:bg-dark-100 cursor-pointer'
+                  : 'bg-white text-dark-600 border border-dark-300 hover:border-dark-400 cursor-pointer'
               ].join(' ')}
             >
-              {/* Icon */}
-              <IconComponent className={`h-4 w-4 ${isActive ? 'text-slate-600' : ''}`} aria-hidden="true" />
+              {/* Icon - h-3.5 w-3.5 per design system */}
+              <IconComponent className="h-3.5 w-3.5" aria-hidden="true" />
 
               {/* Label */}
               <span>{tab.label}</span>
 
-              {/* Count badge */}
+              {/* Count badge per styling_patterns.md Section 3.6 */}
               {tab.count !== undefined && (
                 <span className={[
-                  'inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full text-xs font-medium',
-                  isActive ? 'bg-slate-200 text-slate-700' : 'bg-dark-200 text-dark-600'
+                  'inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full text-xs font-medium',
+                  isActive ? 'bg-white/20 text-white' : 'bg-dark-200 text-dark-600'
                 ].join(' ')}>
                   {tab.count}
                 </span>
-              )}
-
-              {/* Active underline indicator */}
-              {isActive && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-500 rounded-full" />
               )}
             </button>
           );
@@ -238,13 +233,16 @@ function buildTabsFromData(
 ) {
   // If no child entities defined, show overview only
   if (!data.child_entities || data.child_entities.length === 0) {
+    // Check for custom tabs even when no child entities
+    const customTabs = getCustomTabsForEntity(parentType, parentId);
     setTabs([
       {
         id: 'overview',
         label: 'Overview',
         path: `/${parentType}/${parentId}`,
         icon: getIconComponent(data.ui_icon || data.icon),
-      }
+      },
+      ...customTabs
     ]);
     setLoading(false);
     return;
@@ -261,6 +259,9 @@ function buildTabsFromData(
     order: tab.order || 999
   }));
 
+  // Get custom tabs for this entity type (non-entity tabs like Access Controls)
+  const customTabs = getCustomTabsForEntity(parentType, parentId);
+
   // Add overview tab at the beginning with parent icon from API
   setTabs([
     {
@@ -269,7 +270,31 @@ function buildTabsFromData(
       path: `/${parentType}/${parentId}`,
       icon: getIconComponent(data.ui_icon || data.icon), // ✅ Uses parent icon from API
     },
-    ...generatedTabs
+    ...generatedTabs,
+    ...customTabs
   ]);
   setLoading(false);
+}
+
+/**
+ * Get custom (non-entity) tabs for specific entity types.
+ * These tabs render custom components instead of EntityListOfInstancesTable.
+ *
+ * v9.5.0: Added 'Access Controls' tab for role entity
+ */
+function getCustomTabsForEntity(parentType: string, parentId: string): HeaderTab[] {
+  const customTabs: HeaderTab[] = [];
+
+  // Role entity: Add "Access Controls" tab for RBAC management
+  if (parentType === 'role') {
+    customTabs.push({
+      id: 'access-control',
+      label: 'Access Controls',
+      path: `/${parentType}/${parentId}/access-control`,
+      icon: getIconComponent('shield'),
+      order: 1000 // After entity tabs
+    });
+  }
+
+  return customTabs;
 }

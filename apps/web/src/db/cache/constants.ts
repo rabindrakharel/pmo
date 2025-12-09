@@ -46,10 +46,15 @@ export const ONDEMAND_STORE_CONFIG = {
 // Hydration Configuration
 // ============================================================================
 // Controls how data is loaded from IndexedDB on startup
+//
+// v14.0.0: Changed maxAge from 30 minutes to 24 hours to match SESSION_STORE_CONFIG.persistMaxAge
+// Root Cause: When maxAge was 30 minutes, users who worked for 30+ min then refreshed
+// would have Dexie data skipped during hydration, causing getDatalabelSync() to return null.
+// Industry best practice: gcTime >= maxAge (TanStack Query docs)
 
 export const HYDRATION_CONFIG = {
   /** Maximum age of data to hydrate from Dexie (older data is skipped) */
-  maxAge: 30 * 60 * 1000, // 30 minutes
+  maxAge: SESSION_STORE_CONFIG.persistMaxAge, // 24 hours - aligned with Dexie TTL
 } as const;
 
 // ============================================================================

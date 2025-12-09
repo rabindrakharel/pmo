@@ -1,106 +1,360 @@
 /**
  * ============================================================================
- * DELETE OR UNLINK MODAL (v9.5.0)
+ * DELETE OR UNLINK MODAL (v9.5.4)
  * ============================================================================
  *
- * Purpose: Provides context-aware removal options in child entity tabs.
- * When removing a child from a parent context, user chooses between:
+ * Purpose: Unified modal for entity removal with context-aware behavior.
+ * Features stepper progress indicator during processing.
  *
- * 1. UNLINK: Remove relationship only (child entity remains in system)
- *    - Deletes entity_instance_link record
- *    - Requires EDIT permission on parent
+ * Styling: Adheres to docs/design_pattern/styling_patterns.md (v13.1)
+ * - Modal: bg-dark-100, border-dark-300, rounded-xl, shadow-2xl
+ * - Buttons: px-3 py-2 rounded-md (minimalistic)
+ * - Text: text-dark-700 (primary), text-dark-600 (secondary)
+ * - Focus: focus-visible:ring-2 focus-visible:ring-slate-500/30
  *
- * 2. DELETE: Permanently delete the child entity
- *    - Deletes primary table + entity_instance + links + rbac
- *    - Requires DELETE permission on child
+ * MODE 1: With parentContext (Child Entity Tab - e.g., /project/abc/task)
+ * - Shows Unlink + Delete radio selection
+ * - Unlink: Removes entity_instance_link only (requires EDIT on parent)
+ * - Delete: Permanently deletes entity (requires DELETE on child)
+ *
+ * MODE 2: Without parentContext (Standalone List - e.g., /project)
+ * - Shows Delete confirmation only (no Unlink option)
+ * - Delete: Permanently deletes entity (requires DELETE on entity)
+ *
+ * Replaces window.confirm() with proper modal UX in all cases.
  *
  * ============================================================================
  */
 
-import React, { useState } from 'react';
-import { X, Link2Off, Trash2, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { X, Link2Off, Trash2, AlertTriangle, Check, Loader2 } from 'lucide-react';
 
 export interface ParentContext {
   entityCode: string;
   entityId: string;
   entityName?: string;
+  entityLabel?: string;
+}
+
+interface Step {
+  id: string;
+  label: string;
+  status: 'pending' | 'processing' | 'completed' | 'error';
 }
 
 interface DeleteOrUnlinkModalProps {
   isOpen: boolean;
   onClose: () => void;
-  parentContext: ParentContext;
-  childEntity: string;
-  childEntityName: string;
-  childEntityId: string;
-  onUnlink: () => Promise<void>;
+  /** Entity type being deleted (e.g., 'task', 'project') */
+  entityCode: string;
+  /** Entity display label (e.g., 'Task', 'Project') */
+  entityLabel?: string;
+  /** Name of the entity instance being removed */
+  entityName: string;
+  /**
+   * Parent context - OPTIONAL
+   * When provided: Modal shows Unlink + Delete options (radio selection)
+   * When undefined: Modal shows Delete confirmation only
+   */
+  parentContext?: ParentContext;
+  /** Unlink handler - only called when parentContext exists and user selects Unlink */
+  onUnlink?: () => Promise<void>;
+  /** Delete handler - always required */
   onDelete: () => Promise<void>;
 }
+
+// Step definitions for different operations
+const getUnlinkSteps = (): Step[] => [
+  { id: 'processing', label: 'Processing the request', status: 'pending' },
+  { id: 'unlink', label: 'Unlinking', status: 'pending' },
+  { id: 'completed', label: 'Completed', status: 'pending' },
+];
+
+const getDeleteSteps = (): Step[] => [
+  { id: 'processing', label: 'Processing the request', status: 'pending' },
+  { id: 'delete', label: 'Deleting', status: 'pending' },
+  { id: 'completed', label: 'Completed', status: 'pending' },
+];
+
+// Simulated step delays (ms) - gives visual feedback
+const STEP_DELAYS = {
+  processing: 500,
+  unlink: 0, // Actual API call happens here
+  delete: 0, // Actual API call happens here
+  completed: 400,
+};
 
 export const DeleteOrUnlinkModal: React.FC<DeleteOrUnlinkModalProps> = ({
   isOpen,
   onClose,
+  entityCode,
+  entityLabel,
+  entityName,
   parentContext,
-  childEntity,
-  childEntityName,
-  childEntityId,
   onUnlink,
   onDelete,
 }) => {
-  const [selectedAction, setSelectedAction] = useState<'unlink' | 'delete'>('unlink');
+  // In standalone mode (no parentContext), default to 'delete'
+  // In child entity tab mode, default to 'unlink'
+  const [selectedAction, setSelectedAction] = useState<'unlink' | 'delete'>(
+    parentContext ? 'unlink' : 'delete'
+  );
   const [isProcessing, setIsProcessing] = useState(false);
+  const [steps, setSteps] = useState<Step[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Determine display labels
+  const displayEntityLabel = entityLabel || entityCode || 'Record';
+
+  // Reset state when modal opens/closes or parentContext changes
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedAction(parentContext ? 'unlink' : 'delete');
+      setError(null);
+      setIsProcessing(false);
+      setSteps([]);
+    }
+  }, [isOpen, parentContext]);
+
+  // Helper to update a step's status
+  const updateStepStatus = useCallback((stepId: string, status: Step['status']) => {
+    setSteps((prev) =>
+      prev.map((step) => (step.id === stepId ? { ...step, status } : step))
+    );
+  }, []);
+
+  // Helper to delay for visual feedback
+  const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  // Process steps sequentially with visual feedback
+  const processWithSteps = useCallback(
+    async (stepsToProcess: Step[], apiCall: () => Promise<void>, apiStepId: string) => {
+      setSteps(stepsToProcess);
+      setIsProcessing(true);
+      setError(null);
+
+      try {
+        for (const step of stepsToProcess) {
+          // Mark step as processing
+          updateStepStatus(step.id, 'processing');
+
+          if (step.id === apiStepId) {
+            // This is the actual API call step
+            await apiCall();
+          } else {
+            // Simulated delay for visual feedback
+            await delay(STEP_DELAYS[step.id as keyof typeof STEP_DELAYS] || 300);
+          }
+
+          // Mark step as completed
+          updateStepStatus(step.id, 'completed');
+        }
+
+        // Brief pause to show completion before closing
+        await delay(400);
+        onClose();
+      } catch (err: any) {
+        // Mark current processing step as error
+        setSteps((prev) =>
+          prev.map((step) =>
+            step.status === 'processing' ? { ...step, status: 'error' } : step
+          )
+        );
+        setError(err.message || 'Operation failed');
+        setIsProcessing(false);
+      }
+    },
+    [updateStepStatus, onClose]
+  );
+
+  const handleConfirm = useCallback(async () => {
+    if (selectedAction === 'unlink' && onUnlink) {
+      const unlinkSteps = getUnlinkSteps();
+      await processWithSteps(unlinkSteps, onUnlink, 'unlink');
+    } else {
+      const deleteSteps = getDeleteSteps();
+      await processWithSteps(deleteSteps, onDelete, 'delete');
+    }
+  }, [selectedAction, onUnlink, onDelete, processWithSteps]);
 
   if (!isOpen) return null;
 
-  const handleConfirm = async () => {
-    setIsProcessing(true);
-    setError(null);
+  // Render step indicator (follows styling_patterns.md)
+  const renderSteps = () => (
+    <div className="space-y-2 py-2">
+      {steps.map((step) => (
+        <div
+          key={step.id}
+          className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+            step.status === 'processing'
+              ? 'bg-slate-100'
+              : step.status === 'completed'
+                ? 'bg-green-50'
+                : step.status === 'error'
+                  ? 'bg-red-50'
+                  : 'bg-dark-50'
+          }`}
+        >
+          {/* Status Icon */}
+          <div className="flex-shrink-0 w-5 h-5">
+            {step.status === 'pending' && (
+              <div className="w-4 h-4 rounded-full border-2 border-dark-300 mt-0.5" />
+            )}
+            {step.status === 'processing' && (
+              <Loader2 className="w-5 h-5 text-slate-600 animate-spin" />
+            )}
+            {step.status === 'completed' && (
+              <div className="w-5 h-5 rounded-full bg-green-600 flex items-center justify-center">
+                <Check className="w-3 h-3 text-white" strokeWidth={3} />
+              </div>
+            )}
+            {step.status === 'error' && (
+              <div className="w-5 h-5 rounded-full bg-red-600 flex items-center justify-center">
+                <X className="w-3 h-3 text-white" strokeWidth={3} />
+              </div>
+            )}
+          </div>
 
-    try {
-      if (selectedAction === 'unlink') {
-        await onUnlink();
-      } else {
-        await onDelete();
-      }
-      onClose();
-    } catch (err: any) {
-      setError(err.message || 'Operation failed');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+          {/* Step Label */}
+          <span
+            className={`text-sm ${
+              step.status === 'processing'
+                ? 'text-slate-700 font-medium'
+                : step.status === 'completed'
+                  ? 'text-green-700'
+                  : step.status === 'error'
+                    ? 'text-red-700'
+                    : 'text-dark-600'
+            }`}
+          >
+            {step.label}
+            {step.status === 'processing' && '...'}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
 
-  const parentLabel = parentContext.entityName
+  const parentDisplayLabel = parentContext?.entityName
     ? `"${parentContext.entityName}"`
-    : `this ${parentContext.entityCode}`;
+    : parentContext?.entityLabel
+      ? `this ${parentContext.entityLabel}`
+      : parentContext
+        ? `this ${parentContext.entityCode}`
+        : '';
 
+  // ============================================================================
+  // MODE 2: Standalone delete confirmation (no parentContext)
+  // URL: /project, /task, etc.
+  // ============================================================================
+  if (!parentContext) {
+    return (
+      <>
+        {/* Backdrop */}
+        <div
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+          onClick={isProcessing ? undefined : onClose}
+        />
+
+        {/* Modal Container - follows styling_patterns.md section 3.7 */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="bg-dark-100 rounded-xl shadow-2xl w-full max-w-md border border-dark-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-dark-300">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+                <h2 className="text-lg font-semibold text-dark-700">
+                  Delete {displayEntityLabel}
+                </h2>
+              </div>
+              <button
+                onClick={onClose}
+                disabled={isProcessing}
+                className="p-1.5 hover:bg-dark-200 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <X className="h-5 w-5 text-dark-500" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="px-6 py-4 space-y-4">
+              {!isProcessing ? (
+                <>
+                  <p className="text-sm text-dark-600">
+                    Are you sure you want to delete{' '}
+                    <span className="font-medium text-dark-700">"{entityName}"</span>?
+                  </p>
+                  <p className="text-sm text-dark-500">
+                    This action cannot be undone. The {displayEntityLabel.toLowerCase()} will be
+                    permanently removed from the system.
+                  </p>
+                </>
+              ) : (
+                renderSteps()
+              )}
+
+              {/* Error Message */}
+              {error && (
+                <div className="p-3 bg-red-100 border border-red-200 rounded-md text-sm text-red-800">
+                  {error}
+                </div>
+              )}
+            </div>
+
+            {/* Footer - follows styling_patterns.md button patterns */}
+            <div className="px-6 py-4 border-t border-dark-300 bg-dark-50 rounded-b-xl flex justify-end gap-2">
+              <button
+                onClick={onClose}
+                disabled={isProcessing}
+                className="px-3 py-2 text-sm font-medium text-dark-600 bg-white border border-dark-300 rounded-md hover:border-dark-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirm}
+                disabled={isProcessing}
+                className="px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isProcessing ? 'Processing...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // ============================================================================
+  // MODE 1: Child entity tab with Unlink + Delete radio selection
+  // URL: /project/abc-123/task
+  // ============================================================================
   return (
     <>
       {/* Backdrop */}
       <div
         className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={isProcessing ? undefined : onClose}
       />
 
-      {/* Modal Container */}
+      {/* Modal Container - follows styling_patterns.md section 3.7 */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div
-          className="bg-white rounded-xl shadow-2xl w-full max-w-md"
+          className="bg-dark-100 rounded-xl shadow-2xl w-full max-w-md border border-dark-300"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-dark-200">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-dark-300">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
-              <h2 className="text-lg font-semibold text-dark-800">
-                Remove {childEntity}
-              </h2>
+              <AlertTriangle className="h-5 w-5 text-orange-600" />
+              <h2 className="text-lg font-semibold text-dark-700">Remove {displayEntityLabel}</h2>
             </div>
             <button
               onClick={onClose}
               disabled={isProcessing}
-              className="p-1.5 hover:bg-dark-100 rounded-md focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors disabled:opacity-50"
+              className="p-1.5 hover:bg-dark-200 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <X className="h-5 w-5 text-dark-500" />
             </button>
@@ -108,89 +362,102 @@ export const DeleteOrUnlinkModal: React.FC<DeleteOrUnlinkModalProps> = ({
 
           {/* Content */}
           <div className="px-6 py-4 space-y-4">
-            <p className="text-dark-600 text-sm">
-              You are removing <span className="font-medium text-dark-800">"{childEntityName}"</span> from {parentLabel}.
-              Choose how you want to remove it:
-            </p>
+            {!isProcessing ? (
+              <>
+                <p className="text-sm text-dark-600">
+                  Choose how to remove{' '}
+                  <span className="font-medium text-dark-700">"{entityName}"</span> from{' '}
+                  {parentDisplayLabel}:
+                </p>
 
-            {/* Option: Unlink */}
-            <label
-              className={`
-                block p-4 rounded-lg border-2 cursor-pointer transition-all
-                ${selectedAction === 'unlink'
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-dark-200 hover:border-dark-300 bg-white'
-                }
-              `}
-            >
-              <div className="flex items-start gap-3">
-                <input
-                  type="radio"
-                  name="action"
-                  value="unlink"
-                  checked={selectedAction === 'unlink'}
-                  onChange={() => setSelectedAction('unlink')}
-                  className="mt-1"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <Link2Off className="h-4 w-4 text-blue-600" />
-                    <span className="font-medium text-dark-800">Unlink Only</span>
+                {/* Option: Unlink - uses slate accent per styling_patterns.md */}
+                <label
+                  className={`
+                    block p-4 rounded-md border-2 cursor-pointer transition-all
+                    ${
+                      selectedAction === 'unlink'
+                        ? 'border-slate-500 bg-slate-50'
+                        : 'border-dark-300 hover:border-dark-400 bg-white'
+                    }
+                  `}
+                >
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="radio"
+                      name="action"
+                      value="unlink"
+                      checked={selectedAction === 'unlink'}
+                      onChange={() => setSelectedAction('unlink')}
+                      className="mt-1 text-slate-600 focus:ring-slate-500"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <Link2Off className="h-4 w-4 text-slate-600" />
+                        <span className="font-medium text-dark-700">
+                          Unlink from {parentContext.entityLabel || parentContext.entityCode}
+                        </span>
+                      </div>
+                      <p className="text-sm text-dark-500 mt-1">
+                        Remove from this{' '}
+                        {parentContext.entityLabel?.toLowerCase() || parentContext.entityCode} only.
+                        The {displayEntityLabel.toLowerCase()} will remain in the system and can be
+                        linked to other entities.
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-sm text-dark-500 mt-1">
-                    Remove the connection between this {childEntity} and {parentLabel}.
-                    The {childEntity} will remain in the system and can be linked to other entities.
-                  </p>
-                </div>
-              </div>
-            </label>
+                </label>
 
-            {/* Option: Delete */}
-            <label
-              className={`
-                block p-4 rounded-lg border-2 cursor-pointer transition-all
-                ${selectedAction === 'delete'
-                  ? 'border-red-500 bg-red-50'
-                  : 'border-dark-200 hover:border-dark-300 bg-white'
-                }
-              `}
-            >
-              <div className="flex items-start gap-3">
-                <input
-                  type="radio"
-                  name="action"
-                  value="delete"
-                  checked={selectedAction === 'delete'}
-                  onChange={() => setSelectedAction('delete')}
-                  className="mt-1"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <Trash2 className="h-4 w-4 text-red-600" />
-                    <span className="font-medium text-dark-800">Delete Permanently</span>
+                {/* Option: Delete - uses red for danger action */}
+                <label
+                  className={`
+                    block p-4 rounded-md border-2 cursor-pointer transition-all
+                    ${
+                      selectedAction === 'delete'
+                        ? 'border-red-500 bg-red-50'
+                        : 'border-dark-300 hover:border-dark-400 bg-white'
+                    }
+                  `}
+                >
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="radio"
+                      name="action"
+                      value="delete"
+                      checked={selectedAction === 'delete'}
+                      onChange={() => setSelectedAction('delete')}
+                      className="mt-1 text-red-600 focus:ring-red-500"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                        <span className="font-medium text-dark-700">Delete permanently</span>
+                      </div>
+                      <p className="text-sm text-dark-500 mt-1">
+                        Remove from entire system. This action cannot be undone and will remove all
+                        associated data.
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-sm text-dark-500 mt-1">
-                    Permanently delete this {childEntity} from the system.
-                    This action cannot be undone and will remove all associated data.
-                  </p>
-                </div>
-              </div>
-            </label>
+                </label>
+              </>
+            ) : (
+              renderSteps()
+            )}
 
             {/* Error Message */}
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              <div className="p-3 bg-red-100 border border-red-200 rounded-md text-sm text-red-800">
                 {error}
               </div>
             )}
           </div>
 
-          {/* Footer */}
-          <div className="px-6 py-4 border-t border-dark-200 bg-dark-50 rounded-b-xl flex justify-end gap-2">
+          {/* Footer - follows styling_patterns.md button patterns */}
+          <div className="px-6 py-4 border-t border-dark-300 bg-dark-50 rounded-b-xl flex justify-end gap-2">
             <button
               onClick={onClose}
               disabled={isProcessing}
-              className="px-4 py-2 text-sm font-medium text-dark-700 hover:bg-dark-100 rounded-md transition-colors disabled:opacity-50"
+              className="px-3 py-2 text-sm font-medium text-dark-600 bg-white border border-dark-300 rounded-md hover:border-dark-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
@@ -198,10 +465,11 @@ export const DeleteOrUnlinkModal: React.FC<DeleteOrUnlinkModalProps> = ({
               onClick={handleConfirm}
               disabled={isProcessing}
               className={`
-                px-4 py-2 text-sm font-medium text-white rounded-md transition-colors disabled:opacity-50
-                ${selectedAction === 'unlink'
-                  ? 'bg-blue-600 hover:bg-blue-700'
-                  : 'bg-red-600 hover:bg-red-700'
+                px-3 py-2 text-sm font-medium text-white rounded-md shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                ${
+                  selectedAction === 'unlink'
+                    ? 'bg-slate-600 hover:bg-slate-700'
+                    : 'bg-red-600 hover:bg-red-700'
                 }
               `}
             >
@@ -209,8 +477,7 @@ export const DeleteOrUnlinkModal: React.FC<DeleteOrUnlinkModalProps> = ({
                 ? 'Processing...'
                 : selectedAction === 'unlink'
                   ? 'Unlink'
-                  : 'Delete'
-              }
+                  : 'Delete'}
             </button>
           </div>
         </div>

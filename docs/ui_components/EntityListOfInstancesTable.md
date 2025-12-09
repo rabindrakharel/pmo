@@ -1,8 +1,8 @@
 # EntityListOfInstancesTable Component
 
-**Version:** 13.3.0 | **Location:** `apps/web/src/components/shared/ui/EntityListOfInstancesTable.tsx` | **Updated:** 2025-12-07
+**Version:** 14.0.0 | **Location:** `apps/web/src/components/shared/ui/EntityListOfInstancesTable.tsx` | **Updated:** 2025-12-09
 
-**v13.3.0:** Section visual hierarchy - gradient backgrounds, slate borders, improved depth separation
+**v14.0.0:** Unified DeleteOrUnlinkModal integration - context-aware delete/unlink actions based on `parentContext` prop
 
 ---
 
@@ -130,6 +130,33 @@ export interface EntityListOfInstancesTableProps<T = any> {
   isFetchingPreviousPage?: boolean; // Loading more data at top (bidirectional)
   hasNextPage?: boolean;            // More data available at bottom
   hasPreviousPage?: boolean;        // More data available at top
+
+  /**
+   * v14.0.0: Parent context for DeleteOrUnlinkModal
+   * When provided: Delete icon opens modal with Unlink + Delete options
+   * When undefined: Delete icon opens modal with Delete confirmation only
+   */
+  parentContext?: {
+    entityCode: string;    // Parent entity type (e.g., 'project')
+    entityId: string;      // Parent entity instance ID
+    entityName?: string;   // Parent display name (for modal text)
+    entityLabel?: string;  // Parent entity label (e.g., 'Project')
+  };
+
+  /** v14.0.0: Delete handler - called for permanent delete */
+  onDelete?: (record: T) => void | Promise<void>;
+
+  /**
+   * v14.0.0: Unlink handler - called when user selects Unlink in modal
+   * Only relevant when parentContext is provided
+   */
+  onUnlink?: (record: T) => void | Promise<void>;
+
+  /** Entity code for this table's data (e.g., 'task') */
+  entityCode?: string;
+
+  /** Entity display label (e.g., 'Task') */
+  entityLabel?: string;
 }
 
 // v11.1.0: FLAT Metadata format (same as EntityInstanceFormContainer)
@@ -878,6 +905,183 @@ function ProjectListPage() {
 
 ---
 
+## Delete/Unlink Modal Integration (v14.0.0)
+
+### Overview
+
+The table integrates with `DeleteOrUnlinkModal` to provide context-aware removal actions. The same modal component adapts based on whether `parentContext` is provided:
+
+| Context | URL Example | `parentContext` | Modal Behavior |
+|---------|-------------|-----------------|----------------|
+| **Standalone List** | `/task` | `undefined` | Delete confirmation only |
+| **Child Entity Tab** | `/project/abc-123/task` | `{ entityCode, entityId, ... }` | Unlink OR Delete radio selection |
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    DELETE/UNLINK MODAL INTEGRATION (v14.0.0)                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  EntityListOfInstancesTable                                                  │
+│  ─────────────────────────────                                               │
+│                                                                              │
+│  Props:                                                                      │
+│  ├── parentContext?: { entityCode, entityId, entityName, entityLabel }      │
+│  ├── onDelete: (record) => void                                             │
+│  ├── onUnlink?: (record) => void  ← Only used when parentContext exists    │
+│  ├── entityCode: string                                                     │
+│  └── entityLabel: string                                                    │
+│                                                                              │
+│  Internal State:                                                             │
+│  ├── showDeleteModal: boolean                                               │
+│  └── deleteModalRecord: T | null                                            │
+│                                                                              │
+│  Row Action:                                                                 │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  {                                                                   │    │
+│  │    key: 'delete',                                                   │    │
+│  │    label: parentContext ? 'Remove' : 'Delete',                      │    │
+│  │    icon: <Trash2 />,                                                │    │
+│  │    onClick: (record) => {                                           │    │
+│  │      setDeleteModalRecord(record);                                  │    │
+│  │      setShowDeleteModal(true);                                      │    │
+│  │    },                                                               │    │
+│  │    variant: 'danger'                                                │    │
+│  │  }                                                                   │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  Modal Rendering (in JSX):                                                   │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  <DeleteOrUnlinkModal                                               │    │
+│  │    isOpen={showDeleteModal}                                         │    │
+│  │    onClose={() => setShowDeleteModal(false)}                        │    │
+│  │    record={deleteModalRecord}                                       │    │
+│  │    entityCode={entityCode}                                          │    │
+│  │    entityLabel={entityLabel}                                        │    │
+│  │    parentContext={parentContext}  ← Determines modal mode           │    │
+│  │    onUnlink={onUnlink}                                              │    │
+│  │    onDelete={onDelete}                                              │    │
+│  │  />                                                                 │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Usage: Standalone List (Delete Only)
+
+**URL:** `/task`
+
+```typescript
+// EntityListOfInstancesPage.tsx
+<EntityListOfInstancesTable
+  data={formattedData}
+  metadata={metadata}
+  entityCode="task"
+  entityLabel="Task"
+  // No parentContext = standalone mode
+  // Modal will show Delete confirmation only
+  onDelete={async (record) => {
+    const rawRecord = record.raw || record;
+    await deleteEntity(rawRecord.id);
+    toast.success('Task deleted');
+  }}
+/>
+```
+
+**Modal displayed:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│  ⚠️  Delete "Task Name"?                                    │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Are you sure you want to delete this task?                 │
+│                                                             │
+│  This action cannot be undone. The task will be             │
+│  permanently removed from the system.                       │
+│                                                             │
+│                              [Cancel]  [Delete]             │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Usage: Child Entity Tab (Unlink + Delete)
+
+**URL:** `/project/abc-123/task`
+
+```typescript
+// EntitySpecificInstancePage.tsx (child tabs section)
+<EntityListOfInstancesTable
+  data={childDisplayData}
+  metadata={childMetadata}
+  entityCode={childEntityCode}      // 'task'
+  entityLabel={childEntityLabel}    // 'Task'
+  // Parent context enables Unlink + Delete modal
+  parentContext={{
+    entityCode: entityCode,          // 'project'
+    entityId: id,                    // 'abc-123'
+    entityName: data?.name,          // 'Main Project'
+    entityLabel: entityConfig[entityCode]?.label  // 'Project'
+  }}
+  onUnlink={async (record) => {
+    const rawRecord = record.raw || record;
+    await fetch(
+      `/api/v1/${entityCode}/${id}/${childEntityCode}/${rawRecord.id}/link`,
+      { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }
+    );
+    await refetchChild();
+    toast.success('Task unlinked from project');
+  }}
+  onDelete={async (record) => {
+    const rawRecord = record.raw || record;
+    await deleteEntity(rawRecord.id);
+    toast.success('Task deleted');
+  }}
+/>
+```
+
+**Modal displayed:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│  ⚠️  Remove "Task Name"?                                    │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Choose how to remove this task from "Main Project":        │
+│                                                             │
+│  ○ Unlink from project                                     │
+│     Remove from this project only. Task will remain        │
+│     in the system and can be linked to other projects.     │
+│                                                             │
+│  ○ Delete permanently                                      │
+│     Remove from entire system. This action cannot          │
+│     be undone.                                              │
+│                                                             │
+│                              [Cancel]  [Confirm]            │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### API Endpoints
+
+| Action | Endpoint | Permission Required |
+|--------|----------|---------------------|
+| **Unlink** | `DELETE /api/v1/{parent}/{parentId}/{child}/{childId}/link` | EDIT on parent |
+| **Delete** | `DELETE /api/v1/{entity}/{id}` | DELETE on entity |
+
+### RBAC Permissions
+
+| Action | Required Permission | Target | Rationale |
+|--------|---------------------|--------|-----------|
+| **Unlink** | EDIT (level 3) | Parent entity | Modifying parent's children list |
+| **Delete** | DELETE (level 5) | Child entity | Destroying the entity |
+
+### Related Documentation
+
+- [DeleteOrUnlinkModal.md](./DeleteOrUnlinkModal.md) - Full modal component specification
+- [entity-infrastructure.service.md](../services/entity-infrastructure.service.md) - Backend unlink/delete methods
+
+---
+
 ## Usage Example (v11.1.0)
 
 ### With Two-Query Architecture
@@ -1071,6 +1275,7 @@ Inline Edit Flow (v12.3.0 - Slow Click-and-Hold)
 
 | Document | Purpose |
 |----------|---------|
+| `docs/ui_components/DeleteOrUnlinkModal.md` | Unified delete/unlink modal component (v14.0.0) |
 | `docs/ui_components/EntityInstanceFormContainer.md` | Entity detail form with same inline editing pattern |
 | `docs/ui_page/PAGE_LAYOUT_COMPONENT_ARCHITECTURE.md` | Page components and routing |
 | `docs/caching-frontend/NORMALIZED_CACHE_ARCHITECTURE.md` | TanStack Query + Dexie cache architecture |
@@ -1079,9 +1284,20 @@ Inline Edit Flow (v12.3.0 - Slow Click-and-Hold)
 
 ---
 
-**Version:** 13.2.0 | **Last Updated:** 2025-12-07 | **Status:** Production
+**Version:** 14.0.0 | **Last Updated:** 2025-12-09 | **Status:** Production
 
 **Recent Updates:**
+- v14.0.0 (2025-12-09): **Unified DeleteOrUnlinkModal Integration**
+  - New `parentContext` prop determines modal behavior
+  - With `parentContext`: Modal shows Unlink + Delete radio selection
+  - Without `parentContext`: Modal shows Delete confirmation only
+  - Replaces `window.confirm()` with proper modal UX in all cases
+  - New props: `parentContext`, `onDelete`, `onUnlink`, `entityCode`, `entityLabel`
+  - API: `DELETE /api/v1/{parent}/{parentId}/{child}/{childId}/link` for unlink
+  - RBAC: Unlink requires EDIT on parent, Delete requires DELETE on entity
+  - See: `docs/ui_components/DeleteOrUnlinkModal.md`
+- v13.3.0 (2025-12-07): **Section Visual Hierarchy**
+  - Gradient backgrounds, slate borders, improved depth separation
 - v13.2.0 (2025-12-07): **Flex-based Height Constraints**
   - Removed hardcoded `maxHeight: calc(100vh - 200px)` in favor of `flex-1 min-h-0` pattern
   - Table now respects parent height constraints (works properly when nested in EntitySpecificInstancePage child tabs)

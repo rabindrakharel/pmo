@@ -327,13 +327,13 @@ interface EntityHeaderTitleProps {
 }
 
 /**
- * EntityHeaderTitle Component (v13.0.0)
+ * EntityHeaderTitle Component (v14.0.0 - per styling_patterns.md Section 10)
  *
  * Hero title component for entity detail page headers.
- * Implements modern typography with large, bold name display.
+ * Implements modern typography with bold name display.
  *
  * Features:
- * - Large, bold typography (text-2xl font-semibold)
+ * - Hero typography (text-xl font-semibold) per design system
  * - Smooth inline editing with long-press
  * - Optional subtitle for entity type context
  * - Proper text truncation for long names
@@ -460,7 +460,7 @@ export function EntityHeaderTitle({
               onChange={(e) => setInlineEditValue(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={placeholder}
-              className="text-2xl font-semibold text-dark-800 bg-dark-subtle border-0 border-b-2 border-dark-300 focus:border-dark-accent focus:ring-0 px-0 py-1 w-full transition-colors duration-200 outline-none"
+              className="text-xl font-semibold text-slate-800 bg-slate-50 border-0 border-b-2 border-slate-300 focus:border-slate-600 focus:ring-0 px-0 py-1 w-full transition-colors duration-200 outline-none"
             />
           ) : (
             <DebouncedInput
@@ -468,13 +468,13 @@ export function EntityHeaderTitle({
               value={value}
               onChange={(newValue) => onChange?.(fieldKey, newValue)}
               placeholder={placeholder}
-              className="text-2xl font-semibold text-dark-800 bg-dark-subtle border-0 border-b-2 border-dark-300 focus:border-dark-accent focus:ring-0 px-0 py-1 w-full transition-colors duration-200"
+              className="text-xl font-semibold text-slate-800 bg-slate-50 border-0 border-b-2 border-slate-300 focus:border-slate-600 focus:ring-0 px-0 py-1 w-full transition-colors duration-200"
             />
           )}
         </div>
       ) : (
         <h1
-          className={`text-2xl font-semibold text-dark-800 truncate leading-tight ${inlineEditable && editable ? 'cursor-text hover:text-dark-600' : ''} transition-colors duration-150`}
+          className={`text-xl font-semibold text-slate-800 truncate leading-tight ${inlineEditable && editable ? 'cursor-text hover:text-slate-600' : ''} transition-colors duration-150`}
           onMouseDown={handleMouseDown}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseLeave}
@@ -509,16 +509,16 @@ interface EntityMetadataChipProps {
 }
 
 /**
- * EntityMetadataChip Component (v13.0.0)
+ * EntityMetadataChip Component (v14.0.0 - per styling_patterns.md Section 10)
  *
  * Modern pill-styled metadata display for secondary information.
  * Used for code, id, timestamps, and other technical metadata.
  *
  * Features:
- * - Pill/chip styling with subtle background
+ * - Pill/chip styling with subtle background (rounded-full)
  * - Copy-to-clipboard with hover reveal
- * - Multiple variants (default, muted, accent)
- * - Optional icons
+ * - Multiple variants (default, muted, accent) per design system
+ * - text-xs minimum font size per design system
  */
 export function EntityMetadataChip({
   label,
@@ -533,10 +533,11 @@ export function EntityMetadataChip({
 }: EntityMetadataChipProps) {
   if (!value) return null;
 
+  // Variant styles per styling_patterns.md Section 10
   const variantStyles = {
-    default: 'bg-dark-100 text-dark-600 border-dark-200',
-    muted: 'bg-dark-subtle text-dark-500 border-dark-100',
-    accent: 'bg-dark-accent text-white border-dark-accent',
+    default: 'bg-slate-100 text-slate-600 border-slate-200',  // Code, prominent
+    muted: 'bg-slate-50 text-slate-500 border-slate-100',     // ID, timestamps
+    accent: 'bg-slate-600 text-white border-slate-600',       // Version badge
   };
 
   return (
@@ -552,7 +553,7 @@ export function EntityMetadataChip({
             e.stopPropagation();
             onCopy(value, fieldKey);
           }}
-          className="opacity-0 group-hover:opacity-100 p-0.5 -mr-1 hover:bg-dark-200/50 rounded transition-all duration-200"
+          className="opacity-0 group-hover:opacity-100 p-0.5 -mr-1 hover:bg-slate-200/50 rounded transition-all duration-200"
           title={`Copy ${label}`}
         >
           {copiedField === fieldKey ? (
@@ -572,14 +573,14 @@ interface EntityHeaderContainerProps {
 }
 
 /**
- * EntityHeaderContainer Component (v13.0.0)
+ * EntityHeaderContainer Component (v14.0.0 - per styling_patterns.md Section 10)
  *
  * Container for the modern two-line header layout.
  * Provides proper spacing and structure for title + metadata chips.
  */
 export function EntityHeaderContainer({ children, className = '' }: EntityHeaderContainerProps) {
   return (
-    <div className={`flex flex-col gap-2 ${className}`}>
+    <div className={`flex flex-col gap-1.5 ${className}`}>
       {children}
     </div>
   );
@@ -591,7 +592,7 @@ interface EntityMetadataChipRowProps {
 }
 
 /**
- * EntityMetadataChipRow Component (v13.0.0)
+ * EntityMetadataChipRow Component (v14.0.0 - per styling_patterns.md Section 10)
  *
  * Horizontal container for metadata chips with proper spacing.
  */

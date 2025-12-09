@@ -1,6 +1,6 @@
 # Frontend Cache Design Pattern
 
-**Version:** 13.0.0 | **Updated:** 2025-12-07 | **Status:** Production
+**Version:** 14.0.0 | **Updated:** 2025-12-09 | **Status:** Production
 
 ---
 
@@ -837,10 +837,120 @@ await db.draft.toArray();
 
 ---
 
+## 13. Cache Disappearance RCA & Industry Best Practices (v14.0.0)
+
+### 13.1 Root Cause Analysis
+
+**Symptom:** Datalabel cache disappears mid-session, causing badges to show gray and dropdowns to be empty.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    ROOT CAUSE FLOW                               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  User works for 30+ minutes → Page refresh                       │
+│                    ↓                                             │
+│  hydrateFromDexie() runs                                         │
+│                    ↓                                             │
+│  hydrateDatalabels() filters: `now - syncedAt < 30min` ← FAILS   │
+│                    ↓                                             │
+│  Dexie HAS data but it's SKIPPED by maxAge filter               │
+│                    ↓                                             │
+│  TanStack Query cache is EMPTY                                   │
+│                    ↓                                             │
+│  getDatalabelSync() returns NULL                                 │
+│                    ↓                                             │
+│  Badge colors missing, dropdowns empty                           │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 13.2 Issues Identified & Fixed (v14.0.0)
+
+| Issue | Location | Before | After |
+|-------|----------|--------|-------|
+| **Hydration maxAge filter** | `constants.ts` | 30 min (hardcoded) | 24 hours (aligned with `persistMaxAge`) |
+| **gcTime mismatch** | `useDatalabel.ts` | `SESSION_STORE_CONFIG.gcTime` (1hr) | `STORE_GC_TIMES.datalabel` (Infinity) |
+| **queryFn pattern** | `useDatalabel.ts` | API-first, Dexie fallback | Dexie-first with background API refresh |
+
+### 13.3 Industry Best Practices (TanStack Query)
+
+Per [TanStack Query docs](https://tanstack.com/query/latest/docs/react/plugins/persistQueryClient):
+
+> "If `maxAge` is 24 hours (the default) then `gcTime` should be 24 hours or higher. If lower than `maxAge`, garbage collection will kick in and discard the stored cache earlier than expected."
+
+**Key Principle:** `gcTime >= maxAge` always.
+
+### 13.4 Official Persister vs Custom Architecture
+
+| Aspect | Official `PersistQueryClientProvider` | Our Implementation |
+|--------|--------------------------------------|---------------------|
+| Sync accessor support | ❌ No (async only) | ✅ Yes (`getDatalabelSync`) |
+| Render blocking | `useIsRestoring()` hook | `MetadataGate` component |
+| Selective persistence | Complex filter config | Natural (per-store Dexie tables) |
+| Real-time sync | Not included | ✅ WebSocket manager |
+
+**Conclusion:** Our architecture is correct for sync accessor requirements. The issue was configuration drift, not architecture.
+
+### 13.5 Stale-While-Revalidate Pattern (v14.0.0)
+
+```typescript
+// useDatalabel.ts - v14.0.0 pattern
+queryFn: async () => {
+  // 1. Check Dexie first
+  const cached = await getDatalabel(key);
+
+  // 2. If Dexie has data, return immediately + background refresh
+  if (cached && cached.length > 0) {
+    // Non-blocking API update
+    apiClient.get(`/datalabel/${key}`).then(response => {
+      setDatalabel(key, response.data);
+    }).catch(() => { /* silent */ });
+
+    return cached;  // Instant UI from IndexedDB
+  }
+
+  // 3. No cache - fetch from API
+  const response = await apiClient.get(`/datalabel/${key}`);
+  await setDatalabel(key, response.data);
+  return response.data;
+}
+```
+
+**Benefits:**
+- Instant UI rendering from IndexedDB (no loading spinner)
+- Background refresh keeps data fresh
+- Graceful degradation on network errors
+
+### 13.6 TTL Alignment Rules
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    TTL ALIGNMENT RULES                           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  For Session-Level Stores (datalabel, entityCodes, etc.):       │
+│                                                                  │
+│  HYDRATION_CONFIG.maxAge  ≤  SESSION_STORE_CONFIG.persistMaxAge │
+│  (24 hours)                   (24 hours)                         │
+│                                                                  │
+│  STORE_GC_TIMES.datalabel = Infinity  (never garbage collect)   │
+│  STORE_GC_TIMES.entityCodes = Infinity                          │
+│                                                                  │
+│  For On-Demand Stores (entityInstanceData):                     │
+│                                                                  │
+│  gcTime (30 min) ≥ persistMaxAge (30 min)  ✓                    │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## Version History
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 14.0.0 | 2025-12-09 | **Cache Disappearance Fix**: Aligned hydration maxAge with persistMaxAge (24h). Applied STORE_GC_TIMES.datalabel (Infinity) to useDatalabel. Implemented stale-while-revalidate pattern (Dexie-first). |
 | 13.0.0 | 2025-12-07 | **Hydration Gate Pattern**: MetadataGate blocks rendering until all session metadata loaded. Sync accessors guaranteed non-null. Removed defensive fallbacks from formatters. |
 | 11.3.1 | 2025-12-03 | Inline add row pattern with `useInlineAddRow` hook |
 | 11.1.0 | 2025-12-02 | Flat metadata format for table and form components |
@@ -849,4 +959,4 @@ await db.draft.toArray();
 
 ---
 
-**Version:** 13.0.0 | **Updated:** 2025-12-07 | **Status:** Production
+**Version:** 14.0.0 | **Updated:** 2025-12-09 | **Status:** Production

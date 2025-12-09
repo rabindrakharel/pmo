@@ -23,7 +23,13 @@
       "Bash(PGPASSWORD=app psql:*)",
       "Bash(docker ps:*)",
       "Bash(node -e:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(docker inspect:*)",
+      "Bash(grep:*)",
+      "Bash(mv:*)",
+      "Bash(npx tsc:*)",
+      "Bash(cat:*)",
+      "Bash(nvm use:*)"
     ],
     "deny": [],
     "ask": [],

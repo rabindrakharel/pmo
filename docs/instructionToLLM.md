@@ -17,6 +17,8 @@ docs/services/entity-infrastructure.service.md\
 
 What's the industry trend, 
 be super smart, and next generation expert, who is going to propose future implementation with changes over existing state indepth about modern industry engineering trends, and how industry pioneers have solved this problem, 
+
+Make direct refactor on the code, and don't keep any fallback code, or legacy code. You must implment it clean and complete. Old references must not be there. 
 Be extra smart and understand how to find a solution that's not a band-aid shim solution, but production grade robust and scalable, yet achieves the outcome and business needs not compromised. Compare existing approach with future  implementations, how to resolve it coherently? 
 
 -------------------------------------------------------------
