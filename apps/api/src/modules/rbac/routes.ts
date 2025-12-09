@@ -457,6 +457,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
   });
 
   // Get permissions for a specific role
+  // NOTE: Response structure uses 'data' array to match frontend TanStack Query expectations
   fastify.get('/api/v1/entity_rbac/role/:roleId/permissions', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -468,7 +469,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
           role_id: Type.String(),
           role_name: Type.String(),
           role_code: Type.Optional(Type.String()),
-          permissions: Type.Array(Type.Object({
+          data: Type.Array(Type.Object({
             id: Type.String(),
             entity_code: Type.String(),
             entity_instance_id: Type.String(),
@@ -513,7 +514,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         role_id: role.id,
         role_name: role.name,
         role_code: role.code,
-        permissions: permissions.map(p => ({
+        data: permissions.map(p => ({
           id: p.id,
           entity_code: p.entity_code,
           entity_instance_id: p.entity_instance_id,
@@ -848,6 +849,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
   });
 
   // Get effective access for a person (resolved permissions after inheritance)
+  // NOTE: Response structure uses 'data' array to match frontend TanStack Query expectations
   fastify.get('/api/v1/entity_rbac/person/:personId/effective-access', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -860,18 +862,23 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       response: {
         200: Type.Object({
           person_id: Type.String(),
-          person_name: Type.Optional(Type.String()),
+          person_name: Type.Optional(Type.Union([Type.String(), Type.Null()])),
           roles: Type.Array(Type.Object({
             role_id: Type.String(),
             role_name: Type.String(),
           })),
-          effective_permissions: Type.Array(Type.Object({
+          data: Type.Array(Type.Object({
             entity_code: Type.String(),
+            entity_name: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+            entity_icon: Type.Optional(Type.Union([Type.String(), Type.Null()])),
             entity_instance_id: Type.String(),
-            permission_level: Type.Number(),
-            permission_label: Type.String(),
+            permission: Type.Number(),
+            is_deny: Type.Boolean(),
             source: Type.String(), // 'direct' | 'inherited'
-            source_role: Type.Optional(Type.String()),
+            inherited_from: Type.Optional(Type.Object({
+              entity_code: Type.String(),
+              entity_name: Type.Optional(Type.String()),
+            })),
           })),
         }),
         401: Type.Object({ error: Type.String() }),
@@ -909,19 +916,21 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         role_name: (r as any).role_name,
       }));
 
-      // Get effective permissions (using direct role permissions for now)
-      // For a full implementation, we would also calculate inherited permissions
+      // Get effective permissions with entity metadata
       let entityFilter = sql`1=1`;
       if (entity_code) {
         entityFilter = sql`er.entity_code = ${entity_code}`;
       }
 
       const effectiveResult = await db.execute(sql`
-        SELECT DISTINCT
+        SELECT DISTINCT ON (er.entity_code, er.entity_instance_id)
           er.entity_code,
           er.entity_instance_id,
           er.permission,
+          er.is_deny,
           er.inheritance_mode,
+          e.name AS entity_name,
+          e.ui_icon AS entity_icon,
           r.name AS role_name,
           CASE
             WHEN er.inheritance_mode = 'none' THEN 'direct'
@@ -930,26 +939,31 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         FROM app.entity_rbac er
         JOIN app.role r ON er.role_id = r.id
         JOIN app.entity_instance_link eil ON eil.entity_instance_id = r.id
+        LEFT JOIN app.entity e ON e.code = er.entity_code
         WHERE eil.entity_code = 'role'
           AND eil.child_entity_code = 'person'
           AND eil.child_entity_instance_id = ${personId}::uuid
-          AND er.is_deny = false
           AND (er.expires_ts IS NULL OR er.expires_ts > NOW())
           AND ${entityFilter}
-        ORDER BY er.entity_code, er.permission DESC
+        ORDER BY er.entity_code, er.entity_instance_id, er.permission DESC
       `);
 
       return {
         person_id: personId,
         person_name: personName,
         roles,
-        effective_permissions: effectiveResult.map(p => ({
+        data: effectiveResult.map(p => ({
           entity_code: (p as any).entity_code,
+          entity_name: (p as any).entity_name,
+          entity_icon: (p as any).entity_icon,
           entity_instance_id: (p as any).entity_instance_id,
-          permission_level: (p as any).permission,
-          permission_label: PERMISSION_LABELS[(p as any).permission] || 'Unknown',
+          permission: (p as any).permission,
+          is_deny: (p as any).is_deny,
           source: (p as any).source,
-          source_role: (p as any).role_name,
+          inherited_from: (p as any).source === 'inherited' ? {
+            entity_code: (p as any).entity_code,
+            entity_name: (p as any).role_name,
+          } : undefined,
         })),
       };
     } catch (error) {
@@ -1096,6 +1110,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
   });
 
   // Get role members
+  // NOTE: Response structure uses 'data' array to match frontend TanStack Query expectations
   fastify.get('/api/v1/entity_rbac/role/:roleId/members', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -1106,10 +1121,13 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         200: Type.Object({
           role_id: Type.String(),
           role_name: Type.String(),
-          members: Type.Array(Type.Object({
+          data: Type.Array(Type.Object({
             person_id: Type.String(),
             person_name: Type.String(),
-            person_email: Type.Optional(Type.String()),
+            person_code: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+            person_email: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+            assigned_ts: Type.String(),
+            link_id: Type.String(),
           })),
         }),
         401: Type.Object({ error: Type.String() }),
@@ -1135,12 +1153,15 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       }
       const role = roleResult[0] as any;
 
-      // Get members via entity_instance_link
+      // Get members via entity_instance_link with all required fields
       const membersResult = await db.execute(sql`
         SELECT
           p.id AS person_id,
           p.name AS person_name,
-          p.email AS person_email
+          p.code AS person_code,
+          p.email AS person_email,
+          eil.created_ts AS assigned_ts,
+          eil.id AS link_id
         FROM app.entity_instance_link eil
         JOIN app.person p ON eil.child_entity_instance_id = p.id
         WHERE eil.entity_code = 'role'
@@ -1152,10 +1173,13 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       return {
         role_id: role.id,
         role_name: role.name,
-        members: membersResult.map(m => ({
+        data: membersResult.map(m => ({
           person_id: (m as any).person_id,
           person_name: (m as any).person_name,
+          person_code: (m as any).person_code,
           person_email: (m as any).person_email,
+          assigned_ts: (m as any).assigned_ts?.toISOString() || new Date().toISOString(),
+          link_id: (m as any).link_id,
         })),
       };
     } catch (error) {
