@@ -1,8 +1,8 @@
 # Role Access Control - Complete Technical Reference
 
-> Role-Only RBAC Model v2.0.0 - Custom tab architecture, component design, and end-to-end data flow
+> Role-Only RBAC Model v2.1.0 - Custom tab architecture, Permission Matrix, component design, and end-to-end data flow
 
-**Version**: 2.0.0 | **Updated**: 2025-12-09 | **Status**: Production
+**Version**: 2.1.0 | **Updated**: 2025-12-09 | **Status**: Production
 
 ---
 
@@ -192,6 +192,7 @@ if (parentType === 'your-entity') {
 │  ├── ChildPermissionMapper    - Per-child-type permission table             │
 │  ├── PermissionRuleCard       - Display single permission with inheritance  │
 │  ├── PermissionRuleCardSkeleton - Loading state                             │
+│  ├── RolePermissionsMatrix    - Matrix table with inline edit (v2.1.0)  ◄── │
 │  ├── EffectiveAccessTable     - Show resolved permissions with source       │
 │  └── GrantPermissionModal     - 4-step wizard for granting permissions      │
 │                                                                              │
@@ -213,8 +214,8 @@ interface RoleAccessControlPanelProps {
 ```
 
 **Two Tabs** (Members removed - shown in separate People tab):
-1. **Permissions** - View/grant/revoke RBAC permissions
-2. **Effective Access** - Preview resolved permissions after inheritance
+1. **Permissions** - View/grant/revoke RBAC permissions (card-based view)
+2. **Permission Matrix** - Interactive matrix table with inline editing (v2.1.0)
 
 ### 3.3 AccessControlPage Layout
 
@@ -362,8 +363,21 @@ check_entity_rbac(personId, entityCode, entityId, requiredLevel)
 |-------|--------|----------------|
 | `GET /api/v1/entity_rbac/role/:roleId/permissions` | GET | List role's permissions |
 | `POST /api/v1/entity_rbac/grant-permission` | POST | Grant/upsert permission |
-| `PUT /api/v1/entity_rbac/permission/:id` | PUT | Update existing permission |
+| `PUT /api/v1/entity_rbac/permission/:id` | PUT | Update permission (level, inheritance, etc.) |
 | `DELETE /api/v1/entity_rbac/permission/:id` | DELETE | Hard delete permission |
+
+**Update Permission Request** (v2.1.0):
+```typescript
+PUT /api/v1/entity_rbac/permission/:permissionId
+{
+  permission?: number,           // 0-7 permission level
+  inheritance_mode?: string,     // 'none' | 'cascade' | 'mapped'
+  child_permissions?: object,    // { "task": 3, "_default": 0 }
+  is_deny?: boolean,             // Explicit deny flag
+  expires_ts?: string | null     // Expiration timestamp
+}
+// Response: { id: string, message: "Permission updated successfully" }
+```
 
 **Grant Permission Request**:
 ```typescript
@@ -568,7 +582,61 @@ queryClient.invalidateQueries(['access-control', 'role', roleId, 'members']);
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 8.4 Effective Access Table
+### 8.4 RolePermissionsMatrix (v2.1.0)
+
+**File**: `apps/web/src/components/rbac/RolePermissionsMatrix.tsx`
+
+Interactive matrix table with 45° rotated column headers and inline editing.
+
+**Features**:
+- 45° rotated permission column headers (VIEW, COMMENT, CONTRIBUTE, EDIT, SHARE, DELETE, CREATE, OWNER)
+- Checkmark indicators for each permission level
+- Click to change permission level (batch edit mode)
+- Unsaved changes tracked with amber highlighting
+- Save Changes / Discard buttons appear when changes pending
+- Per-row Undo button
+- Revoke button per permission
+
+**Visual Layout**:
+```
+┌──────────┬──────────────────┬────────────────────────────────────┬─────────┐
+│ Entity   │ Target           │ V  C  Co Ed Sh De Cr Ow            │ Actions │
+│          │                  │ ╱  ╱  ╱  ╱  ╱  ╱  ╱  ╱  (rotated) │         │
+├──────────┼──────────────────┼────────────────────────────────────┼─────────┤
+│ 📁 Project│ All Projects    │ ✓  ✓  ✓  ✓  ✓  ✓  ✓  ·            │ 🗑️      │
+│          │ Kitchen Reno 🔄  │ ✓  ✓  ✓  ·  ·  ·  ·  ·            │ ↩️ 🗑️    │
+│ ✅ Task  │ All Tasks        │ ✓  ✓  ·  ·  ·  ·  ·  ·            │ 🗑️      │
+└──────────┴──────────────────┴────────────────────────────────────┴─────────┘
+                                🔄 = cascade inheritance indicator
+
+Legend:
+  ✓ Green = Granted (inherited)
+  ✓ Blue  = Current level
+  ✓ Amber = Modified (unsaved)
+  ✕ Red   = Explicit DENY
+```
+
+**Batch Save Flow**:
+1. Click checkmarks to modify permissions (tracked locally)
+2. Amber highlighting shows modified rows
+3. "Save Changes" button appears in header
+4. Click Save to persist all changes via batch API calls
+5. Click Discard or per-row Undo to revert
+
+**Props**:
+```typescript
+interface RolePermissionsMatrixProps {
+  roleId: string;
+  roleName: string;
+  permissions: Permission[];
+  isLoading?: boolean;
+  entityLabels?: Record<string, string>;
+  entityIcons?: Record<string, string>;
+  onRevoke?: (permissionId: string) => void;
+}
+```
+
+### 8.5 Effective Access Table
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -642,5 +710,6 @@ INSERT INTO app.entity_instance_link (
 
 | Version | Date | Changes |
 |---------|------|---------|
+| v2.1.0 | 2025-12-09 | **RolePermissionsMatrix** - Interactive matrix table with 45° headers, inline editing, batch save |
 | v2.0.0 | 2025-12-09 | Role-Only Model with custom tab architecture, merged access_control.md and AccessControlPage.md |
 | v1.0.0 | 2025-10-01 | Initial release with employee/role dual model |

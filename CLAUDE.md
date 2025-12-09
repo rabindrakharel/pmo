@@ -11,7 +11,7 @@
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4
 - **State Management**: TanStack Query + Dexie (offline-first IndexedDB) - server state + persistence
 - **Infrastructure**: AWS EC2/S3/Lambda, Terraform, Docker
-- **Version**: 9.5.0 (Role-Only RBAC v2.0.0 + Dexie v4 Schema + Delete/Unlink Pattern)
+- **Version**: 9.6.0 (Role-Only RBAC v2.1.0 + Permission Matrix + Dexie v4 Schema)
 
 ## Critical Operations
 
@@ -881,9 +881,17 @@ Comprehensive page and component architecture documentation. Used by LLMs when i
 
 ---
 
-**Version**: 9.5.0 | **Updated**: 2025-12-09 | **Pattern**: TanStack Query + Dexie v4 (Offline-First) + Redis Field Cache + Role-Only RBAC v2.0.0
+**Version**: 9.6.0 | **Updated**: 2025-12-09 | **Pattern**: TanStack Query + Dexie v4 (Offline-First) + Redis Field Cache + Role-Only RBAC v2.1.0
 
 **Recent Updates**:
+- v9.6.0 (2025-12-09): **Permission Matrix Component (RBAC v2.1.0)**
+  - New `RolePermissionsMatrix` component for inline permission editing
+  - 45° rotated column headers for 8 permission levels
+  - Batch save functionality with pending change tracking
+  - Visual indicators: amber highlighting for modified, green for inherited, blue for current level
+  - Fixed `PUT /api/v1/entity_rbac/permission/:id` endpoint (sql.join fix)
+  - Tab renamed: "Effective Access" → "Permission Matrix"
+  - See: `docs/ui_components/RolePermissionsMatrix.md`, `docs/role/ROLE_ACCESS_CONTROL.md`
 - v9.5.0 (2025-12-09): **Delete vs Unlink Pattern for Child Entity Tabs**
   - New `DeleteOrUnlinkModal` for context-aware removal in child entity tabs
   - **Unlink**: Removes `entity_instance_link` only, child entity remains (requires EDIT on parent)
