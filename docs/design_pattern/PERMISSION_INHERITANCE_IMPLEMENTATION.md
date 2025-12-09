@@ -1,41 +1,103 @@
 # Permission Inheritance to Children - Implementation Design
 
 > **Status**: Design Phase
-> **Version**: 1.0.0
+> **Version**: 2.0.0
 > **Date**: 2025-12-09
 
 ## Overview
 
-Replace hardcoded parent→child permission inheritance (VIEW/CREATE only) with a configurable, explicit inheritance model that supports:
-- Different permissions per child entity type
-- Cascade (same permission) vs Mapped (different permissions)
-- Explicit deny overrides
-- Recursive depth control
+Replace the current RBAC model with a simplified **role-only** permission system:
+
+1. **Remove direct employee permissions** - No `person_code='employee'` in entity_rbac
+2. **Role-based only** - All permissions granted to roles (from `app.role` table)
+3. **Person-to-Role mapping** via `entity_instance_link` (role → person)
+4. **Configurable child inheritance** - cascade, mapped, or none
+
+---
+
+## Architecture Change: Role-Only RBAC
+
+### Current Model (TO BE REMOVED)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  CURRENT: Dual Permission Sources (REMOVE)                  │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  entity_rbac                                                 │
+│  ├── person_code = 'employee' + person_id = employee.id     │
+│  │   └── Direct employee permissions (REMOVE)               │
+│  │                                                           │
+│  └── person_code = 'role' + person_id = role.id             │
+│      └── Role-based permissions (KEEP & SIMPLIFY)           │
+│                                                              │
+│  Permission Resolution: MAX(direct_employee, role_based)    │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### New Model (Role-Only)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  NEW: Role-Only Permissions                                  │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  app.role (source of truth for roles)                       │
+│  ├── id, code, name, descr                                  │
+│  └── Defines organizational roles                           │
+│                                                              │
+│  app.person (source of truth for people)                    │
+│  ├── id, code, name, email                                  │
+│  └── Employees, customers, vendors, etc.                    │
+│                                                              │
+│  app.entity_instance_link (role ↔ person mapping)           │
+│  ├── entity_code = 'role'                                   │
+│  ├── entity_instance_id = role.id                           │
+│  ├── child_entity_code = 'person'                           │
+│  └── child_entity_instance_id = person.id                   │
+│                                                              │
+│  app.entity_rbac (role permissions only)                    │
+│  ├── role_id → app.role.id (FK)                             │
+│  ├── entity_code, entity_instance_id                        │
+│  ├── permission (0-7)                                       │
+│  ├── inheritance_mode, child_permissions, is_deny           │
+│  └── NO person_code column anymore                          │
+│                                                              │
+│  Permission Resolution:                                      │
+│  Person → Roles (via entity_instance_link) → Permissions    │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## Current State (TO BE REMOVED)
 
-### Old Inheritance Logic Locations
+### Old Code Locations to Remove
 
 | File | Lines | What to Remove |
 |------|-------|----------------|
+| `entity-infrastructure.service.ts` | :976-984 | `direct_emp` CTE (employee permissions) |
 | `entity-infrastructure.service.ts` | :1004-1018 | `parent_entities` CTE |
 | `entity-infrastructure.service.ts` | :1020-1050 | `parent_view` CTE (hardcoded VIEW=0) |
 | `entity-infrastructure.service.ts` | :1052-1080 | `parent_create` CTE (hardcoded CREATE=4) |
+| `entity-infrastructure.service.ts` | :1088 | UNION of `direct_emp` |
 | `entity-infrastructure.service.ts` | :1092-1094 | UNION of `parent_view`, `parent_create` |
+| `entity-infrastructure.service.ts` | :1236-1244 | `direct_emp` CTE in getAccessibleEntityIds |
 | `entity-infrastructure.service.ts` | :1263-1288 | `parents_with_view` CTE |
 | `entity-infrastructure.service.ts` | :1290-1300 | `children_from_view` CTE |
 | `entity-infrastructure.service.ts` | :1302-1327 | `parents_with_create` CTE |
 | `entity-infrastructure.service.ts` | :1329-1339 | `children_from_create` CTE |
+| `entity-infrastructure.service.ts` | :1347 | UNION of `direct_emp` |
 | `entity-infrastructure.service.ts` | :1351-1353 | UNION of `children_from_view`, `children_from_create` |
 
 ### Problems with Current Approach
 
-1. **Hardcoded levels**: Only VIEW(0) and CREATE(4) inherit - no EDIT, DELETE, etc.
-2. **All-or-nothing**: Can't give EDIT to tasks but VIEW to wikis
-3. **Implicit**: No visibility into what's inherited vs explicit
-4. **Type-level only**: Inherits based on entity TYPE, not specific instances
+1. **Dual permission sources**: Both employee-direct AND role-based (complex)
+2. **Hardcoded inheritance**: Only VIEW(0) and CREATE(4) - no flexibility
+3. **person_code column**: Polymorphic design adds complexity
+4. **No FK constraints**: person_id not enforced
 
 ---
 
@@ -46,100 +108,151 @@ Replace hardcoded parent→child permission inheritance (VIEW/CREATE only) with 
 **File**: `db/entity_configuration_settings/06_entity_rbac.ddl`
 
 ```sql
--- Add after line 60 (after permission column)
+-- REPLACE entire table definition
 
--- Inheritance configuration
-inheritance_mode varchar(20) DEFAULT 'none',
--- 'none'    : Permission applies to this entity only (default, backward compatible)
--- 'cascade' : Same permission flows to ALL children recursively
--- 'mapped'  : Different permissions per child type (uses child_permissions)
+CREATE TABLE app.entity_rbac (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
-child_permissions jsonb DEFAULT '{}',
--- Only used when inheritance_mode = 'mapped'
--- Format: { "_default": 0, "task": 3, "wiki": 1, "artifact": 0 }
--- _default = fallback for unlisted child types
--- Empty {} with 'cascade' mode = children get SAME permission as parent
+  -- ═══════════════════════════════════════════════════════════
+  -- ROLE REFERENCE (replaces person_code/person_id)
+  -- ═══════════════════════════════════════════════════════════
+  role_id uuid NOT NULL REFERENCES app.role(id) ON DELETE CASCADE,
+  -- Always references app.role - no more polymorphic person_code
 
-is_deny boolean DEFAULT false,
--- Explicit deny - blocks permission even if granted elsewhere
--- Deny always wins over allow (industry standard)
-```
+  -- ═══════════════════════════════════════════════════════════
+  -- ENTITY TARGET
+  -- ═══════════════════════════════════════════════════════════
+  entity_code varchar(50) NOT NULL,
+  -- Entity type code (references entity.code): project, task, etc.
 
-**Add index:**
-```sql
+  entity_instance_id uuid NOT NULL,
+  -- Specific instance UUID or '11111111-1111-1111-1111-111111111111' for type-level
+
+  -- ═══════════════════════════════════════════════════════════
+  -- PERMISSION
+  -- ═══════════════════════════════════════════════════════════
+  permission integer NOT NULL DEFAULT 0,
+  -- 0=View, 1=Comment, 2=Contribute, 3=Edit, 4=Share, 5=Delete, 6=Create, 7=Owner
+
+  -- ═══════════════════════════════════════════════════════════
+  -- INHERITANCE CONFIGURATION (NEW)
+  -- ═══════════════════════════════════════════════════════════
+  inheritance_mode varchar(20) NOT NULL DEFAULT 'none',
+  -- 'none'    : This entity only (no cascade)
+  -- 'cascade' : Same permission to all children recursively
+  -- 'mapped'  : Different permissions per child type
+
+  child_permissions jsonb NOT NULL DEFAULT '{}',
+  -- Used when inheritance_mode = 'mapped'
+  -- Format: { "_default": 0, "task": 3, "wiki": 1 }
+
+  is_deny boolean NOT NULL DEFAULT false,
+  -- Explicit deny - blocks permission even if granted elsewhere
+
+  -- ═══════════════════════════════════════════════════════════
+  -- AUDIT & LIFECYCLE
+  -- ═══════════════════════════════════════════════════════════
+  granted_by_person_id uuid REFERENCES app.person(id),
+  granted_ts timestamptz DEFAULT now(),
+  expires_ts timestamptz,
+  created_ts timestamptz DEFAULT now(),
+  updated_ts timestamptz DEFAULT now()
+);
+
+-- Unique constraint: one permission per role per entity instance
+CREATE UNIQUE INDEX idx_entity_rbac_unique
+ON app.entity_rbac (role_id, entity_code, entity_instance_id);
+
 -- Efficient lookup for inheritance resolution
 CREATE INDEX idx_entity_rbac_inheritance
-ON app.entity_rbac(entity_code, entity_instance_id, inheritance_mode)
+ON app.entity_rbac (entity_code, entity_instance_id, inheritance_mode)
 WHERE inheritance_mode != 'none';
+
+-- Role lookup
+CREATE INDEX idx_entity_rbac_role ON app.entity_rbac (role_id);
+
+COMMENT ON TABLE app.entity_rbac IS 'Role-based permissions. People get permissions through role membership (via entity_instance_link). No direct person permissions.';
+COMMENT ON COLUMN app.entity_rbac.role_id IS 'References app.role.id - the role that has this permission';
+COMMENT ON COLUMN app.entity_rbac.inheritance_mode IS 'none=this entity only, cascade=same permission to children, mapped=different per child type';
+COMMENT ON COLUMN app.entity_rbac.child_permissions IS 'JSONB map for mapped mode: {"task": 3, "wiki": 0, "_default": 0}';
+COMMENT ON COLUMN app.entity_rbac.is_deny IS 'When true, explicitly denies. Deny always overrides allow.';
 ```
 
-**Add comment:**
+### 2. Role-to-Person Mapping
+
+**File**: `db/entity_configuration_settings/05_entity_instance_link.ddl`
+
+Role membership is stored in `entity_instance_link`:
+
 ```sql
-COMMENT ON COLUMN app.entity_rbac.inheritance_mode IS
-'Controls how permission cascades to children: none (this entity only), cascade (same permission to all children), mapped (different permissions per child type via child_permissions)';
+-- Role → Person membership
+-- entity_code = 'role', entity_instance_id = role.id
+-- child_entity_code = 'person', child_entity_instance_id = person.id
 
-COMMENT ON COLUMN app.entity_rbac.child_permissions IS
-'JSONB map of child entity types to permission levels. Used when inheritance_mode=mapped. Format: {"task": 3, "wiki": 0, "_default": 0}. Empty {} with cascade mode means children inherit same permission.';
-
-COMMENT ON COLUMN app.entity_rbac.is_deny IS
-'When true, explicitly denies this permission. Deny always overrides allow grants. Used for exceptions in inherited permissions.';
+INSERT INTO app.entity_instance_link
+  (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
+VALUES
+  ('role', 'ceo-role-uuid', 'person', 'james-person-uuid', 'member'),
+  ('role', 'pm-role-uuid', 'person', 'sarah-person-uuid', 'member');
 ```
 
 ---
 
-### 2. Service Changes
+### 3. Service Changes
 
 **File**: `apps/api/src/services/entity-infrastructure.service.ts`
 
-#### 2.1 Remove Old CTEs
+#### 3.1 Simplified Permission Resolution
 
-**In `getMaxPermissionLevel()` (:965-1099):**
-
-Remove these CTEs entirely:
-- `parent_entities` (lines 1008-1018)
-- `parent_view` (lines 1024-1050)
-- `parent_create` (lines 1056-1080)
-
-Remove from final UNION (lines 1092-1094):
-```sql
--- REMOVE THESE LINES:
-UNION ALL
-SELECT * FROM parent_view
-UNION ALL
-SELECT * FROM parent_create
-```
-
-**In `getAccessibleEntityIds()` (:1198-1364):**
-
-Remove these CTEs entirely:
-- `parent_entities` (similar location)
-- `parents_with_view` (lines 1266-1288)
-- `children_from_view` (lines 1293-1300)
-- `parents_with_create` (lines 1305-1327)
-- `children_from_create` (lines 1332-1339)
-
-Remove from final UNION (lines 1351-1353):
-```sql
--- REMOVE THESE LINES:
-UNION ALL
-SELECT * FROM children_from_view
-UNION ALL
-SELECT * FROM children_from_create
-```
-
-#### 2.2 Add New Inheritance Logic
-
-**In `getMaxPermissionLevel()`:**
-
-Replace removed CTEs with:
+Replace entire `getMaxPermissionLevel()` method:
 
 ```sql
--- ---------------------------------------------------------------------------
--- 3. FIND ANCESTORS WITH INHERITABLE PERMISSIONS
---    Traverse up the entity_instance_link hierarchy
--- ---------------------------------------------------------------------------
+WITH
+-- ═══════════════════════════════════════════════════════════════
+-- 1. FIND ROLES FOR THIS PERSON
+--    Person → Roles via entity_instance_link
+-- ═══════════════════════════════════════════════════════════════
+person_roles AS (
+  SELECT eil.entity_instance_id AS role_id
+  FROM app.entity_instance_link eil
+  WHERE eil.entity_code = 'role'
+    AND eil.child_entity_code = 'person'
+    AND eil.child_entity_instance_id = ${person_id}::uuid
+),
+
+-- ═══════════════════════════════════════════════════════════════
+-- 2. CHECK FOR EXPLICIT DENY (highest priority)
+-- ═══════════════════════════════════════════════════════════════
+explicit_deny AS (
+  SELECT -999 AS permission
+  FROM app.entity_rbac er
+  JOIN person_roles pr ON er.role_id = pr.role_id
+  WHERE er.entity_code = ${entity_code}
+    AND (er.entity_instance_id = '11111111-1111-1111-1111-111111111111'::uuid
+         OR er.entity_instance_id = ${entity_id}::uuid)
+    AND er.is_deny = true
+    AND (er.expires_ts IS NULL OR er.expires_ts > NOW())
+),
+
+-- ═══════════════════════════════════════════════════════════════
+-- 3. DIRECT ROLE PERMISSIONS ON TARGET ENTITY
+-- ═══════════════════════════════════════════════════════════════
+direct_role_perms AS (
+  SELECT er.permission
+  FROM app.entity_rbac er
+  JOIN person_roles pr ON er.role_id = pr.role_id
+  WHERE er.entity_code = ${entity_code}
+    AND (er.entity_instance_id = '11111111-1111-1111-1111-111111111111'::uuid
+         OR er.entity_instance_id = ${entity_id}::uuid)
+    AND er.is_deny = false
+    AND (er.expires_ts IS NULL OR er.expires_ts > NOW())
+),
+
+-- ═══════════════════════════════════════════════════════════════
+-- 4. FIND ANCESTORS (for inheritance)
+-- ═══════════════════════════════════════════════════════════════
 RECURSIVE ancestor_chain AS (
-  -- Base: direct parents of target entity
+  -- Base: direct parents
   SELECT
     eil.entity_code AS ancestor_code,
     eil.entity_instance_id AS ancestor_id,
@@ -150,7 +263,7 @@ RECURSIVE ancestor_chain AS (
 
   UNION ALL
 
-  -- Recursive: grandparents and beyond
+  -- Recursive: grandparents
   SELECT
     eil.entity_code,
     eil.entity_instance_id,
@@ -159,65 +272,13 @@ RECURSIVE ancestor_chain AS (
   JOIN app.entity_instance_link eil
     ON eil.child_entity_code = ac.ancestor_code
     AND eil.child_entity_instance_id = ac.ancestor_id
-  WHERE ac.depth < 10  -- Prevent infinite loops
+  WHERE ac.depth < 10
 ),
 
--- ---------------------------------------------------------------------------
--- 4. CHECK FOR EXPLICIT DENY (highest priority)
--- ---------------------------------------------------------------------------
-explicit_deny AS (
-  SELECT -999 AS permission  -- Sentinel value for deny
-  FROM app.entity_rbac
-  WHERE person_code = 'employee'
-    AND person_id = ${user_id}::uuid
-    AND entity_code = ${entity_code}
-    AND (entity_instance_id = '11111111-1111-1111-1111-111111111111'::uuid
-         OR entity_instance_id = ${entity_id}::uuid)
-    AND is_deny = true
-    AND (expires_ts IS NULL OR expires_ts > NOW())
-),
-
--- ---------------------------------------------------------------------------
+-- ═══════════════════════════════════════════════════════════════
 -- 5. INHERITED PERMISSIONS FROM ANCESTORS
---    Only from ancestors with inheritance_mode != 'none'
--- ---------------------------------------------------------------------------
-inherited_from_ancestors AS (
-  SELECT
-    CASE
-      -- 'cascade' mode: inherit same permission
-      WHEN er.inheritance_mode = 'cascade' THEN er.permission
-
-      -- 'mapped' mode: lookup in child_permissions
-      WHEN er.inheritance_mode = 'mapped' THEN
-        CASE
-          -- Specific mapping for target entity type
-          WHEN er.child_permissions ? ${entity_code}
-            THEN (er.child_permissions->> ${entity_code})::int
-          -- Fallback to _default
-          WHEN er.child_permissions ? '_default'
-            THEN (er.child_permissions->>'_default')::int
-          -- No mapping = no inheritance
-          ELSE -1
-        END
-
-      ELSE -1
-    END AS permission
-  FROM app.entity_rbac er
-  JOIN ancestor_chain ac
-    ON er.entity_code = ac.ancestor_code
-    AND er.entity_instance_id = ac.ancestor_id
-  WHERE er.person_code = 'employee'
-    AND er.person_id = ${user_id}::uuid
-    AND er.inheritance_mode IN ('cascade', 'mapped')
-    AND er.is_deny = false
-    AND (er.expires_ts IS NULL OR er.expires_ts > NOW())
-),
-
--- ---------------------------------------------------------------------------
--- 6. ROLE-BASED INHERITED PERMISSIONS
---    Same logic but for roles user belongs to
--- ---------------------------------------------------------------------------
-role_inherited_from_ancestors AS (
+-- ═══════════════════════════════════════════════════════════════
+inherited_perms AS (
   SELECT
     CASE
       WHEN er.inheritance_mode = 'cascade' THEN er.permission
@@ -232,293 +293,317 @@ role_inherited_from_ancestors AS (
       ELSE -1
     END AS permission
   FROM app.entity_rbac er
+  JOIN person_roles pr ON er.role_id = pr.role_id
   JOIN ancestor_chain ac
     ON er.entity_code = ac.ancestor_code
     AND er.entity_instance_id = ac.ancestor_id
-  JOIN app.entity_instance_link eim
-    ON eim.entity_code = 'role'
-    AND eim.entity_instance_id = er.person_id
-    AND eim.child_entity_code = 'employee'
-    AND eim.child_entity_instance_id = ${user_id}::uuid
-  WHERE er.person_code = 'role'
-    AND er.inheritance_mode IN ('cascade', 'mapped')
+  WHERE er.inheritance_mode IN ('cascade', 'mapped')
     AND er.is_deny = false
     AND (er.expires_ts IS NULL OR er.expires_ts > NOW())
 )
-```
 
-**Update final UNION:**
-
-```sql
+-- ═══════════════════════════════════════════════════════════════
+-- FINAL: MAX of all permission sources
+-- ═══════════════════════════════════════════════════════════════
 SELECT COALESCE(MAX(permission), -1) AS max_permission
 FROM (
-  SELECT * FROM explicit_deny          -- Check deny first
+  SELECT * FROM explicit_deny
   UNION ALL
-  SELECT * FROM direct_emp             -- Direct employee permissions
+  SELECT * FROM direct_role_perms
   UNION ALL
-  SELECT * FROM role_based             -- Role-based permissions
-  UNION ALL
-  SELECT * FROM inherited_from_ancestors      -- NEW: Inherited from ancestors
-  UNION ALL
-  SELECT * FROM role_inherited_from_ancestors -- NEW: Role-inherited from ancestors
+  SELECT * FROM inherited_perms
 ) AS all_perms
-WHERE permission != -999  -- Filter out non-deny results if deny exists
+WHERE permission != -999
 ```
 
-**Add deny check wrapper:**
+#### 3.2 Update Method Signature
 
 ```typescript
-// After getting max_permission, check if deny exists
-if (result.some(r => r.permission === -999)) {
-  return -1;  // Explicitly denied
-}
+// OLD:
+async check_entity_rbac(
+  user_id: string,        // Was employee UUID
+  entity_code: string,
+  entity_id: string,
+  required_permission: Permission
+): Promise<boolean>
+
+// NEW:
+async check_entity_rbac(
+  person_id: string,      // Now person UUID (from app.person)
+  entity_code: string,
+  entity_id: string,
+  required_permission: Permission
+): Promise<boolean>
 ```
+
+#### 3.3 Remove These Methods/CTEs
+
+| What | Location | Action |
+|------|----------|--------|
+| `direct_emp` CTE | `getMaxPermissionLevel()` | REMOVE |
+| `role_based` CTE | `getMaxPermissionLevel()` | SIMPLIFY to `direct_role_perms` |
+| `parent_entities` CTE | Both methods | REMOVE |
+| `parent_view` CTE | Both methods | REMOVE |
+| `parent_create` CTE | Both methods | REMOVE |
+| `children_from_view` CTE | `getAccessibleEntityIds()` | REMOVE |
+| `children_from_create` CTE | `getAccessibleEntityIds()` | REMOVE |
 
 ---
 
-### 3. API Route Changes
+### 4. API Route Changes
 
 **File**: `apps/api/src/modules/rbac/routes.ts`
 
-#### 3.1 Update Grant Permission Endpoint (:342-477)
+#### 4.1 Update Grant Permission Endpoint
 
-**Schema update (add to body):**
 ```typescript
-inheritance_mode: Type.Optional(Type.Union([
-  Type.Literal('none'),
-  Type.Literal('cascade'),
-  Type.Literal('mapped')
-])),
-child_permissions: Type.Optional(Type.Record(Type.String(), Type.Number())),
-is_deny: Type.Optional(Type.Boolean()),
+// OLD schema:
+body: Type.Object({
+  person_code: Type.Union([Type.Literal('role'), Type.Literal('employee')]),
+  person_id: Type.String({ format: 'uuid' }),
+  // ...
+})
+
+// NEW schema:
+body: Type.Object({
+  role_id: Type.String({ format: 'uuid' }),  // References app.role.id
+  entity_code: Type.String(),
+  entity_instance_id: Type.String(),
+  permission: Type.Number({ minimum: 0, maximum: 7 }),
+  inheritance_mode: Type.Optional(Type.Union([
+    Type.Literal('none'),
+    Type.Literal('cascade'),
+    Type.Literal('mapped')
+  ])),
+  child_permissions: Type.Optional(Type.Record(Type.String(), Type.Number())),
+  is_deny: Type.Optional(Type.Boolean()),
+  expires_ts: Type.Optional(Type.String({ format: 'date-time' })),
+})
 ```
 
-**INSERT/UPDATE update:**
-```sql
-INSERT INTO app.entity_rbac (
-  person_code, person_id, entity_code, entity_instance_id, permission,
-  inheritance_mode, child_permissions, is_deny,  -- NEW
-  granted_by__employee_id, granted_ts, expires_ts
-) VALUES (...)
-```
+#### 4.2 Update Overview Endpoint
 
-#### 3.2 Update Overview Endpoint (:639-671)
-
-**Add to SELECT:**
-```sql
-rbac.inheritance_mode,
-rbac.child_permissions,
-rbac.is_deny
-```
-
-**Update response schema and helper function:**
 ```typescript
-const getInheritanceLabel = (mode: string): string => {
-  switch (mode) {
-    case 'cascade': return 'Cascades to all children';
-    case 'mapped': return 'Different per child type';
-    default: return 'This entity only';
-  }
-};
+// Query joins app.role for role name
+const rbacRecords = await db.execute(sql`
+  SELECT
+    er.id,
+    er.role_id,
+    r.code AS role_code,
+    r.name AS role_name,
+    er.entity_code,
+    er.entity_instance_id,
+    er.permission,
+    er.inheritance_mode,
+    er.child_permissions,
+    er.is_deny,
+    er.granted_ts,
+    er.expires_ts
+  FROM app.entity_rbac er
+  JOIN app.role r ON er.role_id = r.id
+  ORDER BY r.name, er.entity_code
+`);
 ```
 
 ---
 
-### 4. Frontend Changes
+### 5. Frontend Changes
 
 **File**: `apps/web/src/components/settings/PermissionManagementModal.tsx`
 
-#### 4.1 Add State (:41-47)
+#### 5.1 Simplify to Role-Only
 
 ```typescript
+// REMOVE:
+const [personType, setPersonType] = useState<'role' | 'employee'>('role');
+
+// KEEP (simplified):
+const [selectedRole, setSelectedRole] = useState<string>('');  // role.id
+
+// ADD:
 const [inheritanceMode, setInheritanceMode] = useState<'none' | 'cascade' | 'mapped'>('none');
 const [childPermissions, setChildPermissions] = useState<Record<string, number>>({});
 const [isDeny, setIsDeny] = useState(false);
 ```
 
-#### 4.2 Add UI Section (after permission selector)
+#### 5.2 UI Changes
+
+Remove the "Employee/Role" toggle - only show Role selector:
 
 ```tsx
+{/* Role Selector (simplified - no employee option) */}
+<div>
+  <label className="block text-sm font-medium">Role</label>
+  <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)}>
+    <option value="">Select a role...</option>
+    {roles.map(role => (
+      <option key={role.id} value={role.id}>{role.name}</option>
+    ))}
+  </select>
+</div>
+
 {/* Inheritance Settings */}
 <div className="space-y-3 border-t pt-4 mt-4">
   <label className="block text-sm font-medium">Permission Scope</label>
-
-  <div className="space-y-2">
-    <label className="flex items-center gap-2">
-      <input type="radio" value="none" checked={inheritanceMode === 'none'}
-             onChange={() => setInheritanceMode('none')} />
-      <span>This entity only</span>
-    </label>
-
-    <label className="flex items-center gap-2">
-      <input type="radio" value="cascade" checked={inheritanceMode === 'cascade'}
-             onChange={() => setInheritanceMode('cascade')} />
-      <span>Cascade to all children (same permission)</span>
-    </label>
-
-    <label className="flex items-center gap-2">
-      <input type="radio" value="mapped" checked={inheritanceMode === 'mapped'}
-             onChange={() => setInheritanceMode('mapped')} />
-      <span>Different permissions per child type</span>
-    </label>
-  </div>
-
-  {/* Child permissions mapper - show when 'mapped' selected */}
-  {inheritanceMode === 'mapped' && (
-    <ChildPermissionMapper
-      entityCode={selectedEntity}
-      value={childPermissions}
-      onChange={setChildPermissions}
-    />
-  )}
-
-  {/* Deny toggle */}
-  <label className="flex items-center gap-2 mt-4">
-    <input type="checkbox" checked={isDeny} onChange={(e) => setIsDeny(e.target.checked)} />
-    <span className="text-red-600 font-medium">Explicit Deny (blocks this permission)</span>
-  </label>
+  {/* ... inheritance mode radio buttons ... */}
 </div>
 ```
 
-#### 4.3 New Component: ChildPermissionMapper
+---
 
-```tsx
-function ChildPermissionMapper({ entityCode, value, onChange }) {
-  const [childEntities, setChildEntities] = useState([]);
+### 6. Data Migration
 
-  // Fetch child entity types from entity.child_entity_codes
-  useEffect(() => {
-    // GET /api/v1/entity/type/{entityCode} -> child_entity_codes
-  }, [entityCode]);
+**File**: `db/migrations/migrate_to_role_only_rbac.sql`
 
-  return (
-    <div className="space-y-2 pl-6">
-      {/* Default fallback */}
-      <div className="flex items-center gap-2">
-        <span className="w-32 text-gray-500">Default:</span>
-        <PermissionSelect value={value._default || 0} onChange={...} />
-      </div>
+```sql
+-- Step 1: Create new table structure
+-- (Run schema changes first)
 
-      {/* Per-child-type selectors */}
-      {childEntities.map(child => (
-        <div key={child.code} className="flex items-center gap-2">
-          <span className="w-32">{child.ui_label}:</span>
-          <PermissionSelect value={value[child.code] ?? value._default ?? 0} onChange={...} />
-        </div>
-      ))}
-    </div>
-  );
-}
+-- Step 2: Migrate existing role-based permissions
+INSERT INTO app.entity_rbac_new (role_id, entity_code, entity_instance_id, permission, ...)
+SELECT person_id, entity_code, entity_instance_id, permission, ...
+FROM app.entity_rbac_old
+WHERE person_code = 'role';
+
+-- Step 3: Convert employee permissions to role-based
+-- For each employee with direct permissions:
+--   1. Find or create an appropriate role
+--   2. Add employee to that role via entity_instance_link
+--   3. Migrate the permission to the role
+
+-- Step 4: Drop old table, rename new
+DROP TABLE app.entity_rbac_old;
+ALTER TABLE app.entity_rbac_new RENAME TO entity_rbac;
 ```
 
 ---
 
-### 5. Access Control Page Updates
-
-**File**: `apps/web/src/pages/setting/AccessControlPage.tsx`
-
-Add visual indicators for inheritance:
-
-```tsx
-{/* In permission row */}
-{permission.inheritance_mode !== 'none' && (
-  <span className={cn(
-    "inline-flex items-center px-2 py-0.5 rounded text-xs",
-    permission.inheritance_mode === 'cascade'
-      ? "bg-blue-100 text-blue-700"
-      : "bg-purple-100 text-purple-700"
-  )}>
-    {permission.inheritance_mode === 'cascade' ? '↓ Cascades' : '↓ Mapped'}
-  </span>
-)}
-
-{permission.is_deny && (
-  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-red-100 text-red-700">
-    DENY
-  </span>
-)}
-```
-
----
-
-### 6. Seed Data Updates
+### 7. Seed Data Updates
 
 **File**: `db/49_rbac_seed_data.ddl`
 
-Add demo inheritance permissions:
-
 ```sql
--- CEO role gets OWNER on all offices with cascade to children
-INSERT INTO app.entity_rbac (
-  person_code, person_id, entity_code, entity_instance_id, permission,
-  inheritance_mode, child_permissions
-)
-SELECT 'role', r.id, 'office', '11111111-1111-1111-1111-111111111111', 7,
-       'mapped', '{"business": 5, "project": 3, "task": 3, "_default": 0}'::jsonb
+-- All permissions are now role-based only
+
+-- CEO role: OWNER on offices with mapped inheritance
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions)
+SELECT r.id, 'office', '11111111-1111-1111-1111-111111111111', 7, 'mapped',
+       '{"business": 5, "project": 3, "task": 3, "_default": 0}'::jsonb
 FROM app.role r WHERE r.code = 'ROLE-CEO';
 
--- Project Manager gets EDIT on projects with cascade to all children
-INSERT INTO app.entity_rbac (
-  person_code, person_id, entity_code, entity_instance_id, permission,
-  inheritance_mode, child_permissions
-)
-SELECT 'role', r.id, 'project', '11111111-1111-1111-1111-111111111111', 3,
-       'cascade', '{}'::jsonb  -- Same permission (EDIT) to all children
+-- Project Manager role: EDIT on projects with cascade
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions)
+SELECT r.id, 'project', '11111111-1111-1111-1111-111111111111', 3, 'cascade', '{}'::jsonb
 FROM app.role r WHERE r.code = 'ROLE-PM';
+
+-- Viewer role: VIEW only, no inheritance
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode)
+SELECT r.id, 'project', '11111111-1111-1111-1111-111111111111', 0, 'none'
+FROM app.role r WHERE r.code = 'ROLE-VIEWER';
+
+-- Role membership (person belongs to role)
+INSERT INTO app.entity_instance_link (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
+SELECT 'role', r.id, 'person', p.id, 'member'
+FROM app.role r, app.person p
+WHERE r.code = 'ROLE-CEO' AND p.email = 'james.miller@huronhome.ca';
 ```
 
 ---
 
-## Migration Strategy
+## Summary: What Changes
 
-### Phase 1: Schema Migration (Non-Breaking)
-1. Add new columns with defaults
-2. Existing rows get `inheritance_mode='none'` (backward compatible)
-3. Run `./tools/db-import.sh`
+### Removed
 
-### Phase 2: Service Update
-1. Remove old inheritance CTEs
-2. Add new recursive ancestor traversal
-3. Test with existing permissions (should work identically)
+| Item | Reason |
+|------|--------|
+| `person_code` column | No longer polymorphic - only roles |
+| `person_id` column | Replaced by `role_id` |
+| Direct employee permissions | All via roles now |
+| `direct_emp` CTE | No direct employee lookups |
+| `parent_view` CTE | Replaced by configurable inheritance |
+| `parent_create` CTE | Replaced by configurable inheritance |
+| Employee/Role toggle in UI | Only roles shown |
 
-### Phase 3: API Update
-1. Add new fields to endpoints
-2. Backward compatible - new fields are optional
+### Added
 
-### Phase 4: Frontend Update
-1. Add UI for inheritance configuration
-2. Display inheritance badges
+| Item | Purpose |
+|------|---------|
+| `role_id` column (FK) | Clean reference to `app.role` |
+| `inheritance_mode` column | Configure cascade behavior |
+| `child_permissions` column | Per-child-type permissions |
+| `is_deny` column | Explicit deny override |
+| `granted_by_person_id` (FK) | Audit trail to `app.person` |
+| `person_roles` CTE | Find roles for a person |
+| `inherited_perms` CTE | Resolve inherited permissions |
 
-### Phase 5: Seed Data
-1. Add demo inheritance permissions
-2. Document examples
+### Simplified
 
----
-
-## Testing Checklist
-
-- [ ] Existing permissions work (no inheritance_mode = 'none')
-- [ ] Cascade mode: parent EDIT → child gets EDIT
-- [ ] Mapped mode: parent OWNER → task gets EDIT, wiki gets VIEW
-- [ ] Deny overrides all allows
-- [ ] Role-based inheritance works
-- [ ] Recursive depth works (grandchildren)
-- [ ] Performance acceptable with ancestor traversal
+| Before | After |
+|--------|-------|
+| 2 permission sources (employee + role) | 1 source (role only) |
+| Polymorphic `person_code` | Direct FK to `app.role` |
+| Hardcoded VIEW/CREATE inheritance | Configurable inheritance_mode |
+| Complex 7-CTE query | Simpler 5-CTE query |
 
 ---
 
 ## File Change Summary
 
-| File | Action | Lines Affected |
-|------|--------|----------------|
-| `db/entity_configuration_settings/06_entity_rbac.ddl` | ADD | +15 lines (3 columns, index, comments) |
-| `apps/api/src/services/entity-infrastructure.service.ts` | REMOVE | -90 lines (old CTEs) |
-| `apps/api/src/services/entity-infrastructure.service.ts` | ADD | +80 lines (new CTEs) |
-| `apps/api/src/modules/rbac/routes.ts` | MODIFY | ~20 lines (schema + INSERT) |
-| `apps/web/src/components/settings/PermissionManagementModal.tsx` | ADD | +60 lines (UI) |
-| `apps/web/src/pages/setting/AccessControlPage.tsx` | ADD | +15 lines (badges) |
-| `db/49_rbac_seed_data.ddl` | ADD | +20 lines (demo data) |
-| `docs/rbac/RBAC_INFRASTRUCTURE.md` | UPDATE | Document new fields |
-| `CLAUDE.md` | UPDATE | Add inheritance section |
+| File | Action | Description |
+|------|--------|-------------|
+| `db/entity_configuration_settings/06_entity_rbac.ddl` | REWRITE | New schema with role_id FK |
+| `apps/api/src/services/entity-infrastructure.service.ts` | REWRITE | Simplified role-only queries |
+| `apps/api/src/modules/rbac/routes.ts` | MODIFY | Update to role_id, add inheritance fields |
+| `apps/web/src/components/settings/PermissionManagementModal.tsx` | SIMPLIFY | Remove employee option |
+| `db/49_rbac_seed_data.ddl` | REWRITE | Role-based only |
+| `db/migrations/migrate_to_role_only_rbac.sql` | NEW | Migration script |
 
-**Net change**: ~+100 lines (removing ~90, adding ~190)
+---
+
+## Permission Resolution Flow
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  NEW PERMISSION RESOLUTION FLOW                              │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  1. Input: person_id, entity_code, entity_id                │
+│                                                              │
+│  2. Find person's roles:                                     │
+│     entity_instance_link WHERE                               │
+│       entity_code = 'role' AND                               │
+│       child_entity_code = 'person' AND                       │
+│       child_entity_instance_id = person_id                   │
+│                                                              │
+│  3. Check explicit deny:                                     │
+│     entity_rbac WHERE role_id IN (person_roles)              │
+│       AND is_deny = true → DENIED                            │
+│                                                              │
+│  4. Get direct role permissions:                             │
+│     entity_rbac WHERE role_id IN (person_roles)              │
+│       AND entity matches target                              │
+│                                                              │
+│  5. Get inherited permissions:                               │
+│     - Find ancestors via entity_instance_link                │
+│     - Check ancestor permissions with inheritance_mode       │
+│     - Apply child_permissions mapping if 'mapped'            │
+│                                                              │
+│  6. Return MAX(all permissions found)                        │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Testing Checklist
+
+- [ ] Person with no roles → No permissions
+- [ ] Person with role → Gets role's permissions
+- [ ] Person with multiple roles → MAX of all roles
+- [ ] Deny on one role → Blocks even if other role allows
+- [ ] Cascade inheritance → Children get same permission
+- [ ] Mapped inheritance → Children get mapped permission
+- [ ] No inheritance (none) → Children don't inherit
+- [ ] Recursive inheritance → Grandchildren inherit correctly
+- [ ] FK constraints → Invalid role_id rejected
+- [ ] Migration → Existing data preserved
