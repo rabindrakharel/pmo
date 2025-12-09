@@ -1390,6 +1390,25 @@ fieldBusinessTypes:
       inputType: readonly
       behavior: { editable: false, visible: false }
 
+  # Entity instance link ID - hidden and not editable, used for unlink operations
+  systemInternal_linkId:
+    dtype: uuid
+    entityListOfInstancesTable:
+      inputType: readonly
+      behavior: { editable: false, filterable: false, sortable: false, visible: false }
+    entityInstanceFormContainer:
+      inputType: readonly
+      behavior: { editable: false, visible: false }
+    kanbanView:
+      inputType: readonly
+      behavior: { editable: false, visible: false }
+    calendarView:
+      inputType: readonly
+      behavior: { editable: false, visible: false }
+    dagView:
+      inputType: readonly
+      behavior: { editable: false, visible: false }
+
 # ============================================================================
 # FORM FIELD TYPE MAPPINGS (for FormBuilder)
 # Maps form field types to fieldBusinessTypes
