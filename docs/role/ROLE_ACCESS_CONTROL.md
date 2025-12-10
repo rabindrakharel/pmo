@@ -1,8 +1,8 @@
 # Role Access Control - Complete Technical Reference
 
-> Role-Only RBAC Model v2.1.0 - Custom tab architecture, Permission Matrix, component design, and end-to-end data flow
+> Role-Only RBAC Model v2.2.0 - Card-based hierarchical visualization, Permission Matrix, component design, and end-to-end data flow
 
-**Version**: 2.1.0 | **Updated**: 2025-12-09 | **Status**: Production
+**Version**: 2.2.0 | **Updated**: 2025-12-10 | **Status**: Production
 
 ---
 
@@ -172,17 +172,28 @@ if (parentType === 'your-entity') {
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  Access Control Components                                                   │
+│  Access Control Components (v2.2.0)                                          │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  TWO ENTRY POINTS:                                                           │
 │                                                                              │
 │  1. AccessControlPage (/settings/access-control)                             │
 │     ├── Left Panel: Role list with search                                    │
-│     └── Right Panel: Selected role details                                   │
+│     └── Right Panel: Tabs (Permissions, Members, Permission Matrix)          │
+│         └── Permission Matrix uses HierarchicalRbacMatrix (card-based)       │
 │                                                                              │
 │  2. RoleAccessControlPanel (/role/:id/access-control)                        │
-│     └── Same right panel content, no role selector                           │
+│     └── Tabs (Permissions, Permission Matrix)                                │
+│         └── Permission Matrix uses RolePermissionsMatrix (table-based)       │
+│                                                                              │
+│  CARD-BASED VISUALIZATION (v2.2.0):                                          │
+│  ├── HierarchicalRbacMatrix   - Card layout with collapsible entity types   │
+│  ├── PermissionCard           - Single permission card with mode selector   │
+│  └── PermissionBar            - Visual bar for permission level (0-7)       │
+│                                                                              │
+│  TABLE-BASED VISUALIZATION (v2.1.0):                                         │
+│  ├── RolePermissionsMatrix    - Matrix table with 45° headers, inline edit  │
+│  └── EffectiveAccessTable     - Show resolved permissions with source       │
 │                                                                              │
 │  SHARED COMPONENTS (apps/web/src/components/rbac/):                          │
 │  ├── PermissionLevelSelector  - Visual bar chart permission picker (0-7)    │
@@ -192,8 +203,6 @@ if (parentType === 'your-entity') {
 │  ├── ChildPermissionMapper    - Per-child-type permission table             │
 │  ├── PermissionRuleCard       - Display single permission with inheritance  │
 │  ├── PermissionRuleCardSkeleton - Loading state                             │
-│  ├── RolePermissionsMatrix    - Matrix table with inline edit (v2.1.0)  ◄── │
-│  ├── EffectiveAccessTable     - Show resolved permissions with source       │
 │  └── GrantPermissionModal     - 4-step wizard for granting permissions      │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -582,7 +591,150 @@ queryClient.invalidateQueries(['access-control', 'role', roleId, 'members']);
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 8.4 RolePermissionsMatrix (v2.1.0)
+### 8.4 HierarchicalRbacMatrix (v2.2.0) - Card-Based Visualization
+
+**File**: `apps/web/src/components/rbac/HierarchicalRbacMatrix.tsx`
+
+Card-based hierarchical permission visualization with fold/unfold capability.
+
+**Features**:
+- Entity types as collapsible accordion sections
+- Permission cards with visual permission bars
+- Mode-first inheritance selection (None/Cascade/Mapped)
+- Child permissions only shown for Mapped mode
+- Cascade mode shows summary without expansion
+- Batch save functionality with pending change tracking
+- Expand All / Collapse All controls
+
+**Visual Layout**:
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Permission Overview  [5 permissions]  [● 1 unsaved]     [Discard] [Save]    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ [🔍 Filter by entity type or instance...]                                    │
+│ [Expand All] [Collapse All]                                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│ ┌─ 📁 Project (2 permissions) ───────────────────────────── [▼ Expand] ────┐│
+│ │                                                                          ││
+│ │  ┌─────────────────────────────────────────────────────────────────────┐ ││
+│ │  │ 📦 All Projects                                              [🗑️]   │ ││
+│ │  │ Permission Level                                                     │ ││
+│ │  │ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░  OWNER                     │ ││
+│ │  │ Child Entity Inheritance                                             │ ││
+│ │  │ [ None ] [ Cascade ] [ ●Mapped ]                                     │ ││
+│ │  │ ┌ Child Permissions (3 types) ─────────────────────────────────────┐ │ ││
+│ │  │ │  📋 Task      ▓▓▓▓▓▓▓▓░░░░  EDIT                                 │ │ ││
+│ │  │ │  📎 Artifact  ▓▓▓▓░░░░░░░░  VIEW                                 │ │ ││
+│ │  │ │  👤 Employee  ▓▓░░░░░░░░░░  COMMENT                              │ │ ││
+│ │  │ └──────────────────────────────────────────────────────────────────┘ │ ││
+│ │  └─────────────────────────────────────────────────────────────────────┘ ││
+│ │                                                                          ││
+│ │  ┌─────────────────────────────────────────────────────────────────────┐ ││
+│ │  │ 📄 Kitchen Renovation                              [Modified] [🗑️]   │ ││
+│ │  │ Permission Level                                                     │ ││
+│ │  │ ▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░  EDIT *                    │ ││
+│ │  │ Child Entity Inheritance                                             │ ││
+│ │  │ [ ●None ] [ Cascade ] [ Mapped ]                                     │ ││
+│ │  └─────────────────────────────────────────────────────────────────────┘ ││
+│ └──────────────────────────────────────────────────────────────────────────┘│
+│                                                                              │
+│ ┌─ ✅ Task (1 permission) ───────────────────────────────── [▶ Collapsed] ─┐│
+│ └──────────────────────────────────────────────────────────────────────────┘│
+│                                                                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Quick Reference:                                                             │
+│   Permission Bar: ▓▓▓▓▓▓░░░░ = EDIT                                         │
+│   Inheritance: ⬜ None (stops here)  🟣 Cascade (same to all)  🔵 Mapped     │
+│   Status: 🟠 Modified  🔴 Explicit DENY                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Props**:
+```typescript
+interface HierarchicalRbacMatrixProps {
+  roleId: string;       // Role UUID
+  roleName: string;     // Role display name
+  onRevoke?: (permissionId: string) => void;  // Revoke callback
+}
+```
+
+**API Endpoint**:
+```typescript
+GET /api/v1/entity_rbac/role/:roleId/hierarchical-permissions
+// Returns permissions grouped by entity type with child_entity_codes
+```
+
+### 8.5 PermissionCard Component (v2.2.0)
+
+**File**: `apps/web/src/components/rbac/PermissionCard.tsx`
+
+Card component for visualizing a single permission with mode selection.
+
+**Features**:
+- Visual permission bar with clickable segments
+- Mode selection buttons (None/Cascade/Mapped)
+- Expandable child permissions section (Mapped mode only)
+- Cascade mode shows summary of inherited children
+- Pending change tracking with amber highlighting
+
+**Props**:
+```typescript
+interface PermissionCardProps {
+  id: string;                                   // Permission UUID
+  entityInstanceId: string;                     // Target instance UUID
+  entityInstanceName: string | null;            // Display name
+  entityLabel: string;                          // Entity type label
+  permission: number;                           // Current level (0-7)
+  inheritanceMode: InheritanceMode;             // 'none' | 'cascade' | 'mapped'
+  childPermissions: Record<string, number>;     // Child type → level mapping
+  childEntityCodes: ChildEntityConfig[];        // Available child types
+  isDeny: boolean;                              // Explicit deny flag
+  isTypeLevel: boolean;                         // Type-level vs instance-level
+  hasPendingChange: boolean;                    // Permission level modified
+  hasModePendingChange: boolean;                // Mode modified
+  pendingPermission?: number;                   // Pending permission level
+  pendingMode?: InheritanceMode;                // Pending mode
+  pendingChildPermissions?: Record<string, number>; // Pending child changes
+  onPermissionChange: (level: number) => void;
+  onModeChange: (mode: InheritanceMode) => void;
+  onChildPermissionChange: (childCode: string, level: number) => void;
+  onRevoke: () => void;
+  disabled?: boolean;
+}
+```
+
+### 8.6 PermissionBar Component (v2.2.0)
+
+**File**: `apps/web/src/components/rbac/PermissionCard.tsx` (exported)
+
+Visual bar for displaying and editing permission levels.
+
+**Features**:
+- 8 clickable segments (VIEW through OWNER)
+- Color-coded by permission level
+- Amber highlighting for modified values
+- Compact mode for child permission sliders
+- Label display with asterisk for modifications
+
+**Props**:
+```typescript
+interface PermissionBarProps {
+  level: number;                    // Current permission level
+  onChange?: (level: number) => void; // Click handler
+  disabled?: boolean;               // Disable interaction
+  compact?: boolean;                // Smaller size for child rows
+  showLabel?: boolean;              // Show level label
+  pendingLevel?: number;            // Pending value (for amber highlight)
+}
+```
+
+**Click Behavior**:
+- Click unchecked segment → Set to that level
+- Click current level → Reduce by 1 (minimum 0)
+- Click lower segment → Set to that level
+
+### 8.7 RolePermissionsMatrix (v2.1.0) - Table-Based Visualization
 
 **File**: `apps/web/src/components/rbac/RolePermissionsMatrix.tsx`
 
@@ -636,7 +788,7 @@ interface RolePermissionsMatrixProps {
 }
 ```
 
-### 8.5 Effective Access Table
+### 8.8 Effective Access Table
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -710,6 +862,7 @@ INSERT INTO app.entity_instance_link (
 
 | Version | Date | Changes |
 |---------|------|---------|
+| v2.2.0 | 2025-12-10 | **Card-Based Visualization** - HierarchicalRbacMatrix with fold/unfold, PermissionCard, PermissionBar components |
 | v2.1.0 | 2025-12-09 | **RolePermissionsMatrix** - Interactive matrix table with 45° headers, inline editing, batch save |
 | v2.0.0 | 2025-12-09 | Role-Only Model with custom tab architecture, merged access_control.md and AccessControlPage.md |
 | v1.0.0 | 2025-10-01 | Initial release with employee/role dual model |
