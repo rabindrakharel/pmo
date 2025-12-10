@@ -5,12 +5,13 @@ import { API_CONFIG } from '../../lib/config/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as LucideIcons from 'lucide-react';
 
-// RBAC Components (Role-Only Model v2.0.0)
+// RBAC Components (Role-Only Model v2.1.0)
 import {
   PermissionRuleCard,
   PermissionRuleCardSkeleton,
   GrantPermissionModal,
   RolePermissionsMatrix,
+  HierarchicalRbacMatrix,
   PermissionBadge,
   InheritanceModeBadge,
   InheritanceMode
@@ -19,10 +20,12 @@ import {
 /**
  * Access Control Page
  *
- * Role-Only RBAC Model v2.0.0
+ * Role-Only RBAC Model v2.1.0
  *
  * - Role selection (left panel)
- * - Role detail with Permissions, Persons, Effective Access tabs (right panel)
+ * - Role detail with Permissions, Members, Permission Matrix tabs (right panel)
+ * - Hierarchical permission matrix with collapsible entity types and instances
+ * - Child entity permission management (mapped inheritance)
  * - Visual inheritance indicators
  * - No direct employee permissions (all via roles)
  */
@@ -725,16 +728,12 @@ export function AccessControlPage() {
                     </div>
                   )}
 
-                  {/* Permission Matrix Tab */}
+                  {/* Permission Matrix Tab - Hierarchical View */}
                   {activeTab === 'effective' && (
                     <div className="p-6">
-                      <RolePermissionsMatrix
+                      <HierarchicalRbacMatrix
                         roleId={selectedRoleId!}
                         roleName={selectedRole?.name || ''}
-                        permissions={permissionsData?.data || []}
-                        isLoading={permissionsLoading}
-                        entityLabels={entityLabels}
-                        entityIcons={entityIcons}
                         onRevoke={(permissionId) => {
                           if (confirm('Are you sure you want to revoke this permission?')) {
                             revokePermissionMutation.mutate(permissionId);

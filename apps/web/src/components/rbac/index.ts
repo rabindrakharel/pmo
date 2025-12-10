@@ -1,6 +1,6 @@
 /**
  * RBAC Components
- * Role-Only RBAC Model v2.0.0
+ * Role-Only RBAC Model v2.1.0
  */
 
 export { PermissionLevelSelector, PermissionBadge, getPermissionLabel, getPermissionColor, PERMISSION_LEVELS } from './PermissionLevelSelector';
@@ -10,5 +10,6 @@ export { ChildPermissionMapper } from './ChildPermissionMapper';
 export { PermissionRuleCard, PermissionRuleCardSkeleton } from './PermissionRuleCard';
 export { EffectiveAccessTable } from './EffectiveAccessTable';
 export { RolePermissionsMatrix, RolePermissionsMatrixSkeleton } from './RolePermissionsMatrix';
+export { HierarchicalRbacMatrix, HierarchicalRbacMatrixSkeleton } from './HierarchicalRbacMatrix';
 export { GrantPermissionModal } from './GrantPermissionModal';
 export { RoleAccessControlPanel } from './RoleAccessControlPanel';
