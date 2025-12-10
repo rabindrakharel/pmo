@@ -11,5 +11,6 @@ export { PermissionRuleCard, PermissionRuleCardSkeleton } from './PermissionRule
 export { EffectiveAccessTable } from './EffectiveAccessTable';
 export { RolePermissionsMatrix, RolePermissionsMatrixSkeleton } from './RolePermissionsMatrix';
 export { HierarchicalRbacMatrix, HierarchicalRbacMatrixSkeleton } from './HierarchicalRbacMatrix';
+export { PermissionCard, PermissionBar } from './PermissionCard';
 export { GrantPermissionModal } from './GrantPermissionModal';
 export { RoleAccessControlPanel } from './RoleAccessControlPanel';
