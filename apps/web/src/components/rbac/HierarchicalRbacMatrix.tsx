@@ -45,12 +45,35 @@ interface HierarchicalPermissionsData {
 
 // Track pending changes
 interface PendingChange {
-  type: 'permission' | 'child_permission';
+  type: 'permission' | 'child_permission' | 'inheritance_mode';
   permissionId: string;
   originalLevel: number;
   newLevel: number;
   childEntityCode?: string; // For child permission changes
+  newInheritanceMode?: InheritanceMode; // For inheritance mode changes
 }
+
+// Inheritance mode descriptions
+const INHERITANCE_MODE_INFO: Record<InheritanceMode, { label: string; icon: keyof typeof LucideIcons; color: string; description: string }> = {
+  none: {
+    label: 'None',
+    icon: 'Circle',
+    color: 'text-dark-400 bg-dark-100',
+    description: 'No inheritance - permission applies only to this entity'
+  },
+  cascade: {
+    label: 'Cascade',
+    icon: 'ArrowDownCircle',
+    color: 'text-violet-600 bg-violet-100',
+    description: 'Same permission cascades to ALL child entity types (deep)'
+  },
+  mapped: {
+    label: 'Mapped',
+    icon: 'GitBranch',
+    color: 'text-cyan-600 bg-cyan-100',
+    description: 'Different permissions per child entity type'
+  }
+};
 
 interface HierarchicalRbacMatrixProps {
   roleId: string;
@@ -123,6 +146,21 @@ export function HierarchicalRbacMatrix({
             );
             if (!response.ok) throw new Error('Failed to update permission');
             return response.json();
+          } else if (change.type === 'inheritance_mode') {
+            // Update inheritance mode
+            const response = await fetch(
+              `${API_CONFIG.BASE_URL}/api/v1/entity_rbac/permission/${change.permissionId}`,
+              {
+                method: 'PUT',
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ inheritance_mode: change.newInheritanceMode })
+              }
+            );
+            if (!response.ok) throw new Error('Failed to update inheritance mode');
+            return response.json();
           } else {
             // Update child permission
             const response = await fetch(
@@ -152,6 +190,33 @@ export function HierarchicalRbacMatrix({
       setPendingChanges({});
     }
   });
+
+  // Handle inheritance mode change
+  const handleInheritanceModeChange = useCallback((
+    permission: HierarchicalPermission,
+    newMode: InheritanceMode
+  ) => {
+    const key = `${permission.id}:mode`;
+
+    setPendingChanges(prev => {
+      const updated = { ...prev };
+
+      if (newMode === permission.inheritance_mode) {
+        // Back to original - remove from pending
+        delete updated[key];
+      } else {
+        updated[key] = {
+          type: 'inheritance_mode',
+          permissionId: permission.id,
+          originalLevel: 0, // Not used for mode changes
+          newLevel: 0,
+          newInheritanceMode: newMode
+        };
+      }
+
+      return updated;
+    });
+  }, []);
 
   // Toggle entity expansion
   const toggleEntity = useCallback((entityCode: string) => {
@@ -452,9 +517,14 @@ export function HierarchicalRbacMatrix({
           type="button"
           onClick={() => {
             const allEntityCodes = filteredEntities.map(e => e.entity_code);
+            // Only expand instances that have cascade or mapped mode
             const allInstanceKeys = filteredEntities.flatMap(e =>
               e.permissions
-                .filter(p => p.entity_instance_id !== ALL_ENTITIES_ID)
+                .filter(p =>
+                  p.entity_instance_id !== ALL_ENTITIES_ID &&
+                  p.inheritance_mode !== 'none' &&
+                  e.child_entity_codes.length > 0
+                )
                 .map(p => `${e.entity_code}:${p.entity_instance_id}`)
             );
             setExpandedEntities(new Set(allEntityCodes));
@@ -522,8 +592,11 @@ export function HierarchicalRbacMatrix({
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-white border-b border-dark-100">
-                        <th className="px-4 py-2 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider w-72">
+                        <th className="px-4 py-2 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider w-64">
                           Target
+                        </th>
+                        <th className="px-2 py-2 text-center text-xs font-semibold text-dark-600 uppercase tracking-wider w-24">
+                          Mode
                         </th>
                         {/* Permission columns - rotated headers */}
                         {PERMISSION_LEVELS.map((level) => (
@@ -569,6 +642,13 @@ export function HierarchicalRbacMatrix({
                         const isInstanceExpanded = expandedInstances.has(instanceKey);
                         const hasChildEntities = entity.child_entity_codes.length > 0 && !isTypeLevel;
                         const hasPendingChange = !!pendingChanges[permission.id];
+                        const modeKey = `${permission.id}:mode`;
+                        const hasModePendingChange = !!pendingChanges[modeKey];
+                        const effectiveMode = hasModePendingChange
+                          ? (pendingChanges[modeKey].newInheritanceMode || permission.inheritance_mode)
+                          : permission.inheritance_mode;
+                        // Can only expand if mode is cascade or mapped AND has child entities
+                        const canExpand = hasChildEntities && effectiveMode !== 'none';
 
                         return (
                           <React.Fragment key={permission.id}>
@@ -576,13 +656,13 @@ export function HierarchicalRbacMatrix({
                             <tr className={`
                               transition-colors
                               ${permission.is_deny ? 'bg-red-50 hover:bg-red-100' :
-                                hasPendingChange ? 'bg-amber-50 hover:bg-amber-100' :
+                                (hasPendingChange || hasModePendingChange) ? 'bg-amber-50 hover:bg-amber-100' :
                                 'hover:bg-dark-50'}
                             `}>
                               <td className="px-4 py-2">
                                 <div className="flex items-center gap-2">
-                                  {/* Expand/Collapse for instances with child entities */}
-                                  {hasChildEntities ? (
+                                  {/* Expand/Collapse - only show for cascade/mapped modes with children */}
+                                  {canExpand ? (
                                     <button
                                       type="button"
                                       onClick={(e) => {
@@ -590,6 +670,7 @@ export function HierarchicalRbacMatrix({
                                         toggleInstance(instanceKey);
                                       }}
                                       className="p-1 rounded hover:bg-dark-100 transition-colors"
+                                      title={`${effectiveMode === 'cascade' ? 'View cascading children' : 'View mapped children'}`}
                                     >
                                       {isInstanceExpanded ? (
                                         <LucideIcons.ChevronDown className="h-4 w-4 text-dark-500" />
@@ -597,6 +678,10 @@ export function HierarchicalRbacMatrix({
                                         <LucideIcons.ChevronRight className="h-4 w-4 text-dark-500" />
                                       )}
                                     </button>
+                                  ) : hasChildEntities ? (
+                                    <div className="p-1" title="Set mode to cascade or mapped to configure child permissions">
+                                      <LucideIcons.Circle className="h-4 w-4 text-dark-200" />
+                                    </div>
                                   ) : (
                                     <div className="w-6" /> /* Spacer */
                                   )}
@@ -612,14 +697,40 @@ export function HierarchicalRbacMatrix({
                                     </span>
                                   )}
 
-                                  {permission.inheritance_mode !== 'none' && (
-                                    <InheritanceModeBadge mode={permission.inheritance_mode} size="sm" />
-                                  )}
-
-                                  {hasPendingChange && (
+                                  {(hasPendingChange || hasModePendingChange) && (
                                     <span className="text-xs text-amber-600">(modified)</span>
                                   )}
                                 </div>
+                              </td>
+
+                              {/* Mode Column - Dropdown selector */}
+                              <td className="px-2 py-2 text-center">
+                                {!isTypeLevel && hasChildEntities ? (
+                                  <div className="relative inline-block">
+                                    <select
+                                      value={effectiveMode}
+                                      onChange={(e) => handleInheritanceModeChange(permission, e.target.value as InheritanceMode)}
+                                      disabled={permission.is_deny || batchUpdateMutation.isPending}
+                                      className={`
+                                        appearance-none text-xs font-medium px-2 py-1 pr-6 rounded-md border cursor-pointer
+                                        focus:outline-none focus:ring-2 focus:ring-offset-1
+                                        ${hasModePendingChange ? 'ring-2 ring-amber-300' : ''}
+                                        ${effectiveMode === 'none' ? 'bg-dark-100 border-dark-200 text-dark-600 focus:ring-dark-300' :
+                                          effectiveMode === 'cascade' ? 'bg-violet-100 border-violet-200 text-violet-700 focus:ring-violet-300' :
+                                          'bg-cyan-100 border-cyan-200 text-cyan-700 focus:ring-cyan-300'}
+                                        ${(permission.is_deny || batchUpdateMutation.isPending) ? 'opacity-50 cursor-not-allowed' : ''}
+                                      `}
+                                      title={INHERITANCE_MODE_INFO[effectiveMode].description}
+                                    >
+                                      <option value="none">None</option>
+                                      <option value="cascade">Cascade</option>
+                                      <option value="mapped">Mapped</option>
+                                    </select>
+                                    <LucideIcons.ChevronDown className="absolute right-1 top-1/2 -translate-y-1/2 h-3 w-3 pointer-events-none text-current opacity-50" />
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-dark-400">—</span>
+                                )}
                               </td>
 
                               {/* Permission cells */}
@@ -656,8 +767,8 @@ export function HierarchicalRbacMatrix({
                               </td>
                             </tr>
 
-                            {/* Child Entity Rows (when expanded) */}
-                            {isInstanceExpanded && entity.child_entity_codes.map((childConfig) => {
+                            {/* Child Entity Rows (when expanded) - only show if mode is cascade or mapped */}
+                            {isInstanceExpanded && canExpand && entity.child_entity_codes.map((childConfig) => {
                               const childKey = `${permission.id}:${childConfig.entity}`;
                               const childLevel = permission.child_permissions[childConfig.entity];
                               const hasChildLevel = childLevel !== undefined;
@@ -665,33 +776,50 @@ export function HierarchicalRbacMatrix({
                               const effectiveChildLevel = hasChildPendingChange
                                 ? pendingChanges[childKey].newLevel
                                 : (childLevel ?? -1);
+                              // For cascade mode, ALL children get parent permission
+                              // For mapped mode, children get their specific level or inherit
+                              const isCascadeMode = effectiveMode === 'cascade';
+                              const displayLevel = isCascadeMode
+                                ? permission.permission  // Cascade: always parent level
+                                : (effectiveChildLevel >= 0 ? effectiveChildLevel : permission.permission); // Mapped: specific or parent
 
                               return (
                                 <tr
                                   key={childKey}
                                   className={`
-                                    bg-slate-50/50 transition-colors
-                                    ${hasChildPendingChange ? 'bg-amber-50/50 hover:bg-amber-100/50' : 'hover:bg-slate-100/50'}
+                                    transition-colors
+                                    ${isCascadeMode ? 'bg-violet-50/30 hover:bg-violet-100/30' : 'bg-cyan-50/30 hover:bg-cyan-100/30'}
+                                    ${hasChildPendingChange ? 'bg-amber-50/50 hover:bg-amber-100/50' : ''}
                                   `}
                                 >
                                   <td className="px-4 py-2">
                                     <div className="flex items-center gap-2 pl-10">
-                                      <div className="w-4 h-4 border-l-2 border-b-2 border-dark-200 rounded-bl" />
-                                      <div className="p-1 bg-dark-100 rounded">
+                                      <div className={`w-4 h-4 border-l-2 border-b-2 rounded-bl ${isCascadeMode ? 'border-violet-200' : 'border-cyan-200'}`} />
+                                      <div className={`p-1 rounded ${isCascadeMode ? 'bg-violet-100' : 'bg-cyan-100'}`}>
                                         {getIcon(childConfig.ui_icon)}
                                       </div>
-                                      <span className="text-dark-600 text-xs">
+                                      <span className="text-dark-600 text-xs font-medium">
                                         {childConfig.ui_label}
                                       </span>
-                                      {!hasChildLevel && effectiveChildLevel < 0 && (
-                                        <span className="text-xs text-dark-400 italic">
-                                          (inherits from parent)
+                                      {isCascadeMode ? (
+                                        <span className="text-xs text-violet-500 italic flex items-center gap-1">
+                                          <LucideIcons.ArrowDownCircle className="h-3 w-3" />
+                                          cascades
                                         </span>
-                                      )}
+                                      ) : !hasChildLevel && effectiveChildLevel < 0 ? (
+                                        <span className="text-xs text-cyan-500 italic">
+                                          (inherits)
+                                        </span>
+                                      ) : null}
                                       {hasChildPendingChange && (
                                         <span className="text-xs text-amber-600">(modified)</span>
                                       )}
                                     </div>
+                                  </td>
+
+                                  {/* Mode column - empty for child rows */}
+                                  <td className="px-2 py-2 text-center">
+                                    <span className="text-xs text-dark-300">—</span>
                                   </td>
 
                                   {/* Child permission cells */}
@@ -705,10 +833,11 @@ export function HierarchicalRbacMatrix({
                                       );
                                     }
 
-                                    const displayLevel = effectiveChildLevel >= 0 ? effectiveChildLevel : permission.permission;
                                     const hasPermission = displayLevel >= level.value;
                                     const isCurrentLevel = displayLevel === level.value;
-                                    const canClick = !permission.is_deny && !batchUpdateMutation.isPending;
+                                    // For cascade mode: read-only, shows parent's level
+                                    // For mapped mode: editable, can override
+                                    const canClick = !isCascadeMode && !permission.is_deny && !batchUpdateMutation.isPending;
                                     const wasOriginalLevel = (childLevel ?? -1) === level.value;
                                     const isModified = hasChildPendingChange && (isCurrentLevel || wasOriginalLevel);
                                     const isInherited = !hasChildLevel && effectiveChildLevel < 0;
@@ -729,35 +858,47 @@ export function HierarchicalRbacMatrix({
                                             w-5 h-5 rounded flex items-center justify-center transition-all text-xs
                                             ${canClick ? 'cursor-pointer hover:scale-110' : 'cursor-default'}
                                             ${permission.is_deny ? 'bg-red-200 text-red-400' :
-                                              hasPermission
-                                                ? isCurrentLevel
-                                                  ? isModified
-                                                    ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-300'
+                                              isCascadeMode
+                                                ? hasPermission
+                                                  ? isCurrentLevel
+                                                    ? 'bg-violet-400 text-white shadow-sm opacity-70'
+                                                    : 'bg-violet-100 text-violet-400'
+                                                  : 'bg-dark-50 text-dark-200'
+                                                : hasPermission
+                                                  ? isCurrentLevel
+                                                    ? isModified
+                                                      ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-300'
+                                                      : isInherited
+                                                        ? 'bg-cyan-400 text-white shadow-sm opacity-60'
+                                                        : `${level.color} text-white shadow-sm`
                                                     : isInherited
-                                                      ? 'bg-slate-400 text-white shadow-sm opacity-60'
-                                                      : `${level.color} text-white shadow-sm`
-                                                  : isInherited
-                                                    ? 'bg-slate-100 text-slate-400'
-                                                    : 'bg-green-100 text-green-600'
-                                                : isModified && wasOriginalLevel
-                                                  ? 'bg-amber-100 text-amber-400 ring-1 ring-amber-300'
-                                                  : 'bg-dark-100 text-dark-300 hover:bg-dark-200'
+                                                      ? 'bg-cyan-100 text-cyan-400'
+                                                      : 'bg-green-100 text-green-600'
+                                                  : isModified && wasOriginalLevel
+                                                    ? 'bg-amber-100 text-amber-400 ring-1 ring-amber-300'
+                                                    : 'bg-dark-100 text-dark-300 hover:bg-dark-200'
                                             }
                                           `}
                                           title={
                                             permission.is_deny
                                               ? 'DENIED'
-                                              : isInherited
-                                                ? `Inheriting ${level.label} from parent (click to override)`
-                                                : hasPermission
-                                                  ? `Has ${level.label}${isCurrentLevel ? ' (click to reduce)' : ''}`
-                                                  : `Grant ${level.label}`
+                                              : isCascadeMode
+                                                ? `Cascades ${level.label} from parent (change mode to Mapped to customize)`
+                                                : isInherited
+                                                  ? `Inheriting ${level.label} from parent (click to override)`
+                                                  : hasPermission
+                                                    ? `Has ${level.label}${isCurrentLevel ? ' (click to reduce)' : ''}`
+                                                    : `Grant ${level.label}`
                                           }
                                         >
                                           {permission.is_deny ? (
                                             <LucideIcons.X className="h-3 w-3" />
                                           ) : hasPermission ? (
-                                            <LucideIcons.Check className="h-3 w-3" />
+                                            isCascadeMode ? (
+                                              <LucideIcons.ArrowDown className="h-3 w-3" />
+                                            ) : (
+                                              <LucideIcons.Check className="h-3 w-3" />
+                                            )
                                           ) : (
                                             <span>·</span>
                                           )}
@@ -801,36 +942,74 @@ export function HierarchicalRbacMatrix({
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap items-center gap-4 text-xs text-dark-500 pt-2 border-t border-dark-100">
-        <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 rounded bg-green-100 flex items-center justify-center">
-            <LucideIcons.Check className="h-3 w-3 text-green-600" />
+      <div className="space-y-3 pt-3 border-t border-dark-100">
+        {/* Permission indicators */}
+        <div className="flex flex-wrap items-center gap-4 text-xs text-dark-500">
+          <span className="font-semibold text-dark-600">Permissions:</span>
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-4 rounded bg-blue-500 flex items-center justify-center">
+              <LucideIcons.Check className="h-3 w-3 text-white" />
+            </div>
+            <span>Current level</span>
           </div>
-          <span>Granted (inherited)</span>
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-4 rounded bg-green-100 flex items-center justify-center">
+              <LucideIcons.Check className="h-3 w-3 text-green-600" />
+            </div>
+            <span>Granted</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-4 rounded bg-amber-500 flex items-center justify-center">
+              <LucideIcons.Check className="h-3 w-3 text-white" />
+            </div>
+            <span>Modified (unsaved)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-4 rounded bg-red-200 flex items-center justify-center">
+              <LucideIcons.X className="h-3 w-3 text-red-400" />
+            </div>
+            <span>Explicit DENY</span>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 rounded bg-blue-500 flex items-center justify-center">
-            <LucideIcons.Check className="h-3 w-3 text-white" />
+
+        {/* Inheritance mode indicators */}
+        <div className="flex flex-wrap items-center gap-4 text-xs text-dark-500">
+          <span className="font-semibold text-dark-600">Inheritance Modes:</span>
+          <div className="flex items-center gap-1.5">
+            <div className="px-2 py-0.5 rounded bg-dark-100 text-dark-600 font-medium">None</div>
+            <span>No child inheritance</span>
           </div>
-          <span>Current level</span>
+          <div className="flex items-center gap-1.5">
+            <div className="px-2 py-0.5 rounded bg-violet-100 text-violet-700 font-medium flex items-center gap-1">
+              <LucideIcons.ArrowDownCircle className="h-3 w-3" />
+              Cascade
+            </div>
+            <span>Same level to all children</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="px-2 py-0.5 rounded bg-cyan-100 text-cyan-700 font-medium flex items-center gap-1">
+              <LucideIcons.GitBranch className="h-3 w-3" />
+              Mapped
+            </div>
+            <span>Custom level per child type</span>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 rounded bg-slate-400 opacity-60 flex items-center justify-center">
-            <LucideIcons.Check className="h-3 w-3 text-white" />
+
+        {/* Child row indicators */}
+        <div className="flex flex-wrap items-center gap-4 text-xs text-dark-500">
+          <span className="font-semibold text-dark-600">Child Rows:</span>
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-4 rounded bg-violet-400 opacity-70 flex items-center justify-center">
+              <LucideIcons.ArrowDown className="h-3 w-3 text-white" />
+            </div>
+            <span>Cascading from parent (read-only)</span>
           </div>
-          <span>Inheriting from parent</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 rounded bg-amber-500 flex items-center justify-center">
-            <LucideIcons.Check className="h-3 w-3 text-white" />
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-4 rounded bg-cyan-400 opacity-60 flex items-center justify-center">
+              <LucideIcons.Check className="h-3 w-3 text-white" />
+            </div>
+            <span>Mapped - inheriting parent (click to override)</span>
           </div>
-          <span>Modified (unsaved)</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 rounded bg-red-200 flex items-center justify-center">
-            <LucideIcons.X className="h-3 w-3 text-red-400" />
-          </div>
-          <span>Explicit DENY</span>
         </div>
       </div>
 
