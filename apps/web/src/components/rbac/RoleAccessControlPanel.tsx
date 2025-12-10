@@ -3,12 +3,12 @@ import { API_CONFIG } from '../../lib/config/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as LucideIcons from 'lucide-react';
 
-// RBAC Components (Role-Only Model v2.0.0)
+// RBAC Components (Role-Only Model v2.3.0)
 import {
   PermissionRuleCard,
   PermissionRuleCardSkeleton,
   GrantPermissionModal,
-  RolePermissionsMatrix
+  HierarchicalRbacMatrix
 } from './index';
 import type { InheritanceMode } from './index';
 
@@ -287,18 +287,15 @@ export function RoleAccessControlPanel({
           {/* Permission Matrix Tab */}
           {activeTab === 'effective' && (
             <div className="p-6">
-              <RolePermissionsMatrix
+              <HierarchicalRbacMatrix
                 roleId={roleId}
                 roleName={roleName}
-                permissions={permissionsData?.data || []}
-                isLoading={permissionsLoading}
-                entityLabels={entityLabels}
-                entityIcons={entityIcons}
                 onRevoke={(permissionId) => {
                   if (confirm('Are you sure you want to revoke this permission?')) {
                     revokePermissionMutation.mutate(permissionId);
                   }
                 }}
+                onGrantPermission={() => setShowGrantModal(true)}
               />
             </div>
           )}

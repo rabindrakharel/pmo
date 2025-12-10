@@ -2,9 +2,8 @@ import React, { useState, useMemo, useCallback } from 'react';
 import * as LucideIcons from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { API_CONFIG } from '../../lib/config/api';
-import { PERMISSION_LEVELS, getPermissionLabel } from './PermissionLevelSelector';
 import { InheritanceMode } from './InheritanceModeSelector';
-import { PermissionCard, PermissionBar } from './PermissionCard';
+import { EntityPermissionSection } from './EntityPermissionSection';
 
 const ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -57,38 +56,28 @@ interface HierarchicalRbacMatrixProps {
   roleId: string;
   roleName: string;
   onRevoke?: (permissionId: string) => void;
+  onGrantPermission?: (entityCode: string, scope: 'all' | 'specific') => void;
 }
 
 /**
- * Get icon component by name
- */
-function getIcon(iconName?: string, className = 'h-4 w-4') {
-  if (iconName && (LucideIcons as any)[iconName]) {
-    const Icon = (LucideIcons as any)[iconName];
-    return <Icon className={className} />;
-  }
-  return <LucideIcons.Box className={className} />;
-}
-
-/**
- * Hierarchical RBAC Matrix Component - Card-Based Layout
+ * Hierarchical RBAC Matrix Component - v2.3.0
  *
- * Displays role permissions in a clean card-based interface:
- * - Entity Types (collapsible sections)
- *   - Permission Cards with visual permission bars
- *   - Mode selection (None/Cascade/Mapped)
- *   - Child permissions only shown for Mapped mode
+ * Displays role permissions organized by entity type with:
+ * - Entity sections (collapsible)
+ * - Type-level permission with matrix table
+ * - Inheritance mode tabs (None/Cascade/Mapped)
+ * - Child entity permissions matrix (for Mapped mode)
+ * - Specific instance permissions matrix
+ * - Batch save functionality
  */
 export function HierarchicalRbacMatrix({
   roleId,
   roleName,
-  onRevoke
+  onRevoke,
+  onGrantPermission
 }: HierarchicalRbacMatrixProps) {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Track expanded state for entity types
-  const [expandedEntities, setExpandedEntities] = useState<Set<string>>(new Set());
 
   // Track pending changes
   const [pendingChanges, setPendingChanges] = useState<Record<string, PendingChange>>({});
@@ -176,21 +165,18 @@ export function HierarchicalRbacMatrix({
     }
   });
 
-  // Toggle entity section expansion
-  const toggleEntity = useCallback((entityCode: string) => {
-    setExpandedEntities(prev => {
-      const next = new Set(prev);
-      if (next.has(entityCode)) {
-        next.delete(entityCode);
-      } else {
-        next.add(entityCode);
-      }
-      return next;
-    });
-  }, []);
-
   // Handle permission level change
-  const handlePermissionChange = useCallback((permissionId: string, originalLevel: number, newLevel: number) => {
+  const handlePermissionChange = useCallback((permissionId: string, newLevel: number) => {
+    // Find original permission level
+    let originalLevel = 0;
+    for (const entity of hierarchicalData?.entities || []) {
+      const perm = entity.permissions.find(p => p.id === permissionId);
+      if (perm) {
+        originalLevel = perm.permission;
+        break;
+      }
+    }
+
     const key = `${permissionId}:permission`;
     setPendingChanges(prev => {
       const updated = { ...prev };
@@ -206,10 +192,20 @@ export function HierarchicalRbacMatrix({
       }
       return updated;
     });
-  }, []);
+  }, [hierarchicalData]);
 
   // Handle inheritance mode change
-  const handleModeChange = useCallback((permissionId: string, originalMode: InheritanceMode, newMode: InheritanceMode) => {
+  const handleModeChange = useCallback((permissionId: string, newMode: InheritanceMode) => {
+    // Find original mode
+    let originalMode: InheritanceMode = 'none';
+    for (const entity of hierarchicalData?.entities || []) {
+      const perm = entity.permissions.find(p => p.id === permissionId);
+      if (perm) {
+        originalMode = perm.inheritance_mode;
+        break;
+      }
+    }
+
     const key = `${permissionId}:mode`;
     setPendingChanges(prev => {
       const updated = { ...prev };
@@ -225,15 +221,24 @@ export function HierarchicalRbacMatrix({
       }
       return updated;
     });
-  }, []);
+  }, [hierarchicalData]);
 
   // Handle child permission change
   const handleChildPermissionChange = useCallback((
     permissionId: string,
     childEntityCode: string,
-    originalLevel: number,
     newLevel: number
   ) => {
+    // Find original child permission level
+    let originalLevel = -1;
+    for (const entity of hierarchicalData?.entities || []) {
+      const perm = entity.permissions.find(p => p.id === permissionId);
+      if (perm) {
+        originalLevel = perm.child_permissions[childEntityCode] ?? -1;
+        break;
+      }
+    }
+
     const key = `${permissionId}:child:${childEntityCode}`;
     setPendingChanges(prev => {
       const updated = { ...prev };
@@ -250,7 +255,7 @@ export function HierarchicalRbacMatrix({
       }
       return updated;
     });
-  }, []);
+  }, [hierarchicalData]);
 
   // Save all pending changes
   const handleSave = useCallback(() => {
@@ -280,34 +285,46 @@ export function HierarchicalRbacMatrix({
     );
   }, [hierarchicalData, searchQuery]);
 
-  // Get pending values for a permission
-  const getPendingPermission = useCallback((permissionId: string): number | undefined => {
-    const key = `${permissionId}:permission`;
-    return pendingChanges[key]?.newValue as number | undefined;
-  }, [pendingChanges]);
-
-  const getPendingMode = useCallback((permissionId: string): InheritanceMode | undefined => {
-    const key = `${permissionId}:mode`;
-    return pendingChanges[key]?.newValue as InheritanceMode | undefined;
-  }, [pendingChanges]);
-
-  const getPendingChildPermissions = useCallback((permissionId: string): Record<string, number> => {
+  // Extract pending values organized by type
+  const pendingPermissions = useMemo(() => {
     const result: Record<string, number> = {};
     Object.entries(pendingChanges).forEach(([key, change]) => {
-      if (key.startsWith(`${permissionId}:child:`) && change.childEntityCode) {
-        result[change.childEntityCode] = change.newValue as number;
+      if (change.type === 'permission') {
+        result[change.permissionId] = change.newValue as number;
       }
     });
     return result;
   }, [pendingChanges]);
 
-  const hasPermissionPendingChange = useCallback((permissionId: string): boolean => {
-    return !!pendingChanges[`${permissionId}:permission`];
+  const pendingModes = useMemo(() => {
+    const result: Record<string, InheritanceMode> = {};
+    Object.entries(pendingChanges).forEach(([key, change]) => {
+      if (change.type === 'inheritance_mode') {
+        result[change.permissionId] = change.newValue as InheritanceMode;
+      }
+    });
+    return result;
   }, [pendingChanges]);
 
-  const hasModePendingChange = useCallback((permissionId: string): boolean => {
-    return !!pendingChanges[`${permissionId}:mode`];
+  const pendingChildPermissions = useMemo(() => {
+    const result: Record<string, Record<string, number>> = {};
+    Object.entries(pendingChanges).forEach(([key, change]) => {
+      if (change.type === 'child_permission' && change.childEntityCode) {
+        if (!result[change.permissionId]) {
+          result[change.permissionId] = {};
+        }
+        result[change.permissionId][change.childEntityCode] = change.newValue as number;
+      }
+    });
+    return result;
   }, [pendingChanges]);
+
+  // Handle grant permission
+  const handleGrantPermission = useCallback((entityCode: string, scope: 'all' | 'specific') => {
+    if (onGrantPermission) {
+      onGrantPermission(entityCode, scope);
+    }
+  }, [onGrantPermission]);
 
   if (isLoading) {
     return <HierarchicalRbacMatrixSkeleton />;
@@ -343,7 +360,7 @@ export function HierarchicalRbacMatrix({
       {/* Header with Save Button */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-dark-700">Permission Overview</span>
+          <span className="text-sm font-medium text-dark-700">Permission Matrix</span>
           <span className="px-2 py-0.5 text-xs bg-dark-100 rounded text-dark-600">
             {hierarchicalData.entities.reduce((sum, e) => sum + e.permissions.length, 0)} permissions
           </span>
@@ -400,174 +417,27 @@ export function HierarchicalRbacMatrix({
         />
       </div>
 
-      {/* Expand/Collapse All */}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            const allEntityCodes = filteredEntities.map(e => e.entity_code);
-            setExpandedEntities(new Set(allEntityCodes));
-          }}
-          className="px-2 py-1 text-xs font-medium text-dark-600 hover:text-dark-800 hover:bg-dark-100 rounded transition-colors flex items-center gap-1"
-        >
-          <LucideIcons.ChevronsDownUp className="h-3 w-3" />
-          Expand All
-        </button>
-        <button
-          type="button"
-          onClick={() => setExpandedEntities(new Set())}
-          className="px-2 py-1 text-xs font-medium text-dark-600 hover:text-dark-800 hover:bg-dark-100 rounded transition-colors flex items-center gap-1"
-        >
-          <LucideIcons.ChevronsUpDown className="h-3 w-3" />
-          Collapse All
-        </button>
-      </div>
-
       {/* Entity Sections */}
-      <div className="space-y-3">
-        {filteredEntities.map((entity) => {
-          const isExpanded = expandedEntities.has(entity.entity_code);
-
-          return (
-            <div key={entity.entity_code} className="border border-dark-200 rounded-xl overflow-hidden bg-white">
-              {/* Entity Header */}
-              <button
-                type="button"
-                onClick={() => toggleEntity(entity.entity_code)}
-                className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-dark-50 to-white hover:from-dark-100 hover:to-dark-50 transition-all"
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg transition-colors ${isExpanded ? 'bg-slate-200' : 'bg-dark-100'}`}>
-                    {getIcon(entity.entity_icon)}
-                  </div>
-                  <div className="text-left">
-                    <div className="text-sm font-semibold text-dark-800">{entity.entity_label}</div>
-                    <div className="text-xs text-dark-500">
-                      {entity.permissions.length} permission{entity.permissions.length !== 1 ? 's' : ''}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {/* Quick preview of permissions */}
-                  <div className="hidden sm:flex items-center gap-1">
-                    {entity.permissions.slice(0, 3).map((p) => (
-                      <span
-                        key={p.id}
-                        className={`px-2 py-0.5 text-xs rounded ${
-                          p.is_deny ? 'bg-red-100 text-red-600' :
-                          p.entity_instance_id === ALL_ENTITIES_ID ? 'bg-slate-100 text-slate-600' :
-                          'bg-dark-100 text-dark-600'
-                        }`}
-                      >
-                        {p.entity_instance_id === ALL_ENTITIES_ID ? 'All' : (p.entity_instance_name?.slice(0, 12) || '...')}
-                      </span>
-                    ))}
-                    {entity.permissions.length > 3 && (
-                      <span className="text-xs text-dark-400">+{entity.permissions.length - 3}</span>
-                    )}
-                  </div>
-                  {isExpanded ? (
-                    <LucideIcons.ChevronUp className="h-5 w-5 text-dark-400" />
-                  ) : (
-                    <LucideIcons.ChevronDown className="h-5 w-5 text-dark-400" />
-                  )}
-                </div>
-              </button>
-
-              {/* Permission Cards */}
-              {isExpanded && (
-                <div className="p-4 bg-dark-50/50 border-t border-dark-100">
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                    {entity.permissions.map((permission) => {
-                      const isTypeLevel = permission.entity_instance_id === ALL_ENTITIES_ID;
-                      const pendingChildPerms = getPendingChildPermissions(permission.id);
-
-                      return (
-                        <PermissionCard
-                          key={permission.id}
-                          id={permission.id}
-                          entityInstanceId={permission.entity_instance_id}
-                          entityInstanceName={permission.entity_instance_name}
-                          entityLabel={entity.entity_label}
-                          permission={permission.permission}
-                          inheritanceMode={permission.inheritance_mode}
-                          childPermissions={permission.child_permissions}
-                          childEntityCodes={entity.child_entity_codes}
-                          isDeny={permission.is_deny}
-                          isTypeLevel={isTypeLevel}
-                          hasPendingChange={hasPermissionPendingChange(permission.id)}
-                          hasModePendingChange={hasModePendingChange(permission.id)}
-                          pendingPermission={getPendingPermission(permission.id)}
-                          pendingMode={getPendingMode(permission.id)}
-                          pendingChildPermissions={Object.keys(pendingChildPerms).length > 0 ? pendingChildPerms : undefined}
-                          onPermissionChange={(level) => handlePermissionChange(permission.id, permission.permission, level)}
-                          onModeChange={(mode) => handleModeChange(permission.id, permission.inheritance_mode, mode)}
-                          onChildPermissionChange={(childCode, level) => {
-                            const originalLevel = permission.child_permissions[childCode] ?? -1;
-                            handleChildPermissionChange(permission.id, childCode, originalLevel, level);
-                          }}
-                          onRevoke={() => onRevoke?.(permission.id)}
-                          disabled={batchUpdateMutation.isPending}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Legend */}
-      <div className="p-4 bg-dark-50 rounded-xl border border-dark-100">
-        <div className="text-xs font-semibold text-dark-600 mb-3">Quick Reference</div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-dark-500">
-          <div>
-            <div className="font-medium text-dark-600 mb-1">Permission Bar</div>
-            <div className="flex items-center gap-2">
-              <div className="flex gap-0.5 flex-1">
-                {PERMISSION_LEVELS.slice(0, 4).map((p, i) => (
-                  <div
-                    key={p.value}
-                    className={`h-3 flex-1 rounded-sm ${i < 3 ? p.color : 'bg-dark-100'} ${i < 3 ? '' : 'opacity-40'}`}
-                  />
-                ))}
-              </div>
-              <span>= EDIT</span>
-            </div>
-          </div>
-          <div>
-            <div className="font-medium text-dark-600 mb-1">Inheritance Modes</div>
-            <div className="space-y-1">
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded bg-dark-200" />
-                <span>None - stops here</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded bg-violet-400" />
-                <span>Cascade - same to all children</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded bg-cyan-400" />
-                <span>Mapped - customize per child</span>
-              </div>
-            </div>
-          </div>
-          <div>
-            <div className="font-medium text-dark-600 mb-1">Status</div>
-            <div className="space-y-1">
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded bg-amber-400" />
-                <span>Modified (unsaved)</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded bg-red-400" />
-                <span>Explicit DENY</span>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className="space-y-4">
+        {filteredEntities.map((entity) => (
+          <EntityPermissionSection
+            key={entity.entity_code}
+            entityCode={entity.entity_code}
+            entityLabel={entity.entity_label}
+            entityIcon={entity.entity_icon}
+            childEntityCodes={entity.child_entity_codes}
+            permissions={entity.permissions}
+            pendingPermissions={pendingPermissions}
+            pendingModes={pendingModes}
+            pendingChildPermissions={pendingChildPermissions}
+            onPermissionChange={handlePermissionChange}
+            onModeChange={handleModeChange}
+            onChildPermissionChange={handleChildPermissionChange}
+            onRevoke={(id) => onRevoke?.(id)}
+            onGrantPermission={handleGrantPermission}
+            disabled={batchUpdateMutation.isPending}
+          />
+        ))}
       </div>
 
       {/* Error message */}
@@ -606,10 +476,13 @@ export function HierarchicalRbacMatrixSkeleton() {
         <div className="h-6 w-48 bg-dark-100 rounded animate-pulse" />
       </div>
       <div className="h-10 bg-dark-100 rounded-lg animate-pulse" />
-      <div className="h-6 w-32 bg-dark-100 rounded animate-pulse" />
-      {[...Array(3)].map((_, i) => (
+      {[...Array(2)].map((_, i) => (
         <div key={i} className="border border-dark-200 rounded-xl overflow-hidden">
-          <div className="h-16 bg-dark-50 animate-pulse" />
+          <div className="h-14 bg-slate-100 animate-pulse" />
+          <div className="p-4 bg-dark-50/30 space-y-3">
+            <div className="h-32 bg-white rounded-lg border border-dark-200 animate-pulse" />
+            <div className="h-24 bg-white rounded-lg border border-dark-200 animate-pulse" />
+          </div>
         </div>
       ))}
     </div>
