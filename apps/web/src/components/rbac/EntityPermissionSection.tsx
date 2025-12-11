@@ -31,6 +31,13 @@ interface EntityInstance {
   code?: string;
 }
 
+// Full permission config for a pending instance grant
+interface PendingInstanceConfig {
+  permission: number;
+  inheritanceMode: InheritanceMode;
+  childPermissions: Record<string, number>;
+}
+
 interface EntityPermissionSectionProps {
   entityCode: string;
   entityLabel: string;
@@ -74,7 +81,7 @@ function getIcon(iconName?: string, className = 'h-4 w-4') {
  * - Inheritance mode selector (None/Cascade/Mapped)
  * - Child entity permissions matrix (when Mapped)
  * - Specific instance permissions with matrix
- * - Inline instance picker with matrix for selected instances
+ * - Inline instance picker with full inheritance config for each selected instance
  */
 export function EntityPermissionSection({
   entityCode,
@@ -102,8 +109,10 @@ export function EntityPermissionSection({
   // Instance picker state
   const [showInstancePicker, setShowInstancePicker] = useState(false);
   const [instanceSearch, setInstanceSearch] = useState('');
-  // Track selected instances with their permission levels: instanceId -> permission level
-  const [selectedInstancePermissions, setSelectedInstancePermissions] = useState<Record<string, number>>({});
+  // Track selected instances with full config: instanceId -> PendingInstanceConfig
+  const [selectedInstanceConfigs, setSelectedInstanceConfigs] = useState<Record<string, PendingInstanceConfig>>({});
+  // Track which instance's inheritance config is expanded
+  const [expandedInstanceConfig, setExpandedInstanceConfig] = useState<string | null>(null);
 
   // Fetch instances for this entity type
   const { data: instancesData, isLoading: instancesLoading } = useQuery({
@@ -122,12 +131,12 @@ export function EntityPermissionSection({
 
   // Grant permissions mutation
   const grantPermissionsMutation = useMutation({
-    mutationFn: async (instancePermissions: Record<string, number>) => {
+    mutationFn: async (configs: Record<string, PendingInstanceConfig>) => {
       const token = localStorage.getItem('auth_token');
 
-      // Grant permission to each selected instance with its specific level
+      // Grant permission to each selected instance with its full config
       const results = await Promise.all(
-        Object.entries(instancePermissions).map(async ([instanceId, permissionLevel]) => {
+        Object.entries(configs).map(async ([instanceId, config]) => {
           const response = await fetch(
             `${API_CONFIG.BASE_URL}/api/v1/entity_rbac`,
             {
@@ -140,8 +149,9 @@ export function EntityPermissionSection({
                 role_id: roleId,
                 entity_code: entityCode,
                 entity_instance_id: instanceId,
-                permission: permissionLevel,
-                inheritance_mode: 'none',
+                permission: config.permission,
+                inheritance_mode: config.inheritanceMode,
+                child_permissions: config.inheritanceMode === 'mapped' ? config.childPermissions : {},
                 is_deny: false
               })
             }
@@ -158,7 +168,8 @@ export function EntityPermissionSection({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['access-control', 'role', roleId] });
-      setSelectedInstancePermissions({});
+      setSelectedInstanceConfigs({});
+      setExpandedInstanceConfig(null);
       setShowInstancePicker(false);
       setInstanceSearch('');
       onPermissionsGranted?.();
@@ -207,19 +218,19 @@ export function EntityPermissionSection({
 
   // Build rows for selected instances matrix (pending grants)
   const selectedInstanceRows = useMemo(() => {
-    return Object.entries(selectedInstancePermissions).map(([instanceId, level]) => {
+    return Object.entries(selectedInstanceConfigs).map(([instanceId, config]) => {
       const instance = instancesMap.get(instanceId);
       return {
         id: `pending:${instanceId}`,
         label: instance?.name || instanceId.slice(0, 8),
         icon: undefined,
-        permission: level,
+        permission: config.permission,
         isDeny: false,
         isTypeLevel: false,
-        hasInheritanceConfig: false
+        hasInheritanceConfig: childEntityCodes.length > 0
       };
     });
-  }, [selectedInstancePermissions, instancesMap]);
+  }, [selectedInstanceConfigs, instancesMap, childEntityCodes]);
 
   // Get effective values (pending or original)
   const getEffectiveMode = useCallback((permId: string, original: InheritanceMode): InheritanceMode => {
@@ -312,73 +323,145 @@ export function EntityPermissionSection({
     return changes;
   }, [typePermission, pendingChildPermissions, pendingPermissions]);
 
-  // Toggle instance selection with default permission level
+  // Toggle instance selection with default config
   const toggleInstance = useCallback((instanceId: string) => {
-    setSelectedInstancePermissions(prev => {
+    setSelectedInstanceConfigs(prev => {
       const updated = { ...prev };
       if (instanceId in updated) {
         delete updated[instanceId];
+        if (expandedInstanceConfig === instanceId) {
+          setExpandedInstanceConfig(null);
+        }
       } else {
-        updated[instanceId] = 3; // Default to EDIT
+        updated[instanceId] = {
+          permission: 3, // Default to EDIT
+          inheritanceMode: 'none',
+          childPermissions: {}
+        };
       }
       return updated;
     });
-  }, []);
+  }, [expandedInstanceConfig]);
 
   // Handle permission level change for pending instance
   const handlePendingInstancePermissionChange = useCallback((rowId: string, level: number) => {
     // rowId format: "pending:{instanceId}"
     const instanceId = rowId.replace('pending:', '');
-    setSelectedInstancePermissions(prev => ({
+    setSelectedInstanceConfigs(prev => ({
       ...prev,
-      [instanceId]: level
+      [instanceId]: {
+        ...prev[instanceId],
+        permission: level
+      }
+    }));
+  }, []);
+
+  // Handle inheritance mode change for pending instance
+  const handlePendingInstanceModeChange = useCallback((instanceId: string, mode: InheritanceMode) => {
+    setSelectedInstanceConfigs(prev => ({
+      ...prev,
+      [instanceId]: {
+        ...prev[instanceId],
+        inheritanceMode: mode,
+        // Clear child permissions if switching away from mapped
+        childPermissions: mode === 'mapped' ? prev[instanceId]?.childPermissions || {} : {}
+      }
+    }));
+  }, []);
+
+  // Handle child permission change for pending instance
+  const handlePendingInstanceChildPermissionChange = useCallback((instanceId: string, childCode: string, level: number) => {
+    setSelectedInstanceConfigs(prev => ({
+      ...prev,
+      [instanceId]: {
+        ...prev[instanceId],
+        childPermissions: {
+          ...prev[instanceId]?.childPermissions,
+          [childCode]: level
+        }
+      }
     }));
   }, []);
 
   // Remove instance from selection (used as "revoke" in the matrix)
   const handleRemovePendingInstance = useCallback((rowId: string) => {
     const instanceId = rowId.replace('pending:', '');
-    setSelectedInstancePermissions(prev => {
+    setSelectedInstanceConfigs(prev => {
       const updated = { ...prev };
       delete updated[instanceId];
       return updated;
     });
+    if (expandedInstanceConfig === instanceId.replace('pending:', '')) {
+      setExpandedInstanceConfig(null);
+    }
+  }, [expandedInstanceConfig]);
+
+  // Toggle inheritance config expansion for an instance
+  const handleConfigureInheritance = useCallback((rowId: string) => {
+    const instanceId = rowId.replace('pending:', '');
+    setExpandedInstanceConfig(prev => prev === instanceId ? null : instanceId);
   }, []);
 
   // Select/deselect all visible instances
   const toggleAllVisible = useCallback(() => {
     const visibleIds = filteredInstances.map((i: EntityInstance) => i.id);
-    const allSelected = visibleIds.every((id: string) => id in selectedInstancePermissions);
+    const allSelected = visibleIds.every((id: string) => id in selectedInstanceConfigs);
 
     if (allSelected) {
       // Deselect all visible
-      setSelectedInstancePermissions(prev => {
+      setSelectedInstanceConfigs(prev => {
         const updated = { ...prev };
         visibleIds.forEach((id: string) => delete updated[id]);
         return updated;
       });
+      setExpandedInstanceConfig(null);
     } else {
-      // Select all visible with default permission level
-      setSelectedInstancePermissions(prev => {
+      // Select all visible with default config
+      setSelectedInstanceConfigs(prev => {
         const updated = { ...prev };
         visibleIds.forEach((id: string) => {
           if (!(id in updated)) {
-            updated[id] = 3; // Default to EDIT
+            updated[id] = {
+              permission: 3, // Default to EDIT
+              inheritanceMode: 'none',
+              childPermissions: {}
+            };
           }
         });
         return updated;
       });
     }
-  }, [filteredInstances, selectedInstancePermissions]);
+  }, [filteredInstances, selectedInstanceConfigs]);
 
   // Handle grant permissions
   const handleGrantPermissions = useCallback(() => {
-    if (Object.keys(selectedInstancePermissions).length === 0) return;
-    grantPermissionsMutation.mutate(selectedInstancePermissions);
-  }, [selectedInstancePermissions, grantPermissionsMutation]);
+    if (Object.keys(selectedInstanceConfigs).length === 0) return;
+    grantPermissionsMutation.mutate(selectedInstanceConfigs);
+  }, [selectedInstanceConfigs, grantPermissionsMutation]);
 
   const totalPermissions = permissions.length;
-  const selectedCount = Object.keys(selectedInstancePermissions).length;
+  const selectedCount = Object.keys(selectedInstanceConfigs).length;
+
+  // Build child rows for a pending instance
+  const buildPendingChildRows = useCallback((instanceId: string, config: PendingInstanceConfig) => {
+    return childEntityCodes.map(child => {
+      const level = config.childPermissions[child.entity] ?? -1;
+      // If -1, inherit from parent
+      const displayLevel = level >= 0 ? level : config.permission;
+
+      return {
+        id: `pending:${instanceId}:child:${child.entity}`,
+        label: child.ui_label,
+        icon: child.ui_icon,
+        permission: displayLevel,
+        isDeny: false,
+        isTypeLevel: false,
+        hasInheritanceConfig: false,
+        _childCode: child.entity,
+        _inheritsParent: level < 0
+      };
+    });
+  }, [childEntityCodes]);
 
   return (
     <div className="border border-dark-200 rounded-xl overflow-hidden bg-white">
@@ -611,7 +694,8 @@ export function EntityPermissionSection({
                   type="button"
                   onClick={() => {
                     setShowInstancePicker(false);
-                    setSelectedInstancePermissions({});
+                    setSelectedInstanceConfigs({});
+                    setExpandedInstanceConfig(null);
                     setInstanceSearch('');
                   }}
                   className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-100 rounded-lg transition-colors"
@@ -656,7 +740,7 @@ export function EntityPermissionSection({
                       <label className="flex items-center gap-3 cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={filteredInstances.length > 0 && filteredInstances.every((i: EntityInstance) => i.id in selectedInstancePermissions)}
+                          checked={filteredInstances.length > 0 && filteredInstances.every((i: EntityInstance) => i.id in selectedInstanceConfigs)}
                           onChange={toggleAllVisible}
                           className="w-4 h-4 text-blue-600 rounded border-dark-300 focus:ring-blue-500"
                         />
@@ -672,12 +756,12 @@ export function EntityPermissionSection({
                         <label
                           key={instance.id}
                           className={`flex items-center gap-3 px-4 py-2 cursor-pointer transition-colors ${
-                            instance.id in selectedInstancePermissions ? 'bg-blue-50' : 'hover:bg-dark-50'
+                            instance.id in selectedInstanceConfigs ? 'bg-blue-50' : 'hover:bg-dark-50'
                           }`}
                         >
                           <input
                             type="checkbox"
-                            checked={instance.id in selectedInstancePermissions}
+                            checked={instance.id in selectedInstanceConfigs}
                             onChange={() => toggleInstance(instance.id)}
                             className="w-4 h-4 text-blue-600 rounded border-dark-300 focus:ring-blue-500"
                           />
@@ -698,7 +782,7 @@ export function EntityPermissionSection({
                 )}
               </div>
 
-              {/* SELECTED INSTANCES MATRIX TABLE */}
+              {/* SELECTED INSTANCES WITH FULL CONFIG */}
               {selectedCount > 0 && (
                 <div className="border-b border-dark-100">
                   <div className="px-4 py-2 bg-emerald-50 border-b border-emerald-200">
@@ -712,18 +796,139 @@ export function EntityPermissionSection({
                       </span>
                     </div>
                     <p className="text-xs text-emerald-600 mt-1">
-                      Click permission levels to customize, then Grant to save
+                      Set permission levels and inheritance, then Grant to save
                     </p>
                   </div>
+
+                  {/* Matrix Table for Selected Instances */}
                   <div className="p-3">
                     <PermissionMatrixTable
                       rows={selectedInstanceRows}
                       pendingChanges={{}}
                       onPermissionChange={handlePendingInstancePermissionChange}
                       onRevoke={handleRemovePendingInstance}
+                      onConfigureInheritance={childEntityCodes.length > 0 ? handleConfigureInheritance : undefined}
                       disabled={grantPermissionsMutation.isPending}
                     />
                   </div>
+
+                  {/* Expanded Instance Inheritance Config */}
+                  {expandedInstanceConfig && selectedInstanceConfigs[expandedInstanceConfig] && childEntityCodes.length > 0 && (
+                    <div className="mx-3 mb-3 bg-dark-50 border border-dark-200 rounded-lg overflow-hidden">
+                      <div className="px-4 py-2 bg-dark-100 border-b border-dark-200">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <LucideIcons.Settings className="h-4 w-4 text-dark-600" />
+                            <span className="text-sm font-semibold text-dark-700">
+                              Inheritance for: {instancesMap.get(expandedInstanceConfig)?.name || expandedInstanceConfig}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setExpandedInstanceConfig(null)}
+                            className="p-1 text-dark-400 hover:text-dark-600 rounded"
+                          >
+                            <LucideIcons.X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Inheritance Mode Selector */}
+                      <div className="p-3">
+                        <div className="text-xs font-medium text-dark-600 mb-2">
+                          Inheritance to Child Entities:
+                        </div>
+                        <div className="flex gap-2">
+                          {(['none', 'cascade', 'mapped'] as InheritanceMode[]).map((mode) => {
+                            const config = selectedInstanceConfigs[expandedInstanceConfig];
+                            const isSelected = config?.inheritanceMode === mode;
+
+                            const modeConfig = {
+                              none: { icon: LucideIcons.Circle, label: 'None' },
+                              cascade: { icon: LucideIcons.ArrowDownCircle, label: 'Cascade' },
+                              mapped: { icon: LucideIcons.GitBranch, label: 'Mapped' }
+                            }[mode];
+
+                            const Icon = modeConfig.icon;
+
+                            return (
+                              <button
+                                key={mode}
+                                type="button"
+                                onClick={() => handlePendingInstanceModeChange(expandedInstanceConfig, mode)}
+                                disabled={grantPermissionsMutation.isPending}
+                                className={`
+                                  flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border-2 transition-all text-sm
+                                  ${isSelected
+                                    ? mode === 'none'
+                                      ? 'border-dark-400 bg-dark-100 text-dark-700'
+                                      : mode === 'cascade'
+                                        ? 'border-violet-400 bg-violet-50 text-violet-700'
+                                        : 'border-cyan-400 bg-cyan-50 text-cyan-700'
+                                    : 'border-dark-200 hover:border-dark-300 text-dark-500 hover:text-dark-700'
+                                  }
+                                `}
+                              >
+                                <Icon className="h-4 w-4" />
+                                <span className="font-medium">{modeConfig.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Cascade Summary for pending instance */}
+                        {selectedInstanceConfigs[expandedInstanceConfig]?.inheritanceMode === 'cascade' && (
+                          <div className="mt-3 p-3 bg-violet-50 border border-violet-200 rounded-lg">
+                            <div className="flex items-center gap-2 text-sm text-violet-700">
+                              <LucideIcons.ArrowDownCircle className="h-4 w-4" />
+                              <span>
+                                All {childEntityCodes.length} child types inherit{' '}
+                                <strong>{getPermissionLabel(selectedInstanceConfigs[expandedInstanceConfig]?.permission || 0)}</strong>
+                              </span>
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {childEntityCodes.map(child => (
+                                <span
+                                  key={child.entity}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-100 text-violet-600 text-xs rounded"
+                                >
+                                  {getIcon(child.ui_icon, 'h-3 w-3')}
+                                  {child.ui_label}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Mapped Child Permissions for pending instance */}
+                        {selectedInstanceConfigs[expandedInstanceConfig]?.inheritanceMode === 'mapped' && (
+                          <div className="mt-3 bg-cyan-50 border border-cyan-200 rounded-lg overflow-hidden">
+                            <div className="px-3 py-2 border-b border-cyan-200 bg-cyan-100/50">
+                              <div className="flex items-center gap-2 text-sm font-medium text-cyan-700">
+                                <LucideIcons.GitBranch className="h-4 w-4" />
+                                <span>Child Entity Permissions</span>
+                              </div>
+                            </div>
+                            <div className="p-2">
+                              <PermissionMatrixTable
+                                rows={buildPendingChildRows(expandedInstanceConfig, selectedInstanceConfigs[expandedInstanceConfig])}
+                                pendingChanges={{}}
+                                onPermissionChange={(rowId, level) => {
+                                  // rowId format: "pending:{instanceId}:child:{childCode}"
+                                  const match = rowId.match(/^pending:([^:]+):child:(.+)$/);
+                                  if (match) {
+                                    handlePendingInstanceChildPermissionChange(match[1], match[2], level);
+                                  }
+                                }}
+                                disabled={grantPermissionsMutation.isPending}
+                                compact
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -740,7 +945,8 @@ export function EntityPermissionSection({
                     type="button"
                     onClick={() => {
                       setShowInstancePicker(false);
-                      setSelectedInstancePermissions({});
+                      setSelectedInstanceConfigs({});
+                      setExpandedInstanceConfig(null);
                       setInstanceSearch('');
                     }}
                     className="px-3 py-1.5 text-sm font-medium text-dark-600 hover:text-dark-800 hover:bg-dark-100 rounded-lg transition-colors"
