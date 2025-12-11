@@ -801,6 +801,100 @@ const createMutation = useMutation({
 
 ---
 
+## Table Density System (v14.2.0)
+
+### Overview
+
+The density system provides 3 tiers of visual density for tables, with **compact as the universal default**. This creates lightweight, minimal tables that work well with inline editing and complex cell content.
+
+### Density Tiers
+
+| Density | Row Height | Cell Padding | Header Padding | Font Size | Badge Size | Icon Size | Input Padding |
+|---------|------------|--------------|----------------|-----------|------------|-----------|---------------|
+| **compact** (default) | 32px | `px-3 py-1` | `px-3 py-1.5` | `text-xs` | `px-1.5 py-px text-[10px]` | `h-3 w-3` | `px-1.5 py-0.5` |
+| regular | 40px | `px-4 py-2` | `px-4 py-2` | `text-[13px]` | `px-2 py-0.5 text-[11px]` | `h-3.5 w-3.5` | `px-2 py-1` |
+| relaxed | 48px | `px-5 py-3` | `px-5 py-2.5` | `text-sm` | `px-2.5 py-0.5 text-xs` | `h-4 w-4` | `px-2.5 py-1.5` |
+
+### DENSITY_CONFIG Constant
+
+```typescript
+export type TableDensity = 'compact' | 'regular' | 'relaxed';
+
+const DENSITY_CONFIG = {
+  compact: {
+    rowHeight: 32,
+    cellPadding: 'px-3 py-1',
+    headerPadding: 'px-3 py-1.5',
+    fontSize: 'text-xs',
+    badgeSize: 'px-1.5 py-px text-[10px]',
+    iconSize: 'h-3 w-3',
+    actionIconSize: 'h-3.5 w-3.5',
+    inputPadding: 'px-1.5 py-0.5',
+  },
+  regular: {
+    rowHeight: 40,
+    cellPadding: 'px-4 py-2',
+    headerPadding: 'px-4 py-2',
+    fontSize: 'text-[13px]',
+    badgeSize: 'px-2 py-0.5 text-[11px]',
+    iconSize: 'h-3.5 w-3.5',
+    actionIconSize: 'h-4 w-4',
+    inputPadding: 'px-2 py-1',
+  },
+  relaxed: {
+    rowHeight: 48,
+    cellPadding: 'px-5 py-3',
+    headerPadding: 'px-5 py-2.5',
+    fontSize: 'text-sm',
+    badgeSize: 'px-2.5 py-0.5 text-xs',
+    iconSize: 'h-4 w-4',
+    actionIconSize: 'h-4 w-4',
+    inputPadding: 'px-2.5 py-1.5',
+  },
+} as const;
+```
+
+### Usage
+
+```typescript
+// Default: compact density
+<EntityListOfInstancesTable
+  data={formattedData}
+  metadata={metadata}
+  // density defaults to 'compact'
+/>
+
+// With density control
+const [density, setDensity] = useState<TableDensity>('compact');
+
+<EntityListOfInstancesTable
+  data={formattedData}
+  metadata={metadata}
+  density={density}
+  onDensityChange={setDensity}
+/>
+```
+
+### Component Alignment
+
+All inline edit components use `densitySettings.inputPadding` for consistent sizing:
+
+| Component | Compact Styling |
+|-----------|-----------------|
+| Text inputs | `px-1.5 py-0.5 text-xs` |
+| `BadgeDropdownSelect` | Trigger: `px-1.5 py-0.5 text-xs`, Chevron: `h-3 w-3` |
+| `EntityInstanceNameSelect` | Trigger: `px-1.5 py-0.5 text-xs`, Chevron: `h-3 w-3` |
+| Action icons | Always visible (no hover opacity), `h-3.5 w-3.5` |
+
+### Key Design Decisions
+
+1. **Compact Default**: All tables use compact density by default for a lightweight feel
+2. **Action Icons Always Visible**: Removed `opacity-0 group-hover:opacity-100` - actions are always visible
+3. **Inline Edit Alignment**: Input padding matches cell content for seamless view/edit transitions
+4. **Badge Scaling**: Smaller badges in compact mode (`text-[10px]`) for visual balance
+
+---
+
 ## Virtualization
 
 ### Performance Optimizations
