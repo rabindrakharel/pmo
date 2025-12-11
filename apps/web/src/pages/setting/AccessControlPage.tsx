@@ -5,32 +5,22 @@ import { API_CONFIG } from '../../lib/config/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as LucideIcons from 'lucide-react';
 
-// RBAC Components (Role-Only Model v2.1.0)
+// RBAC Components (Role-Only Model v2.3.0)
 import {
-  PermissionRuleCard,
-  PermissionRuleCardSkeleton,
   GrantPermissionModal,
-  RolePermissionsMatrix,
-  HierarchicalRbacMatrix,
-  PermissionBadge,
-  InheritanceModeBadge,
-  InheritanceMode
+  HierarchicalRbacMatrix
 } from '../../components/rbac';
 
 /**
  * Access Control Page
  *
- * Role-Only RBAC Model v2.1.0
+ * Role-Only RBAC Model v2.3.0
  *
  * - Role selection (left panel)
- * - Role detail with Permissions, Members, Permission Matrix tabs (right panel)
- * - Hierarchical permission matrix with collapsible entity types and instances
- * - Child entity permission management (mapped inheritance)
- * - Visual inheritance indicators
- * - No direct employee permissions (all via roles)
+ * - Permission Matrix showing hierarchical permissions (right panel)
+ * - Simplified UI: removed Permissions and Members tabs
+ * - Members are managed via the Role detail page's "People" tab
  */
-
-const ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111';
 
 // Types
 interface Role {
@@ -41,72 +31,14 @@ interface Role {
   active_flag: boolean;
 }
 
-interface Permission {
-  id: string;
-  entity_code: string;
-  entity_instance_id: string;
-  permission: number;
-  inheritance_mode: InheritanceMode;
-  child_permissions: Record<string, number>;
-  is_deny: boolean;
-  granted_ts: string;
-  expires_ts?: string | null;
-  granted_by_name?: string;
-  entity_name?: string;
-  entity_ui_label?: string;
-  entity_ui_icon?: string;
-}
-
-interface PersonAssignment {
-  person_id: string;
-  person_name: string;
-  person_email?: string;
-  entity_code?: string;
-  assigned_ts: string;
-  link_id: string;
-}
-
-interface EffectivePermission {
-  entity_code: string;
-  entity_name?: string;
-  entity_icon?: string;
-  permission: number;
-  is_deny: boolean;
-  source: 'direct' | 'inherited';
-  inherited_from?: {
-    entity_code: string;
-    entity_name?: string;
-  };
-}
-
-interface EntityOption {
-  code: string;
-  name: string;
-  ui_label: string;
-  ui_icon?: string;
-}
-
-interface PersonOption {
-  id: string;
-  name: string;
-  code?: string;
-  email?: string;
-}
-
-// Tab types
-type DetailTab = 'permissions' | 'persons' | 'effective';
-
 export function AccessControlPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   // State
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<DetailTab>('permissions');
   const [searchQuery, setSearchQuery] = useState('');
   const [showGrantModal, setShowGrantModal] = useState(false);
-  const [showAssignPersonModal, setShowAssignPersonModal] = useState(false);
-  const [selectedPersonId, setSelectedPersonId] = useState('');
 
   // Fetch all roles
   const { data: rolesData, isLoading: rolesLoading, error: rolesError } = useQuery({
@@ -120,99 +52,6 @@ export function AccessControlPage() {
       return response.json();
     }
   });
-
-  // Fetch permissions for selected role
-  const { data: permissionsData, isLoading: permissionsLoading } = useQuery({
-    queryKey: ['access-control', 'role', selectedRoleId, 'permissions'],
-    queryFn: async () => {
-      if (!selectedRoleId) return null;
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(
-        `${API_CONFIG.BASE_URL}/api/v1/entity_rbac/role/${selectedRoleId}/permissions`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (!response.ok) throw new Error('Failed to fetch permissions');
-      return response.json();
-    },
-    enabled: !!selectedRoleId
-  });
-
-  // Fetch persons (members) for selected role via entity_instance_link
-  // Uses universal /api/v1/person with parent_entity_code=role filtering
-  const { data: personsData, isLoading: personsLoading } = useQuery({
-    queryKey: ['access-control', 'role', selectedRoleId, 'members'],
-    queryFn: async () => {
-      if (!selectedRoleId) return null;
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(
-        `${API_CONFIG.BASE_URL}/api/v1/person?parent_entity_code=role&parent_entity_instance_id=${selectedRoleId}&limit=1000`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (!response.ok) throw new Error('Failed to fetch members');
-      const result = await response.json();
-      // Transform to expected PersonAssignment format
-      return {
-        data: result.data.map((person: any) => ({
-          person_id: person.id,
-          person_name: person.name,
-          person_email: person.email,
-          entity_code: person.entity_code,
-          assigned_ts: person.created_ts,
-          link_id: person.id // Use person id as link reference for now
-        }))
-      };
-    },
-    enabled: !!selectedRoleId
-  });
-
-  // Note: Effective Access tab now uses permissionsData directly via RolePermissionsMatrix
-  // No separate query needed - the matrix shows the role's direct permissions
-
-  // Fetch persons for assignment
-  const { data: availablePersonsData } = useQuery({
-    queryKey: ['access-control', 'available-persons'],
-    queryFn: async () => {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/v1/person?limit=1000&active_flag=true`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!response.ok) throw new Error('Failed to fetch persons');
-      return response.json();
-    },
-    enabled: showAssignPersonModal
-  });
-
-  // Fetch entity options for labels/icons
-  const { data: entitiesData } = useQuery({
-    queryKey: ['access-control', 'entities'],
-    queryFn: async () => {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/v1/entity/types`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!response.ok) throw new Error('Failed to fetch entities');
-      return response.json();
-    }
-  });
-
-  // Entity labels and icons map
-  const entityLabels = useMemo(() => {
-    const labels: Record<string, string> = {};
-    const entities = entitiesData?.data || [];
-    entities.forEach((e: EntityOption) => {
-      labels[e.code] = e.ui_label || e.name;
-    });
-    return labels;
-  }, [entitiesData]);
-
-  const entityIcons = useMemo(() => {
-    const icons: Record<string, string> = {};
-    const entities = entitiesData?.data || [];
-    entities.forEach((e: EntityOption) => {
-      if (e.ui_icon) icons[e.code] = e.ui_icon;
-    });
-    return icons;
-  }, [entitiesData]);
 
   // Revoke permission mutation
   const revokePermissionMutation = useMutation({
@@ -229,76 +68,7 @@ export function AccessControlPage() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['access-control', 'role', selectedRoleId, 'permissions'] });
-      queryClient.invalidateQueries({ queryKey: ['access-control', 'role', selectedRoleId, 'effective'] });
-    }
-  });
-
-  // Add member mutation - Creates entity_instance_link between role and person
-  const addMemberMutation = useMutation({
-    mutationFn: async (personId: string) => {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(
-        `${API_CONFIG.BASE_URL}/api/v1/entity_instance_link`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            parent_entity_type: 'role',
-            parent_entity_id: selectedRoleId,
-            child_entity_type: 'person',
-            child_entity_id: personId,
-            relationship_type: 'has_member'
-          })
-        }
-      );
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to add member');
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['access-control', 'role', selectedRoleId, 'members'] });
-      setShowAssignPersonModal(false);
-      setSelectedPersonId('');
-    }
-  });
-
-  // Remove member mutation - Deletes entity_instance_link between role and person
-  const removeMemberMutation = useMutation({
-    mutationFn: async (personId: string) => {
-      const token = localStorage.getItem('auth_token');
-      // First, find the link ID by querying for the specific link
-      const linksResponse = await fetch(
-        `${API_CONFIG.BASE_URL}/api/v1/entity_instance_link?parent_entity_type=role&parent_entity_id=${selectedRoleId}&child_entity_type=person&child_entity_id=${personId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (!linksResponse.ok) throw new Error('Failed to find member link');
-      const linksData = await linksResponse.json();
-
-      if (!linksData.data || linksData.data.length === 0) {
-        throw new Error('Member link not found');
-      }
-
-      const linkId = linksData.data[0].id;
-
-      // Delete the link
-      const response = await fetch(
-        `${API_CONFIG.BASE_URL}/api/v1/entity_instance_link/${linkId}`,
-        {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      if (!response.ok) throw new Error('Failed to remove member');
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['access-control', 'role', selectedRoleId, 'members'] });
+      queryClient.invalidateQueries({ queryKey: ['access-control', 'role', selectedRoleId] });
     }
   });
 
@@ -318,33 +88,6 @@ export function AccessControlPage() {
     if (!selectedRoleId || !rolesData?.data) return null;
     return rolesData.data.find((r: Role) => r.id === selectedRoleId);
   }, [selectedRoleId, rolesData]);
-
-  // Calculate permission stats
-  const permissionStats = useMemo(() => {
-    const permissions = permissionsData?.data || [];
-    return {
-      total: permissions.length,
-      typeLevel: permissions.filter((p: Permission) => p.entity_instance_id === ALL_ENTITIES_ID).length,
-      instanceLevel: permissions.filter((p: Permission) => p.entity_instance_id !== ALL_ENTITIES_ID).length,
-      withInheritance: permissions.filter((p: Permission) => p.inheritance_mode !== 'none').length,
-      denied: permissions.filter((p: Permission) => p.is_deny).length
-    };
-  }, [permissionsData]);
-
-  // Group permissions by entity type
-  const groupedPermissions = useMemo(() => {
-    const permissions = permissionsData?.data || [];
-    const groups: Record<string, Permission[]> = {};
-
-    permissions.forEach((p: Permission) => {
-      if (!groups[p.entity_code]) {
-        groups[p.entity_code] = [];
-      }
-      groups[p.entity_code].push(p);
-    });
-
-    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
-  }, [permissionsData]);
 
   return (
     <Layout>
@@ -419,10 +162,7 @@ export function AccessControlPage() {
                   {filteredRoles.map((role: Role) => (
                     <button
                       key={role.id}
-                      onClick={() => {
-                        setSelectedRoleId(role.id);
-                        setActiveTab('permissions');
-                      }}
+                      onClick={() => setSelectedRoleId(role.id)}
                       className={`w-full px-4 py-3.5 text-left transition-all ${
                         selectedRoleId === role.id
                           ? "bg-slate-50 border-l-3 border-l-slate-600"
@@ -459,7 +199,7 @@ export function AccessControlPage() {
             </div>
           </div>
 
-          {/* Right Panel - Role Detail */}
+          {/* Right Panel - Permission Matrix */}
           <div className="flex-1 bg-white border border-dark-200 rounded-xl shadow-sm flex flex-col overflow-hidden">
             {!selectedRoleId ? (
               <div className="flex-1 flex items-center justify-center text-dark-500">
@@ -495,253 +235,18 @@ export function AccessControlPage() {
                   </div>
                 </div>
 
-                {/* Tabs */}
-                <div className="px-6 border-b border-dark-200">
-                  <div className="flex gap-1">
-                    {[
-                      { id: 'permissions' as DetailTab, label: 'Permissions', icon: LucideIcons.Shield, count: permissionsData?.data?.length },
-                      { id: 'persons' as DetailTab, label: 'Members', icon: LucideIcons.UserPlus, count: personsData?.data?.length },
-                      { id: 'effective' as DetailTab, label: 'Permission Matrix', icon: LucideIcons.Grid3X3, count: null }
-                    ].map((tab) => (
-                      <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
-                          activeTab === tab.id
-                            ? "border-slate-600 text-slate-700"
-                            : "border-transparent text-dark-500 hover:text-dark-700"
-                        }`}
-                      >
-                        <tab.icon className="h-4 w-4" />
-                        {tab.label}
-                        {tab.count !== null && tab.count !== undefined && (
-                          <span className={`px-1.5 py-0.5 text-xs rounded-full ${
-                            activeTab === tab.id ? "bg-slate-200 text-slate-700" : "bg-dark-100 text-dark-600"
-                          }`}>
-                            {tab.count}
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Tab Content */}
-                <div className="flex-1 overflow-y-auto">
-                  {/* Permissions Tab */}
-                  {activeTab === 'permissions' && (
-                    <div className="p-6">
-                      {/* Header with Stats & Add Button */}
-                      <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-medium text-dark-700">Permission Rules</span>
-                          <div className="flex items-center gap-2 text-xs">
-                            <span className="px-2 py-0.5 bg-dark-100 rounded text-dark-600">
-                              {permissionStats.total} total
-                            </span>
-                            {permissionStats.withInheritance > 0 && (
-                              <span className="px-2 py-0.5 bg-violet-100 rounded text-violet-700">
-                                {permissionStats.withInheritance} with inheritance
-                              </span>
-                            )}
-                            {permissionStats.denied > 0 && (
-                              <span className="px-2 py-0.5 bg-red-100 rounded text-red-700">
-                                {permissionStats.denied} denied
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => setShowGrantModal(true)}
-                          className="px-3 py-2 text-sm font-medium bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors shadow-sm flex items-center gap-2"
-                        >
-                          <LucideIcons.Plus className="h-4 w-4" />
-                          Grant Permission
-                        </button>
-                      </div>
-
-                      {/* Permissions List */}
-                      {permissionsLoading ? (
-                        <div className="space-y-3">
-                          {[...Array(3)].map((_, i) => (
-                            <PermissionRuleCardSkeleton key={i} />
-                          ))}
-                        </div>
-                      ) : !permissionsData?.data || permissionsData.data.length === 0 ? (
-                        <div className="text-center py-12 text-dark-500">
-                          <div className="p-4 bg-dark-100 rounded-2xl inline-block mb-3">
-                            <LucideIcons.ShieldOff className="h-10 w-10 text-dark-300" />
-                          </div>
-                          <p className="text-sm font-medium">No permissions granted</p>
-                          <p className="text-xs text-dark-400 mt-1">
-                            Click "Grant Permission" to add one
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          {groupedPermissions.map(([entityCode, permissions]) => (
-                            <div key={entityCode}>
-                              <div className="flex items-center gap-2 mb-3">
-                                <span className="text-xs font-semibold text-dark-500 uppercase tracking-wider">
-                                  {entityLabels[entityCode] || entityCode}
-                                </span>
-                                <div className="flex-1 h-px bg-dark-200" />
-                                <span className="text-xs text-dark-400">
-                                  {permissions.length} rule{permissions.length !== 1 ? 's' : ''}
-                                </span>
-                              </div>
-                              <div className="space-y-3">
-                                {permissions.map((perm: Permission) => (
-                                  <PermissionRuleCard
-                                    key={perm.id}
-                                    permission={perm}
-                                    entityName={perm.entity_ui_label || entityLabels[perm.entity_code] || perm.entity_code}
-                                    entityIcon={perm.entity_ui_icon || entityIcons[perm.entity_code]}
-                                    entityLabels={entityLabels}
-                                    isTypeLevel={perm.entity_instance_id === ALL_ENTITIES_ID}
-                                    onRevoke={() => {
-                                      if (confirm('Are you sure you want to revoke this permission?')) {
-                                        revokePermissionMutation.mutate(perm.id);
-                                      }
-                                    }}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Persons (Members) Tab */}
-                  {activeTab === 'persons' && (
-                    <div className="p-6">
-                      {/* Header */}
-                      <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-medium text-dark-700">Role Members</span>
-                          <span className="px-2 py-0.5 text-xs bg-dark-100 rounded text-dark-600">
-                            {personsData?.data?.length || 0} member{(personsData?.data?.length || 0) !== 1 ? 's' : ''}
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => setShowAssignPersonModal(true)}
-                          className="px-3 py-2 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors shadow-sm flex items-center gap-2"
-                        >
-                          <LucideIcons.UserPlus className="h-4 w-4" />
-                          Add Member
-                        </button>
-                      </div>
-
-                      {/* Info Banner */}
-                      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-                        <div className="flex items-start gap-3">
-                          <LucideIcons.Info className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
-                          <div className="text-sm text-blue-700">
-                            <p className="font-medium">Role-Based Access Control</p>
-                            <p className="mt-1 text-blue-600">
-                              People receive permissions through role membership. Add members to grant them all permissions assigned to this role.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Members List */}
-                      {personsLoading ? (
-                        <div className="flex items-center justify-center h-32">
-                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600" />
-                        </div>
-                      ) : !personsData?.data || personsData.data.length === 0 ? (
-                        <div className="text-center py-12 text-dark-500">
-                          <div className="p-4 bg-dark-100 rounded-2xl inline-block mb-3">
-                            <LucideIcons.UserX className="h-10 w-10 text-dark-300" />
-                          </div>
-                          <p className="text-sm font-medium">No members assigned</p>
-                          <p className="text-xs text-dark-400 mt-1">
-                            Click "Add Member" to assign people to this role
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="border border-dark-200 rounded-xl overflow-hidden">
-                          <table className="w-full text-sm">
-                            <thead className="bg-dark-50">
-                              <tr>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
-                                  Name
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
-                                  Type
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
-                                  Email
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
-                                  Assigned
-                                </th>
-                                <th className="px-4 py-3 text-center text-xs font-semibold text-dark-600 uppercase tracking-wider">
-                                  Actions
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-dark-100">
-                              {personsData.data.map((person: PersonAssignment) => (
-                                <tr key={person.link_id} className="hover:bg-dark-50 transition-colors">
-                                  <td className="px-4 py-3">
-                                    <div className="flex items-center gap-3">
-                                      <div className="p-2 bg-dark-100 rounded-lg">
-                                        <LucideIcons.User className="h-4 w-4 text-dark-500" />
-                                      </div>
-                                      <span className="font-medium text-dark-800">{person.person_name}</span>
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <span className="px-2 py-1 text-xs font-medium bg-slate-100 text-slate-700 rounded capitalize">
-                                      {person.entity_code || '—'}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-3 text-dark-600">
-                                    {person.person_email || '—'}
-                                  </td>
-                                  <td className="px-4 py-3 text-xs text-dark-600">
-                                    {new Date(person.assigned_ts).toLocaleDateString()}
-                                  </td>
-                                  <td className="px-4 py-3 text-center">
-                                    <button
-                                      onClick={() => {
-                                        if (confirm('Are you sure you want to remove this person from the role?')) {
-                                          removeMemberMutation.mutate(person.person_id);
-                                        }
-                                      }}
-                                      className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-                                      title="Remove from Role"
-                                    >
-                                      <LucideIcons.UserMinus className="h-4 w-4" />
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Permission Matrix Tab - Hierarchical View */}
-                  {activeTab === 'effective' && (
-                    <div className="p-6">
-                      <HierarchicalRbacMatrix
-                        roleId={selectedRoleId!}
-                        roleName={selectedRole?.name || ''}
-                        onRevoke={(permissionId) => {
-                          if (confirm('Are you sure you want to revoke this permission?')) {
-                            revokePermissionMutation.mutate(permissionId);
-                          }
-                        }}
-                      />
-                    </div>
-                  )}
+                {/* Permission Matrix Content */}
+                <div className="flex-1 overflow-y-auto p-6">
+                  <HierarchicalRbacMatrix
+                    roleId={selectedRoleId}
+                    roleName={selectedRole?.name || ''}
+                    onRevoke={(permissionId) => {
+                      if (confirm('Are you sure you want to revoke this permission?')) {
+                        revokePermissionMutation.mutate(permissionId);
+                      }
+                    }}
+                    onGrantPermission={() => setShowGrantModal(true)}
+                  />
                 </div>
               </>
             )}
@@ -757,86 +262,9 @@ export function AccessControlPage() {
           roleId={selectedRoleId!}
           roleName={selectedRole.name}
           onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ['access-control', 'role', selectedRoleId, 'permissions'] });
-            queryClient.invalidateQueries({ queryKey: ['access-control', 'role', selectedRoleId, 'effective'] });
+            queryClient.invalidateQueries({ queryKey: ['access-control', 'role', selectedRoleId] });
           }}
         />
-      )}
-
-      {/* Assign Person Modal */}
-      {showAssignPersonModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 border border-dark-200">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-dark-200">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-emerald-100 rounded-lg">
-                  <LucideIcons.UserPlus className="h-5 w-5 text-emerald-600" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-dark-800">Add Member</h2>
-                  <p className="text-sm text-dark-500 mt-0.5">to {selectedRole?.name}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowAssignPersonModal(false)}
-                className="p-2 rounded-lg text-dark-400 hover:text-dark-600 hover:bg-dark-100 transition-colors"
-              >
-                <LucideIcons.X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Form */}
-            <div className="p-6">
-              <label className="block text-sm font-medium text-dark-700 mb-2">
-                Select Person *
-              </label>
-              <select
-                value={selectedPersonId}
-                onChange={(e) => setSelectedPersonId(e.target.value)}
-                className="w-full px-3 py-2.5 text-sm border border-dark-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
-              >
-                <option value="">Select a person...</option>
-                {(availablePersonsData?.data || []).map((person: PersonOption) => (
-                  <option key={person.id} value={person.id}>
-                    {person.name} {person.code ? `(${person.code})` : ''} {person.email ? `- ${person.email}` : ''}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-dark-500 mt-2">
-                This person will receive all permissions assigned to the role.
-              </p>
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-dark-200 bg-dark-50">
-              <button
-                onClick={() => {
-                  setShowAssignPersonModal(false);
-                  setSelectedPersonId('');
-                }}
-                className="px-4 py-2 text-sm font-medium text-dark-700 hover:bg-dark-100 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => addMemberMutation.mutate(selectedPersonId)}
-                disabled={!selectedPersonId || addMemberMutation.isPending}
-                className="px-4 py-2 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {addMemberMutation.isPending ? 'Adding...' : 'Add Member'}
-              </button>
-            </div>
-
-            {/* Error Message */}
-            {addMemberMutation.isError && (
-              <div className="px-6 py-3 bg-red-50 border-t border-red-200 text-sm text-red-700 flex items-center gap-2">
-                <LucideIcons.AlertCircle className="h-4 w-4" />
-                {(addMemberMutation.error as Error).message}
-              </div>
-            )}
-          </div>
-        </div>
       )}
     </Layout>
   );
