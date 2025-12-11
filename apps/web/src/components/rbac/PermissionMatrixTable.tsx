@@ -21,6 +21,7 @@ interface PermissionMatrixTableProps {
   onRevoke?: (rowId: string) => void;
   onConfigureInheritance?: (rowId: string) => void;
   onUndo?: (rowId: string) => void;
+  expandedConfigId?: string | null;  // Currently expanded inheritance config row
   disabled?: boolean;
   compact?: boolean;
 }
@@ -49,6 +50,7 @@ export function PermissionMatrixTable({
   onRevoke,
   onConfigureInheritance,
   onUndo,
+  expandedConfigId,
   disabled = false,
   compact = false
 }: PermissionMatrixTableProps) {
@@ -88,30 +90,40 @@ export function PermissionMatrixTable({
           {rows.map((row) => {
             const effectiveLevel = pendingChanges[row.id] ?? row.permission;
             const isModified = pendingChanges[row.id] !== undefined && pendingChanges[row.id] !== row.permission;
+            const isExpanded = expandedConfigId === row.id;
+            const isPending = row.id.startsWith('pending:');
 
             return (
               <tr
                 key={row.id}
                 className={`
                   transition-colors
-                  ${isModified ? 'bg-amber-50' : 'hover:bg-dark-50'}
+                  ${isExpanded ? 'bg-slate-100 ring-1 ring-slate-300' : ''}
+                  ${isPending && !isExpanded ? 'bg-emerald-50/50' : ''}
+                  ${isModified && !isExpanded && !isPending ? 'bg-amber-50' : ''}
+                  ${!isModified && !isExpanded && !isPending ? 'hover:bg-dark-50' : ''}
                   ${row.isDeny ? 'bg-red-50' : ''}
                 `}
               >
                 {/* Target Label */}
                 <td className={`${compact ? 'py-2 px-3' : 'py-3 px-4'}`}>
                   <div className="flex items-center gap-2">
-                    {row.isTypeLevel ? (
-                      <LucideIcons.Layers className="h-4 w-4 text-slate-500" />
-                    ) : row.icon ? (
-                      getIcon(row.icon, 'h-4 w-4 text-dark-500')
+                    {row.icon ? (
+                      getIcon(row.icon, `h-4 w-4 ${row.isTypeLevel ? 'text-emerald-600' : isPending ? 'text-emerald-500' : 'text-dark-500'}`)
+                    ) : row.isTypeLevel ? (
+                      <LucideIcons.Globe className="h-4 w-4 text-emerald-600" />
                     ) : (
-                      <LucideIcons.FileText className="h-4 w-4 text-dark-400" />
+                      <LucideIcons.FileText className={`h-4 w-4 ${isPending ? 'text-emerald-400' : 'text-dark-400'}`} />
                     )}
-                    <span className={`${row.isTypeLevel ? 'text-slate-600 italic' : 'text-dark-800'} ${compact ? 'text-xs' : 'text-sm'}`}>
+                    <span className={`${row.isTypeLevel ? 'text-emerald-700 font-medium' : isPending ? 'text-emerald-700' : 'text-dark-800'} ${compact ? 'text-xs' : 'text-sm'}`}>
                       {row.label}
                     </span>
-                    {isModified && (
+                    {isPending && (
+                      <span className="px-1.5 py-0.5 text-[10px] font-medium bg-emerald-100 text-emerald-600 rounded">
+                        pending
+                      </span>
+                    )}
+                    {isModified && !isPending && (
                       <span className="px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700 rounded">
                         modified
                       </span>
@@ -188,7 +200,11 @@ export function PermissionMatrixTable({
                       <button
                         type="button"
                         onClick={() => onConfigureInheritance(row.id)}
-                        className="p-1.5 text-dark-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+                        className={`p-1.5 rounded-lg transition-colors ${
+                          isExpanded
+                            ? 'text-slate-700 bg-slate-200'
+                            : 'text-dark-400 hover:text-slate-600 hover:bg-slate-50'
+                        }`}
                         title="Configure inheritance"
                       >
                         <LucideIcons.Settings2 className="h-4 w-4" />

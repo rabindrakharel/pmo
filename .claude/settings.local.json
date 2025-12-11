@@ -31,7 +31,14 @@
       "Bash(cat:*)",
       "Bash(nvm use:*)",
       "Bash(npm run build:*)",
-      "Bash(bash:*)"
+      "Bash(bash:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfix(rbac): Fix hierarchical-permissions API and add PERMISSION_LEVELS properties\n\n- Transform child_entity_codes from string array to objects with entity, ui_label, ui_icon, order\n- Add missing shortLabel, textColor, bgColor, ringColor properties to PERMISSION_LEVELS\n- Enables new PermissionMatrixTable component to render correctly\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nrefactor(rbac): Simplify RBAC UI to Permission Matrix only v2.3.0\n\n- Remove Permissions and Members tabs from AccessControlPage\n- Remove Permissions tab from RoleAccessControlPanel\n- Delete unused components:\n  - PermissionRuleCard.tsx\n  - EffectiveAccessTable.tsx\n  - RolePermissionsMatrix.tsx (replaced by HierarchicalRbacMatrix)\n  - PermissionCard.tsx\n- Update index.ts exports to only include active components\n- Members are now managed via Role detail page''s \"People\" tab\n- Simplified component count from 12 to 8\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat(rbac): Add inline instance picker for granting specific permissions v2.3.0\n\n- Replace Grant Permission button with inline instance picker that:\n  - Shows searchable list of entity instances with checkboxes\n  - Allows selecting permission level via compact button row\n  - Excludes instances that already have permissions\n  - Supports \"Select All\" for visible items\n  - Grants selected permissions directly without modal\n- Pass roleId to EntityPermissionSection for API calls\n- Add onPermissionsGranted callback to refresh data after grant\n- Instances already with permissions appear in matrix table above\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit:*)",
+      "Bash(pkill:*)"
     ],
     "deny": [],
     "ask": [],

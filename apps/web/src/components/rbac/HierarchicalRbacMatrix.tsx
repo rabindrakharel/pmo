@@ -349,7 +349,7 @@ export function HierarchicalRbacMatrix({
         </div>
         <p className="text-sm font-medium">No permissions granted to this role</p>
         <p className="text-xs text-dark-400 mt-1">
-          Use the Permissions tab to grant permissions
+          Grant permissions by expanding an entity section below
         </p>
       </div>
     );
