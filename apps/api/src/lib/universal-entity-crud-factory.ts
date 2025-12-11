@@ -580,8 +580,14 @@ export function createEntityListEndpoint(
       const offset = query.page ? (query.page - 1) * limit : (query.offset ?? 0);
 
       // Build ORDER BY: route config > DB config > default
-      const effectiveOrderBy = defaultOrderBy
+      // Note: if no direction specified, defaults to DESC for consistency
+      let effectiveOrderBy = defaultOrderBy
         ?? `${dbConfig.defaultSort} ${dbConfig.defaultSortOrder.toUpperCase()}`;
+
+      // Normalize: ensure ORDER BY always has direction (default to DESC if missing)
+      if (!effectiveOrderBy.toLowerCase().includes('asc') && !effectiveOrderBy.toLowerCase().includes('desc')) {
+        effectiveOrderBy = `${effectiveOrderBy} DESC`;
+      }
       // ═══════════════════════════════════════════════════════════════
       // BUILD QUERY COMPONENTS
       // ═══════════════════════════════════════════════════════════════
