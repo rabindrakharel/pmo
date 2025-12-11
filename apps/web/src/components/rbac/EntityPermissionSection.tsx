@@ -191,10 +191,15 @@ export function EntityPermissionSection({
     return permissions.filter(p => p.entity_instance_id !== ALL_ENTITIES_ID);
   }, [permissions]);
 
-  // Get IDs of instances that already have permissions
+  // Get IDs of instances that already have permissions (including ALL_ENTITIES_ID)
   const existingPermissionInstanceIds = useMemo(() => {
-    return new Set(instancePermissions.map(p => p.entity_instance_id));
-  }, [instancePermissions]);
+    return new Set(permissions.map(p => p.entity_instance_id));
+  }, [permissions]);
+
+  // Check if "All [Entity]s" already has permission
+  const hasAllEntitiesPermission = useMemo(() => {
+    return existingPermissionInstanceIds.has(ALL_ENTITIES_ID);
+  }, [existingPermissionInstanceIds]);
 
   // Filter instances based on search and exclude already permitted ones
   const filteredInstances = useMemo(() => {
@@ -213,30 +218,41 @@ export function EntityPermissionSection({
     });
   }, [instancesData, instanceSearch, existingPermissionInstanceIds]);
 
-  // Get all instances data for lookup
+  // Check if "All [Entity]s" matches search
+  const allEntitiesMatchesSearch = useMemo(() => {
+    if (!instanceSearch.trim()) return true;
+    const query = instanceSearch.toLowerCase();
+    const allLabel = `all ${entityLabel.toLowerCase()}s`;
+    return allLabel.includes(query) || 'all'.includes(query);
+  }, [instanceSearch, entityLabel]);
+
+  // Get all instances data for lookup (including synthetic "All [Entity]s" entry)
   const instancesMap = useMemo(() => {
     const map = new Map<string, EntityInstance>();
+    // Add "All [Entity]s" as a synthetic entry
+    map.set(ALL_ENTITIES_ID, { id: ALL_ENTITIES_ID, name: `All ${entityLabel}s` });
     (instancesData?.data || []).forEach((inst: EntityInstance) => {
       map.set(inst.id, inst);
     });
     return map;
-  }, [instancesData]);
+  }, [instancesData, entityLabel]);
 
   // Build rows for selected instances matrix (pending grants)
   const selectedInstanceRows = useMemo(() => {
     return Object.entries(selectedInstanceConfigs).map(([instanceId, config]) => {
+      const isAllEntities = instanceId === ALL_ENTITIES_ID;
       const instance = instancesMap.get(instanceId);
       return {
         id: `pending:${instanceId}`,
-        label: instance?.name || instanceId.slice(0, 8),
-        icon: undefined,
+        label: isAllEntities ? `All ${entityLabel}s` : (instance?.name || instanceId.slice(0, 8)),
+        icon: isAllEntities ? 'Globe' : undefined,
         permission: config.permission,
         isDeny: false,
-        isTypeLevel: false,
+        isTypeLevel: isAllEntities,
         hasInheritanceConfig: childEntityCodes.length > 0
       };
     });
-  }, [selectedInstanceConfigs, instancesMap, childEntityCodes]);
+  }, [selectedInstanceConfigs, instancesMap, childEntityCodes, entityLabel]);
 
   // Get effective values (pending or original)
   const getEffectiveMode = useCallback((permId: string, original: InheritanceMode): InheritanceMode => {
@@ -417,10 +433,16 @@ export function EntityPermissionSection({
     setExpandedInstanceConfig(prev => prev === instanceId ? null : instanceId);
   }, []);
 
-  // Select/deselect all visible instances (Step 1 - checkboxes)
+  // Select/deselect all visible instances (Step 1 - checkboxes) - includes "All [Entity]s"
   const toggleAllVisibleCheckboxes = useCallback(() => {
-    const visibleIds = filteredInstances.map((i: EntityInstance) => i.id);
-    const allChecked = visibleIds.every((id: string) => checkedInstanceIds.has(id));
+    // Build list of all visible IDs (including ALL_ENTITIES_ID if shown)
+    const visibleIds: string[] = [];
+    if (!hasAllEntitiesPermission && allEntitiesMatchesSearch) {
+      visibleIds.push(ALL_ENTITIES_ID);
+    }
+    filteredInstances.forEach((i: EntityInstance) => visibleIds.push(i.id));
+
+    const allChecked = visibleIds.length > 0 && visibleIds.every((id: string) => checkedInstanceIds.has(id));
 
     if (allChecked) {
       // Deselect all visible
@@ -437,7 +459,7 @@ export function EntityPermissionSection({
         return updated;
       });
     }
-  }, [filteredInstances, checkedInstanceIds]);
+  }, [filteredInstances, checkedInstanceIds, hasAllEntitiesPermission, allEntitiesMatchesSearch]);
 
   // Handle grant permissions
   const handleGrantPermissions = useCallback(() => {
@@ -448,6 +470,9 @@ export function EntityPermissionSection({
   const totalPermissions = permissions.length;
   const checkedCount = checkedInstanceIds.size;
   const selectedCount = Object.keys(selectedInstanceConfigs).length;
+
+  // Count available items in picker (All Entities + filtered instances)
+  const availableItemsCount = (hasAllEntitiesPermission || !allEntitiesMatchesSearch ? 0 : 1) + filteredInstances.length;
 
   // Build child rows for a pending instance
   const buildPendingChildRows = useCallback((instanceId: string, config: PendingInstanceConfig) => {
@@ -506,33 +531,39 @@ export function EntityPermissionSection({
       {/* Expanded Content */}
       {isExpanded && (
         <div className="p-4 space-y-4 bg-dark-50/30">
-          {/* TYPE-LEVEL SECTION: All [Entity]s */}
-          {typePermission ? (
+          {/* EXISTING PERMISSIONS - Combined view for all granted permissions */}
+          {permissions.length > 0 && (
             <div className="bg-white rounded-lg border border-dark-200 overflow-hidden">
               <div className="px-4 py-2 bg-slate-50 border-b border-dark-100">
                 <div className="flex items-center gap-2">
-                  <LucideIcons.Globe className="h-4 w-4 text-emerald-600" />
-                  <span className="text-sm font-semibold text-slate-700">All {entityLabel}s</span>
-                  <span className="text-xs text-dark-400">(Type-Level Permission)</span>
+                  <LucideIcons.Shield className="h-4 w-4 text-slate-600" />
+                  <span className="text-sm font-semibold text-slate-700">Current Permissions</span>
+                  <span className="text-xs text-dark-400">
+                    ({permissions.length} grant{permissions.length !== 1 ? 's' : ''})
+                  </span>
                 </div>
               </div>
 
-              {/* Type-level matrix table */}
+              {/* Combined matrix table for ALL permissions (type-level + instances) */}
               <div className="p-3">
                 <PermissionMatrixTable
-                  rows={typeLevelRows}
+                  rows={[...typeLevelRows, ...instanceRows]}
                   pendingChanges={pendingPermissions}
                   onPermissionChange={onPermissionChange}
                   onRevoke={onRevoke}
+                  onConfigureInheritance={childEntityCodes.length > 0 ? (id) => {
+                    // For existing permissions, show inheritance config
+                    console.log('Configure inheritance for:', id);
+                  } : undefined}
                   disabled={disabled}
                 />
               </div>
 
-              {/* Inheritance Mode Selector */}
-              {childEntityCodes.length > 0 && (
+              {/* Inheritance Mode Selector for type-level permission */}
+              {typePermission && childEntityCodes.length > 0 && (
                 <div className="px-4 py-3 border-t border-dark-100 bg-dark-50/50">
                   <div className="text-xs font-medium text-dark-600 mb-2">
-                    Inheritance to Child Entities:
+                    Inheritance for "All {entityLabel}s" to Child Entities:
                   </div>
                   <div className="flex gap-2">
                     {(['none', 'cascade', 'mapped'] as InheritanceMode[]).map((mode) => {
@@ -631,59 +662,6 @@ export function EntityPermissionSection({
                 </div>
               )}
             </div>
-          ) : (
-            <div className="bg-white rounded-lg border border-dashed border-dark-300 p-4 text-center">
-              <div className="text-sm text-dark-500">
-                No type-level permission set for all {entityLabel}s
-              </div>
-              <button
-                type="button"
-                onClick={() => onGrantPermission(entityCode, 'all')}
-                className="mt-2 px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
-              >
-                + Add type-level permission
-              </button>
-            </div>
-          )}
-
-          {/* INSTANCE-LEVEL SECTION: Specific [Entity]s */}
-          {instancePermissions.length > 0 && (
-            <div className="bg-white rounded-lg border border-dark-200 overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setSpecificExpanded(!specificExpanded)}
-                className="w-full px-4 py-2 bg-blue-50 border-b border-dark-100 flex items-center justify-between hover:bg-blue-100 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <LucideIcons.Target className="h-4 w-4 text-blue-600" />
-                  <span className="text-sm font-semibold text-blue-700">Specific {entityLabel}s</span>
-                  <span className="text-xs text-blue-400">
-                    ({instancePermissions.length} instance{instancePermissions.length !== 1 ? 's' : ''})
-                  </span>
-                </div>
-                {specificExpanded ? (
-                  <LucideIcons.ChevronUp className="h-4 w-4 text-blue-400" />
-                ) : (
-                  <LucideIcons.ChevronDown className="h-4 w-4 text-blue-400" />
-                )}
-              </button>
-
-              {specificExpanded && (
-                <div className="p-3">
-                  <PermissionMatrixTable
-                    rows={instanceRows}
-                    pendingChanges={pendingPermissions}
-                    onPermissionChange={onPermissionChange}
-                    onRevoke={onRevoke}
-                    onConfigureInheritance={(id) => {
-                      // TODO: Open inheritance config modal for specific instance
-                      console.log('Configure inheritance for:', id);
-                    }}
-                    disabled={disabled}
-                  />
-                </div>
-              )}
-            </div>
           )}
 
           {/* GRANT PERMISSION FLOW - Two Steps */}
@@ -735,7 +713,7 @@ export function EntityPermissionSection({
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto" />
                         <p className="text-sm text-dark-500 mt-2">Loading {entityLabel.toLowerCase()}s...</p>
                       </div>
-                    ) : filteredInstances.length === 0 ? (
+                    ) : availableItemsCount === 0 ? (
                       <div className="p-6 text-center text-dark-500">
                         <LucideIcons.SearchX className="h-6 w-6 mx-auto text-dark-300 mb-2" />
                         <p className="text-sm">
@@ -749,18 +727,51 @@ export function EntityPermissionSection({
                           <label className="flex items-center gap-3 cursor-pointer">
                             <input
                               type="checkbox"
-                              checked={filteredInstances.length > 0 && filteredInstances.every((i: EntityInstance) => checkedInstanceIds.has(i.id))}
+                              checked={availableItemsCount > 0 && (() => {
+                                const allIds: string[] = [];
+                                if (!hasAllEntitiesPermission && allEntitiesMatchesSearch) allIds.push(ALL_ENTITIES_ID);
+                                filteredInstances.forEach((i: EntityInstance) => allIds.push(i.id));
+                                return allIds.every(id => checkedInstanceIds.has(id));
+                              })()}
                               onChange={toggleAllVisibleCheckboxes}
                               className="w-4 h-4 text-blue-600 rounded border-dark-300 focus:ring-blue-500"
                             />
                             <span className="text-xs font-medium text-dark-600">
-                              Select all ({filteredInstances.length})
+                              Select all ({availableItemsCount})
                             </span>
                           </label>
                         </div>
 
-                        {/* Instance Items */}
+                        {/* Instance Items - "All [Entity]s" first, then specific instances */}
                         <div className="divide-y divide-dark-100">
+                          {/* "All [Entity]s" option - shown first if no permission exists */}
+                          {!hasAllEntitiesPermission && allEntitiesMatchesSearch && (
+                            <label
+                              className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${
+                                checkedInstanceIds.has(ALL_ENTITIES_ID) ? 'bg-emerald-50' : 'hover:bg-dark-50'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checkedInstanceIds.has(ALL_ENTITIES_ID)}
+                                onChange={() => toggleInstanceCheckbox(ALL_ENTITIES_ID)}
+                                className="w-4 h-4 text-emerald-600 rounded border-dark-300 focus:ring-emerald-500"
+                              />
+                              <div className="p-1.5 bg-emerald-100 rounded">
+                                <LucideIcons.Globe className="h-4 w-4 text-emerald-600" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-semibold text-emerald-700">
+                                  All {entityLabel}s
+                                </div>
+                                <div className="text-xs text-emerald-500">
+                                  Type-level permission
+                                </div>
+                              </div>
+                            </label>
+                          )}
+
+                          {/* Specific instance items */}
                           {filteredInstances.map((instance: EntityInstance) => (
                             <label
                               key={instance.id}
@@ -795,8 +806,8 @@ export function EntityPermissionSection({
                   <div className="px-4 py-3 bg-dark-50 border-t border-dark-100 flex items-center justify-between">
                     <span className="text-xs text-dark-500">
                       {checkedCount > 0
-                        ? `${checkedCount} ${entityLabel.toLowerCase()}${checkedCount !== 1 ? 's' : ''} selected`
-                        : 'Select instances to configure permissions'
+                        ? `${checkedCount} item${checkedCount !== 1 ? 's' : ''} selected`
+                        : 'Select items to configure permissions'
                       }
                     </span>
                     <div className="flex gap-2">
