@@ -8,7 +8,8 @@ import { EntityMetadataProvider, useEntityMetadata } from './contexts/EntityMeta
 // v11.0.0: TanStack Query + Dexie for offline-first entity storage with WebSocket sync
 import { CacheProvider } from './db';
 // v13.0.0: Hydration Gate Pattern - blocks rendering until metadata loaded
-import { LoginForm, MetadataGate } from './components/shared';
+// v14.2.0: LogoutGate - shows stepper UI during logout
+import { LoginForm, MetadataGate, LogoutGate } from './components/shared';
 import { EntityPreviewPanel } from './components/shared/preview/EntityPreviewPanel';
 import { EllipsisBounce } from './components/shared/ui/EllipsisBounce';
 // v12.2.0: Register field renderer components at app initialization
@@ -110,6 +111,22 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     <MetadataGate loadingMessage="Loading application data">
       {children}
     </MetadataGate>
+  );
+}
+
+/**
+ * LogoutGateWrapper - Wraps content with LogoutGate
+ *
+ * v14.2.0: Shows fake stepper UI during logout
+ * The stepper runs in parallel with actual cache clearing.
+ * When stepper completes, completeLogout() updates auth state.
+ */
+function LogoutGateWrapper({ children }: { children: React.ReactNode }) {
+  const { completeLogout } = useAuth();
+  return (
+    <LogoutGate onLogoutComplete={completeLogout}>
+      {children}
+    </LogoutGate>
   );
 }
 
@@ -372,18 +389,21 @@ function App() {
     // v11.0.0: CacheProvider includes QueryClientProvider - single source of truth
     <CacheProvider>
       <AuthProvider>
-        <EntityMetadataProvider>
-          <Router>
-            <SidebarProvider>
-              <SettingsProvider>
-                <EntityPreviewProvider>
-                  <AppRoutes />
-                  <EntityPreviewPanel />
-                </EntityPreviewProvider>
-              </SettingsProvider>
-            </SidebarProvider>
-          </Router>
-        </EntityMetadataProvider>
+        {/* v14.2.0: LogoutGateWrapper shows stepper UI during logout */}
+        <LogoutGateWrapper>
+          <EntityMetadataProvider>
+            <Router>
+              <SidebarProvider>
+                <SettingsProvider>
+                  <EntityPreviewProvider>
+                    <AppRoutes />
+                    <EntityPreviewPanel />
+                  </EntityPreviewProvider>
+                </SettingsProvider>
+              </SidebarProvider>
+            </Router>
+          </EntityMetadataProvider>
+        </LogoutGateWrapper>
       </AuthProvider>
     </CacheProvider>
   );

@@ -274,7 +274,7 @@ export function useInlineAddRow<T extends { id: string } = Record<string, unknow
           if (!oldData?.data) return oldData;
           return {
             ...oldData,
-            data: [...oldData.data, newRow],
+            data: [newRow, ...oldData.data],  // Add to TOP (visible immediately)
             total: (oldData.total || 0) + 1,
           };
         });

@@ -1,6 +1,6 @@
 # Frontend Cache Design Pattern
 
-**Version:** 14.0.0 | **Updated:** 2025-12-09 | **Status:** Production
+**Version:** 14.1.0 | **Updated:** 2025-12-11 | **Status:** Production
 
 ---
 
@@ -157,35 +157,54 @@ export function MetadataGate({ children, loadingMessage }: MetadataGateProps) {
 +-----------------------------------------------------------------------------+
 ```
 
-### 1.5 Loading Sequence
+### 1.5 Loading Sequence (v13.1.0)
 
 ```
-LOGIN BUTTON CLICKED
-        |
-        v
 +-----------------------------------------------------------------------------+
-| AuthContext.login()                                                          |
-| +-- setMetadataLoaded(false)  <- GATE CLOSED                                |
-| +-- API: POST /api/v1/auth/login                                            |
-| +-- setState({ isAuthenticated: true })                                     |
-| +-- queryClient.clear() + resetDatabase()                                   |
-| |                                                                            |
-| +-- loadAllMetadata()                                                       |
-| |   +-- prefetchAllDatalabels()      <- 58 datalabel sets                   |
-| |   +-- prefetchEntityCodes()        <- 23 entity types                     |
-| |   +-- prefetchGlobalSettings()     <- App config                          |
-| |   +-- prefetchRefDataEntityInstances() <- 300+ entity names               |
-| |                                                                            |
-| +-- setMetadataLoaded(true)  <- GATE OPENS                                  |
-|                                                                              |
+|                    LOGIN, CACHE & HYDRATION FLOW                             |
 +-----------------------------------------------------------------------------+
-        |
-        v
+
+1. APP STARTUP (Instant)
+   +-- CacheProvider mounts
+   +-- hydrateFromDexie() loads cached data from IndexedDB
+   +-- User sees login page immediately (no waiting)
+
+2. USER SUBMITS LOGIN
+   +-- AuthContext.login() called
+   +-- setMetadataLoaded(false)  <- GATE CLOSED
+   +-- API: POST /api/v1/auth/login -> get token
+   +-- setState({ isAuthenticated: true }) -> triggers redirect to protected route
+
+3. METADATAGATE BLOCKS (Fake Progress Shown)
+   +-- User redirected to protected route but isMetadataLoaded === false
+   +-- MetadataGate shows stepper UI with 5 fake steps (5 sec each):
+       ○ Logging in
+       ○ Authenticating
+       ○ Resolving
+       ○ Gathering Information
+       ○ Redirecting
+
+4. REAL CACHE BUILDING (Background - runs in parallel with fake UI)
+   +-- queryClient.clear() + resetDatabase() -> wipe old session
+   +-- loadAllMetadata() runs in parallel:
+       +-- prefetchAllDatalabels()           <- dropdown options
+       +-- prefetchEntityCodes()             <- entity type metadata
+       +-- prefetchGlobalSettings()          <- app settings
+       +-- prefetchRefDataEntityInstances()  <- employee/project/business names
+
+5. GATE OPENS
+   +-- setMetadataLoaded(true) called when real loading completes
+   +-- Fake stepper instantly marks all remaining steps as completed
+   +-- MetadataGate renders children -> app is usable
+   +-- getDatalabelSync() etc. GUARANTEED to return data
+
 +-----------------------------------------------------------------------------+
-| ProtectedRoute renders children                                              |
-| +-- <MetadataGate> -> isMetadataLoaded = true -> render children            |
-|     +-- EntityListOfInstancesPage renders                                   |
-|         +-- formatBadge() -> getDatalabelSync() -> GUARANTEED DATA          |
+|                           KEY POINTS                                         |
++-----------------------------------------------------------------------------+
+| - Fake progress is VISUAL ONLY - doesn't reflect actual API timing          |
+| - Real loading happens in BACKGROUND - typically faster than 25-sec fake    |
+| - Gate opens when REAL loading done - not when fake animation finishes      |
+| - Sync accessors (getDatalabelSync, etc.) guaranteed after gate opens       |
 +-----------------------------------------------------------------------------+
 ```
 
@@ -950,6 +969,7 @@ queryFn: async () => {
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 14.1.0 | 2025-12-11 | **Login Progress UI**: Added fake stepper progress display in MetadataGate (5 steps, 5 sec each). Visual feedback while real cache building happens in background. Gate opens when real loading completes. |
 | 14.0.0 | 2025-12-09 | **Cache Disappearance Fix**: Aligned hydration maxAge with persistMaxAge (24h). Applied STORE_GC_TIMES.datalabel (Infinity) to useDatalabel. Implemented stale-while-revalidate pattern (Dexie-first). |
 | 13.0.0 | 2025-12-07 | **Hydration Gate Pattern**: MetadataGate blocks rendering until all session metadata loaded. Sync accessors guaranteed non-null. Removed defensive fallbacks from formatters. |
 | 11.3.1 | 2025-12-03 | Inline add row pattern with `useInlineAddRow` hook |
@@ -959,4 +979,4 @@ queryFn: async () => {
 
 ---
 
-**Version:** 14.0.0 | **Updated:** 2025-12-09 | **Status:** Production
+**Version:** 14.1.0 | **Updated:** 2025-12-11 | **Status:** Production

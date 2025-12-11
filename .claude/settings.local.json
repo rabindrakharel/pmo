@@ -43,7 +43,8 @@
       "Bash(npm run build:web:*)",
       "Bash(npm run:*)",
       "Bash(pnpm -r --filter web typecheck:*)",
-      "Bash(./node_modules/.bin/tsc:*)"
+      "Bash(./node_modules/.bin/tsc:*)",
+      "Bash(xargs:*)"
     ],
     "deny": [],
     "ask": [],

@@ -65,9 +65,9 @@ export { ViewSwitcher } from './view/ViewSwitcher';
 export { LoginForm } from './auth/LoginForm';
 
 // ============================================================================
-// GATE COMPONENTS (v13.0.0 - Hydration Gate Pattern)
+// GATE COMPONENTS (v13.0.0 - Hydration Gate Pattern, v14.2.0 - Logout Gate)
 // ============================================================================
-export { MetadataGate, useMetadataReady } from './gates';
+export { MetadataGate, useMetadataReady, LogoutGate } from './gates';
 
 // ============================================================================
 // LAYOUT COMPONENTS
@@ -85,6 +85,9 @@ export { ModularEditor } from './editor/ModularEditor';
 // ============================================================================
 export { EntityListOfInstancesTable } from './ui/EntityListOfInstancesTable';
 export { LabelsDataTable } from './ui/LabelsDataTable';
+// v11.0.0: Split add button for "Add New" + "Link Existing" options
+export { SplitAddButton } from './ui/SplitAddButton';
+export type { SplitAddButtonProps } from './ui/SplitAddButton';
 // v9.8.0: Reusable Chip and ChipList components
 export { Chip, ChipList } from './ui/Chip';
 export type { ChipProps, ChipListProps, ChipListItem } from './ui/Chip';

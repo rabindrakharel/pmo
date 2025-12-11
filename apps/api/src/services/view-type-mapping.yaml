@@ -174,7 +174,7 @@
 # CORRECT:
 #   duration:
 #     dtype: int
-#     entityListOfInstancesTable: { <<: *table_default, style: { width: "100px", unit: minutes } }
+#     entityListOfInstancesTable: { <<: *table_default, style: { width: *width_md, unit: minutes } }
 #     entityInstanceFormContainer: { <<: *form_default, style: { unit: minutes } }
 #
 # WRONG:
@@ -453,6 +453,33 @@
 # Uses YAML anchors (&) and aliases (*) to reduce duplication
 
 # ============================================================================
+# WIDTH CONSTANTS
+# ============================================================================
+# Centralized column width definitions for consistent table layouts.
+# Use YAML anchors (*width_sm, *width_md, etc.) in style definitions.
+#
+# Distribution:
+#   xs (60px)   - avatar, tiny indicators
+#   sm (80px)   - boolean, icon, sort_order, file_extension
+#   md (100px)  - duration, percentage, quantity, time, score
+#   lg (120px)  - date, country, measurements, rating, status
+#   xl (140px)  - currency, code, datalabel, phone, reference
+#   2xl (160px) - timestamp, tracking_number
+#   wide (200px) - email, url
+#   xwide (250px) - name, address
+# ============================================================================
+widths:
+  xs: &width_xs "60px"
+  sm: &width_sm "80px"
+  md: &width_md "100px"
+  lg: &width_lg "120px"
+  xl: &width_xl "140px"
+  xxl: &width_2xl "160px"
+  wide: &width_wide "200px"
+  xwide: &width_xwide "250px"
+  file: &width_file "150px"
+
+# ============================================================================
 # COMPONENT DEFAULTS (inherited unless overridden)
 # ============================================================================
 defaults:
@@ -522,7 +549,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: text
-      style: { width: "140px", monospace: true, emptyValue: "—" }
+      style: { width: *width_xl, monospace: true, emptyValue: "—" }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: text
@@ -542,7 +569,7 @@ fieldBusinessTypes:
       <<: *table_default
       renderType: text
       behavior: { visible: true, sortable: true, filterable: true, searchable: true, required: true }
-      style: { width: "250px", bold: true, linkToDetail: true, emptyValue: "(untitled)" }
+      style: { width: *width_xwide, bold: true, linkToDetail: true, emptyValue: "(untitled)" }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: text
@@ -598,7 +625,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: text
-      style: { width: "200px", linkable: true }
+      style: { width: *width_wide, linkable: true }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: text
@@ -614,7 +641,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: text
-      style: { width: "140px", linkable: true }
+      style: { width: *width_xl, linkable: true }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: text
@@ -630,7 +657,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: text
-      style: { width: "200px", truncate: true, linkable: true }
+      style: { width: *width_wide, truncate: true, linkable: true }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: text
@@ -649,7 +676,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: text
-      style: { width: "250px", singleLine: true }
+      style: { width: *width_xwide, singleLine: true }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: text
@@ -667,7 +694,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: text
-      style: { width: "120px" }
+      style: { width: *width_lg }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: text
@@ -681,7 +708,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: text
-      style: { width: "100px", monospace: true }
+      style: { width: *width_md, monospace: true }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: text
@@ -697,7 +724,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: currency
-      style: { align: right, width: "140px", symbol: "$", decimals: 2, locale: en-CA, emptyValue: "$0.00" }
+      style: { align: right, width: *width_xl, symbol: "$", decimals: 2, locale: en-CA, emptyValue: "$0.00" }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: currency
@@ -715,7 +742,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: currency
-      style: { align: right, width: "120px", symbol: "$", locale: en-CA, cents: true }
+      style: { align: right, width: *width_lg, symbol: "$", locale: en-CA, cents: true }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: currency
@@ -731,7 +758,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: percentage
-      style: { align: right, width: "100px", decimals: 0 }
+      style: { align: right, width: *width_md, decimals: 0 }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: percentage
@@ -751,7 +778,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: date
-      style: { width: "120px", format: short, locale: en-CA }
+      style: { width: *width_lg, format: short, locale: en-CA }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: date
@@ -771,7 +798,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: timestamp
-      style: { width: "160px", format: datetime }
+      style: { width: *width_2xl, format: datetime }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: timestamp
@@ -786,7 +813,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *hidden
       renderType: timestamp
-      style: { width: "140px", format: relative }
+      style: { width: *width_xl, format: relative }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: timestamp
@@ -804,7 +831,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: time
-      style: { width: "100px" }
+      style: { width: *width_md }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: time
@@ -819,7 +846,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: duration
-      style: { width: "100px", unit: minutes }
+      style: { width: *width_md, unit: minutes }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: duration
@@ -843,7 +870,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: duration
-      style: { width: "100px", unit: hours }
+      style: { width: *width_md, unit: hours }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: duration
@@ -856,7 +883,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: duration
-      style: { width: "100px", unit: seconds }
+      style: { width: *width_md, unit: seconds }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: duration
@@ -869,7 +896,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: duration
-      style: { width: "100px", unit: ms }
+      style: { width: *width_md, unit: ms }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: duration
@@ -885,7 +912,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: boolean
-      style: { align: center, width: "80px", trueLabel: "Yes", falseLabel: "No", trueColor: green, falseColor: gray }
+      style: { align: center, width: *width_sm, trueLabel: "Yes", falseLabel: "No", trueColor: green, falseColor: gray }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: boolean
@@ -901,7 +928,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: boolean
-      style: { align: center, width: "100px", trueLabel: Active, falseLabel: Inactive, trueColor: green, falseColor: red }
+      style: { align: center, width: *width_md, trueLabel: Active, falseLabel: Inactive, trueColor: green, falseColor: red }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: boolean
@@ -923,7 +950,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: badge
-      style: { width: "140px", colorFromData: true }
+      style: { width: *width_xl, colorFromData: true }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: badge
@@ -949,7 +976,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: badge
-      style: { width: "140px", colorFromData: true }
+      style: { width: *width_xl, colorFromData: true }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: component
@@ -1025,7 +1052,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: number
-      style: { width: "100px", align: right }
+      style: { width: *width_md, align: right }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: number
@@ -1047,7 +1074,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: number
-      style: { width: "80px", align: center }
+      style: { width: *width_sm, align: center }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: number
@@ -1062,7 +1089,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: number
-      style: { align: right, width: "120px", unit: "sq ft" }
+      style: { align: right, width: *width_lg, unit: "sq ft" }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: number
@@ -1075,7 +1102,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: number
-      style: { align: right, width: "120px", unit: "m³" }
+      style: { align: right, width: *width_lg, unit: "m³" }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: number
@@ -1088,7 +1115,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: text
-      style: { width: "120px", unit: "cm" }
+      style: { width: *width_lg, unit: "cm" }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: text
@@ -1101,7 +1128,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: number
-      style: { align: right, width: "100px", unit: kg }
+      style: { align: right, width: *width_md, unit: kg }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: number
@@ -1114,7 +1141,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: filesize
-      style: { width: "100px", align: right }
+      style: { width: *width_md, align: right }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: filesize
@@ -1133,7 +1160,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: number
-      style: { width: "120px", max: 5, suffix: "/5" }
+      style: { width: *width_lg, max: 5, suffix: "/5" }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: number
@@ -1150,7 +1177,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: number
-      style: { width: "100px", align: right }
+      style: { width: *width_md, align: right }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: number
@@ -1165,7 +1192,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: number
-      style: { width: "120px", precision: 6 }
+      style: { width: *width_lg, precision: 6 }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: number
@@ -1222,6 +1249,21 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   # JSON & STRUCTURED DATA
   # --------------------------------------------------------------------------
+  # Quote line items - array of services/products with pricing
+  quote_items:
+    dtype: jsonb
+    entityListOfInstancesTable:
+      <<: *hidden
+      renderType: json
+      style: { collapsed: true }
+    entityInstanceFormContainer:
+      <<: *form_default
+      renderType: component
+      component: QuoteItemsRenderer
+      style: { collapsed: false }
+    kanbanView: *hidden
+    gridView: *hidden
+
   json:
     dtype: jsonb
     entityListOfInstancesTable:
@@ -1265,7 +1307,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: file
-      style: { width: "150px" }
+      style: { width: *width_file }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: file
@@ -1277,7 +1319,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: image
-      style: { width: "80px", size: thumbnail }
+      style: { width: *width_sm, size: thumbnail }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: image
@@ -1294,7 +1336,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: avatar
-      style: { align: center, width: "60px", size: sm }
+      style: { align: center, width: *width_xs, size: sm }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: avatar
@@ -1314,7 +1356,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: s3_avatar
-      style: { align: center, width: "60px", size: sm }
+      style: { align: center, width: *width_xs, size: sm }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: s3_avatar
@@ -1389,7 +1431,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: text
-      style: { width: "120px" }
+      style: { width: *width_lg }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: text
@@ -1402,7 +1444,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: text
-      style: { width: "80px" }
+      style: { width: *width_sm }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: text
@@ -1418,7 +1460,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: text
-      style: { width: "150px", monospace: true, type: code128 }
+      style: { width: *width_file, monospace: true, type: code128 }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: text
@@ -1434,7 +1476,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: text
-      style: { width: "120px", monospace: true }
+      style: { width: *width_lg, monospace: true }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: text
@@ -1453,7 +1495,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: color
-      style: { width: "100px", showHex: true }
+      style: { width: *width_md, showHex: true }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: color
@@ -1472,7 +1514,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: badge
-      style: { width: "120px" }
+      style: { width: *width_lg }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: badge
@@ -1499,7 +1541,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: text
-      style: { width: "120px" }
+      style: { width: *width_lg }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: text
@@ -1528,7 +1570,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: text
-      style: { width: "140px" }
+      style: { width: *width_xl }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: text
@@ -1540,7 +1582,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: text
-      style: { width: "140px", monospace: true }
+      style: { width: *width_xl, monospace: true }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: text
@@ -1564,7 +1606,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: text
-      style: { width: "160px", linkable: true }
+      style: { width: *width_2xl, linkable: true }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: text
@@ -1579,7 +1621,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: text
-      style: { width: "140px" }
+      style: { width: *width_xl }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: text
@@ -1609,7 +1651,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: text
-      style: { width: "140px", monospace: true }
+      style: { width: *width_xl, monospace: true }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: text
@@ -1635,7 +1677,7 @@ fieldBusinessTypes:
     entityListOfInstancesTable:
       <<: *table_default
       renderType: icon
-      style: { width: "80px", align: center }
+      style: { width: *width_sm, align: center }
     entityInstanceFormContainer:
       <<: *form_default
       renderType: icon

@@ -1557,6 +1557,14 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                 onCancelInlineEdit={handleChildCancel}
                 allowAddRow={true}
                 onAddRow={handleChildAddRow}
+                // v11.0.0: Link Existing Entity feature
+                entityCode={currentChildEntity || undefined}
+                parentContext={{
+                  entityCode,
+                  entityId: id!,
+                  entityLabel: config?.displayName
+                }}
+                onLinkSuccess={() => refetchChild()}
               />
             )}
           </div>

@@ -969,6 +969,18 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   # JSON & STRUCTURED DATA
   # --------------------------------------------------------------------------
+  # Quote line items - array of services/products with pricing
+  quote_items:
+    dtype: jsonb
+    entityListOfInstancesTable:
+      inputType: readonly
+      behavior: { editable: false, filterable: false, sortable: false, visible: false }
+    entityInstanceFormContainer:
+      inputType: component
+      component: QuoteItemsRenderer
+      behavior: { editable: true }
+      style: { mode: table }
+
   json:
     dtype: jsonb
     entityListOfInstancesTable:

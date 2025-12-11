@@ -58,6 +58,12 @@ import { EllipsisBounce, InlineSpinner } from './EllipsisBounce';
 import { BadgeDropdownSelect } from './BadgeDropdownSelect';
 // v9.8.0: Reusable Chip component for filter chips
 import { Chip } from './Chip';
+// v11.0.0: Split add button for "Add New" + "Link Existing" options
+import { SplitAddButton } from './SplitAddButton';
+// v11.0.0: Modal for linking existing entities
+import { Modal_LinkExistingEntityInstanceToDataTable } from '../modal/Modal_LinkExistingEntityInstanceToDataTable';
+// v11.0.0: Entity codes cache for dynamic entity labels
+import { useEntityCodes } from '../../../db/cache/hooks';
 
 // ============================================================================
 // v14.1.0: DENSITY CONTROL SYSTEM - Modern minimal table design
@@ -236,6 +242,17 @@ export interface EntityListOfInstancesTableProps<T = any> {
   // v14.1.0: Density control for compact/regular/relaxed table appearance
   density?: TableDensity;
   onDensityChange?: (density: TableDensity) => void;
+  // v11.0.0: Link Existing Entity feature props
+  /** Entity type code (e.g., 'customer', 'task') - enables dynamic labels */
+  entityCode?: string;
+  /** Parent context - when provided, enables "Link Existing" option */
+  parentContext?: {
+    entityCode: string;      // Parent entity type (e.g., 'project')
+    entityId: string;        // Parent entity instance UUID
+    entityLabel?: string;    // Parent display name (e.g., 'Project')
+  };
+  /** Callback after successful linking - typically used to refresh the list */
+  onLinkSuccess?: () => void;
 }
 
 export function EntityListOfInstancesTable<T = any>({
@@ -284,11 +301,26 @@ export function EntityListOfInstancesTable<T = any>({
   // v14.2.0: Density control - default to regular for better readability
   density = 'regular',
   onDensityChange,
+  // v11.0.0: Link Existing Entity feature
+  entityCode,
+  parentContext,
+  onLinkSuccess,
 }: EntityListOfInstancesTableProps<T>) {
   // ============================================================================
   // v14.1.0: DENSITY CONFIGURATION - Get current density settings
   // ============================================================================
   const densitySettings = DENSITY_CONFIG[density];
+
+  // ============================================================================
+  // v11.0.0: LINK EXISTING ENTITY - Modal state and entity label
+  // ============================================================================
+  const [showLinkExistingModal, setShowLinkExistingModal] = useState(false);
+  const { getByCode } = useEntityCodes();
+
+  // Get entity label for dynamic button text (e.g., "Add New Customer")
+  // Use singular 'name' for buttons ("Add New Project") not plural 'ui_label' ("Projects")
+  const entityMeta = entityCode ? getByCode(entityCode) : null;
+  const entityLabel = entityMeta?.name || entityCode || 'Item';
 
   // ============================================================================
   // METADATA-DRIVEN COLUMN GENERATION (Pure Backend-Driven Architecture)
@@ -1434,6 +1466,14 @@ export function EntityListOfInstancesTable<T = any>({
     setNewRowData({});
   };
 
+  // v11.5.0: Scroll to top when adding new row (row appears at top, must be visible)
+  useEffect(() => {
+    if (editingRow?.startsWith('temp_') && tableContainerRef.current) {
+      // Scroll to top to show the new row
+      tableContainerRef.current.scrollTop = 0;
+    }
+  }, [editingRow]);
+
   const toggleColumnVisibility = (key: string) => {
     setVisibleColumns(prev => {
       const newSet = new Set(prev);
@@ -2519,17 +2559,29 @@ export function EntityListOfInstancesTable<T = any>({
         </div>
       )}
 
-      {/* Add Row Button - Adds inline editable row */}
+      {/* v11.0.0: Add Row Button - Dynamic label with optional "Link Existing" */}
       {allowAddRow && (
-        <div className="border-t border-dark-300 bg-dark-100">
-          <button
-            onClick={handleStartAddRow}
-            className="w-full px-6 py-3 text-left text-sm text-dark-700 hover:bg-dark-100 transition-colors flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add new row</span>
-          </button>
+        <div className="flex-shrink-0 border-t border-dark-300 bg-dark-100">
+          <SplitAddButton
+            entityLabel={entityLabel}
+            onAddNew={handleStartAddRow}
+            onLinkExisting={() => setShowLinkExistingModal(true)}
+            showLinkOption={!!parentContext}
+          />
         </div>
+      )}
+
+      {/* v11.0.0: Link Existing Entity Modal */}
+      {parentContext && entityCode && (
+        <Modal_LinkExistingEntityInstanceToDataTable
+          isOpen={showLinkExistingModal}
+          onClose={() => setShowLinkExistingModal(false)}
+          parentEntity={parentContext.entityCode}
+          parentId={parentContext.entityId}
+          childEntity={entityCode}
+          childEntityLabel={entityLabel}
+          onSuccess={onLinkSuccess}
+        />
       )}
 
       <div className="flex-shrink-0 mt-4">

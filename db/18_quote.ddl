@@ -90,8 +90,8 @@ CREATE TABLE app.quote (
     customer_notes text -- Notes/terms visible to customer
 );
 
-COMMENT ON TABLE app.fact_quote IS 'Quote fact table tracking customer quotes for services and products';
-COMMENT ON COLUMN app.fact_quote.quote_items IS 'JSONB array of line items with per-line discounts and taxes: [{"item_type":"service/product","item_id":"uuid","item_code":"code","item_name":"name","quantity":1.0,"unit_rate":100.00,"discount_pct":10.00,"discount_amt":10.00,"subtotal":90.00,"tax_pct":13.00,"tax_amt":11.70,"line_total":101.70,"line_notes":"..."}]';
+COMMENT ON TABLE app.quote IS 'Quote fact table tracking customer quotes for services and products';
+COMMENT ON COLUMN app.quote.quote_items IS 'JSONB array of line items with per-line discounts and taxes: [{"item_type":"service/product","item_id":"uuid","item_code":"code","item_name":"name","quantity":1.0,"unit_rate":100.00,"discount_pct":10.00,"discount_amt":10.00,"subtotal":90.00,"tax_pct":13.00,"tax_amt":11.70,"line_total":101.70,"line_notes":"..."}]';
 
 -- =====================================================
 -- DATA CURATION: Sample Quotes for Tasks
@@ -99,7 +99,7 @@ COMMENT ON COLUMN app.fact_quote.quote_items IS 'JSONB array of line items with 
 
 -- Quote for HVAC Installation (Task: DT-TASK-002)
 -- Line-by-line calculations for London, Ontario (13% HST)
-INSERT INTO app.fact_quote (code, name, descr, metadata,
+INSERT INTO app.quote (code, name, descr, metadata,
     dl__quote_stage,
     quote_items,
     subtotal_amt, discount_pct, discount_amt, tax_pct, quote_tax_amt, quote_total_amt,
@@ -146,7 +146,7 @@ INSERT INTO app.fact_quote (code, name, descr, metadata,
 );
 
 -- Quote for Plumbing Renovation (New Task Context)
-INSERT INTO app.fact_quote (code, name, descr, metadata,
+INSERT INTO app.quote (code, name, descr, metadata,
     dl__quote_stage,
     quote_items,
     subtotal_amt, discount_pct, discount_amt, tax_pct, quote_tax_amt, quote_total_amt,
@@ -174,7 +174,7 @@ INSERT INTO app.fact_quote (code, name, descr, metadata,
 );
 
 -- Quote for Electrical Panel Upgrade
-INSERT INTO app.fact_quote (code, name, descr, metadata,
+INSERT INTO app.quote (code, name, descr, metadata,
     dl__quote_stage,
     quote_items,
     subtotal_amt, discount_pct, discount_amt, tax_pct, quote_tax_amt, quote_total_amt,
@@ -201,7 +201,7 @@ INSERT INTO app.fact_quote (code, name, descr, metadata,
 );
 
 -- Quote for Landscaping Design
-INSERT INTO app.fact_quote (code, name, descr, metadata,
+INSERT INTO app.quote (code, name, descr, metadata,
     dl__quote_stage,
     quote_items,
     subtotal_amt, discount_pct, discount_amt, tax_pct, quote_tax_amt, quote_total_amt,
@@ -230,7 +230,7 @@ INSERT INTO app.fact_quote (code, name, descr, metadata,
 );
 
 -- Quote for Bathroom Renovation
-INSERT INTO app.fact_quote (code, name, descr, metadata,
+INSERT INTO app.quote (code, name, descr, metadata,
     dl__quote_stage,
     quote_items,
     subtotal_amt, discount_pct, discount_amt, tax_pct, quote_tax_amt, quote_total_amt,
@@ -261,4 +261,4 @@ INSERT INTO app.fact_quote (code, name, descr, metadata,
     'Total savings: $163.50 (0.8%). Includes premium fixtures and materials. 12-month warranty on workmanship. Completion time: 6-8 weeks. HST (13%) included.'
 );
 
-COMMENT ON TABLE app.fact_quote IS 'Quote fact table with revenue tracking, stages, customer information, and JSONB line items';
+COMMENT ON TABLE app.quote IS 'Quote fact table with revenue tracking, stages, customer information, and JSONB line items';

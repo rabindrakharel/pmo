@@ -351,6 +351,9 @@ patterns:
 # ============================================================================
 # JSON & STRUCTURED DATA
 # ============================================================================
+  # Quote line items - MUST come before *_data pattern (specific match first)
+  - { pattern: "quote_items", exact: true, fieldBusinessType: quote_items }
+
   - { pattern: "metadata", exact: true, fieldBusinessType: json }
   - { pattern: "*_metadata", exact: false, fieldBusinessType: json }
   - { pattern: "*_schema", exact: false, fieldBusinessType: json_schema }

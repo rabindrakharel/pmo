@@ -8,6 +8,11 @@
 // - isMetadataLoaded is the gate signal for MetadataGate component
 // - AuthContext calls setMetadataLoaded(true) after prefetch completes
 // - MetadataGate blocks rendering until isMetadataLoaded === true
+//
+// v14.2.0: Logout Gate Pattern
+// - isLoggingOut is the gate signal for LogoutGate component
+// - AuthContext calls setLoggingOut(true) to start logout flow
+// - LogoutGate shows stepper UI during cache clearing
 // ============================================================================
 
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -51,6 +56,11 @@ interface CacheContextValue {
    * - getEntityInstanceNameSync() will return names for prefetched entities
    */
   isMetadataLoaded: boolean;
+  /**
+   * v14.2.0: Logout in progress - GATE SIGNAL
+   * When true, LogoutGate shows stepper UI while cache clears
+   */
+  isLoggingOut: boolean;
   /** App is ready to render (hydration complete) */
   isReady: boolean;
   /** Clear all caches (for logout) */
@@ -66,6 +76,11 @@ interface CacheContextValue {
    * Called by AuthContext after all prefetch operations complete
    */
   setMetadataLoaded: (loaded: boolean) => void;
+  /**
+   * v14.2.0: Set logging out state
+   * Called by AuthContext to trigger logout stepper UI
+   */
+  setLoggingOut: (loggingOut: boolean) => void;
 }
 
 const CacheContext = createContext<CacheContextValue>({
@@ -73,12 +88,14 @@ const CacheContext = createContext<CacheContextValue>({
   isHydrated: false,
   hydrationResult: null,
   isMetadataLoaded: false,
+  isLoggingOut: false,
   isReady: false,
   clearCache: async () => {},
   connect: () => {},
   disconnect: () => {},
   prefetch: async () => {},
   setMetadataLoaded: () => {},
+  setLoggingOut: () => {},
 });
 
 // ============================================================================
@@ -123,6 +140,7 @@ export function CacheProvider({
     null
   );
   const [isMetadataLoaded, setIsMetadataLoaded] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Hydrate from Dexie on mount
   useEffect(() => {
@@ -200,6 +218,17 @@ export function CacheProvider({
     }
   }, []);
 
+  // v14.2.0: Setter for logging out state - called by AuthContext
+  const setLoggingOut = useCallback((loggingOut: boolean) => {
+    setIsLoggingOut(loggingOut);
+    if (loggingOut) {
+      console.log(
+        '%c[CacheProvider] Logout started - showing stepper UI',
+        'color: #fcc419; font-weight: bold'
+      );
+    }
+  }, []);
+
   // Clear all caches (for logout)
   // v11.0.0: Removed clearAllSyncStores - TanStack Query cache is the single source of truth
   const clearCache = useCallback(async () => {
@@ -217,12 +246,14 @@ export function CacheProvider({
     isHydrated,
     hydrationResult,
     isMetadataLoaded,
+    isLoggingOut,
     isReady,
     clearCache,
     connect,
     disconnect,
     prefetch,
     setMetadataLoaded,
+    setLoggingOut,
   };
 
   return (
@@ -272,5 +303,12 @@ export function useIsMetadataLoaded(): boolean {
  */
 export function useHydrationResult(): HydrationResult | null {
   return useContext(CacheContext).hydrationResult;
+}
+
+/**
+ * v14.2.0: Check if logout is in progress
+ */
+export function useIsLoggingOut(): boolean {
+  return useContext(CacheContext).isLoggingOut;
 }
 

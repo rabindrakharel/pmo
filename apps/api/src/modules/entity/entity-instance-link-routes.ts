@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
+import { sql } from 'drizzle-orm';
 import { getEntityInfrastructure, Permission } from '@/services/entity-infrastructure.service.js';
 
 /**
@@ -376,5 +377,219 @@ export async function entityInstanceLinkRoutes(fastify: FastifyInstance) {
     };
 
     return reply.send({ success: true, data: result, totals });
+  });
+
+  // ==========================================================================
+  // v11.0.0: LINK EXISTING ENTITY ENDPOINTS
+  // ==========================================================================
+  // These endpoints support the "Link Existing" feature in child entity tabs
+  // ==========================================================================
+
+  // --------------------------------------------------------------------------
+  // GET /api/v1/:parentEntity/:parentId/:childEntity/linkable
+  // Returns entities NOT yet linked to the parent (for multi-select modal)
+  // --------------------------------------------------------------------------
+  fastify.get<{
+    Params: { parentEntity: string; parentId: string; childEntity: string };
+    Querystring: { search?: string; limit?: number };
+  }>('/api/v1/:parentEntity/:parentId/:childEntity/linkable', {
+    schema: {
+      params: Type.Object({
+        parentEntity: Type.String({ minLength: 1 }),
+        parentId: Type.String({ format: 'uuid' }),
+        childEntity: Type.String({ minLength: 1 })
+      }),
+      querystring: Type.Object({
+        search: Type.Optional(Type.String()),
+        limit: Type.Optional(Type.Number({ default: 50, maximum: 100 }))
+      }),
+      response: {
+        200: Type.Object({
+          success: Type.Boolean(),
+          data: Type.Array(Type.Object({
+            id: Type.String(),
+            code: Type.Union([Type.String(), Type.Null()]),
+            name: Type.String(),
+            descr: Type.Union([Type.String(), Type.Null()])
+          })),
+          total: Type.Number()
+        }),
+        403: Type.Object({ success: Type.Boolean(), error: Type.String() })
+      }
+    },
+    preHandler: fastify.authenticate
+  }, async (request, reply) => {
+    const { parentEntity, parentId, childEntity } = request.params;
+    const { search, limit = 50 } = request.query as { search?: string; limit?: number };
+    const userId = (request as any).user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({ success: false, error: 'User not authenticated' });
+    }
+
+    // RBAC: Check VIEW permission on parent entity
+    const canView = await entityInfra.check_entity_rbac(
+      userId, parentEntity, parentId, Permission.VIEW
+    );
+    if (!canView) {
+      return reply.status(403).send({ success: false, error: 'Cannot view parent entity' });
+    }
+
+    // Get already-linked entity IDs
+    const existingLinks = await entityInfra.get_all_entity_instance_links({
+      parent_entity_code: parentEntity,
+      parent_entity_id: parentId,
+      child_entity_code: childEntity
+    });
+    const linkedIds = existingLinks.map(l => l.child_entity_instance_id);
+
+    // Get RBAC condition for child entity (user can only see what they have VIEW access to)
+    const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
+      userId, childEntity, Permission.VIEW, 'e'
+    );
+
+    // Build query to get linkable entities
+    // Use entity's db_table from app.entity or default to app.{childEntity}
+    const entityMeta = await entityInfra.get_entity(childEntity);
+    const tableName = entityMeta?.db_table || childEntity;
+
+    // Build WHERE conditions using Drizzle sql template
+    const conditions: ReturnType<typeof sql>[] = [];
+
+    // Add RBAC condition (already returns SQL type from entity-infrastructure.service)
+    conditions.push(rbacCondition);
+
+    // Active records only
+    conditions.push(sql`e.active_flag = true`);
+
+    // Exclude already-linked entities
+    if (linkedIds.length > 0) {
+      conditions.push(sql`e.id NOT IN (${sql.join(linkedIds.map(id => sql`${id}::uuid`), sql`, `)})`);
+    }
+
+    // Search filter (code, name, descr)
+    if (search && search.trim()) {
+      const searchTerm = `%${search.trim()}%`;
+      conditions.push(sql`(
+        e.name ILIKE ${searchTerm} OR
+        COALESCE(e.code, '') ILIKE ${searchTerm} OR
+        COALESCE(e.descr, '') ILIKE ${searchTerm}
+      )`);
+    }
+
+    // Execute query using Drizzle sql template
+    const result = await db.execute(sql`
+      SELECT e.id, e.code, e.name, e.descr
+      FROM app.${sql.raw(tableName)} e
+      WHERE ${sql.join(conditions, sql` AND `)}
+      ORDER BY e.name ASC
+      LIMIT ${limit}
+    `);
+
+    return reply.send({
+      success: true,
+      data: Array.from(result).map((r: any) => ({
+        id: r.id,
+        code: r.code || null,
+        name: r.name,
+        descr: r.descr || null
+      })),
+      total: result.length
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // POST /api/v1/:parentEntity/:parentId/:childEntity/link
+  // Bulk link multiple existing entities to a parent (no creation)
+  // --------------------------------------------------------------------------
+  fastify.post<{
+    Params: { parentEntity: string; parentId: string; childEntity: string };
+    Body: { entityIds: string[] };
+  }>('/api/v1/:parentEntity/:parentId/:childEntity/link', {
+    schema: {
+      params: Type.Object({
+        parentEntity: Type.String({ minLength: 1 }),
+        parentId: Type.String({ format: 'uuid' }),
+        childEntity: Type.String({ minLength: 1 })
+      }),
+      body: Type.Object({
+        entityIds: Type.Array(Type.String({ format: 'uuid' }), { minItems: 1, maxItems: 100 })
+      }),
+      response: {
+        201: Type.Object({
+          success: Type.Boolean(),
+          linked: Type.Number(),
+          skipped: Type.Number(),
+          skippedIds: Type.Array(Type.String()),
+          links: Type.Array(Type.Object({
+            parent_id: Type.String(),
+            child_id: Type.String(),
+            link_id: Type.String()
+          }))
+        }),
+        403: Type.Object({ success: Type.Boolean(), error: Type.String() })
+      }
+    },
+    preHandler: fastify.authenticate
+  }, async (request, reply) => {
+    const { parentEntity, parentId, childEntity } = request.params;
+    const { entityIds } = request.body;
+    const userId = (request as any).user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({ success: false, error: 'User not authenticated' });
+    }
+
+    // RBAC: Check EDIT permission on parent entity (linking modifies parent's children)
+    const canEdit = await entityInfra.check_entity_rbac(
+      userId, parentEntity, parentId, Permission.EDIT
+    );
+    if (!canEdit) {
+      return reply.status(403).send({ success: false, error: 'Cannot edit parent entity' });
+    }
+
+    // Get existing links to avoid duplicates
+    const existingLinks = await entityInfra.get_all_entity_instance_links({
+      parent_entity_code: parentEntity,
+      parent_entity_id: parentId,
+      child_entity_code: childEntity
+    });
+    const existingChildIds = new Set(existingLinks.map(l => l.child_entity_instance_id));
+
+    // Filter out already-linked entities
+    const toLink = entityIds.filter(id => !existingChildIds.has(id));
+    const skippedIds = entityIds.filter(id => existingChildIds.has(id));
+
+    // Create links for new entities
+    const createdLinks: Array<{ parent_id: string; child_id: string; link_id: string }> = [];
+
+    for (const childId of toLink) {
+      try {
+        const link = await entityInfra.set_entity_instance_link({
+          parent_entity_code: parentEntity,
+          parent_entity_id: parentId,
+          child_entity_code: childEntity,
+          child_entity_id: childId,
+          relationship_type: 'contains'
+        });
+
+        createdLinks.push({
+          parent_id: link.entity_instance_id as string,
+          child_id: link.child_entity_instance_id as string,
+          link_id: link.id as string
+        });
+      } catch (err) {
+        // Log error but continue with other links
+        fastify.log.error({ err, childId }, 'Failed to create link');
+      }
+    }
+
+    return reply.status(201).send({
+      success: true,
+      linked: createdLinks.length,
+      skipped: skippedIds.length,
+      skippedIds,
+      links: createdLinks
+    });
   });
 }

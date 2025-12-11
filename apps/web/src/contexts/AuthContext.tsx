@@ -25,6 +25,8 @@ interface AuthActions {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  /** v14.2.0: Called by LogoutGate when stepper animation completes */
+  completeLogout: () => void;
 }
 
 type AuthContextType = AuthState & AuthActions;
@@ -38,7 +40,8 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const queryClient = useQueryClient();
   // v13.0.0: Access cache context for metadata gate
-  const { setMetadataLoaded, clearCache } = useCacheContext();
+  // v14.2.0: Access setLoggingOut for logout stepper UI
+  const { setMetadataLoaded, setLoggingOut, clearCache } = useCacheContext();
   const [state, setState] = useState<AuthState>({
     user: null,
     token: null,
@@ -107,30 +110,43 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const logout = async () => {
-    // v13.0.0: Close the gate on logout
+    // v14.2.0: Logout with stepper UI
+    // Step 1: Trigger logout stepper UI (LogoutGate will show it)
+    setLoggingOut(true);
+
+    // Step 2: Close the metadata gate
     setMetadataLoaded(false);
 
+    // Step 3: Clear all caches in background (while stepper animates)
+    await clearCache();
+    clearNormalizedStore(queryClient);
+    queryClient.clear();
+
+    // Step 4: Remove auth token
+    localStorage.removeItem('auth_token');
+
+    // Step 5: Call logout API (non-blocking, errors ignored)
     try {
       if (state.token) {
         await authApi.logout();
       }
     } catch (error) {
-      console.error('Logout failed:', error);
-    } finally {
-      localStorage.removeItem('auth_token');
-
-      // v13.0.0: Use unified cache clearing from CacheProvider
-      await clearCache();
-      clearNormalizedStore(queryClient);    // Normalized entity cache
-      queryClient.clear();                  // React Query cache (redundant but safe)
-
-      setState({
-        user: null,
-        token: null,
-        isLoading: false,
-        isAuthenticated: false,
-      });
+      console.error('Logout API call failed:', error);
+      // Continue with logout even if API fails
     }
+
+    // NOTE: Auth state update happens in completeLogout() when stepper finishes
+    // This allows the stepper animation to complete before redirect
+  };
+
+  // v14.2.0: Called by LogoutGate when stepper animation completes
+  const completeLogout = () => {
+    setState({
+      user: null,
+      token: null,
+      isLoading: false,
+      isAuthenticated: false,
+    });
   };
 
   const refreshUser = async () => {
@@ -174,6 +190,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     login,
     logout,
     refreshUser,
+    completeLogout,
   };
 
   return (

@@ -45,7 +45,9 @@ CREATE TABLE app.product (
     updated_ts timestamptz DEFAULT now(),
     version integer DEFAULT 1,
 
-    -- Product-specific fields (NO pricing, inventory, or cost fields)
+    -- Product-specific fields
+    unit_price_amt decimal(15,2) DEFAULT 0.00, -- Standard selling price (CAD)
+    cost_amt decimal(15,2) DEFAULT 0.00, -- Cost/purchase price (CAD)
     style text, -- Product style identifier
     sku text, -- Stock Keeping Unit identifier
     upc text, -- Universal Product Code / barcode
@@ -175,6 +177,7 @@ FROM app.product_hierarchy WHERE code = 'PROD-HIE-HVAC-THERM';
 -- HVAC Products
 INSERT INTO app.product (
     code, name, descr, metadata,
+    unit_price_amt, cost_amt,
     style, sku, upc,
     product_category, dl__product_brand,
     item_level, tran_level,
@@ -186,6 +189,7 @@ INSERT INTO app.product (
     'Carrier 3-Ton Central Air Conditioner',
     '3-ton 16 SEER central air conditioning unit with installation kit',
     '{"model": "CA-36K3", "seer_rating": 16, "tonnage": 3}'::jsonb,
+    3200.00, 2400.00,
     'CA-36K3', 'HVAC-CAR-3TON-001', '012345678901',
     '3-Ton AC Units', 'Carrier',
     'SKU', 'TRANSACTION',
@@ -197,6 +201,7 @@ INSERT INTO app.product (
     'Honeywell Smart Thermostat',
     'WiFi-enabled smart thermostat with mobile app control and energy saving features',
     '{"model": "T9-WIFI", "smart_features": true}'::jsonb,
+    299.00, 180.00,
     'T9-WIFI', 'HVAC-HON-THERM-001', '012345678902',
     'Smart Thermostats', 'Honeywell',
     'SKU', 'TRANSACTION',
@@ -208,6 +213,7 @@ INSERT INTO app.product (
     'HVAC Air Filter 20x25x1',
     'High-efficiency pleated air filter 20x25x1 MERV 11 rating',
     '{"model": "MPR1500", "merv_rating": 11, "size": "20x25x1"}'::jsonb,
+    24.99, 12.50,
     'MPR1500', 'HVAC-FIL-2025-001', '012345678903',
     'Air Filters', 'Filtrete',
     'SKU', 'TRANSACTION',
@@ -218,6 +224,7 @@ INSERT INTO app.product (
 -- Plumbing Products
 INSERT INTO app.product (
     code, name, descr, metadata,
+    unit_price_amt, cost_amt,
     style, sku, upc,
     product_category, dl__product_brand,
     item_level, tran_level,
@@ -229,6 +236,7 @@ INSERT INTO app.product (
     'Rheem 50-Gallon Water Heater',
     '50-gallon electric water heater with 6-year warranty',
     '{"model": "XE50T06ST45U1", "capacity_gallons": 50, "energy_star": true}'::jsonb,
+    1250.00, 850.00,
     'XE50T06ST45U1', 'PLUMB-RHE-50G-001', '012345678904',
     'Water Heaters', 'Rheem',
     'SKU', 'TRANSACTION',
@@ -240,6 +248,7 @@ INSERT INTO app.product (
     'Kohler Kitchen Faucet',
     'Single-handle pull-down kitchen faucet with spray head',
     '{"model": "K-596-VS", "finish": "stainless", "spray_head": true}'::jsonb,
+    389.00, 220.00,
     'K-596-VS', 'PLUMB-KOH-FAUC-001', '012345678905',
     'Kitchen Faucets', 'Kohler',
     'SKU', 'TRANSACTION',
@@ -251,6 +260,7 @@ INSERT INTO app.product (
     'PEX Tubing 1/2" 100ft Roll',
     '1/2 inch red PEX tubing for hot water lines, 100-foot roll',
     '{"model": "F1060500", "size": "1/2 inch", "color": "red", "length_ft": 100}'::jsonb,
+    89.99, 55.00,
     'F1060500', 'PLUMB-UPO-PEX-001', '012345678906',
     'PEX Tubing', 'Uponor',
     'SKU', 'TRANSACTION',
@@ -261,6 +271,7 @@ INSERT INTO app.product (
 -- Electrical Products
 INSERT INTO app.product (
     code, name, descr, metadata,
+    unit_price_amt, cost_amt,
     style, sku, upc,
     product_category, dl__product_brand,
     item_level, tran_level,
@@ -272,6 +283,7 @@ INSERT INTO app.product (
     'Square D 200A Main Breaker Panel',
     '200-amp main breaker load center with 40 circuit spaces',
     '{"model": "HOM4080M200PQCVP", "amperage": 200, "spaces": 40}'::jsonb,
+    485.00, 320.00,
     'HOM4080M200PQCVP', 'ELEC-SQD-PANEL-001', '012345678907',
     'Breaker Panels', 'Square D',
     'SKU', 'TRANSACTION',
@@ -283,6 +295,7 @@ INSERT INTO app.product (
     'LED Recessed Light 6" Kit',
     '6-inch LED recessed lighting retrofit kit, dimmable, 3000K',
     '{"model": "RL560WH6930", "size": "6 inch", "lumens": 650, "kelvin": 3000, "dimmable": true}'::jsonb,
+    34.99, 18.00,
     'RL560WH6930', 'ELEC-HAL-LED-001', '012345678908',
     'LED Lighting', 'Halo',
     'SKU', 'TRANSACTION',
@@ -294,6 +307,7 @@ INSERT INTO app.product (
     'Romex Wire 14/2 250ft Roll',
     '14-gauge 2-conductor NM-B cable with ground, 250-foot roll',
     '{"model": "28827422", "gauge": 14, "conductors": 2, "length_ft": 250}'::jsonb,
+    129.00, 85.00,
     '28827422', 'ELEC-SOU-WIRE-001', '012345678909',
     'Wire & Cable', 'Southwire',
     'SKU', 'TRANSACTION',
@@ -304,6 +318,7 @@ INSERT INTO app.product (
 -- Landscaping Products
 INSERT INTO app.product (
     code, name, descr, metadata,
+    unit_price_amt, cost_amt,
     style, sku, upc,
     product_category, dl__product_brand,
     item_level, tran_level,
@@ -315,6 +330,7 @@ INSERT INTO app.product (
     'Premium Mulch - Cubic Yard',
     'Premium hardwood mulch, dark brown color, per cubic yard',
     '{"type": "hardwood", "color": "dark_brown", "coverage_sqft": 100}'::jsonb,
+    65.00, 35.00,
     'DB-MULCH', 'LAND-NW-MULCH-001', '012345678910',
     'Mulch & Soil', 'Nature''s Way',
     'SKU', 'TRANSACTION',
@@ -326,6 +342,7 @@ INSERT INTO app.product (
     'Lawn Fertilizer 50lb Bag',
     '50-pound bag of professional-grade lawn fertilizer, 24-8-16 formula',
     '{"model": "TM-24816", "weight_lbs": 50, "npk_ratio": "24-8-16", "coverage_sqft": 15000}'::jsonb,
+    89.99, 55.00,
     'TM-24816', 'LAND-TM-FERT-001', '012345678911',
     'Fertilizers', 'TurfMaster',
     'SKU', 'TRANSACTION',
@@ -337,6 +354,7 @@ INSERT INTO app.product (
     'Irrigation Sprinkler Head - Pop-up 4"',
     '4-inch pop-up spray head with adjustable pattern, commercial grade',
     '{"model": "1804-PRS30", "type": "pop_up", "height": "4 inch", "adjustable": true}'::jsonb,
+    18.50, 9.00,
     '1804-PRS30', 'LAND-RB-SPRINK-001', '012345678912',
     'Irrigation Equipment', 'Rain Bird',
     'SKU', 'TRANSACTION',
@@ -347,6 +365,7 @@ INSERT INTO app.product (
 -- General Materials
 INSERT INTO app.product (
     code, name, descr, metadata,
+    unit_price_amt, cost_amt,
     style, sku, upc,
     product_category, dl__product_brand,
     item_level, tran_level,
@@ -358,6 +377,7 @@ INSERT INTO app.product (
     'Premium Paint Gallon - Interior',
     'Premium interior latex paint, eggshell finish, per gallon',
     '{"model": "SW-PREM-INT", "finish": "eggshell", "coverage_sqft": 400}'::jsonb,
+    62.99, 38.00,
     'SW-PREM-INT', 'GEN-SW-PAINT-001', '012345678913',
     'Paint & Coatings', 'Sherwin Williams',
     'SKU', 'TRANSACTION',
@@ -369,6 +389,7 @@ INSERT INTO app.product (
     'Treated Lumber 2x6x12',
     'Pressure-treated lumber 2x6x12 for outdoor construction',
     '{"dimensions": "2x6x12", "treatment": "pressure_treated", "outdoor_use": true}'::jsonb,
+    18.49, 11.00,
     '2X6X12-PT', 'GEN-YW-LUMBER-001', '012345678914',
     'Lumber', 'YellaWood',
     'SKU', 'TRANSACTION',
@@ -380,6 +401,7 @@ INSERT INTO app.product (
     'Ceramic Tile 12x12 Box',
     '12x12 inch ceramic floor tile, box of 12 tiles (12 sq ft coverage)',
     '{"dimensions": "12x12", "material": "ceramic", "tiles_per_box": 12, "coverage_sqft": 12}'::jsonb,
+    45.99, 28.00,
     '1212CER', 'GEN-DT-TILE-001', '012345678915',
     'Flooring & Tile', 'DalTile',
     'SKU', 'TRANSACTION',

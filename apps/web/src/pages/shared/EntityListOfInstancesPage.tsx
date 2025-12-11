@@ -511,13 +511,13 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
           console.log('%c[ADD ROW] Step 3: No oldData, returning unchanged', 'color: #ef4444; font-weight: bold');
           return oldData;
         }
-        console.log('%c[ADD ROW] Step 3: Adding temp row to cache', 'color: #10b981; font-weight: bold', {
+        console.log('%c[ADD ROW] Step 3: Adding temp row to cache at TOP', 'color: #10b981; font-weight: bold', {
           oldDataCount: oldData.data.length,
           newDataCount: oldData.data.length + 1
         });
         return {
           ...oldData,
-          data: [...oldData.data, newRow],  // Add temp row to END
+          data: [newRow, ...oldData.data],  // Add temp row to TOP (visible immediately)
           total: (oldData.total || 0) + 1,
         };
       });
@@ -646,6 +646,8 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
           // v13.1.0: Loading indicators for pagination/fetching
           isFetchingNextPage={isFetching && !dataLoading}
           hasNextPage={hasMore}
+          // v11.0.0: Entity code for dynamic button label (no parentContext = standalone mode)
+          entityCode={entityCode}
         />
       );
     }

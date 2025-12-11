@@ -1,8 +1,8 @@
 # Page, Layout & Component Architecture
 
-> **Version:** 14.1.0 | PMO Enterprise Platform
+> **Version:** 14.2.0 | PMO Enterprise Platform
 > **Status:** Production Ready
-> **Updated:** 2025-12-10
+> **Updated:** 2025-12-11
 
 ## Executive Summary
 
@@ -16,6 +16,7 @@ This document describes the complete frontend architecture including:
 - **Settings System** for runtime datalabel management
 - **v11.0.0 Unified Cache** - TanStack Query as single in-memory cache (no sync stores)
 - **v14.0.0 Unified DeleteOrUnlinkModal** - Context-aware delete/unlink for standalone lists and child entity tabs
+- **v14.2.0 Login/Logout Stepper UI** - Fake progress steppers during login (MetadataGate) and logout (LogoutGate)
 
 **Core Principles:**
 - **Config-driven, not code-driven** - Entity behavior defined in `entityConfig.ts`
@@ -174,6 +175,124 @@ The application wraps pages in a hierarchy of context providers, each managing s
 | `SettingsProvider` | Settings mode toggle | `isSettingsMode`, `previousRoute` |
 | `NavigationHistoryProvider` | Breadcrumb navigation | `history: NavigationNode[]` |
 | `EntityPreviewProvider` | Entity preview panel | `previewEntity`, `isOpen` |
+
+### 2.1 Login & Logout Stepper UI (v14.2.0)
+
+The platform shows visual progress indicators during login and logout operations using a fake stepper UI pattern. These run in parallel with actual cache operations.
+
+**File**: `apps/web/src/components/shared/gates/MetadataGate.tsx`
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    LOGIN/LOGOUT STEPPER PATTERN (v14.2.0)                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌───────────────────────────────┐  ┌───────────────────────────────────┐   │
+│  │    MetadataGate (Login)       │  │      LogoutGate (Logout)          │   │
+│  ├───────────────────────────────┤  ├───────────────────────────────────┤   │
+│  │                               │  │                                   │   │
+│  │  Steps (5s each, normal):     │  │  Steps (400ms each):              │   │
+│  │  ○ Logging in                 │  │  ○ Logging off                    │   │
+│  │  ○ Authenticating             │  │  ○ Processing                     │   │
+│  │  ○ Resolving                  │  │  ○ Clearing the session           │   │
+│  │  ○ Gathering Information      │  │  ○ Clearing completed             │   │
+│  │  ○ Redirecting                │  │  ○ Logged out                     │   │
+│  │                               │  │                                   │   │
+│  │  Trigger: isMetadataLoaded    │  │  Trigger: isLoggingOut = true     │   │
+│  │  Gate opens when:             │  │  Completes when:                  │   │
+│  │  - Real loading done AND      │  │  - All 5 steps animated           │   │
+│  │  - All 5 steps completed      │  │  - Calls completeLogout()         │   │
+│  │                               │  │  - Redirects to /login            │   │
+│  └───────────────────────────────┘  └───────────────────────────────────┘   │
+│                                                                              │
+│  PARALLEL EXECUTION:                                                         │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│  • Fake stepper animation runs independently of actual operations            │
+│  • Real cache loading/clearing happens in background                         │
+│  • When real operation completes, remaining steps animate at 400ms (fast)    │
+│  • User always sees all 5 steps before page transition                       │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Login Flow (MetadataGate):**
+
+```typescript
+// AuthContext.tsx - login() triggers stepper
+const login = async (email, password) => {
+  setMetadataLoaded(false);  // Gate closes → MetadataGate shows stepper
+
+  // Real operations (background)
+  const { token } = await authApi.login({ email, password });
+  queryClient.clear();
+  await resetDatabase();
+  await loadAllMetadata();
+
+  setMetadataLoaded(true);   // Real loading done → stepper speeds up
+};
+
+// MetadataGate.tsx - stepper logic
+const stepDuration = isMetadataLoaded
+  ? 400    // Fast: real loading done, animate remaining quickly
+  : 5000;  // Normal: real loading in progress
+
+// Gate opens when BOTH conditions met:
+const canOpenGate = isMetadataLoaded && completedStepsCount >= 5;
+```
+
+**Logout Flow (LogoutGate):**
+
+```typescript
+// AuthContext.tsx - logout() triggers stepper
+const logout = async () => {
+  setLoggingOut(true);       // LogoutGate shows stepper
+  setMetadataLoaded(false);
+
+  // Real operations (background, parallel with stepper)
+  await clearCache();
+  clearNormalizedStore(queryClient);
+  queryClient.clear();
+  localStorage.removeItem('auth_token');
+
+  // Auth state updated by completeLogout() when stepper finishes
+};
+
+// LogoutGate.tsx - when all steps done
+if (currentStepIndex >= steps.length) {
+  setLoggingOut(false);
+  onLogoutComplete();  // → completeLogout() → setState({ isAuthenticated: false })
+}
+```
+
+**Provider Hierarchy with Gates:**
+
+```typescript
+// App.tsx
+<CacheProvider>
+  <AuthProvider>
+    <LogoutGateWrapper>     {/* v14.2.0: Shows stepper during logout */}
+      <EntityMetadataProvider>
+        <Router>
+          ...
+          <MetadataGate>    {/* v13.0.0: Shows stepper during login */}
+            {children}
+          </MetadataGate>
+        </Router>
+      </EntityMetadataProvider>
+    </LogoutGateWrapper>
+  </AuthProvider>
+</CacheProvider>
+```
+
+**Stepper Visual Design:**
+
+Both gates use the same visual pattern (from DeleteOrUnlinkModal):
+- Progress bar at top showing percentage
+- Step list with status icons:
+  - ○ Pending (gray circle)
+  - ⟳ Processing (spinning loader)
+  - ✓ Completed (green checkmark)
+- Branding footer with company name
 
 ---
 
@@ -1938,13 +2057,14 @@ apps/web/src/
 
 ---
 
-**Version:** 14.1.0
-**Last Updated:** 2025-12-10
+**Version:** 14.2.0
+**Last Updated:** 2025-12-11
 **Status:** Production Ready
 
 **Version History:**
 | Version | Date | Changes |
 |---------|------|---------|
+| 14.2.0 | 2025-12-11 | **Login/Logout Stepper UI**: Added fake progress steppers during login (MetadataGate) and logout (LogoutGate). Login stepper: 5 steps at 5s each (speeds to 400ms when loading completes). Logout stepper: 5 steps at 400ms each. Both run in parallel with actual cache operations. Added `isLoggingOut`, `setLoggingOut` to CacheContext, `completeLogout` to AuthContext. |
 | 14.1.0 | 2025-12-10 | **Settings Access Control removed**: Removed "Access Control" tab from `SettingsOverviewPage` (was 5 tabs, now 4). All RBAC management via Role detail page's "Access Controls" tab (`/role/:id/access-control`). |
 | 14.0.0 | 2025-12-09 | **Unified DeleteOrUnlinkModal**: Added `DeleteOrUnlinkModal` integration for both standalone list pages (delete-only mode) and child entity tabs (unlink+delete mode). Modal behavior determined by `parentContext` prop presence. Updated `EntityListOfInstancesTable` with new props: `parentContext`, `onDelete`, `onUnlink`, `entityCode`, `entityLabel`. |
 | 11.2.0 | 2025-12-02 | **Offline-safe optimistic rollback**: Fixed critical bug where optimistic updates didn't revert when API server was down. `onError` now uses direct `setQueryData()` rollback from captured `allPreviousListData` Map instead of `invalidateQueries()`. Rollback works without network access. |
