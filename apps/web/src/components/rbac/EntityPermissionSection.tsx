@@ -74,7 +74,7 @@ function getIcon(iconName?: string, className = 'h-4 w-4') {
  * - Inheritance mode selector (None/Cascade/Mapped)
  * - Child entity permissions matrix (when Mapped)
  * - Specific instance permissions with matrix
- * - Inline instance picker for granting specific permissions
+ * - Inline instance picker with matrix for selected instances
  */
 export function EntityPermissionSection({
   entityCode,
@@ -102,8 +102,8 @@ export function EntityPermissionSection({
   // Instance picker state
   const [showInstancePicker, setShowInstancePicker] = useState(false);
   const [instanceSearch, setInstanceSearch] = useState('');
-  const [selectedInstances, setSelectedInstances] = useState<Set<string>>(new Set());
-  const [selectedPermissionLevel, setSelectedPermissionLevel] = useState(3); // Default to EDIT
+  // Track selected instances with their permission levels: instanceId -> permission level
+  const [selectedInstancePermissions, setSelectedInstancePermissions] = useState<Record<string, number>>({});
 
   // Fetch instances for this entity type
   const { data: instancesData, isLoading: instancesLoading } = useQuery({
@@ -122,12 +122,12 @@ export function EntityPermissionSection({
 
   // Grant permissions mutation
   const grantPermissionsMutation = useMutation({
-    mutationFn: async (instances: string[]) => {
+    mutationFn: async (instancePermissions: Record<string, number>) => {
       const token = localStorage.getItem('auth_token');
 
-      // Grant permission to each selected instance
+      // Grant permission to each selected instance with its specific level
       const results = await Promise.all(
-        instances.map(async (instanceId) => {
+        Object.entries(instancePermissions).map(async ([instanceId, permissionLevel]) => {
           const response = await fetch(
             `${API_CONFIG.BASE_URL}/api/v1/entity_rbac`,
             {
@@ -140,7 +140,7 @@ export function EntityPermissionSection({
                 role_id: roleId,
                 entity_code: entityCode,
                 entity_instance_id: instanceId,
-                permission: selectedPermissionLevel,
+                permission: permissionLevel,
                 inheritance_mode: 'none',
                 is_deny: false
               })
@@ -158,7 +158,7 @@ export function EntityPermissionSection({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['access-control', 'role', roleId] });
-      setSelectedInstances(new Set());
+      setSelectedInstancePermissions({});
       setShowInstancePicker(false);
       setInstanceSearch('');
       onPermissionsGranted?.();
@@ -195,6 +195,31 @@ export function EntityPermissionSection({
       );
     });
   }, [instancesData, instanceSearch, existingPermissionInstanceIds]);
+
+  // Get all instances data for lookup
+  const instancesMap = useMemo(() => {
+    const map = new Map<string, EntityInstance>();
+    (instancesData?.data || []).forEach((inst: EntityInstance) => {
+      map.set(inst.id, inst);
+    });
+    return map;
+  }, [instancesData]);
+
+  // Build rows for selected instances matrix (pending grants)
+  const selectedInstanceRows = useMemo(() => {
+    return Object.entries(selectedInstancePermissions).map(([instanceId, level]) => {
+      const instance = instancesMap.get(instanceId);
+      return {
+        id: `pending:${instanceId}`,
+        label: instance?.name || instanceId.slice(0, 8),
+        icon: undefined,
+        permission: level,
+        isDeny: false,
+        isTypeLevel: false,
+        hasInheritanceConfig: false
+      };
+    });
+  }, [selectedInstancePermissions, instancesMap]);
 
   // Get effective values (pending or original)
   const getEffectiveMode = useCallback((permId: string, original: InheritanceMode): InheritanceMode => {
@@ -287,48 +312,73 @@ export function EntityPermissionSection({
     return changes;
   }, [typePermission, pendingChildPermissions, pendingPermissions]);
 
-  // Toggle instance selection
+  // Toggle instance selection with default permission level
   const toggleInstance = useCallback((instanceId: string) => {
-    setSelectedInstances(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(instanceId)) {
-        newSet.delete(instanceId);
+    setSelectedInstancePermissions(prev => {
+      const updated = { ...prev };
+      if (instanceId in updated) {
+        delete updated[instanceId];
       } else {
-        newSet.add(instanceId);
+        updated[instanceId] = 3; // Default to EDIT
       }
-      return newSet;
+      return updated;
+    });
+  }, []);
+
+  // Handle permission level change for pending instance
+  const handlePendingInstancePermissionChange = useCallback((rowId: string, level: number) => {
+    // rowId format: "pending:{instanceId}"
+    const instanceId = rowId.replace('pending:', '');
+    setSelectedInstancePermissions(prev => ({
+      ...prev,
+      [instanceId]: level
+    }));
+  }, []);
+
+  // Remove instance from selection (used as "revoke" in the matrix)
+  const handleRemovePendingInstance = useCallback((rowId: string) => {
+    const instanceId = rowId.replace('pending:', '');
+    setSelectedInstancePermissions(prev => {
+      const updated = { ...prev };
+      delete updated[instanceId];
+      return updated;
     });
   }, []);
 
   // Select/deselect all visible instances
   const toggleAllVisible = useCallback(() => {
     const visibleIds = filteredInstances.map((i: EntityInstance) => i.id);
-    const allSelected = visibleIds.every((id: string) => selectedInstances.has(id));
+    const allSelected = visibleIds.every((id: string) => id in selectedInstancePermissions);
 
     if (allSelected) {
       // Deselect all visible
-      setSelectedInstances(prev => {
-        const newSet = new Set(prev);
-        visibleIds.forEach((id: string) => newSet.delete(id));
-        return newSet;
+      setSelectedInstancePermissions(prev => {
+        const updated = { ...prev };
+        visibleIds.forEach((id: string) => delete updated[id]);
+        return updated;
       });
     } else {
-      // Select all visible
-      setSelectedInstances(prev => {
-        const newSet = new Set(prev);
-        visibleIds.forEach((id: string) => newSet.add(id));
-        return newSet;
+      // Select all visible with default permission level
+      setSelectedInstancePermissions(prev => {
+        const updated = { ...prev };
+        visibleIds.forEach((id: string) => {
+          if (!(id in updated)) {
+            updated[id] = 3; // Default to EDIT
+          }
+        });
+        return updated;
       });
     }
-  }, [filteredInstances, selectedInstances]);
+  }, [filteredInstances, selectedInstancePermissions]);
 
   // Handle grant permissions
   const handleGrantPermissions = useCallback(() => {
-    if (selectedInstances.size === 0) return;
-    grantPermissionsMutation.mutate(Array.from(selectedInstances));
-  }, [selectedInstances, grantPermissionsMutation]);
+    if (Object.keys(selectedInstancePermissions).length === 0) return;
+    grantPermissionsMutation.mutate(selectedInstancePermissions);
+  }, [selectedInstancePermissions, grantPermissionsMutation]);
 
   const totalPermissions = permissions.length;
+  const selectedCount = Object.keys(selectedInstancePermissions).length;
 
   return (
     <div className="border border-dark-200 rounded-xl overflow-hidden bg-white">
@@ -554,54 +604,20 @@ export function EntityPermissionSection({
                 <div className="flex items-center gap-2">
                   <LucideIcons.ListChecks className="h-4 w-4 text-blue-600" />
                   <span className="text-sm font-semibold text-blue-700">
-                    Select {entityLabel}s to Grant Permission
+                    Grant Permission to {entityLabel}s
                   </span>
-                  {selectedInstances.size > 0 && (
-                    <span className="px-2 py-0.5 text-xs font-medium bg-blue-600 text-white rounded-full">
-                      {selectedInstances.size} selected
-                    </span>
-                  )}
                 </div>
                 <button
                   type="button"
                   onClick={() => {
                     setShowInstancePicker(false);
-                    setSelectedInstances(new Set());
+                    setSelectedInstancePermissions({});
                     setInstanceSearch('');
                   }}
                   className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-100 rounded-lg transition-colors"
                 >
                   <LucideIcons.X className="h-4 w-4" />
                 </button>
-              </div>
-
-              {/* Permission Level Selector */}
-              <div className="px-4 py-3 border-b border-dark-100 bg-dark-50/50">
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-medium text-dark-600">Permission Level:</span>
-                  <div className="flex gap-1">
-                    {PERMISSION_LEVELS.map((level) => (
-                      <button
-                        key={level.value}
-                        type="button"
-                        onClick={() => setSelectedPermissionLevel(level.value)}
-                        className={`
-                          px-2 py-1 text-xs font-medium rounded transition-all
-                          ${selectedPermissionLevel === level.value
-                            ? `${level.bgColor} text-white`
-                            : 'bg-dark-100 text-dark-600 hover:bg-dark-200'
-                          }
-                        `}
-                        title={level.description}
-                      >
-                        {level.shortLabel}
-                      </button>
-                    ))}
-                  </div>
-                  <span className="text-xs text-dark-500">
-                    ({getPermissionLabel(selectedPermissionLevel)})
-                  </span>
-                </div>
               </div>
 
               {/* Search */}
@@ -619,16 +635,16 @@ export function EntityPermissionSection({
                 </div>
               </div>
 
-              {/* Instance List */}
-              <div className="max-h-64 overflow-y-auto">
+              {/* Instance List with Checkboxes */}
+              <div className="max-h-48 overflow-y-auto border-b border-dark-100">
                 {instancesLoading ? (
                   <div className="p-8 text-center">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto" />
                     <p className="text-sm text-dark-500 mt-2">Loading {entityLabel.toLowerCase()}s...</p>
                   </div>
                 ) : filteredInstances.length === 0 ? (
-                  <div className="p-8 text-center text-dark-500">
-                    <LucideIcons.SearchX className="h-8 w-8 mx-auto text-dark-300 mb-2" />
+                  <div className="p-6 text-center text-dark-500">
+                    <LucideIcons.SearchX className="h-6 w-6 mx-auto text-dark-300 mb-2" />
                     <p className="text-sm">
                       {instanceSearch ? `No ${entityLabel.toLowerCase()}s match your search` : `No ${entityLabel.toLowerCase()}s available`}
                     </p>
@@ -640,7 +656,7 @@ export function EntityPermissionSection({
                       <label className="flex items-center gap-3 cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={filteredInstances.length > 0 && filteredInstances.every((i: EntityInstance) => selectedInstances.has(i.id))}
+                          checked={filteredInstances.length > 0 && filteredInstances.every((i: EntityInstance) => i.id in selectedInstancePermissions)}
                           onChange={toggleAllVisible}
                           className="w-4 h-4 text-blue-600 rounded border-dark-300 focus:ring-blue-500"
                         />
@@ -655,13 +671,13 @@ export function EntityPermissionSection({
                       {filteredInstances.map((instance: EntityInstance) => (
                         <label
                           key={instance.id}
-                          className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${
-                            selectedInstances.has(instance.id) ? 'bg-blue-50' : 'hover:bg-dark-50'
+                          className={`flex items-center gap-3 px-4 py-2 cursor-pointer transition-colors ${
+                            instance.id in selectedInstancePermissions ? 'bg-blue-50' : 'hover:bg-dark-50'
                           }`}
                         >
                           <input
                             type="checkbox"
-                            checked={selectedInstances.has(instance.id)}
+                            checked={instance.id in selectedInstancePermissions}
                             onChange={() => toggleInstance(instance.id)}
                             className="w-4 h-4 text-blue-600 rounded border-dark-300 focus:ring-blue-500"
                           />
@@ -682,12 +698,41 @@ export function EntityPermissionSection({
                 )}
               </div>
 
+              {/* SELECTED INSTANCES MATRIX TABLE */}
+              {selectedCount > 0 && (
+                <div className="border-b border-dark-100">
+                  <div className="px-4 py-2 bg-emerald-50 border-b border-emerald-200">
+                    <div className="flex items-center gap-2">
+                      <LucideIcons.CheckSquare className="h-4 w-4 text-emerald-600" />
+                      <span className="text-sm font-semibold text-emerald-700">
+                        Selected {entityLabel}s
+                      </span>
+                      <span className="text-xs text-emerald-500">
+                        ({selectedCount} instance{selectedCount !== 1 ? 's' : ''})
+                      </span>
+                    </div>
+                    <p className="text-xs text-emerald-600 mt-1">
+                      Click permission levels to customize, then Grant to save
+                    </p>
+                  </div>
+                  <div className="p-3">
+                    <PermissionMatrixTable
+                      rows={selectedInstanceRows}
+                      pendingChanges={{}}
+                      onPermissionChange={handlePendingInstancePermissionChange}
+                      onRevoke={handleRemovePendingInstance}
+                      disabled={grantPermissionsMutation.isPending}
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Footer Actions */}
-              <div className="px-4 py-3 bg-dark-50 border-t border-dark-200 flex items-center justify-between">
+              <div className="px-4 py-3 bg-dark-50 flex items-center justify-between">
                 <span className="text-xs text-dark-500">
-                  {selectedInstances.size > 0
-                    ? `${selectedInstances.size} ${entityLabel.toLowerCase()}${selectedInstances.size !== 1 ? 's' : ''} selected`
-                    : 'Select instances to grant permission'
+                  {selectedCount > 0
+                    ? `${selectedCount} ${entityLabel.toLowerCase()}${selectedCount !== 1 ? 's' : ''} ready to grant`
+                    : 'Select instances above to grant permissions'
                   }
                 </span>
                 <div className="flex gap-2">
@@ -695,7 +740,7 @@ export function EntityPermissionSection({
                     type="button"
                     onClick={() => {
                       setShowInstancePicker(false);
-                      setSelectedInstances(new Set());
+                      setSelectedInstancePermissions({});
                       setInstanceSearch('');
                     }}
                     className="px-3 py-1.5 text-sm font-medium text-dark-600 hover:text-dark-800 hover:bg-dark-100 rounded-lg transition-colors"
@@ -705,8 +750,8 @@ export function EntityPermissionSection({
                   <button
                     type="button"
                     onClick={handleGrantPermissions}
-                    disabled={selectedInstances.size === 0 || grantPermissionsMutation.isPending}
-                    className="px-4 py-1.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    disabled={selectedCount === 0 || grantPermissionsMutation.isPending}
+                    className="px-4 py-1.5 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     {grantPermissionsMutation.isPending ? (
                       <>
@@ -716,7 +761,7 @@ export function EntityPermissionSection({
                     ) : (
                       <>
                         <LucideIcons.Shield className="h-4 w-4" />
-                        Grant {getPermissionLabel(selectedPermissionLevel)}
+                        Grant Permissions
                       </>
                     )}
                   </button>
