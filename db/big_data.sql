@@ -724,577 +724,738 @@ SELECT 'Tasks' as entity, COUNT(*) as total FROM app.task WHERE active_flag = tr
 
 
 -- ############################################################################
--- SECTION 3: RBAC SEED DATA - ROLE-BASED PERMISSIONS (v2.0.0)
+-- SECTION 3: RBAC SEED DATA - ROLE-BASED PERMISSIONS (v2.1.0)
 -- ############################################################################
 --
--- ARCHITECTURE (v2.0.0 Role-Only Model):
+-- ARCHITECTURE (v2.1.0 Role-Only Model):
 -- Permissions are granted to ROLES only (no direct employee/person permissions).
 -- Persons get permissions through role membership via entity_instance_link.
 --
+-- TABLE STRUCTURE (app.entity_rbac):
+--   role_id:            UUID FK to app.role - the role receiving permission
+--   entity_code:        Entity type code (e.g., 'project', 'task')
+--   entity_instance_id: Specific instance UUID, or ALL_ENTITIES_ID for type-level
+--   permission:         0-7 (VIEW, COMMENT, CONTRIBUTE, EDIT, SHARE, DELETE, CREATE, OWNER)
+--   inheritance_mode:   'none', 'cascade', 'mapped'
+--   child_permissions:  JSONB mapping child entity codes to permission levels
+--   is_deny:            Explicit deny (blocks permission even if granted elsewhere)
+--
 -- PERMISSION LEVEL MODEL (0-7):
---   0 = View:       Read access to entity data
---   1 = Comment:    Add comments on entities
---   2 = Contribute: Form submission, task updates, wiki edits
---   3 = Edit:       Modify existing entity fields
---   4 = Share:      Share entity with others
---   5 = Delete:     Soft delete entity
---   6 = Create:     Create new entities (type-level only)
---   7 = Owner:      Full control including permission management
+--   0 = VIEW:       Read-only access to entity data
+--   1 = COMMENT:    VIEW + add comments on entities
+--   2 = CONTRIBUTE: COMMENT + form submission, task updates
+--   3 = EDIT:       CONTRIBUTE + modify existing entity fields
+--   4 = SHARE:      EDIT + share entity with others
+--   5 = DELETE:     SHARE + soft delete entity
+--   6 = CREATE:     DELETE + create new entities
+--   7 = OWNER:      Full control including permission management
 --
 -- INHERITANCE MODES:
 --   none:    Permission applies ONLY to the specific entity (no children inherit)
 --   cascade: Same permission level applies to ALL children (recursive)
 --   mapped:  Different permission levels per child entity type (via child_permissions JSONB)
+--            Uses "_default" key for unlisted child types
+--
+-- ALL_ENTITIES_ID: '11111111-1111-1111-1111-111111111111'
+--   Used for TYPE-LEVEL permissions (applies to all instances of an entity type)
+--
+-- ROLE HIERARCHY (22 roles organized by responsibility):
+--   EXECUTIVE:   CEO, CFO, COO, CTO, SVP
+--   DIRECTOR:    DIR-FIN, DIR-IT, VP-HR
+--   MANAGER:     MGR-LAND, MGR-SNOW, MGR-HVAC, MGR-PLUMB, MGR-SOLAR
+--   SUPERVISOR:  SUP-FIELD
+--   SPECIALIST:  TECH-SR, TECH-FIELD, ADMIN-IT, ANALYST-FIN
+--   COORDINATOR: COORD-PROJ, COORD-HR
+--   LIMITED:     PT-SUPPORT, SEASONAL
 -- ============================================================================
 
 -- Clear existing RBAC data for clean re-import
 DELETE FROM app.entity_rbac;
 
 -- ============================================================================
--- CEO ROLE - FULL OWNERSHIP (LEVEL 7) WITH CASCADE INHERITANCE
+-- 3.1 EXECUTIVE TIER: CEO, CFO, COO, CTO, SVP
 -- ============================================================================
--- CEO role gets Owner (7) permission on ALL entities with cascade inheritance
--- This means all child entities automatically inherit Owner permission
+-- Full ownership with cascade inheritance for all entity types
+-- Business rationale: Executives need complete visibility and control
 
+-- CEO - Full OWNER on everything with cascade (ultimate authority)
 INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
 SELECT
   r.id,
   entity_type,
   '11111111-1111-1111-1111-111111111111'::uuid,
-  7,  -- Owner
-  'cascade',  -- All children inherit same permission
+  7,  -- OWNER
+  'cascade',
   '{}'::jsonb,
   false,
   now()
 FROM app.role r
 CROSS JOIN (VALUES
-  ('artifact'), ('business'), ('business_hierarchy'), ('calendar'), ('customer'),
-  ('employee'), ('event'), ('expense'), ('form'), ('interaction'),
-  ('inventory'), ('invoice'), ('message'), ('message_schema'), ('office'),
-  ('office_hierarchy'), ('order'), ('product'), ('product_hierarchy'), ('project'),
-  ('quote'), ('revenue'), ('role'), ('service'),
-  ('shipment'), ('task'), ('wiki'), ('workflow'), ('workflow_automation'),
-  ('work_order'), ('worksite'), ('person')
+  ('office'), ('business'), ('project'), ('task'), ('customer'), ('employee'),
+  ('role'), ('form'), ('wiki'), ('artifact'), ('expense'), ('revenue'),
+  ('quote'), ('order'), ('invoice'), ('work_order'), ('event'), ('interaction'),
+  ('calendar'), ('inventory'), ('service'), ('product'), ('supplier'), ('worksite'),
+  ('workflow'), ('message'), ('shipment'), ('person')
 ) AS entities(entity_type)
 WHERE r.code = 'CEO';
 
+-- CFO - OWNER on financial entities, CREATE on operational with financial visibility
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 7, 'cascade', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('expense'), ('revenue'), ('invoice'), ('quote'), ('order')) AS entities(entity_type)
+WHERE r.code = 'CFO';
+
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 6, 'mapped',
+  '{"expense": 7, "revenue": 7, "invoice": 7, "_default": 3}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('project'), ('business')) AS entities(entity_type)
+WHERE r.code = 'CFO';
+
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 4, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('employee'), ('customer'), ('supplier')) AS entities(entity_type)
+WHERE r.code = 'CFO';
+
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 0, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('task'), ('wiki'), ('artifact'), ('form')) AS entities(entity_type)
+WHERE r.code = 'CFO';
+
+-- COO - OWNER on operations, CREATE on projects with mapped child permissions
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 7, 'cascade', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('project'), ('task'), ('work_order'), ('workflow')) AS entities(entity_type)
+WHERE r.code = 'COO';
+
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 6, 'mapped',
+  '{"project": 7, "expense": 3, "revenue": 0, "_default": 4}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('business'), ('customer')) AS entities(entity_type)
+WHERE r.code = 'COO';
+
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 5, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('employee'), ('worksite'), ('inventory'), ('service'), ('product')) AS entities(entity_type)
+WHERE r.code = 'COO';
+
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 3, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('expense'), ('revenue'), ('quote'), ('order'), ('invoice')) AS entities(entity_type)
+WHERE r.code = 'COO';
+
+-- CTO - OWNER on IT/tech entities, full control on wikis and workflows
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 7, 'cascade', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('wiki'), ('workflow'), ('form'), ('message')) AS entities(entity_type)
+WHERE r.code = 'CTO';
+
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 6, 'mapped',
+  '{"wiki": 7, "form": 7, "artifact": 5, "_default": 3}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('project'), ('task')) AS entities(entity_type)
+WHERE r.code = 'CTO';
+
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 4, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('employee'), ('artifact'), ('service'), ('product')) AS entities(entity_type)
+WHERE r.code = 'CTO';
+
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 0, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('expense'), ('revenue'), ('invoice'), ('quote')) AS entities(entity_type)
+WHERE r.code = 'CTO';
+
+-- SVP - Similar to COO but with slightly reduced financial access
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 6, 'cascade', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('project'), ('task'), ('work_order')) AS entities(entity_type)
+WHERE r.code = 'SVP';
+
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 5, 'mapped',
+  '{"project": 6, "task": 5, "_default": 3}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('business'), ('customer')) AS entities(entity_type)
+WHERE r.code = 'SVP';
+
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 4, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('employee'), ('wiki'), ('artifact'), ('form'), ('event'), ('calendar')) AS entities(entity_type)
+WHERE r.code = 'SVP';
+
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 0, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('expense'), ('revenue'), ('invoice'), ('quote'), ('order')) AS entities(entity_type)
+WHERE r.code = 'SVP';
+
 -- ============================================================================
--- MANAGER ROLES - DEPARTMENT LEADERSHIP PERMISSIONS
+-- 3.2 DIRECTOR TIER: DIR-FIN, DIR-IT, VP-HR
 -- ============================================================================
--- Department managers can create projects and tasks, with cascade inheritance
--- Child entities inherit the same permission level
+-- Directors have broad access within their domain with some cross-functional visibility
 
--- Managers - Create projects with cascade to child entities
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  entity_type,
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  6,  -- Create
-  'cascade',  -- Children (tasks, artifacts) inherit Create permission
-  '{}'::jsonb,
-  false
+-- DIR-FIN - Finance Director: Full control of financial entities
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 7, 'cascade', '{}'::jsonb, false, now()
 FROM app.role r
-CROSS JOIN (VALUES
-  ('project'), ('work_order'), ('quote')
-) AS entities(entity_type)
-WHERE r.code IN ('DEPT-MGR', 'MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
+CROSS JOIN (VALUES ('expense'), ('revenue'), ('invoice'), ('quote'), ('order')) AS entities(entity_type)
+WHERE r.code = 'DIR-FIN';
 
--- Managers - Create tasks with mapped inheritance (tasks can contain subtasks, forms)
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  'task',
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  6,  -- Create
-  'mapped',  -- Different permissions for different child types
-  '{"task": 6, "form": 3, "artifact": 3, "_default": 0}'::jsonb,  -- subtasks: Create, forms/artifacts: Edit
-  false
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 5, 'mapped',
+  '{"expense": 7, "revenue": 7, "_default": 3}'::jsonb, false, now()
 FROM app.role r
-WHERE r.code IN ('DEPT-MGR', 'MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
+CROSS JOIN (VALUES ('project'), ('business'), ('customer')) AS entities(entity_type)
+WHERE r.code = 'DIR-FIN';
 
--- Managers - Delete permissions on operational entities
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  entity_type,
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  5,  -- Delete
-  'none',  -- Delete permission doesn't cascade automatically
-  '{}'::jsonb,
-  false
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 3, 'none', '{}'::jsonb, false, now()
 FROM app.role r
-CROSS JOIN (VALUES
-  ('expense'), ('artifact'), ('wiki')
-) AS entities(entity_type)
-WHERE r.code IN ('DEPT-MGR', 'MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
+CROSS JOIN (VALUES ('employee'), ('supplier')) AS entities(entity_type)
+WHERE r.code = 'DIR-FIN';
 
--- Managers - Share resources and operational data
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  entity_type,
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  4,  -- Share
-  'cascade',  -- Can share child entities too
-  '{}'::jsonb,
-  false
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 0, 'none', '{}'::jsonb, false, now()
 FROM app.role r
-CROSS JOIN (VALUES
-  ('worksite'), ('customer'), ('form'), ('inventory'), ('service'), ('product')
-) AS entities(entity_type)
-WHERE r.code IN ('DEPT-MGR', 'MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
+CROSS JOIN (VALUES ('task'), ('wiki'), ('form'), ('artifact')) AS entities(entity_type)
+WHERE r.code = 'DIR-FIN';
 
--- Managers - Edit employee records and schedules
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  entity_type,
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  3,  -- Edit
-  'none',  -- No inheritance for personnel records
-  '{}'::jsonb,
-  false
+-- DIR-IT - IT Director: Full control of technical/documentation entities
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 7, 'cascade', '{}'::jsonb, false, now()
 FROM app.role r
-CROSS JOIN (VALUES
-  ('employee'), ('calendar'), ('event')
-) AS entities(entity_type)
-WHERE r.code IN ('DEPT-MGR', 'MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
+CROSS JOIN (VALUES ('wiki'), ('form'), ('workflow'), ('message')) AS entities(entity_type)
+WHERE r.code = 'DIR-IT';
 
--- Managers - View financial data
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  entity_type,
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  0,  -- View
-  'none',
-  '{}'::jsonb,
-  false
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 6, 'mapped',
+  '{"wiki": 7, "form": 7, "artifact": 6, "_default": 3}'::jsonb, false, now()
 FROM app.role r
-CROSS JOIN (VALUES
-  ('revenue'), ('invoice'), ('order')
-) AS entities(entity_type)
-WHERE r.code IN ('DEPT-MGR', 'MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
+CROSS JOIN (VALUES ('project'), ('task')) AS entities(entity_type)
+WHERE r.code = 'DIR-IT';
+
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 5, 'cascade', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('artifact')) AS entities(entity_type)
+WHERE r.code = 'DIR-IT';
+
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 4, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('employee'), ('service'), ('product'), ('inventory')) AS entities(entity_type)
+WHERE r.code = 'DIR-IT';
+
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 0, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('expense'), ('revenue'), ('invoice'), ('quote')) AS entities(entity_type)
+WHERE r.code = 'DIR-IT';
+
+-- VP-HR - VP of Human Resources: Full control of employee/person data
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 7, 'cascade', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('employee'), ('person'), ('role'), ('calendar')) AS entities(entity_type)
+WHERE r.code = 'VP-HR';
+
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 6, 'cascade', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('event'), ('interaction')) AS entities(entity_type)
+WHERE r.code = 'VP-HR';
+
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 5, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('form'), ('wiki'), ('artifact')) AS entities(entity_type)
+WHERE r.code = 'VP-HR';
+
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 3, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('office'), ('business')) AS entities(entity_type)
+WHERE r.code = 'VP-HR';
+
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 0, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('project'), ('task'), ('expense'), ('revenue')) AS entities(entity_type)
+WHERE r.code = 'VP-HR';
 
 -- ============================================================================
--- SUPERVISOR ROLES - FIELD OPERATIONS LEADERSHIP
+-- 3.3 MANAGER TIER: MGR-LAND, MGR-SNOW, MGR-HVAC, MGR-PLUMB, MGR-SOLAR
 -- ============================================================================
+-- Department managers: Create projects with mapped inheritance for granular child control
+-- Business rationale: Managers need to create and manage projects within their domain
 
--- Supervisors - Create tasks
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  'task',
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  6,  -- Create
-  'cascade',
-  '{}'::jsonb,
-  false
+-- All Department Managers - Project management with mapped child permissions
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, 'project', '11111111-1111-1111-1111-111111111111'::uuid, 6, 'mapped',
+  '{"task": 6, "wiki": 5, "artifact": 4, "form": 4, "expense": 3, "revenue": 0, "_default": 2}'::jsonb, false, now()
 FROM app.role r
-WHERE r.code IN ('SUP-FIELD', 'TECH-SR');
+WHERE r.code IN ('MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
 
--- Supervisors - Delete operational artifacts
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  'artifact',
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  5,  -- Delete
-  'none',
-  '{}'::jsonb,
-  false
+-- All Department Managers - Task management with subtask creation
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, 'task', '11111111-1111-1111-1111-111111111111'::uuid, 6, 'mapped',
+  '{"task": 6, "form": 4, "artifact": 4, "expense": 2, "revenue": 0, "_default": 2}'::jsonb, false, now()
 FROM app.role r
-WHERE r.code IN ('SUP-FIELD', 'TECH-SR');
+WHERE r.code IN ('MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
 
--- Supervisors - Share customer and worksite information
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  entity_type,
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  4,  -- Share
-  'none',
-  '{}'::jsonb,
-  false
+-- All Department Managers - Work order management
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 6, 'cascade', '{}'::jsonb, false, now()
 FROM app.role r
-CROSS JOIN (VALUES
-  ('worksite'), ('customer'), ('interaction')
-) AS entities(entity_type)
-WHERE r.code IN ('SUP-FIELD', 'TECH-SR');
+CROSS JOIN (VALUES ('work_order'), ('quote')) AS entities(entity_type)
+WHERE r.code IN ('MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
 
--- Supervisors - Edit work orders and forms
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  entity_type,
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  3,  -- Edit
-  'none',
-  '{}'::jsonb,
-  false
+-- All Department Managers - Documentation and resource management
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 5, 'cascade', '{}'::jsonb, false, now()
 FROM app.role r
-CROSS JOIN (VALUES
-  ('work_order'), ('form'), ('wiki'), ('event')
-) AS entities(entity_type)
-WHERE r.code IN ('SUP-FIELD', 'TECH-SR');
+CROSS JOIN (VALUES ('wiki'), ('artifact'), ('form')) AS entities(entity_type)
+WHERE r.code IN ('MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
 
--- Supervisors - Comment on projects
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+-- All Department Managers - Customer and worksite access
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 4, 'mapped',
+  '{"project": 5, "artifact": 3, "_default": 2}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('customer'), ('worksite')) AS entities(entity_type)
+WHERE r.code IN ('MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
+
+-- All Department Managers - Team management
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 4, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('employee'), ('calendar'), ('event'), ('interaction')) AS entities(entity_type)
+WHERE r.code IN ('MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
+
+-- All Department Managers - Inventory and service management
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 3, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('inventory'), ('service'), ('product'), ('supplier')) AS entities(entity_type)
+WHERE r.code IN ('MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
+
+-- All Department Managers - Expense entry (own department)
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, 'expense', '11111111-1111-1111-1111-111111111111'::uuid, 3, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+WHERE r.code IN ('MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
+
+-- All Department Managers - Financial visibility (read-only)
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 0, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('revenue'), ('invoice'), ('order')) AS entities(entity_type)
+WHERE r.code IN ('MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
+
+-- ============================================================================
+-- 3.4 SUPERVISOR TIER: SUP-FIELD
+-- ============================================================================
+-- Field Supervisors: Leads field teams, manages task execution, limited project visibility
+-- Business rationale: Needs to create tasks, manage field work, but projects are manager-level
+
+-- Field Supervisor - Task management with full child control
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, 'task', '11111111-1111-1111-1111-111111111111'::uuid, 6, 'mapped',
+  '{"task": 6, "form": 4, "artifact": 4, "expense": 2, "_default": 2}'::jsonb, false, now()
+FROM app.role r
+WHERE r.code = 'SUP-FIELD';
+
+-- Field Supervisor - Work order ownership
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, 'work_order', '11111111-1111-1111-1111-111111111111'::uuid, 6, 'cascade', '{}'::jsonb, false, now()
+FROM app.role r
+WHERE r.code = 'SUP-FIELD';
+
+-- Field Supervisor - Project participation (share child tasks but can't create projects)
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, 'project', '11111111-1111-1111-1111-111111111111'::uuid, 4, 'mapped',
+  '{"task": 6, "wiki": 3, "artifact": 4, "form": 4, "expense": 2, "_default": 2}'::jsonb, false, now()
+FROM app.role r
+WHERE r.code = 'SUP-FIELD';
+
+-- Field Supervisor - Documentation management
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 5, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('artifact'), ('form')) AS entities(entity_type)
+WHERE r.code = 'SUP-FIELD';
+
+-- Field Supervisor - Wiki editing
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, 'wiki', '11111111-1111-1111-1111-111111111111'::uuid, 4, 'cascade', '{}'::jsonb, false, now()
+FROM app.role r
+WHERE r.code = 'SUP-FIELD';
+
+-- Field Supervisor - Customer and worksite access
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 4, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('customer'), ('worksite'), ('interaction')) AS entities(entity_type)
+WHERE r.code = 'SUP-FIELD';
+
+-- Field Supervisor - Team coordination
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 3, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('employee'), ('calendar'), ('event')) AS entities(entity_type)
+WHERE r.code = 'SUP-FIELD';
+
+-- Field Supervisor - Resource visibility
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 2, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('inventory'), ('service'), ('product'), ('expense')) AS entities(entity_type)
+WHERE r.code = 'SUP-FIELD';
+
+-- Field Supervisor - Financial read-only
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 0, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('revenue'), ('invoice'), ('quote'), ('order')) AS entities(entity_type)
+WHERE r.code = 'SUP-FIELD';
+
+-- ============================================================================
+-- 3.5 SPECIALIST TIER: TECH-SR, TECH-FIELD, ADMIN-IT, ANALYST-FIN
+-- ============================================================================
+-- Specialists: Domain experts with focused access to their area of expertise
+
+-- TECH-SR (Senior Technician) - Task ownership with subtask creation
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, 'task', '11111111-1111-1111-1111-111111111111'::uuid, 6, 'mapped',
+  '{"task": 5, "form": 3, "artifact": 3, "_default": 1}'::jsonb, false, now()
+FROM app.role r
+WHERE r.code = 'TECH-SR';
+
+-- TECH-SR - Work order management
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, 'work_order', '11111111-1111-1111-1111-111111111111'::uuid, 5, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+WHERE r.code = 'TECH-SR';
+
+-- TECH-SR - Documentation
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 4, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('artifact'), ('form'), ('wiki')) AS entities(entity_type)
+WHERE r.code = 'TECH-SR';
+
+-- TECH-SR - Project contribution
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, 'project', '11111111-1111-1111-1111-111111111111'::uuid, 2, 'mapped',
+  '{"task": 5, "artifact": 3, "_default": 1}'::jsonb, false, now()
+FROM app.role r
+WHERE r.code = 'TECH-SR';
+
+-- TECH-SR - Field resources
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 2, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('customer'), ('worksite'), ('inventory'), ('service'), ('product')) AS entities(entity_type)
+WHERE r.code = 'TECH-SR';
+
+-- TECH-SR - View scheduling
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 0, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('employee'), ('calendar'), ('event'), ('expense'), ('quote')) AS entities(entity_type)
+WHERE r.code = 'TECH-SR';
+
+-- TECH-FIELD (Field Technician) - Task execution only
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, 'task', '11111111-1111-1111-1111-111111111111'::uuid, 3, 'mapped',
+  '{"form": 2, "artifact": 2, "_default": 0}'::jsonb, false, now()
+FROM app.role r
+WHERE r.code = 'TECH-FIELD';
+
+-- TECH-FIELD - Form submission and artifact upload
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 2, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('form'), ('artifact'), ('work_order')) AS entities(entity_type)
+WHERE r.code = 'TECH-FIELD';
+
+-- TECH-FIELD - Reference data
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 0, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('project'), ('customer'), ('worksite'), ('inventory'), ('service'), ('product'), ('wiki'), ('calendar')) AS entities(entity_type)
+WHERE r.code = 'TECH-FIELD';
+
+-- ADMIN-IT (IT Administrator) - Full IT system control
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 7, 'cascade', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('wiki'), ('form'), ('workflow'), ('message')) AS entities(entity_type)
+WHERE r.code = 'ADMIN-IT';
+
+-- ADMIN-IT - Project documentation
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 5, 'mapped',
+  '{"wiki": 7, "form": 7, "artifact": 5, "_default": 2}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('project'), ('task')) AS entities(entity_type)
+WHERE r.code = 'ADMIN-IT';
+
+-- ADMIN-IT - Artifact management
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, 'artifact', '11111111-1111-1111-1111-111111111111'::uuid, 6, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+WHERE r.code = 'ADMIN-IT';
+
+-- ADMIN-IT - User and role management view
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 3, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('employee'), ('role'), ('person')) AS entities(entity_type)
+WHERE r.code = 'ADMIN-IT';
+
+-- ADMIN-IT - View other entities
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 0, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('customer'), ('expense'), ('revenue'), ('invoice'), ('order')) AS entities(entity_type)
+WHERE r.code = 'ADMIN-IT';
+
+-- ANALYST-FIN (Financial Analyst) - Financial data analysis
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 4, 'cascade', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('expense'), ('revenue'), ('invoice'), ('quote'), ('order')) AS entities(entity_type)
+WHERE r.code = 'ANALYST-FIN';
+
+-- ANALYST-FIN - Project financial access
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 2, 'mapped',
+  '{"expense": 4, "revenue": 4, "_default": 0}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('project'), ('business'), ('customer')) AS entities(entity_type)
+WHERE r.code = 'ANALYST-FIN';
+
+-- ANALYST-FIN - View operational data
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 0, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('task'), ('employee'), ('supplier'), ('inventory')) AS entities(entity_type)
+WHERE r.code = 'ANALYST-FIN';
+
+-- ============================================================================
+-- 3.6 COORDINATOR TIER: COORD-PROJ, COORD-HR
+-- ============================================================================
+-- Coordinators: Administrative support with broad but shallow access
+
+-- COORD-PROJ (Project Coordinator) - Full project coordination
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, 'project', '11111111-1111-1111-1111-111111111111'::uuid, 6, 'mapped',
+  '{"task": 4, "wiki": 4, "artifact": 3, "form": 4, "expense": 2, "revenue": 0, "_default": 2}'::jsonb, false, now()
+FROM app.role r
+WHERE r.code = 'COORD-PROJ';
+
+-- COORD-PROJ - Task management for coordination
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, 'task', '11111111-1111-1111-1111-111111111111'::uuid, 6, 'mapped',
+  '{"task": 5, "form": 4, "artifact": 3, "_default": 2}'::jsonb, false, now()
+FROM app.role r
+WHERE r.code = 'COORD-PROJ';
+
+-- COORD-PROJ - Event and calendar management (scheduling)
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 6, 'cascade', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('event'), ('calendar'), ('interaction')) AS entities(entity_type)
+WHERE r.code = 'COORD-PROJ';
+
+-- COORD-PROJ - Documentation management
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 5, 'cascade', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('wiki'), ('artifact'), ('form')) AS entities(entity_type)
+WHERE r.code = 'COORD-PROJ';
+
+-- COORD-PROJ - Customer communication
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, 'customer', '11111111-1111-1111-1111-111111111111'::uuid, 4, 'mapped',
+  '{"project": 5, "artifact": 3, "_default": 2}'::jsonb, false, now()
+FROM app.role r
+WHERE r.code = 'COORD-PROJ';
+
+-- COORD-PROJ - Team visibility
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 3, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('employee'), ('work_order'), ('message')) AS entities(entity_type)
+WHERE r.code = 'COORD-PROJ';
+
+-- COORD-PROJ - Expense tracking
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, 'expense', '11111111-1111-1111-1111-111111111111'::uuid, 2, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+WHERE r.code = 'COORD-PROJ';
+
+-- COORD-PROJ - Financial view only
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 0, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('revenue'), ('invoice'), ('quote'), ('order')) AS entities(entity_type)
+WHERE r.code = 'COORD-PROJ';
+
+-- COORD-HR (HR Coordinator) - Employee management
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 5, 'cascade', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('employee'), ('person'), ('calendar')) AS entities(entity_type)
+WHERE r.code = 'COORD-HR';
+
+-- COORD-HR - Event and interaction management
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 6, 'cascade', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('event'), ('interaction')) AS entities(entity_type)
+WHERE r.code = 'COORD-HR';
+
+-- COORD-HR - HR documentation
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 4, 'cascade', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('form'), ('wiki'), ('artifact')) AS entities(entity_type)
+WHERE r.code = 'COORD-HR';
+
+-- COORD-HR - Organizational view
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 2, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('office'), ('business'), ('role')) AS entities(entity_type)
+WHERE r.code = 'COORD-HR';
+
+-- COORD-HR - View projects and tasks (no modification)
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 0, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('project'), ('task'), ('customer'), ('expense'), ('revenue')) AS entities(entity_type)
+WHERE r.code = 'COORD-HR';
+
+-- ============================================================================
+-- 3.7 LIMITED TIER: PT-SUPPORT, SEASONAL
+-- ============================================================================
+-- Limited access roles: Contractors, temps, part-timers with restricted permissions
+
+-- PT-SUPPORT (Part-time Support) - Basic task execution
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, 'task', '11111111-1111-1111-1111-111111111111'::uuid, 2, 'mapped',
+  '{"form": 2, "artifact": 1, "_default": 0}'::jsonb, false, now()
+FROM app.role r
+WHERE r.code = 'PT-SUPPORT';
+
+-- PT-SUPPORT - Form filling
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, 'form', '11111111-1111-1111-1111-111111111111'::uuid, 2, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+WHERE r.code = 'PT-SUPPORT';
+
+-- PT-SUPPORT - View only
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 0, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('project'), ('customer'), ('worksite'), ('wiki'), ('artifact'), ('calendar')) AS entities(entity_type)
+WHERE r.code = 'PT-SUPPORT';
+
+-- SEASONAL (Seasonal Worker) - Minimal task participation
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, 'task', '11111111-1111-1111-1111-111111111111'::uuid, 2, 'mapped',
+  '{"form": 2, "artifact": 1, "_default": 0}'::jsonb, false, now()
+FROM app.role r
+WHERE r.code = 'SEASONAL';
+
+-- SEASONAL - Form submission only
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, 'form', '11111111-1111-1111-1111-111111111111'::uuid, 2, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+WHERE r.code = 'SEASONAL';
+
+-- SEASONAL - View reference data only
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT r.id, entity_type, '11111111-1111-1111-1111-111111111111'::uuid, 0, 'none', '{}'::jsonb, false, now()
+FROM app.role r
+CROSS JOIN (VALUES ('project'), ('customer'), ('worksite'), ('wiki'), ('calendar'), ('inventory')) AS entities(entity_type)
+WHERE r.code = 'SEASONAL';
+
+-- ============================================================================
+-- 3.8 INSTANCE-LEVEL PERMISSIONS (Sample Project Assignments)
+-- ============================================================================
+-- Demonstrate instance-level permissions with mapped child permissions
+-- These show how specific project assignments override type-level defaults
+
+-- Sample: Assign COORD-PROJ higher access on specific high-priority projects
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
 SELECT
   r.id,
   'project',
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  1,  -- Comment
-  'none',
-  '{}'::jsonb,
-  false
-FROM app.role r
-WHERE r.code IN ('SUP-FIELD', 'TECH-SR');
-
--- Supervisors - View inventory and products
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  entity_type,
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  0,  -- View
-  'none',
-  '{}'::jsonb,
-  false
-FROM app.role r
-CROSS JOIN (VALUES
-  ('inventory'), ('product'), ('service')
-) AS entities(entity_type)
-WHERE r.code IN ('SUP-FIELD', 'TECH-SR');
-
--- ============================================================================
--- TECHNICIAN ROLES - FIELD OPERATIONS EXECUTION
--- ============================================================================
-
--- Technicians - Edit tasks, forms, and work orders
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  entity_type,
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  3,  -- Edit
-  'none',
-  '{}'::jsonb,
-  false
-FROM app.role r
-CROSS JOIN (VALUES
-  ('task'), ('form'), ('work_order'), ('interaction')
-) AS entities(entity_type)
-WHERE r.code IN ('TECH-FIELD');
-
--- Technicians - Comment on projects and artifacts
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  entity_type,
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  1,  -- Comment
-  'none',
-  '{}'::jsonb,
-  false
-FROM app.role r
-CROSS JOIN (VALUES
-  ('project'), ('artifact'), ('wiki')
-) AS entities(entity_type)
-WHERE r.code IN ('TECH-FIELD');
-
--- Technicians - View customers, worksites, and inventory
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  entity_type,
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  0,  -- View
-  'none',
-  '{}'::jsonb,
-  false
-FROM app.role r
-CROSS JOIN (VALUES
-  ('customer'), ('worksite'), ('inventory'), ('product'), ('service')
-) AS entities(entity_type)
-WHERE r.code IN ('TECH-FIELD');
-
--- ============================================================================
--- COORDINATOR ROLES - ADMINISTRATIVE SUPPORT
--- ============================================================================
-
--- ============================================================================
--- PROJECT COORDINATOR (COORD-PROJ) - Specialized for project management
--- Role: scheduling, communication, documentation, and administrative support
--- ============================================================================
-
--- Project Coordinator - Project access with MAPPED inheritance
--- Share projects but granular control over child entities
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  'project',
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  4,  -- Share
+  p.id,
+  5,  -- DELETE (higher than type-level CREATE)
   'mapped',
-  '{"task": 3, "wiki": 3, "artifact": 2, "form": 3, "expense": 0, "revenue": 0, "_default": 0}'::jsonb,
-  false
+  '{"task": 6, "wiki": 5, "artifact": 5, "form": 5, "expense": 4, "revenue": 2, "_default": 3}'::jsonb,
+  false,
+  now()
 FROM app.role r
+CROSS JOIN (
+  SELECT id FROM app.project WHERE active_flag = true ORDER BY created_ts DESC LIMIT 5
+) p
 WHERE r.code = 'COORD-PROJ';
 
--- Project Coordinator - Create tasks with mapped inheritance for subtasks
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
+-- Sample: Give TECH-SR OWNER on specific tasks they're responsible for
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
 SELECT
   r.id,
   'task',
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  6,  -- Create
+  t.id,
+  7,  -- OWNER
+  'cascade',
+  '{}'::jsonb,
+  false,
+  now()
+FROM app.role r
+CROSS JOIN (
+  SELECT id FROM app.task WHERE active_flag = true ORDER BY RANDOM() LIMIT 10
+) t
+WHERE r.code = 'TECH-SR';
+
+-- Sample: Give ANALYST-FIN elevated access on specific customer accounts
+INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_ts)
+SELECT
+  r.id,
+  'customer',
+  c.entity_instance_id,
+  5,  -- DELETE (elevated)
   'mapped',
-  '{"task": 6, "form": 3, "artifact": 2, "_default": 0}'::jsonb,  -- subtasks: Create, forms: Edit, artifacts: Contribute
-  false
+  '{"expense": 6, "revenue": 6, "project": 3, "_default": 2}'::jsonb,
+  false,
+  now()
 FROM app.role r
-WHERE r.code = 'COORD-PROJ';
-
--- Project Coordinator - Create events (scheduling responsibility)
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  'event',
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  6,  -- Create
-  'cascade',
-  '{}'::jsonb,
-  false
-FROM app.role r
-WHERE r.code = 'COORD-PROJ';
-
--- Project Coordinator - Create interactions (stakeholder communication)
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  'interaction',
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  6,  -- Create
-  'cascade',
-  '{}'::jsonb,
-  false
-FROM app.role r
-WHERE r.code = 'COORD-PROJ';
-
--- Project Coordinator - Manage calendar (scheduling)
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  'calendar',
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  4,  -- Share
-  'cascade',
-  '{}'::jsonb,
-  false
-FROM app.role r
-WHERE r.code = 'COORD-PROJ';
-
--- Project Coordinator - Delete forms and artifacts (documentation oversight)
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  entity_type,
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  5,  -- Delete
-  'none',
-  '{}'::jsonb,
-  false
-FROM app.role r
-CROSS JOIN (VALUES
-  ('form'), ('artifact')
-) AS entities(entity_type)
-WHERE r.code = 'COORD-PROJ';
-
--- Project Coordinator - Share wiki and customer (documentation & communication)
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  entity_type,
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  4,  -- Share
-  'cascade',
-  '{}'::jsonb,
-  false
-FROM app.role r
-CROSS JOIN (VALUES
-  ('wiki'), ('customer')
-) AS entities(entity_type)
-WHERE r.code = 'COORD-PROJ';
-
--- Project Coordinator - Edit employees and work orders (administrative support)
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  entity_type,
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  3,  -- Edit
-  'none',
-  '{}'::jsonb,
-  false
-FROM app.role r
-CROSS JOIN (VALUES
-  ('employee'), ('work_order')
-) AS entities(entity_type)
-WHERE r.code = 'COORD-PROJ';
-
--- Project Coordinator - Edit messages (communication responsibility)
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  'message',
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  3,  -- Edit
-  'none',
-  '{}'::jsonb,
-  false
-FROM app.role r
-WHERE r.code = 'COORD-PROJ';
-
--- Project Coordinator - View financial data (read-only access for coordination)
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  entity_type,
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  0,  -- View
-  'none',
-  '{}'::jsonb,
-  false
-FROM app.role r
-CROSS JOIN (VALUES
-  ('expense'), ('revenue'), ('invoice'), ('order'), ('quote')
-) AS entities(entity_type)
-WHERE r.code = 'COORD-PROJ';
+CROSS JOIN (
+  SELECT entity_instance_id FROM app.entity_instance WHERE entity_code = 'customer' LIMIT 3
+) c
+WHERE r.code = 'ANALYST-FIN';
 
 -- ============================================================================
--- HR COORDINATOR (COORD-HR) - Specialized for HR operations
--- ============================================================================
-
--- HR Coordinator - Create tasks and events
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  entity_type,
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  6,  -- Create
-  'cascade',
-  '{}'::jsonb,
-  false
-FROM app.role r
-CROSS JOIN (VALUES
-  ('task'), ('event'), ('interaction')
-) AS entities(entity_type)
-WHERE r.code = 'COORD-HR';
-
--- HR Coordinator - Delete forms and artifacts
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  entity_type,
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  5,  -- Delete
-  'none',
-  '{}'::jsonb,
-  false
-FROM app.role r
-CROSS JOIN (VALUES
-  ('form'), ('artifact')
-) AS entities(entity_type)
-WHERE r.code = 'COORD-HR';
-
--- HR Coordinator - Share projects, customers, wikis, calendar
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  entity_type,
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  4,  -- Share
-  'cascade',
-  '{}'::jsonb,
-  false
-FROM app.role r
-CROSS JOIN (VALUES
-  ('project'), ('customer'), ('wiki'), ('calendar')
-) AS entities(entity_type)
-WHERE r.code = 'COORD-HR';
-
--- HR Coordinator - Edit employees and work orders
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  entity_type,
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  3,  -- Edit
-  'none',
-  '{}'::jsonb,
-  false
-FROM app.role r
-CROSS JOIN (VALUES
-  ('employee'), ('work_order')
-) AS entities(entity_type)
-WHERE r.code = 'COORD-HR';
-
--- HR Coordinator - View financial data
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  entity_type,
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  0,  -- View
-  'none',
-  '{}'::jsonb,
-  false
-FROM app.role r
-CROSS JOIN (VALUES
-  ('expense'), ('revenue'), ('invoice'), ('order')
-) AS entities(entity_type)
-WHERE r.code = 'COORD-HR';
-
--- ============================================================================
--- CUSTOMER ROLE - LIMITED PERMISSIONS
--- ============================================================================
--- Customers get limited permissions via a CUSTOMER role (if exists)
-
--- Create customer role permissions (View only for their entities)
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  entity_type,
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  0,  -- View
-  'none',
-  '{}'::jsonb,
-  false
-FROM app.role r
-CROSS JOIN (VALUES
-  ('project'), ('task'), ('quote'), ('invoice')
-) AS entities(entity_type)
-WHERE r.code = 'CUSTOMER';
-
--- Customers can create interactions (submit forms, send messages)
-INSERT INTO app.entity_rbac (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny)
-SELECT
-  r.id,
-  entity_type,
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  6,  -- Create
-  'none',
-  '{}'::jsonb,
-  false
-FROM app.role r
-CROSS JOIN (VALUES
-  ('form'), ('interaction')
-) AS entities(entity_type)
-WHERE r.code = 'CUSTOMER';
-
--- ============================================================================
--- ROLE-PERSON MEMBERSHIP LINKS
+-- 3.9 ROLE-PERSON MEMBERSHIP LINKS
 -- ============================================================================
 -- Link persons to roles via entity_instance_link
 -- This establishes the role membership that RBAC resolution uses
@@ -1303,433 +1464,128 @@ WHERE r.code = 'CUSTOMER';
 INSERT INTO app.entity_instance_link (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
 SELECT 'role', r.id, 'person', p.id, 'member'
 FROM app.role r, app.person p
-WHERE r.code = 'CEO'
-  AND p.email = 'james.miller@huronhome.ca'
-  AND p.active_flag = true
+WHERE r.code = 'CEO' AND p.email = 'james.miller@huronhome.ca' AND p.active_flag = true
 ON CONFLICT DO NOTHING;
 
 -- COO Role membership
 INSERT INTO app.entity_instance_link (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
 SELECT 'role', r.id, 'person', p.id, 'member'
 FROM app.role r, app.person p
-WHERE r.code = 'COO'
-  AND p.email = 'sarah.johnson@huronhome.ca'
-  AND p.active_flag = true
+WHERE r.code = 'COO' AND p.email = 'sarah.johnson@huronhome.ca' AND p.active_flag = true
 ON CONFLICT DO NOTHING;
 
 -- CTO Role membership
 INSERT INTO app.entity_instance_link (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
 SELECT 'role', r.id, 'person', p.id, 'member'
 FROM app.role r, app.person p
-WHERE r.code = 'CTO'
-  AND p.email = 'michael.chen@huronhome.ca'
-  AND p.active_flag = true
+WHERE r.code = 'CTO' AND p.email = 'michael.chen@huronhome.ca' AND p.active_flag = true
 ON CONFLICT DO NOTHING;
 
 -- ============================================================================
--- STEP 3.4: TYPE-LEVEL CREATE PERMISSIONS FOR 500 EMPLOYEES
--- ============================================================================
--- Each employee gets CREATE (6) permission on ~8 random entity types
--- Uses efficient set-based SQL instead of loops
-
--- Create temp table for entity types
-CREATE TEMP TABLE IF NOT EXISTS temp_entity_types AS
-SELECT entity_type, row_number() OVER () as entity_num
-FROM (VALUES
-  ('project'), ('task'), ('work_order'), ('quote'), ('expense'),
-  ('artifact'), ('wiki'), ('form'), ('interaction'), ('event'),
-  ('calendar'), ('inventory'), ('customer'), ('worksite'), ('service'),
-  ('product'), ('order'), ('invoice'), ('revenue'), ('shipment')
-) AS entities(entity_type);
-
--- Grant CREATE permissions using set-based operation
-INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
-SELECT DISTINCT
-  'employee',
-  e.id,
-  t.entity_type,
-  '11111111-1111-1111-1111-111111111111'::uuid,
-  6,  -- CREATE
-  now()
-FROM (
-  SELECT id, row_number() OVER (ORDER BY id) as emp_num
-  FROM app.employee
-  WHERE active_flag = true
-  LIMIT 500
-) e
-CROSS JOIN temp_entity_types t
-WHERE (
-  -- Deterministic "random" selection: ~8 entities per employee
-  ((e.emp_num * 7 + t.entity_num * 13) % 20 < 8)
-  OR t.entity_type = 'task'  -- Everyone can create tasks
-)
-ON CONFLICT DO NOTHING;
-
-DROP TABLE IF EXISTS temp_entity_types;
-
--- ============================================================================
--- STEP 3.5: INSTANCE-LEVEL PERMISSIONS ON PROJECTS
--- ============================================================================
--- Distribute ~3000 projects across 500 employees with varying permission levels
--- Uses efficient set-based SQL
-
--- VIEW permissions on projects (~6 per employee)
-INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
-SELECT
-  'employee', e.id, 'project', p.id, 0, now()  -- VIEW
-FROM (
-  SELECT id, row_number() OVER (ORDER BY id) as emp_num
-  FROM app.employee WHERE active_flag = true LIMIT 500
-) e
-CROSS JOIN (
-  SELECT id, row_number() OVER (ORDER BY id) as proj_num
-  FROM app.project WHERE active_flag = true
-) p
-WHERE (
-  ((e.emp_num * 17 + p.proj_num * 31) % 1000 < 3)
-  OR ((e.emp_num + p.proj_num) % 35 < 2)
-)
-ON CONFLICT DO NOTHING;
-
--- EDIT permissions on projects (~3 per employee)
-INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
-SELECT
-  'employee', e.id, 'project', p.id, 3, now()  -- EDIT
-FROM (
-  SELECT id, row_number() OVER (ORDER BY id) as emp_num
-  FROM app.employee WHERE active_flag = true LIMIT 500
-) e
-CROSS JOIN (
-  SELECT id, row_number() OVER (ORDER BY id) as proj_num
-  FROM app.project WHERE active_flag = true
-) p
-WHERE (
-  ((e.emp_num * 17 + p.proj_num * 31) % 1000 >= 100)
-  AND ((e.emp_num * 17 + p.proj_num * 31) % 1000 < 103)
-)
-ON CONFLICT DO NOTHING;
-
--- DELETE permissions on projects (~1-2 per employee)
-INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
-SELECT
-  'employee', e.id, 'project', p.id, 5, now()  -- DELETE
-FROM (
-  SELECT id, row_number() OVER (ORDER BY id) as emp_num
-  FROM app.employee WHERE active_flag = true LIMIT 500
-) e
-CROSS JOIN (
-  SELECT id, row_number() OVER (ORDER BY id) as proj_num
-  FROM app.project WHERE active_flag = true
-) p
-WHERE (
-  ((e.emp_num * 17 + p.proj_num * 31) % 1000 >= 200)
-  AND ((e.emp_num * 17 + p.proj_num * 31) % 1000 < 202)
-)
-ON CONFLICT DO NOTHING;
-
--- OWNER permissions on projects (~1 per employee)
-INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
-SELECT
-  'employee', e.id, 'project', p.id, 7, now()  -- OWNER
-FROM (
-  SELECT id, row_number() OVER (ORDER BY id) as emp_num
-  FROM app.employee WHERE active_flag = true LIMIT 500
-) e
-CROSS JOIN (
-  SELECT id, row_number() OVER (ORDER BY id) as proj_num
-  FROM app.project WHERE active_flag = true
-) p
-WHERE (
-  p.proj_num = e.emp_num
-  OR (e.emp_num * 6 = p.proj_num)
-)
-ON CONFLICT DO NOTHING;
-
--- ============================================================================
--- STEP 3.6: INSTANCE-LEVEL PERMISSIONS ON TASKS
--- ============================================================================
--- Distribute 30K tasks across 500 employees
-
--- VIEW permissions on tasks (~160 per employee)
-INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
-SELECT
-  'employee', e.id, 'task', t.id, 0, now()  -- VIEW
-FROM (
-  SELECT id, row_number() OVER (ORDER BY id) as emp_num
-  FROM app.employee WHERE active_flag = true LIMIT 500
-) e
-CROSS JOIN (
-  SELECT id, row_number() OVER (ORDER BY id) as task_num
-  FROM app.task WHERE active_flag = true
-) t
-WHERE (
-  (t.task_num % 500 = e.emp_num - 1)
-  OR ((t.task_num + e.emp_num) % 300 = 0)
-)
-ON CONFLICT DO NOTHING;
-
--- EDIT permissions on tasks (~30 per employee)
-INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
-SELECT
-  'employee', e.id, 'task', t.id, 3, now()  -- EDIT
-FROM (
-  SELECT id, row_number() OVER (ORDER BY id) as emp_num
-  FROM app.employee WHERE active_flag = true LIMIT 500
-) e
-CROSS JOIN (
-  SELECT id, row_number() OVER (ORDER BY id) as task_num
-  FROM app.task WHERE active_flag = true
-) t
-WHERE (
-  t.task_num % 1000 = e.emp_num - 1
-)
-ON CONFLICT DO NOTHING;
-
--- ============================================================================
--- STEP 3.7: INSTANCE-LEVEL PERMISSIONS ON BUSINESSES
--- ============================================================================
--- Distribute 306 businesses across employees
-
--- VIEW permissions on businesses (~12 per employee)
-INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
-SELECT
-  'employee', e.id, 'business', b.id, 0, now()  -- VIEW
-FROM (
-  SELECT id, row_number() OVER (ORDER BY id) as emp_num
-  FROM app.employee WHERE active_flag = true LIMIT 500
-) e
-CROSS JOIN (
-  SELECT id, row_number() OVER (ORDER BY id) as biz_num
-  FROM app.business WHERE active_flag = true
-) b
-WHERE (
-  (e.emp_num + b.biz_num) % 25 < 3
-)
-ON CONFLICT DO NOTHING;
-
--- EDIT permissions on businesses (~3 per employee)
-INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
-SELECT
-  'employee', e.id, 'business', b.id, 3, now()  -- EDIT
-FROM (
-  SELECT id, row_number() OVER (ORDER BY id) as emp_num
-  FROM app.employee WHERE active_flag = true LIMIT 500
-) e
-CROSS JOIN (
-  SELECT id, row_number() OVER (ORDER BY id) as biz_num
-  FROM app.business WHERE active_flag = true
-) b
-WHERE (
-  (e.emp_num * 3 + b.biz_num) % 100 < 2
-)
-ON CONFLICT DO NOTHING;
-
--- ============================================================================
--- STEP 3.8: GENERATE ENTITY INSTANCE LINKS (HIERARCHIES)
+-- 3.10 ENTITY INSTANCE LINKS (HIERARCHIES)
 -- ============================================================================
 -- Create parent-child relationships for entity navigation
--- Uses efficient set-based SQL
 
--- 3.8a: Link projects to tasks (project → task) - ~10 tasks per project
-INSERT INTO app.entity_instance_link (
-  entity_code, entity_instance_id,
-  child_entity_code, child_entity_instance_id,
-  relationship_type
-)
-SELECT DISTINCT
-  'project', p.id, 'task', t.id, 'contains'
-FROM (
-  SELECT id, row_number() OVER (ORDER BY id) as proj_num
-  FROM app.project WHERE active_flag = true
-) p
-CROSS JOIN (
-  SELECT id, row_number() OVER (ORDER BY id) as task_num
-  FROM app.task WHERE active_flag = true
-) t
-WHERE (
-  (t.task_num / 10 = p.proj_num)
-  OR (t.task_num % 3005 = p.proj_num - 1)
-)
+-- Link projects to tasks (project → task) - ~10 tasks per project
+INSERT INTO app.entity_instance_link (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
+SELECT DISTINCT 'project', p.id, 'task', t.id, 'contains'
+FROM (SELECT id, row_number() OVER (ORDER BY id) as proj_num FROM app.project WHERE active_flag = true) p
+CROSS JOIN (SELECT id, row_number() OVER (ORDER BY id) as task_num FROM app.task WHERE active_flag = true) t
+WHERE (t.task_num / 10 = p.proj_num) OR (t.task_num % 3005 = p.proj_num - 1)
 ON CONFLICT DO NOTHING;
 
--- 3.8b: Link businesses to projects (business → project) - ~10 projects per business
-INSERT INTO app.entity_instance_link (
-  entity_code, entity_instance_id,
-  child_entity_code, child_entity_instance_id,
-  relationship_type
-)
-SELECT DISTINCT
-  'business', b.id, 'project', p.id, 'owns'
-FROM (
-  SELECT id, row_number() OVER (ORDER BY id) as biz_num
-  FROM app.business WHERE active_flag = true
-) b
-CROSS JOIN (
-  SELECT id, row_number() OVER (ORDER BY id) as proj_num
-  FROM app.project WHERE active_flag = true
-) p
-WHERE (
-  p.proj_num % 306 = b.biz_num - 1
-)
+-- Link businesses to projects (business → project)
+INSERT INTO app.entity_instance_link (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
+SELECT DISTINCT 'business', b.id, 'project', p.id, 'owns'
+FROM (SELECT id, row_number() OVER (ORDER BY id) as biz_num FROM app.business WHERE active_flag = true) b
+CROSS JOIN (SELECT id, row_number() OVER (ORDER BY id) as proj_num FROM app.project WHERE active_flag = true) p
+WHERE p.proj_num % 306 = b.biz_num - 1
 ON CONFLICT DO NOTHING;
 
--- 3.8c: Link employees to tasks (employee → task) - ~60 tasks per employee
-INSERT INTO app.entity_instance_link (
-  entity_code, entity_instance_id,
-  child_entity_code, child_entity_instance_id,
-  relationship_type
-)
-SELECT DISTINCT
-  'employee', e.id, 'task', t.id, 'assigned_to'
-FROM (
-  SELECT id, row_number() OVER (ORDER BY id) as emp_num
-  FROM app.employee WHERE active_flag = true LIMIT 500
-) e
-CROSS JOIN (
-  SELECT id, row_number() OVER (ORDER BY id) as task_num
-  FROM app.task WHERE active_flag = true
-) t
-WHERE (
-  t.task_num % 500 = e.emp_num - 1
-)
-ON CONFLICT DO NOTHING;
-
--- 3.8d: Link employees to projects (employee → project) - ~120 projects per employee
-INSERT INTO app.entity_instance_link (
-  entity_code, entity_instance_id,
-  child_entity_code, child_entity_instance_id,
-  relationship_type
-)
-SELECT DISTINCT
-  'employee', e.id, 'project', p.id, 'member_of'
-FROM (
-  SELECT id, row_number() OVER (ORDER BY id) as emp_num
-  FROM app.employee WHERE active_flag = true LIMIT 500
-) e
-CROSS JOIN (
-  SELECT id, row_number() OVER (ORDER BY id) as proj_num
-  FROM app.project WHERE active_flag = true
-) p
-WHERE (
-  (e.emp_num + p.proj_num) % 50 < 2
-)
-ON CONFLICT DO NOTHING;
-
--- 3.8e: Link offices to employees - ~83 employees per office
-INSERT INTO app.entity_instance_link (
-  entity_code, entity_instance_id,
-  child_entity_code, child_entity_instance_id,
-  relationship_type
-)
-SELECT DISTINCT
-  'office', o.id, 'employee', e.id, 'employs'
-FROM (
-  SELECT id, row_number() OVER (ORDER BY id) as office_num
-  FROM app.office WHERE active_flag = true
-) o
-CROSS JOIN (
-  SELECT id, row_number() OVER (ORDER BY id) as emp_num
-  FROM app.employee WHERE active_flag = true LIMIT 500
-) e
-WHERE (
-  e.emp_num % 6 = o.office_num - 1
-)
-ON CONFLICT DO NOTHING;
-
--- 3.8f: Link worksites to projects - ~500 projects per worksite
-INSERT INTO app.entity_instance_link (
-  entity_code, entity_instance_id,
-  child_entity_code, child_entity_instance_id,
-  relationship_type
-)
-SELECT DISTINCT
-  'worksite', w.id, 'project', p.id, 'location_of'
-FROM (
-  SELECT id, row_number() OVER (ORDER BY id) as site_num
-  FROM app.worksite WHERE active_flag = true
-) w
-CROSS JOIN (
-  SELECT id, row_number() OVER (ORDER BY id) as proj_num
-  FROM app.project WHERE active_flag = true
-) p
-WHERE (
-  p.proj_num % 6 = w.site_num - 1
-)
+-- Link employees to tasks (employee → task) - assignments
+INSERT INTO app.entity_instance_link (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
+SELECT DISTINCT 'employee', e.id, 'task', t.id, 'assigned_to'
+FROM (SELECT id, row_number() OVER (ORDER BY id) as emp_num FROM app.employee WHERE active_flag = true LIMIT 500) e
+CROSS JOIN (SELECT id, row_number() OVER (ORDER BY id) as task_num FROM app.task WHERE active_flag = true) t
+WHERE t.task_num % 500 = e.emp_num - 1
 ON CONFLICT DO NOTHING;
 
 -- ============================================================================
--- STEP 3.9: UPDATE ENTITY INSTANCE REGISTRY
--- ============================================================================
--- Ensure all entities with RBAC permissions are registered in entity_instance
--- Note: entity_instance has no unique constraint, so we delete/insert
-
--- Delete existing generated entries first
-DELETE FROM app.entity_instance WHERE entity_code IN ('project', 'task', 'business', 'employee');
-
--- Insert projects
-INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
-SELECT DISTINCT 'project', p.id, p.name, p.code
-FROM app.project p WHERE p.active_flag = true;
-
--- Insert tasks
-INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
-SELECT DISTINCT 'task', t.id, t.name, t.code
-FROM app.task t WHERE t.active_flag = true;
-
--- Insert businesses
-INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
-SELECT DISTINCT 'business', b.id, b.name, b.code
-FROM app.business b WHERE b.active_flag = true;
-
--- Insert employees
-INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
-SELECT DISTINCT 'employee', e.id, e.name, e.code
-FROM app.employee e WHERE e.active_flag = true;
-
--- ============================================================================
--- RBAC & LINK VERIFICATION QUERIES
+-- 3.11 RBAC VERIFICATION QUERIES
 -- ============================================================================
 
-SELECT 'RBAC Summary' as report;
+SELECT 'RBAC Summary by Role Tier' as report;
 SELECT
-    'Type-Level CREATE' as permission_type,
-    COUNT(*) as count
-FROM app.entity_rbac
-WHERE permission = 6
-  AND entity_instance_id = '11111111-1111-1111-1111-111111111111'
-  AND person_code = 'employee'
-UNION ALL
+    CASE
+        WHEN r.code IN ('CEO', 'CFO', 'COO', 'CTO', 'SVP') THEN 'Executive'
+        WHEN r.code IN ('DIR-FIN', 'DIR-IT', 'VP-HR') THEN 'Director'
+        WHEN r.code IN ('MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR') THEN 'Manager'
+        WHEN r.code = 'SUP-FIELD' THEN 'Supervisor'
+        WHEN r.code IN ('TECH-SR', 'TECH-FIELD', 'ADMIN-IT', 'ANALYST-FIN') THEN 'Specialist'
+        WHEN r.code IN ('COORD-PROJ', 'COORD-HR') THEN 'Coordinator'
+        WHEN r.code IN ('PT-SUPPORT', 'SEASONAL') THEN 'Limited'
+        ELSE 'Other'
+    END as tier,
+    COUNT(DISTINCT r.id) as roles,
+    COUNT(er.id) as total_permissions,
+    COUNT(DISTINCT er.entity_code) as entity_types,
+    SUM(CASE WHEN er.inheritance_mode = 'cascade' THEN 1 ELSE 0 END) as cascade_perms,
+    SUM(CASE WHEN er.inheritance_mode = 'mapped' THEN 1 ELSE 0 END) as mapped_perms
+FROM app.role r
+LEFT JOIN app.entity_rbac er ON r.id = er.role_id
+WHERE r.active_flag = true
+GROUP BY
+    CASE
+        WHEN r.code IN ('CEO', 'CFO', 'COO', 'CTO', 'SVP') THEN 'Executive'
+        WHEN r.code IN ('DIR-FIN', 'DIR-IT', 'VP-HR') THEN 'Director'
+        WHEN r.code IN ('MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR') THEN 'Manager'
+        WHEN r.code = 'SUP-FIELD' THEN 'Supervisor'
+        WHEN r.code IN ('TECH-SR', 'TECH-FIELD', 'ADMIN-IT', 'ANALYST-FIN') THEN 'Specialist'
+        WHEN r.code IN ('COORD-PROJ', 'COORD-HR') THEN 'Coordinator'
+        WHEN r.code IN ('PT-SUPPORT', 'SEASONAL') THEN 'Limited'
+        ELSE 'Other'
+    END
+ORDER BY
+    CASE
+        WHEN r.code IN ('CEO', 'CFO', 'COO', 'CTO', 'SVP') THEN 1
+        WHEN r.code IN ('DIR-FIN', 'DIR-IT', 'VP-HR') THEN 2
+        ELSE 3
+    END;
+
+SELECT 'Permission Distribution by Level' as report;
 SELECT
-    'Instance-Level VIEW' as permission_type,
-    COUNT(*) as count
-FROM app.entity_rbac
-WHERE permission = 0
-  AND entity_instance_id != '11111111-1111-1111-1111-111111111111'
-  AND person_code = 'employee'
-UNION ALL
+    er.permission,
+    CASE er.permission
+        WHEN 0 THEN 'VIEW'
+        WHEN 1 THEN 'COMMENT'
+        WHEN 2 THEN 'CONTRIBUTE'
+        WHEN 3 THEN 'EDIT'
+        WHEN 4 THEN 'SHARE'
+        WHEN 5 THEN 'DELETE'
+        WHEN 6 THEN 'CREATE'
+        WHEN 7 THEN 'OWNER'
+    END as permission_name,
+    COUNT(*) as count,
+    COUNT(DISTINCT er.role_id) as roles_with_perm,
+    COUNT(DISTINCT er.entity_code) as entity_types
+FROM app.entity_rbac er
+GROUP BY er.permission
+ORDER BY er.permission;
+
+SELECT 'Mapped Child Permissions Examples' as report;
 SELECT
-    'Instance-Level EDIT' as permission_type,
-    COUNT(*) as count
-FROM app.entity_rbac
-WHERE permission = 3
-  AND entity_instance_id != '11111111-1111-1111-1111-111111111111'
-  AND person_code = 'employee'
-UNION ALL
-SELECT
-    'Instance-Level DELETE' as permission_type,
-    COUNT(*) as count
-FROM app.entity_rbac
-WHERE permission = 5
-  AND entity_instance_id != '11111111-1111-1111-1111-111111111111'
-  AND person_code = 'employee'
-UNION ALL
-SELECT
-    'Instance-Level OWNER' as permission_type,
-    COUNT(*) as count
-FROM app.entity_rbac
-WHERE permission = 7
-  AND entity_instance_id != '11111111-1111-1111-1111-111111111111'
-  AND person_code = 'employee';
+    r.code as role_code,
+    er.entity_code,
+    er.permission,
+    er.inheritance_mode,
+    er.child_permissions
+FROM app.entity_rbac er
+JOIN app.role r ON er.role_id = r.id
+WHERE er.inheritance_mode = 'mapped'
+  AND er.child_permissions != '{}'::jsonb
+  AND er.entity_instance_id = '11111111-1111-1111-1111-111111111111'
+ORDER BY r.code, er.entity_code
+LIMIT 20;
 
 SELECT 'Entity Instance Link Summary' as report;
 SELECT
@@ -1737,16 +1593,11 @@ SELECT
     COUNT(*) as link_count
 FROM app.entity_instance_link
 GROUP BY entity_code, child_entity_code
-ORDER BY link_count DESC;
-
-SELECT 'Entity Instance Registry' as report;
-SELECT entity_code, COUNT(*) as instance_count
-FROM app.entity_instance
-GROUP BY entity_code
-ORDER BY instance_count DESC;
+ORDER BY link_count DESC
+LIMIT 15;
 
 -- Update table comment
-COMMENT ON TABLE app.entity_rbac IS 'Role-based RBAC system (v2.0.0). Permissions granted to roles only via role_id FK. Persons get permissions through role membership via entity_instance_link. Inheritance modes: none, cascade, mapped. SEED DATA LOADED from big_data.sql';
+COMMENT ON TABLE app.entity_rbac IS 'Role-based RBAC system (v2.1.0). Permissions granted to roles only via role_id FK. Persons get permissions through role membership via entity_instance_link. Inheritance modes: none, cascade, mapped. Child permissions via JSONB. SEED DATA LOADED from big_data.sql';
 
 
 -- ############################################################################

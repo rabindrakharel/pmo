@@ -368,11 +368,12 @@ export type { InheritanceMode };     // 'none' | 'cascade' | 'mapped'
 
 | Component | Page | Usage |
 |-----------|------|-------|
-| `HierarchicalRbacMatrix` | `AccessControlPage` | Main permission matrix |
 | `HierarchicalRbacMatrix` | `RoleAccessControlPanel` | Role detail tab |
-| `GrantPermissionModal` | Both | Grant new permissions |
+| `GrantPermissionModal` | `RoleAccessControlPanel` | Grant new permissions |
 | `EntityPermissionSection` | Inside `HierarchicalRbacMatrix` | Per-entity sections |
 | `PermissionMatrixTable` | Inside `EntityPermissionSection` | Matrix table display |
+
+> **Note (v2.3.7)**: AccessControlPage was removed. All RBAC management is now done through the Role detail page's "Access Controls" tab.
 
 ---
 
@@ -436,7 +437,6 @@ queryClient.invalidateQueries({
 
 | File | Purpose |
 |------|---------|
-| `apps/web/src/pages/setting/AccessControlPage.tsx` | Settings page |
 | `apps/web/src/components/rbac/RoleAccessControlPanel.tsx` | Role detail panel |
 | `apps/api/src/modules/rbac/routes.ts` | API endpoints |
 | `db/entity_configuration_settings/06_entity_rbac.ddl` | Database schema |
@@ -448,6 +448,7 @@ queryClient.invalidateQueries({
 
 | Version | Date | Changes |
 |---------|------|---------|
+| v2.3.7 | 2025-12-10 | **Removed AccessControlPage** - Settings Access Control page removed; all RBAC management via Role detail page's "Access Controls" tab |
 | v2.3.6 | 2025-12-10 | **Consistent icon colors** - Icons always keep their permission color (slate, sky, cyan, etc.); only opacity changes for dim/highlight states |
 | v2.3.5 | 2025-12-10 | **Icon refinement** - Increased inactive icon visibility (`opacity-50`), reduced icon size by 15% (h-4 w-4 normal, h-3.5 w-3.5 compact) |
 | v2.3.4 | 2025-12-10 | **Icon-only matrix** - Removed header icons and checkboxes; icons show dim (inactive) vs highlighted with glow (active); current level has colored drop-shadow |

@@ -1,8 +1,8 @@
 # Page, Layout & Component Architecture
 
-> **Version:** 14.0.0 | PMO Enterprise Platform
+> **Version:** 14.1.0 | PMO Enterprise Platform
 > **Status:** Production Ready
-> **Updated:** 2025-12-09
+> **Updated:** 2025-12-10
 
 ## Executive Summary
 
@@ -1544,7 +1544,9 @@ const name = getEntityInstanceNameSync('employee', 'uuid-here');
 
 **Route:** `/setting/overview`
 
-**Purpose:** Central hub for all system configuration with 5 main tabs
+**Purpose:** Central hub for all system configuration with 4 main tabs
+
+> **Note (v14.1.0)**: The "Access Control" tab was removed from SettingsOverviewPage. All RBAC management is now done through the Role detail page's "Access Controls" tab (`/role/:id/access-control`). See: [`docs/role/ROLE_ACCESS_CONTROL.md`](../role/ROLE_ACCESS_CONTROL.md)
 
 **Component Architecture:**
 ```
@@ -1558,17 +1560,12 @@ SettingsOverviewPage
 │   ├── [Entities] → Entity type management
 │   ├── [Entity Mapping] → Linkage configuration
 │   ├── [Secrets Vault] → Credentials (placeholder)
-│   ├── [Integrations] → External services (placeholder)
-│   └── [Access Control] → RBAC management
+│   └── [Integrations] → External services (placeholder)
 ├── Entities Tab Content
 │   ├── Search input
 │   ├── Entity table (Code, Name, Icon, Status)
 │   ├── ChildEntitiesModal
 │   └── Add Entity row (inline)
-├── Access Control Tab Content
-│   ├── Roles Management card → /role
-│   ├── Permission Management card
-│   └── EntityListOfInstancesTable (rbac entity)
 └── Modals
     ├── AddDatalabelModal
     ├── ChildEntitiesModal
@@ -1941,13 +1938,14 @@ apps/web/src/
 
 ---
 
-**Version:** 14.0.0
-**Last Updated:** 2025-12-09
+**Version:** 14.1.0
+**Last Updated:** 2025-12-10
 **Status:** Production Ready
 
 **Version History:**
 | Version | Date | Changes |
 |---------|------|---------|
+| 14.1.0 | 2025-12-10 | **Settings Access Control removed**: Removed "Access Control" tab from `SettingsOverviewPage` (was 5 tabs, now 4). All RBAC management via Role detail page's "Access Controls" tab (`/role/:id/access-control`). |
 | 14.0.0 | 2025-12-09 | **Unified DeleteOrUnlinkModal**: Added `DeleteOrUnlinkModal` integration for both standalone list pages (delete-only mode) and child entity tabs (unlink+delete mode). Modal behavior determined by `parentContext` prop presence. Updated `EntityListOfInstancesTable` with new props: `parentContext`, `onDelete`, `onUnlink`, `entityCode`, `entityLabel`. |
 | 11.2.0 | 2025-12-02 | **Offline-safe optimistic rollback**: Fixed critical bug where optimistic updates didn't revert when API server was down. `onError` now uses direct `setQueryData()` rollback from captured `allPreviousListData` Map instead of `invalidateQueries()`. Rollback works without network access. |
 | 11.1.0 | 2025-12-02 | **Flat metadata format**: Both `EntityListOfInstancesTable` and `EntityInstanceFormContainer` now receive flat `{ viewType, editType }` format. Components support both flat and nested formats for backward compatibility but flat is standard. Entity reference fields use `getEntityInstanceNameSync()` reading from TanStack Query cache. |

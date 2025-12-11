@@ -1,6 +1,6 @@
 # PMO Frontend Design Pattern - Comprehensive Architecture Guide
 
-> **Version**: 13.1.0 | **Updated**: 2025-12-09
+> **Version**: 13.2.0 | **Updated**: 2025-12-10
 > **Pattern**: TanStack Query + Dexie + Metadata-Driven Rendering + **Hydration Gate Pattern**
 
 ---
@@ -344,7 +344,9 @@ function MyComponent() {
   {/* Settings Pages */}
   <Route path="/settings" element={<SettingsOverviewPage />} />
   <Route path="/settings/:settingType" element={<SettingDetailPage />} />
-  <Route path="/settings/access-control" element={<AccessControlPage />} />
+
+  {/* RBAC via Role Detail Page */}
+  {/* /role/:id/access-control - Access Controls tab on role detail page */}
 </Routes>
 ```
 
@@ -2869,3 +2871,17 @@ This design pattern document captures the complete frontend architecture of the 
 11. **Delete vs Unlink**: Context-aware removal in child entity tabs with RBAC-aware permissions
 
 This architecture enables a highly responsive, offline-capable, real-time collaborative entity management system.
+
+---
+
+## Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 13.2.0 | 2025-12-10 | **Settings Access Control removed** - `/settings/access-control` route removed; RBAC management now via Role detail page's "Access Controls" tab (`/role/:id/access-control`) |
+| 13.1.0 | 2025-12-09 | Delete vs Unlink pattern for child entity tabs |
+| 13.0.0 | 2025-12-08 | Hydration Gate Pattern - blocks rendering until metadata loaded |
+| 12.0.0 | 2025-12-07 | Renamed lookupSource → lookupSourceTable, datalabelKey → lookupField |
+| 11.2.0 | 2025-12-02 | Offline-safe optimistic rollback |
+| 11.1.0 | 2025-12-02 | Flat metadata format for both Table and Form components |
+| 11.0.0 | 2025-12-02 | Removed sync stores - TanStack Query cache as single in-memory source |
