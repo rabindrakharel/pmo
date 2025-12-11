@@ -149,43 +149,39 @@ export function BadgeDropdownSelect({
           onClick?.(e);
           setDropdownOpen(!dropdownOpen);
         }}
-        className={`w-full h-9 px-2.5 py-1.5 pr-8 border border-dark-200 rounded-md focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:border-slate-400 focus-visible:outline-none bg-white shadow-sm hover:border-dark-300 transition-colors text-left ${disabled ? 'cursor-not-allowed opacity-50 bg-dark-50' : 'cursor-pointer'}`}
-        style={{
-          fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-          fontSize: '13px',
-        }}
+        className={`w-full px-1.5 py-0.5 pr-6 border border-dark-border-medium rounded focus-visible:ring-1 focus-visible:ring-dark-accent-ring focus-visible:border-dark-border-strong focus-visible:outline-none bg-dark-surface hover:border-dark-border-strong transition-colors text-left text-xs ${disabled ? 'cursor-not-allowed opacity-50 bg-dark-subtle' : 'cursor-pointer'}`}
       >
         {selectedOption ? (
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${selectedColor || 'bg-dark-100 text-dark-700'}`}>
+          <span className={`inline-flex items-center px-1.5 py-px rounded text-[10px] font-medium ${selectedColor || 'bg-dark-subtle text-dark-text-primary'}`}>
             {selectedOption.label}
           </span>
         ) : (
-          <span className="text-dark-500">{placeholder}</span>
+          <span className="text-dark-text-placeholder">{placeholder}</span>
         )}
       </button>
-      <ChevronDown className="h-4 w-4 text-dark-500 absolute right-2.5 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+      <ChevronDown className="h-3 w-3 text-dark-text-placeholder absolute right-1.5 top-1/2 transform -translate-y-1/2 pointer-events-none" />
 
       {/* Dropdown menu - rendered via portal to avoid overflow clipping */}
       {dropdownOpen && createPortal(
         <div
           ref={dropdownRef}
           data-dropdown-portal=""
-          className="bg-white border border-dark-200 rounded-lg overflow-auto"
+          className="bg-dark-surface border border-dark-border-default rounded-lg overflow-auto"
           style={{
             position: 'absolute',
             top: `${dropdownPosition.top}px`,
             left: `${dropdownPosition.left}px`,
-            width: `${dropdownPosition.width}px`,
-            maxHeight: '400px',
+            width: `${Math.max(dropdownPosition.width, 120)}px`,
+            maxHeight: '300px',
             zIndex: 9999,
             boxShadow: dropdownPosition.openUpward
               ? '0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06)'
               : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
           }}
         >
-          <div className="py-1">
+          <div className="py-0.5">
             {options.map(opt => {
-              const optionColor = opt.metadata?.color_code || 'bg-dark-100 text-dark-700';
+              const optionColor = opt.metadata?.color_code || 'bg-dark-subtle text-dark-text-primary';
               const isSelected = opt.value === value;
               return (
                 <button
@@ -196,11 +192,11 @@ export function BadgeDropdownSelect({
                     onChange(opt.value as string);
                     setDropdownOpen(false);
                   }}
-                  className={`w-full px-3 py-2 text-left transition-colors flex items-center ${
-                    isSelected ? 'bg-slate-50' : 'hover:bg-dark-50'
-                  } focus-visible:bg-dark-100 focus-visible:outline-none`}
+                  className={`w-full px-2 py-1 text-left transition-colors flex items-center ${
+                    isSelected ? 'bg-dark-hover' : 'hover:bg-dark-hover'
+                  } focus-visible:bg-dark-active focus-visible:outline-none`}
                 >
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${optionColor}`}>
+                  <span className={`inline-flex items-center px-1.5 py-px rounded text-[10px] font-medium ${optionColor}`}>
                     {opt.label}
                   </span>
                 </button>

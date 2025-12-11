@@ -509,7 +509,7 @@ interface EntityMetadataChipProps {
 }
 
 /**
- * EntityMetadataChip Component (v14.0.0 - per styling_patterns.md Section 10)
+ * EntityMetadataChip Component (v14.2.0 - Modern minimal styling)
  *
  * Modern pill-styled metadata display for secondary information.
  * Used for code, id, timestamps, and other technical metadata.
@@ -518,7 +518,7 @@ interface EntityMetadataChipProps {
  * - Pill/chip styling with subtle background (rounded-full)
  * - Copy-to-clipboard with hover reveal
  * - Multiple variants (default, muted, accent) per design system
- * - text-xs minimum font size per design system
+ * - v14.2.0: More generous padding, lighter borders for less clunky look
  */
 export function EntityMetadataChip({
   label,
@@ -533,33 +533,33 @@ export function EntityMetadataChip({
 }: EntityMetadataChipProps) {
   if (!value) return null;
 
-  // Variant styles per styling_patterns.md Section 10
+  // v14.2.0: Lighter, more subtle variant styles
   const variantStyles = {
-    default: 'bg-slate-100 text-slate-600 border-slate-200',  // Code, prominent
-    muted: 'bg-slate-50 text-slate-500 border-slate-100',     // ID, timestamps
-    accent: 'bg-slate-600 text-white border-slate-600',       // Version badge
+    default: 'bg-slate-50 text-slate-600 border-slate-100',   // Code, prominent but subtle
+    muted: 'bg-transparent text-slate-400 border-transparent', // ID, timestamps - very subtle
+    accent: 'bg-slate-700 text-white border-slate-700',        // Version badge
   };
 
   return (
     <div
-      className={`group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${variantStyles[variant]} transition-all duration-150 hover:shadow-sm`}
+      className={`group inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-normal border ${variantStyles[variant]} transition-all duration-150`}
     >
-      {icon && <span className="opacity-60">{icon}</span>}
-      {showLabel && <span className="opacity-60">{label}:</span>}
-      <span className={monospace ? 'font-mono' : ''}>{value}</span>
+      {icon && <span className="opacity-50">{icon}</span>}
+      {showLabel && <span className="opacity-50">{label}:</span>}
+      <span className={monospace ? 'font-mono text-[11px]' : ''}>{value}</span>
       {onCopy && (
         <button
           onClick={(e) => {
             e.stopPropagation();
             onCopy(value, fieldKey);
           }}
-          className="opacity-0 group-hover:opacity-100 p-0.5 -mr-1 hover:bg-slate-200/50 rounded transition-all duration-200"
+          className="opacity-0 group-hover:opacity-100 p-0.5 -mr-0.5 hover:bg-slate-200/50 rounded transition-all duration-200"
           title={`Copy ${label}`}
         >
           {copiedField === fieldKey ? (
-            <Check className="h-3 w-3 text-green-600" />
+            <Check className="h-2.5 w-2.5 text-green-600" />
           ) : (
-            <Copy className="h-3 w-3 opacity-60 hover:opacity-100" />
+            <Copy className="h-2.5 w-2.5 opacity-50 hover:opacity-100" />
           )}
         </button>
       )}
@@ -573,14 +573,15 @@ interface EntityHeaderContainerProps {
 }
 
 /**
- * EntityHeaderContainer Component (v14.0.0 - per styling_patterns.md Section 10)
+ * EntityHeaderContainer Component (v14.2.0 - per styling_patterns.md Section 10)
  *
  * Container for the modern two-line header layout.
  * Provides proper spacing and structure for title + metadata chips.
+ * v14.2.0: Increased gap for more breathing room
  */
 export function EntityHeaderContainer({ children, className = '' }: EntityHeaderContainerProps) {
   return (
-    <div className={`flex flex-col gap-1.5 ${className}`}>
+    <div className={`flex flex-col gap-2 ${className}`}>
       {children}
     </div>
   );
@@ -592,13 +593,14 @@ interface EntityMetadataChipRowProps {
 }
 
 /**
- * EntityMetadataChipRow Component (v14.0.0 - per styling_patterns.md Section 10)
+ * EntityMetadataChipRow Component (v14.2.0 - per styling_patterns.md Section 10)
  *
  * Horizontal container for metadata chips with proper spacing.
+ * v14.2.0: Increased gap, added separator styling
  */
 export function EntityMetadataChipRow({ children, className = '' }: EntityMetadataChipRowProps) {
   return (
-    <div className={`flex items-center gap-2 flex-wrap ${className}`}>
+    <div className={`flex items-center gap-3 flex-wrap text-slate-500 ${className}`}>
       {children}
     </div>
   );

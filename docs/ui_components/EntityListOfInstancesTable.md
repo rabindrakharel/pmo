@@ -1,8 +1,8 @@
 # EntityListOfInstancesTable Component
 
-**Version:** 14.0.0 | **Location:** `apps/web/src/components/shared/ui/EntityListOfInstancesTable.tsx` | **Updated:** 2025-12-09
+**Version:** 14.2.0 | **Location:** `apps/web/src/components/shared/ui/EntityListOfInstancesTable.tsx` | **Updated:** 2025-12-10
 
-**v14.0.0:** Unified DeleteOrUnlinkModal integration - context-aware delete/unlink actions based on `parentContext` prop
+**v14.2.0:** Table Density System - 3-tier density control (compact/regular/relaxed) with compact as default for lightweight, minimal tables
 
 ---
 
@@ -157,6 +157,17 @@ export interface EntityListOfInstancesTableProps<T = any> {
 
   /** Entity display label (e.g., 'Task') */
   entityLabel?: string;
+
+  /**
+   * v14.2.0: Table density - controls row height, padding, font size
+   * 'compact' (default) - 32px rows, minimal padding, text-xs
+   * 'regular' - 40px rows, standard padding, text-[13px]
+   * 'relaxed' - 48px rows, spacious padding, text-sm
+   */
+  density?: 'compact' | 'regular' | 'relaxed';
+
+  /** v14.2.0: Callback when density changes */
+  onDensityChange?: (density: 'compact' | 'regular' | 'relaxed') => void;
 }
 
 // v11.1.0: FLAT Metadata format (same as EntityInstanceFormContainer)

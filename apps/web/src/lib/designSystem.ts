@@ -1,37 +1,38 @@
 /**
- * Design System v13.1 - Production Grade
+ * Design System v14.4.0 - Warm Sepia Palette
  *
  * Unified design tokens ensuring consistency across the entire application.
  * All components MUST use these constants - no arbitrary Tailwind classes.
  *
  * =============================================================================
- * COLOR PHILOSOPHY & HIERARCHY
+ * COLOR PHILOSOPHY & HIERARCHY (v14.4.0 - Warm Sepia)
  * =============================================================================
  *
- * PRIMARY BRAND:
- * - Slate-600 (#475569) - All primary actions, focus states, active indicators
+ * PRIMARY ACCENT:
+ * - Stone-600 (#57534E) - All primary actions, focus states, active indicators
  *
- * TEXT HIERARCHY (use consistently):
- * - dark-800: Page titles, section titles, headings
- * - dark-700: Body text, primary content
- * - dark-600: Secondary text, labels
- * - dark-500: Muted text, placeholders, captions
- * - dark-400: Disabled text
+ * TEXT HIERARCHY (warm tones - easy on eyes):
+ * - dark-text-primary:   #292524 (stone-800) - NOT pure black
+ * - dark-text-secondary: #57534E (stone-600) - Body text
+ * - dark-text-tertiary:  #78716C (stone-500) - Muted text
+ * - dark-text-placeholder: #A8A29E (stone-400) - Placeholders
+ * - dark-text-disabled:  #D6D3D1 (stone-300) - Disabled
  *
- * BACKGROUND HIERARCHY (critical for visual depth):
- * - dark-50:  Page canvas background (#FAFAFA)
- * - white:    Cards, modals, dropdowns, surfaces
- * - dark-100: Hover states ONLY (visible change from white)
- * - dark-200: Borders, dividers
+ * BACKGROUND HIERARCHY (warm cream tones):
+ * - dark-canvas:  #FAF9F7 - Page background (cream)
+ * - dark-surface: #FEFDFB - Cards, modals (warm white)
+ * - dark-subtle:  #F5F5F4 - Nested backgrounds (stone-100)
+ * - dark-hover:   #E7E5E4 - Hover states (stone-200)
+ * - dark-active:  #D6D3D1 - Active/pressed (stone-300)
  *
- * HOVER STATE RULES (prevents invisible hovers):
- * - bg-white → hover:bg-dark-50 or hover:bg-dark-100
- * - bg-dark-50 → hover:bg-dark-100
- * - NEVER: bg-dark-100 → hover:bg-dark-100 (same color = invisible)
+ * BORDER HIERARCHY (warm tones):
+ * - dark-border-subtle:  #F5F5F4 (stone-100)
+ * - dark-border-default: #E7E5E4 (stone-200)
+ * - dark-border-medium:  #D6D3D1 (stone-300)
+ * - dark-border-strong:  #A8A29E (stone-400)
  *
  * FOCUS STATE STANDARD:
- * - All interactive: focus-visible:ring-2 focus-visible:ring-slate-500/30
- * - Semantic focus: focus-visible:ring-{color}-500/30 for colored buttons
+ * - All interactive: focus-visible:ring-2 focus-visible:ring-dark-accent-ring
  */
 
 // =============================================================================
@@ -114,38 +115,38 @@ export const textStyles = {
 // =============================================================================
 
 /**
- * Surface System
+ * Surface System v14.4.0
  * Proper background hierarchy ensures visual depth and clear hover feedback.
  *
  * LAYER ORDER (back to front):
- * 1. Page canvas (dark-50) - Base layer
- * 2. Cards/Panels (white) - Elevated surfaces
- * 3. Hover states (dark-100) - Interactive feedback
- * 4. Active states (dark-200) - Selected/pressed
+ * 1. Page canvas (dark-canvas #FAF9F7) - Base layer
+ * 2. Cards/Panels (dark-surface #FEFDFB) - Elevated surfaces
+ * 3. Hover states (dark-hover #E7E5E4) - Interactive feedback
+ * 4. Active states (dark-active #D6D3D1) - Selected/pressed
  */
 export const surface = {
   // Page-level backgrounds
-  page: 'bg-dark-50',
-  pageAlt: 'bg-dark-100',
+  page: 'bg-dark-canvas',
+  pageAlt: 'bg-dark-subtle',
 
   // Card surfaces (elevated from page)
-  card: 'bg-white border border-dark-200 rounded-lg shadow-sm',
-  cardHover: 'bg-white border border-dark-200 rounded-lg shadow-sm hover:shadow-md hover:border-dark-300 transition-all',
-  cardInteractive: 'bg-white border border-dark-200 rounded-lg shadow-sm hover:shadow-md hover:border-slate-300 transition-all cursor-pointer',
+  card: 'bg-dark-surface border border-dark-border-default rounded-lg shadow-sm',
+  cardHover: 'bg-dark-surface border border-dark-border-default rounded-lg shadow-sm hover:shadow-md hover:border-dark-border-medium transition-all',
+  cardInteractive: 'bg-dark-surface border border-dark-border-default rounded-lg shadow-sm hover:shadow-md hover:border-dark-border-strong transition-all cursor-pointer',
 
   // Dropdown/Menu surfaces (highest elevation)
-  dropdown: 'bg-white border border-dark-200 rounded-lg shadow-lg',
-  popover: 'bg-white border border-dark-200 rounded-lg shadow-xl',
-  modal: 'bg-white rounded-xl shadow-2xl',
+  dropdown: 'bg-dark-surface border border-dark-border-default rounded-lg shadow-lg',
+  popover: 'bg-dark-surface border border-dark-border-default rounded-lg shadow-xl',
+  modal: 'bg-dark-surface rounded-xl shadow-2xl',
 
   // Interactive row/item states
-  row: 'bg-white hover:bg-dark-50 transition-colors',
-  rowAlt: 'bg-dark-50 hover:bg-dark-100 transition-colors',
-  rowActive: 'bg-slate-100 text-slate-700',
+  row: 'bg-dark-surface hover:bg-dark-hover transition-colors',
+  rowAlt: 'bg-dark-subtle hover:bg-dark-hover transition-colors',
+  rowActive: 'bg-dark-hover text-dark-text-primary',
 
   // Subtle backgrounds (for nested content)
-  subtle: 'bg-dark-50',
-  subtleHover: 'bg-dark-50 hover:bg-dark-100 transition-colors',
+  subtle: 'bg-dark-subtle',
+  subtleHover: 'bg-dark-subtle hover:bg-dark-hover transition-colors',
 } as const;
 
 // =============================================================================
@@ -153,22 +154,22 @@ export const surface = {
 // =============================================================================
 
 /**
- * Focus System
+ * Focus System v14.4.0
  * Consistent focus states for all interactive elements.
  * Uses focus-visible to avoid showing focus on mouse click.
  */
 export const focus = {
-  // Standard focus ring (slate - brand color)
-  ring: 'focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none',
-  ringOffset: 'focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:ring-offset-1 focus-visible:outline-none',
+  // Standard focus ring (warm stone accent)
+  ring: 'focus-visible:ring-2 focus-visible:ring-dark-accent-ring focus-visible:outline-none',
+  ringOffset: 'focus-visible:ring-2 focus-visible:ring-dark-accent-ring focus-visible:ring-offset-1 focus-visible:outline-none',
 
   // Semantic focus rings
-  primary: 'focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none',
+  primary: 'focus-visible:ring-2 focus-visible:ring-dark-accent-ring focus-visible:outline-none',
   danger: 'focus-visible:ring-2 focus-visible:ring-red-500/30 focus-visible:outline-none',
   success: 'focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:outline-none',
 
   // Input focus (border + ring)
-  input: 'focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400 focus:outline-none',
+  input: 'focus:ring-2 focus:ring-dark-accent-ring focus:border-dark-border-strong focus:outline-none',
 } as const;
 
 // =============================================================================
@@ -176,49 +177,51 @@ export const focus = {
 // =============================================================================
 
 /**
- * Button System
- * Production-grade button styling with consistent states
+ * Button System v14.4.0
+ * Production-grade button styling with warm sepia palette
+ * Refined sizing for less bulky appearance
  */
 export const button = {
   // Base classes (applied to ALL buttons)
   base: 'inline-flex items-center justify-center font-medium rounded-md transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:opacity-50 disabled:pointer-events-none select-none',
 
-  // Variants
+  // Variants - v14.4.0: Use warm stone accent colors
   variant: {
-    // Primary - Main actions (slate unified)
-    primary: 'bg-slate-600 text-white border border-slate-600 hover:bg-slate-700 hover:border-slate-700 active:bg-slate-800 focus-visible:ring-slate-500/50 shadow-sm',
+    // Primary - Main actions (warm stone accent)
+    primary: 'bg-dark-accent text-white border border-dark-accent hover:bg-dark-accent-hover hover:border-dark-accent-hover active:bg-dark-700 focus-visible:ring-dark-accent-ring shadow-sm',
 
     // Secondary - Supporting actions
-    secondary: 'bg-white text-dark-700 border border-dark-200 hover:bg-dark-50 hover:border-dark-300 active:bg-dark-100 focus-visible:ring-slate-500/30',
+    secondary: 'bg-dark-surface text-dark-text-primary border border-dark-border-default hover:bg-dark-hover hover:border-dark-border-medium active:bg-dark-active focus-visible:ring-dark-accent-ring',
 
     // Ghost - Minimal emphasis
-    ghost: 'bg-transparent text-dark-600 border border-transparent hover:bg-dark-100 hover:text-dark-800 active:bg-dark-200 focus-visible:ring-slate-500/30',
+    ghost: 'bg-transparent text-dark-text-secondary border border-transparent hover:bg-dark-hover hover:text-dark-text-primary active:bg-dark-active focus-visible:ring-dark-accent-ring',
 
     // Danger - Destructive actions
-    danger: 'bg-red-600 text-white border border-red-600 hover:bg-red-700 hover:border-red-700 active:bg-red-800 focus-visible:ring-red-500/50 shadow-sm',
+    danger: 'bg-dark-error text-white border border-dark-error hover:bg-red-700 hover:border-red-700 active:bg-red-800 focus-visible:ring-red-500/50 shadow-sm',
 
     // Success - Confirmations
-    success: 'bg-emerald-600 text-white border border-emerald-600 hover:bg-emerald-700 hover:border-emerald-700 active:bg-emerald-800 focus-visible:ring-emerald-500/50 shadow-sm',
+    success: 'bg-dark-success text-white border border-dark-success hover:bg-emerald-700 hover:border-emerald-700 active:bg-emerald-800 focus-visible:ring-emerald-500/50 shadow-sm',
 
     // Outline - Bordered variant
-    outline: 'bg-transparent text-dark-700 border border-dark-300 hover:bg-dark-50 hover:border-dark-400 active:bg-dark-100 focus-visible:ring-slate-500/30',
+    outline: 'bg-transparent text-dark-text-primary border border-dark-border-medium hover:bg-dark-hover hover:border-dark-border-strong active:bg-dark-active focus-visible:ring-dark-accent-ring',
   },
 
-  // Sizes
+  // Sizes - v14.4.0: Refined sizing (less bulky)
   size: {
-    xs: 'h-7 px-2.5 text-xs gap-1.5',
-    sm: 'h-8 px-3 text-sm gap-1.5',
-    md: 'h-9 px-4 text-sm gap-2',
-    lg: 'h-10 px-5 text-base gap-2',
-    xl: 'h-11 px-6 text-base gap-2.5',
+    xs: 'h-6 px-2 text-xs gap-1',
+    sm: 'h-7 px-2.5 text-xs gap-1.5',
+    md: 'h-8 px-3 text-sm gap-1.5',
+    lg: 'h-9 px-4 text-sm gap-2',
+    xl: 'h-10 px-5 text-base gap-2',
   },
 
   // Icon-only variants
   icon: {
-    xs: 'h-7 w-7 p-0',
-    sm: 'h-8 w-8 p-0',
-    md: 'h-9 w-9 p-0',
-    lg: 'h-10 w-10 p-0',
+    xs: 'h-6 w-6 p-0',
+    sm: 'h-7 w-7 p-0',
+    md: 'h-8 w-8 p-0',
+    lg: 'h-9 w-9 p-0',
+    xl: 'h-10 w-10 p-0',
   },
 } as const;
 
@@ -239,12 +242,12 @@ export const buttonStyles = {
 // =============================================================================
 
 /**
- * Input System
- * Form controls with consistent styling
+ * Input System v14.4.0
+ * Form controls with consistent warm styling
  */
 export const input = {
   // Base input styling
-  base: 'w-full bg-white text-dark-800 placeholder:text-dark-400 border border-dark-200 rounded-md transition-all duration-150 focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-500/20 disabled:bg-dark-50 disabled:text-dark-400 disabled:cursor-not-allowed',
+  base: 'w-full bg-dark-surface text-dark-text-primary placeholder:text-dark-text-placeholder border border-dark-border-default rounded-md transition-all duration-150 focus:outline-none focus:border-dark-border-strong focus:ring-2 focus:ring-dark-accent-ring disabled:bg-dark-subtle disabled:text-dark-text-disabled disabled:cursor-not-allowed',
 
   // Size variants
   size: {
@@ -254,16 +257,16 @@ export const input = {
   },
 
   // Specialized inputs
-  search: 'w-full bg-white text-dark-800 placeholder:text-dark-400 border border-dark-200 rounded-md pl-9 pr-3 py-2 text-sm transition-all duration-150 focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-500/20',
+  search: 'w-full bg-dark-surface text-dark-text-primary placeholder:text-dark-text-placeholder border border-dark-border-default rounded-md pl-9 pr-3 py-2 text-sm transition-all duration-150 focus:outline-none focus:border-dark-border-strong focus:ring-2 focus:ring-dark-accent-ring',
 
   // Inline/compact (for tables)
-  inline: 'w-full bg-white text-dark-800 border border-dark-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-500/20',
+  inline: 'w-full bg-dark-surface text-dark-text-primary border border-dark-border-default rounded px-2 py-1.5 text-sm focus:outline-none focus:border-dark-border-strong focus:ring-1 focus:ring-dark-accent-ring',
 
   // Textarea
-  textarea: 'w-full bg-white text-dark-800 placeholder:text-dark-400 border border-dark-200 rounded-md px-3 py-2 text-sm transition-all duration-150 focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-500/20 resize-none',
+  textarea: 'w-full bg-dark-surface text-dark-text-primary placeholder:text-dark-text-placeholder border border-dark-border-default rounded-md px-3 py-2 text-sm transition-all duration-150 focus:outline-none focus:border-dark-border-strong focus:ring-2 focus:ring-dark-accent-ring resize-none',
 
   // Select
-  select: 'w-full bg-white text-dark-800 border border-dark-200 rounded-md px-3 py-2 text-sm transition-all duration-150 focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-500/20 cursor-pointer',
+  select: 'w-full bg-dark-surface text-dark-text-primary border border-dark-border-default rounded-md px-3 py-2 text-sm transition-all duration-150 focus:outline-none focus:border-dark-border-strong focus:ring-2 focus:ring-dark-accent-ring cursor-pointer',
 
   // Error state modifier
   error: 'border-red-400 focus:border-red-500 focus:ring-red-500/20',
@@ -282,8 +285,8 @@ export const inputStyles = {
 // =============================================================================
 
 /**
- * Container System
- * Cards, panels, and layout containers
+ * Container System v14.4.0
+ * Cards, panels, and layout containers with warm styling
  */
 export const container = {
   // Page layout
@@ -292,16 +295,16 @@ export const container = {
 
   // Cards
   card: {
-    base: 'bg-white border border-dark-200 rounded-lg shadow-sm',
-    hover: 'bg-white border border-dark-200 rounded-lg shadow-sm hover:border-dark-300 hover:shadow transition-all duration-150',
-    interactive: 'bg-white border border-dark-200 rounded-lg shadow-sm hover:border-slate-300 hover:shadow-md transition-all duration-150 cursor-pointer',
+    base: 'bg-dark-surface border border-dark-border-default rounded-lg shadow-sm',
+    hover: 'bg-dark-surface border border-dark-border-default rounded-lg shadow-sm hover:border-dark-border-medium hover:shadow transition-all duration-150',
+    interactive: 'bg-dark-surface border border-dark-border-default rounded-lg shadow-sm hover:border-dark-border-strong hover:shadow-md transition-all duration-150 cursor-pointer',
   },
 
   // Sections
   section: {
-    base: 'bg-white border border-dark-200 rounded-lg p-6',
-    compact: 'bg-white border border-dark-200 rounded-lg p-4',
-    flush: 'bg-white border border-dark-200 rounded-lg overflow-hidden',
+    base: 'bg-dark-surface border border-dark-border-default rounded-lg p-6',
+    compact: 'bg-dark-surface border border-dark-border-default rounded-lg p-4',
+    flush: 'bg-dark-surface border border-dark-border-default rounded-lg overflow-hidden',
   },
 
   // Form containers
@@ -329,33 +332,33 @@ export const containerStyles = {
 // =============================================================================
 
 /**
- * Table System
- * Data table styling for lists and grids
+ * Table System v14.4.0
+ * Data table styling with warm palette
  */
 export const table = {
   // Container
-  container: 'bg-white border border-dark-200 rounded-lg overflow-hidden',
+  container: 'bg-dark-surface border border-dark-border-default rounded-lg overflow-hidden',
   wrapper: 'overflow-x-auto',
 
   // Table element
-  table: 'min-w-full divide-y divide-dark-200',
+  table: 'min-w-full divide-y divide-dark-border-default',
 
   // Header
-  thead: 'bg-dark-50',
-  th: 'px-4 py-3 text-left text-2xs font-semibold text-dark-600 uppercase tracking-wider',
-  thSortable: 'px-4 py-3 text-left text-2xs font-semibold text-dark-600 uppercase tracking-wider cursor-pointer hover:bg-dark-100 hover:text-dark-800 transition-colors select-none',
+  thead: 'bg-dark-subtle',
+  th: 'px-4 py-3 text-left text-2xs font-semibold text-dark-text-secondary uppercase tracking-wider',
+  thSortable: 'px-4 py-3 text-left text-2xs font-semibold text-dark-text-secondary uppercase tracking-wider cursor-pointer hover:bg-dark-hover hover:text-dark-text-primary transition-colors select-none',
 
   // Body
-  tbody: 'bg-white divide-y divide-dark-100',
-  tr: 'transition-colors hover:bg-dark-50',
-  trSelected: 'bg-slate-50 hover:bg-slate-100',
-  trEditing: 'bg-slate-50 ring-1 ring-inset ring-slate-200',
-  td: 'px-4 py-3 text-sm text-dark-700',
-  tdCompact: 'px-4 py-2 text-sm text-dark-700',
+  tbody: 'bg-dark-surface divide-y divide-dark-border-subtle',
+  tr: 'transition-colors hover:bg-dark-hover',
+  trSelected: 'bg-dark-hover hover:bg-dark-active',
+  trEditing: 'bg-dark-hover ring-1 ring-inset ring-dark-border-medium',
+  td: 'px-4 py-3 text-sm text-dark-text-secondary',
+  tdCompact: 'px-4 py-2 text-sm text-dark-text-secondary',
 
   // Add row
-  addRow: 'px-4 py-3 border-t border-dark-200 bg-dark-50 hover:bg-dark-100 transition-colors cursor-pointer group',
-  addRowContent: 'flex items-center gap-2 text-sm text-dark-500 group-hover:text-dark-700',
+  addRow: 'px-4 py-3 border-t border-dark-border-default bg-dark-subtle hover:bg-dark-hover transition-colors cursor-pointer group',
+  addRowContent: 'flex items-center gap-2 text-sm text-dark-text-tertiary group-hover:text-dark-text-secondary',
 } as const;
 
 // Legacy table styles export
@@ -464,8 +467,8 @@ export const enhancedBadgeStyles = {
 // =============================================================================
 
 /**
- * Modal System
- * Dialogs and overlays
+ * Modal System v14.4.0
+ * Dialogs and overlays with warm styling
  */
 export const modal = {
   // Overlay
@@ -475,7 +478,7 @@ export const modal = {
   container: 'fixed inset-0 z-50 flex items-center justify-center p-4',
 
   // Content panel
-  panel: 'bg-white rounded-xl shadow-xl w-full max-h-[90vh] flex flex-col border border-dark-200 animate-scale-in',
+  panel: 'bg-dark-surface rounded-xl shadow-xl w-full max-h-[90vh] flex flex-col border border-dark-border-default animate-scale-in',
 
   // Size variants
   size: {
@@ -487,16 +490,16 @@ export const modal = {
   },
 
   // Header
-  header: 'flex items-center justify-between px-6 py-4 border-b border-dark-200',
-  title: 'text-lg font-semibold text-dark-800',
-  subtitle: 'text-sm text-dark-500 mt-0.5',
-  closeButton: 'p-2 text-dark-400 hover:text-dark-600 hover:bg-dark-100 rounded-md transition-colors',
+  header: 'flex items-center justify-between px-6 py-4 border-b border-dark-border-default',
+  title: 'text-lg font-semibold text-dark-text-primary',
+  subtitle: 'text-sm text-dark-text-tertiary mt-0.5',
+  closeButton: 'p-2 text-dark-text-placeholder hover:text-dark-text-secondary hover:bg-dark-hover rounded-md transition-colors',
 
   // Body
   body: 'px-6 py-5 overflow-y-auto',
 
   // Footer
-  footer: 'flex items-center justify-end gap-3 px-6 py-4 border-t border-dark-200 bg-dark-50',
+  footer: 'flex items-center justify-end gap-3 px-6 py-4 border-t border-dark-border-default bg-dark-subtle',
 } as const;
 
 // Legacy modal styles export
@@ -630,11 +633,11 @@ export const actionButtonStyles = {
 // =============================================================================
 
 /**
- * Loading States
+ * Loading States v14.4.0
  */
 export const loading = {
   // Spinner
-  spinner: 'animate-spin rounded-full border-2 border-dark-200 border-t-slate-600',
+  spinner: 'animate-spin rounded-full border-2 border-dark-border-default border-t-dark-accent',
   spinnerSizes: {
     sm: 'h-4 w-4',
     md: 'h-6 w-6',
@@ -646,9 +649,9 @@ export const loading = {
   containerCompact: 'flex items-center justify-center py-8',
 
   // Skeleton
-  skeleton: 'animate-pulse bg-dark-200 rounded',
-  skeletonText: 'h-4 w-full animate-pulse bg-dark-200 rounded',
-  skeletonTitle: 'h-6 w-48 animate-pulse bg-dark-200 rounded',
+  skeleton: 'animate-pulse bg-dark-hover rounded',
+  skeletonText: 'h-4 w-full animate-pulse bg-dark-hover rounded',
+  skeletonTitle: 'h-6 w-48 animate-pulse bg-dark-hover rounded',
 } as const;
 
 // Legacy loading styles export
@@ -666,13 +669,13 @@ export const loadingStyles = {
 } as const;
 
 /**
- * Empty States
+ * Empty States v14.4.0
  */
 export const emptyState = {
   container: 'flex flex-col items-center justify-center py-12 text-center',
-  icon: 'h-12 w-12 text-dark-300 mb-4',
-  title: 'text-sm font-medium text-dark-600 mb-1',
-  description: 'text-sm text-dark-500 max-w-sm',
+  icon: 'h-12 w-12 text-dark-muted mb-4',
+  title: 'text-sm font-medium text-dark-text-secondary mb-1',
+  description: 'text-sm text-dark-text-tertiary max-w-sm',
   action: 'mt-4',
 } as const;
 
@@ -689,7 +692,7 @@ export const emptyStateStyles = {
 // =============================================================================
 
 /**
- * Section Header
+ * Section Header v14.4.0
  */
 export const sectionStyles = {
   container: 'mb-6',
@@ -697,55 +700,55 @@ export const sectionStyles = {
   header: 'flex items-center justify-between mb-4',
   headerButton: 'flex items-center gap-2 hover:opacity-80 transition-opacity',
   headerTitle: text.sectionTitle,
-  headerTitleCompact: 'text-sm font-semibold text-dark-800',
-  badge: `${badge.base} ${badge.size.sm} bg-dark-100 text-dark-600`,
+  headerTitleCompact: 'text-sm font-semibold text-dark-text-primary',
+  badge: `${badge.base} ${badge.size.sm} bg-dark-hover text-dark-text-secondary`,
   actions: 'flex items-center gap-2',
 } as const;
 
 /**
- * Card Grid
+ * Card Grid v14.4.0
  */
 export const cardGridStyles = {
   grid: spacing.grid.cols3,
   gridCompact: 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3',
   card: container.card.hover,
-  cardCompact: 'bg-white border border-dark-200 rounded-md p-3 hover:border-dark-300 hover:shadow-sm transition-all cursor-pointer',
-  cardIcon: 'p-2 bg-dark-50 rounded-md mb-2',
-  cardTitle: 'text-sm font-medium text-dark-800 mb-0.5',
-  cardDescription: 'text-xs text-dark-500 line-clamp-2',
+  cardCompact: 'bg-dark-surface border border-dark-border-default rounded-md p-3 hover:border-dark-border-medium hover:shadow-sm transition-all cursor-pointer',
+  cardIcon: 'p-2 bg-dark-subtle rounded-md mb-2',
+  cardTitle: 'text-sm font-medium text-dark-text-primary mb-0.5',
+  cardDescription: 'text-xs text-dark-text-tertiary line-clamp-2',
 } as const;
 
 /**
- * Icon Picker
+ * Icon Picker v14.4.0
  */
 export const iconPickerStyles = {
-  dropdown: 'absolute left-0 top-full mt-1 z-50 bg-white rounded-lg shadow-lg border border-dark-200 p-3 w-80',
+  dropdown: 'absolute left-0 top-full mt-1 z-50 bg-dark-surface rounded-lg shadow-lg border border-dark-border-default p-3 w-80',
   search: input.search,
   grid: 'grid grid-cols-8 gap-1 max-h-48 overflow-y-auto mt-2',
-  iconButton: 'p-2 rounded hover:bg-dark-100 transition-colors text-dark-600 hover:text-dark-800',
-  iconButtonSelected: 'p-2 rounded bg-slate-100 text-slate-700 ring-1 ring-slate-300',
-  footer: 'mt-2 flex items-center justify-between border-t border-dark-200 pt-2',
-  footerText: 'text-xs text-dark-500',
-  footerClose: 'px-2 py-1 text-xs text-dark-600 hover:bg-dark-100 rounded transition-colors',
+  iconButton: 'p-2 rounded hover:bg-dark-hover transition-colors text-dark-text-secondary hover:text-dark-text-primary',
+  iconButtonSelected: 'p-2 rounded bg-dark-hover text-dark-text-primary ring-1 ring-dark-border-medium',
+  footer: 'mt-2 flex items-center justify-between border-t border-dark-border-default pt-2',
+  footerText: 'text-xs text-dark-text-tertiary',
+  footerClose: 'px-2 py-1 text-xs text-dark-text-secondary hover:bg-dark-hover rounded transition-colors',
 } as const;
 
 /**
- * Toggle Switch
+ * Toggle Switch v14.4.0
  */
 export const toggleStyles = {
-  container: 'relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:ring-offset-2 cursor-pointer',
-  containerOn: 'bg-slate-600',
-  containerOff: 'bg-dark-300',
-  knob: 'inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform',
+  container: 'relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-dark-accent-ring focus-visible:ring-offset-2 cursor-pointer',
+  containerOn: 'bg-dark-accent',
+  containerOff: 'bg-dark-muted',
+  knob: 'inline-block h-4 w-4 transform rounded-full bg-dark-surface shadow-sm transition-transform',
   knobOn: 'translate-x-4',
   knobOff: 'translate-x-0.5',
 } as const;
 
 /**
- * Drag & Drop Indicators
+ * Drag & Drop Indicators v14.4.0
  */
 export const dropdownIndicatorStyles = {
-  line: 'absolute left-0 right-0 h-0.5 bg-slate-600 rounded-full shadow-sm',
+  line: 'absolute left-0 right-0 h-0.5 bg-dark-accent rounded-full shadow-sm',
   lineContainer: 'pointer-events-none',
 } as const;
 

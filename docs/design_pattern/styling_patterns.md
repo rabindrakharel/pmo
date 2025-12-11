@@ -2,11 +2,11 @@
 
 > **The Single Source of Truth** - Definitive styling patterns for a premium, elegant, and consistent user experience
 
-**Version:** 13.0 - PRODUCTION-GRADE DESIGN SYSTEM
-**Theme:** Unified Slate Color Palette - Clean & Professional
-**Last Updated:** 2025-12-09
-**CRITICAL:** UNIFIED SLATE PALETTE - Zero !important declarations
-**Architecture:** Tailwind CSS v3.4 + React 19 + TypeScript
+**Version:** 14.4.1 - WARM SEPIA + DESIGN SYSTEM CENTRALIZATION
+**Theme:** Warm Sepia Palette - Easy on eyes for long sessions
+**Last Updated:** 2025-12-11
+**CRITICAL:** All colors from `dark-*` tokens in tailwind.config.js
+**Architecture:** Tailwind CSS v3.4 + React 19 + TypeScript + designSystem.ts
 
 ---
 
@@ -23,42 +23,58 @@
 
 ## 1. Color System
 
-### Primary Palette (Unified Slate - v13.0)
+### Warm Sepia Palette (v14.4.0) - Easy on Eyes
+
+Based on Tailwind Stone palette with cream undertones. Reduces eye strain for long sessions by avoiding pure black/white and using warm neutrals.
 
 ```jsx
 // CANVAS & SURFACES (tailwind.config.js: colors.dark)
-bg-dark-canvas     // #FAFAFA - Page background
-bg-dark-surface    // #FFFFFF - Cards, panels, modals
-bg-dark-muted      // #F5F5F5 - Subtle backgrounds, hover states
-bg-dark-subtle     // #F0F0F0 - Active/selected states
+bg-dark-canvas     // #FAF9F7 - Cream page background (warm off-white)
+bg-dark-surface    // #FEFDFB - Warm white for cards, panels
+bg-dark-subtle     // #F5F5F4 - Subtle backgrounds (stone-100)
+bg-dark-hover      // #E7E5E4 - Hover states (stone-200)
+bg-dark-active     // #D6D3D1 - Active/pressed states (stone-300)
 
-// TEXT HIERARCHY (Semantic naming)
-text-dark-text-primary    // #1A1A1A - Headings, important content
-text-dark-text-secondary  // #4A4A4A - Body, descriptions
-text-dark-text-tertiary   // #787774 - Hints, metadata
-text-dark-text-muted      // #9B9A97 - Placeholder, disabled
+// TEXT HIERARCHY (Softer contrast - NOT pure black)
+text-dark-text-primary    // #292524 - Soft black (stone-800)
+text-dark-text-secondary  // #57534E - Warm gray (stone-600)
+text-dark-text-tertiary   // #78716C - Muted warm gray (stone-500)
+text-dark-text-placeholder // #A8A29E - Placeholders (stone-400)
+text-dark-text-disabled   // #D6D3D1 - Disabled text (stone-300)
 
-// BORDERS (Consistent naming)
-border-dark-border         // #E5E5E5 - Default borders
-border-dark-border-strong  // #D1D1D1 - Emphasized borders
+// BORDERS (Warm tones)
+border-dark-border-subtle   // #F5F5F4 - Subtle borders (stone-100)
+border-dark-border-default  // #E7E5E4 - Default borders (stone-200)
+border-dark-border-medium   // #D6D3D1 - Medium emphasis (stone-300)
+border-dark-border-strong   // #A8A29E - Strong emphasis (stone-400)
 
-// UNIFIED SLATE ACCENT (Primary accent - NO BLUE/PURPLE/EMERALD)
-bg-dark-accent       // #475569 (slate-600) - Primary buttons, active tabs
-hover:bg-slate-700   // Hover state for accent
-text-slate-600       // Action text, links
-text-slate-700       // Hover state for text
-ring-slate-500       // Focus rings
-border-slate-500     // Accent borders
+// ACCENT (Warm Stone - replaces slate)
+bg-dark-accent       // #57534E (stone-600) - Primary buttons, active tabs
+hover:bg-dark-accent-hover  // #44403C (stone-700) - Hover state
+text-dark-accent     // #57534E - Action text, links
+focus:ring-dark-accent-ring // rgba(87, 83, 78, 0.25) - Focus rings
 
-// LEGACY MAPPING (for backwards compatibility)
-bg-dark-50   → bg-dark-canvas
-bg-dark-100  → bg-dark-surface
-bg-dark-200  → bg-dark-muted
-bg-dark-250  → bg-dark-subtle
-bg-dark-300  → border-dark-border
-text-dark-700 → text-dark-text-primary
-text-dark-600 → text-dark-text-secondary
+// NUMBERED SCALE (Warm Stone for backwards compatibility)
+bg-dark-50   // #FAFAF9 (stone-50)
+bg-dark-100  // #F5F5F4 (stone-100)
+bg-dark-200  // #E7E5E4 (stone-200)
+bg-dark-300  // #D6D3D1 (stone-300)
+bg-dark-400  // #A8A29E (stone-400)
+bg-dark-500  // #78716C (stone-500)
+bg-dark-600  // #57534E (stone-600)
+bg-dark-700  // #44403C (stone-700)
+bg-dark-800  // #292524 (stone-800)
+bg-dark-900  // #1C1917 (stone-900)
 ```
+
+### Why Warm Sepia?
+
+| Issue | Cool Grays | Warm Sepia |
+|-------|------------|------------|
+| Text on white | `#1A1A1A` (harsh) | `#292524` (soft) |
+| Background | `#FAFAFA` (cold) | `#FAF9F7` (cream) |
+| Cards | `#FFFFFF` (glaring) | `#FEFDFB` (warm) |
+| Contrast | High (eye strain) | Moderate (comfortable) |
 
 ### Semantic Colors
 
@@ -134,64 +150,55 @@ text-[10px] font-medium // Labels, counts (10px) - USE SPARINGLY
 
 ## 3. Component Patterns
 
-### 3.1 Button Component (Production-Grade v13.0)
+### 3.1 Button Component (v14.4.1 - Centralized)
 
-**Design Token System** - Use `designSystem.ts` button tokens:
+**Design Token System** - Use `designSystem.ts` button tokens. Button styling is centralized in designSystem.ts, NOT Tailwind config, because:
+- Buttons need compound variants (variant × size × state)
+- Type-safe props with IDE autocomplete
+- Dynamic composition that Tailwind can't handle
 
 ```tsx
 // IMPORT FROM DESIGN SYSTEM
-import { button } from '@/lib/designSystem';
+import { button, cx } from '@/lib/designSystem';
 
-// PRIMARY BUTTON - Uses button.variant.primary
-<Button variant="primary" size="md" icon={Database}>
-  Entities (32)
-</Button>
-// Classes: bg-dark-accent text-white hover:bg-slate-700
-//          focus-visible:ring-2 focus-visible:ring-slate-500
+// PRIMARY BUTTON - Warm stone accent (#57534E)
+<button className={cx(button.base, button.variant.primary, button.size.sm)}>
+  <Plus className="h-3.5 w-3.5" />
+  Create Entity
+</button>
+// Result: bg-dark-accent text-white h-7 px-2.5 text-xs
 
-// SECONDARY BUTTON - Uses button.variant.secondary
-<Button variant="secondary" size="md" icon={Link}>
+// SECONDARY BUTTON
+<button className={cx(button.base, button.variant.secondary, button.size.md)}>
+  <Link className="h-4 w-4" />
   Entity Mapping
-</Button>
-// Classes: bg-white text-dark-text-secondary border border-dark-border
-//          hover:bg-dark-muted hover:border-dark-border-strong
+</button>
+// Result: bg-dark-surface text-dark-text-primary border border-dark-border-default
 
-// GHOST BUTTON - Uses button.variant.ghost
-<Button variant="ghost" size="md" icon={Settings}>
+// GHOST BUTTON
+<button className={cx(button.base, button.variant.ghost, button.size.md)}>
+  <Settings className="h-4 w-4" />
   Settings
-</Button>
-// Classes: text-dark-text-secondary hover:bg-dark-muted hover:text-dark-text-primary
+</button>
+// Result: bg-transparent text-dark-text-secondary hover:bg-dark-hover
 
-// DANGER BUTTON - Uses button.variant.danger
-<Button variant="danger" size="md" icon={Trash}>
+// DANGER BUTTON
+<button className={cx(button.base, button.variant.danger, button.size.md)}>
+  <Trash className="h-4 w-4" />
   Delete
-</Button>
-// Classes: bg-red-600 text-white hover:bg-red-700
+</button>
+// Result: bg-dark-error text-white hover:bg-red-700
 
-// BUTTON SIZES
-button.size.sm   // px-3 py-1.5 text-xs
-button.size.md   // px-4 py-2 text-sm (DEFAULT)
-button.size.lg   // px-5 py-2.5 text-base
+// BUTTON SIZES (v14.4.0 - less bulky)
+button.size.xs   // h-6 px-2 text-xs gap-1
+button.size.sm   // h-7 px-2.5 text-xs gap-1.5 (RECOMMENDED for tables)
+button.size.md   // h-8 px-3 text-sm gap-1.5 (DEFAULT)
+button.size.lg   // h-9 px-4 text-sm gap-2
+button.size.xl   // h-10 px-5 text-base gap-2
 
-// ICON BUTTON (compact square)
-<IconButton icon={Settings} variant="ghost" />
-// Classes: p-2 rounded-lg
-
-// BUTTON GROUP (connected buttons)
-<ButtonGroup>
-  <Button variant="secondary">Option 1</Button>
-  <Button variant="secondary">Option 2</Button>
-</ButtonGroup>
-
-// BUTTON WITH RIGHT ICON
-<Button variant="primary" iconRight={ArrowRight}>
-  Continue
-</Button>
-
-// FULL WIDTH BUTTON
-<Button variant="primary" fullWidth>
-  Submit
-</Button>
+// ICON-ONLY BUTTON
+button.icon.sm   // h-7 w-7 p-0
+button.icon.md   // h-8 w-8 p-0
 ```
 
 **Legacy Inline Classes** (Still Supported):
@@ -339,38 +346,158 @@ input.size.lg // px-4 py-2.5 text-base
 </div>
 ```
 
-### 3.5 Tables - MANDATORY DATA TABLE STYLING
+### 3.5 Tables - DENSITY SYSTEM (v14.2.0)
 
-**Table Structure (ENFORCE THESE STYLES FOR ALL DATA TABLES)**
-```jsx
-<div className="overflow-x-auto bg-dark-100 rounded-lg border border-dark-300">
-  <table className="min-w-full divide-y divide-dark-300">
-    <thead className="bg-dark-50">
-      <tr>
-        {/* HEADER: text-sm font-normal - NOT text-[10px] */}
-        <th className="px-3 py-2 text-left text-sm font-normal text-dark-600">
-          Column Name
-        </th>
-      </tr>
-    </thead>
-    <tbody className="bg-dark-100 divide-y divide-dark-300">
-      <tr className="hover:bg-dark-50 transition-colors cursor-pointer">
-        {/* CELL: text-sm text-dark-700 - Consistent with headers */}
-        <td className="px-3 py-2 text-sm text-dark-700">
-          Cell content
-        </td>
-      </tr>
-    </tbody>
-  </table>
-</div>
+**Data Table Density Configuration**
 
-/* CRITICAL TABLE RULES:
-   - Headers: text-sm font-normal text-dark-600 (NO uppercase, NO text-[10px])
-   - Cells: text-sm text-dark-700 (Match header size)
-   - Padding: px-3 py-2 (Consistent spacing)
-   - NO tiny fonts in tables - Use text-sm throughout
-*/
+The `EntityListOfInstancesTable` supports three density levels for different use cases:
+
+| Density | Row Height | Cell Padding | Font Size | Use Case |
+|---------|------------|--------------|-----------|----------|
+| **compact** | 32px | `px-3 py-1` | `text-xs` (12px) | Power users, data comparison, maximizing visible rows |
+| **regular** | 40px | `px-4 py-2` | `text-[13px]` | Default everyday use, balanced readability |
+| **relaxed** | 48px | `px-5 py-3` | `text-sm` (14px) | Accessibility, touch devices, sparse data |
+
+**Density Config Constants (EntityListOfInstancesTable.tsx)**
+```typescript
+const DENSITY_CONFIG = {
+  compact: {
+    rowHeight: 32,
+    cellPadding: 'px-3 py-1',
+    headerPadding: 'px-3 py-1.5',
+    fontSize: 'text-xs',
+    badgeSize: 'px-1.5 py-px text-[10px]',
+    iconSize: 'h-3 w-3',
+    actionIconSize: 'h-3.5 w-3.5',
+    inputPadding: 'px-1.5 py-0.5',
+  },
+  regular: {
+    rowHeight: 40,
+    cellPadding: 'px-4 py-2',
+    headerPadding: 'px-4 py-2',
+    fontSize: 'text-[13px]',
+    badgeSize: 'px-2 py-0.5 text-[11px]',
+    iconSize: 'h-3.5 w-3.5',
+    actionIconSize: 'h-4 w-4',
+    inputPadding: 'px-2 py-1',
+  },
+  relaxed: {
+    rowHeight: 48,
+    cellPadding: 'px-5 py-3',
+    headerPadding: 'px-5 py-2.5',
+    fontSize: 'text-sm',
+    badgeSize: 'px-2.5 py-0.5 text-xs',
+    iconSize: 'h-4 w-4',
+    actionIconSize: 'h-4 w-4',
+    inputPadding: 'px-2.5 py-1.5',
+  },
+};
 ```
+
+**Usage**
+```tsx
+import { EntityListOfInstancesTable, TableDensity } from '@/components/shared/ui/EntityListOfInstancesTable';
+
+// Default is 'compact' for minimal look
+<EntityListOfInstancesTable
+  data={projects}
+  density="compact"  // or "regular" or "relaxed"
+  onDensityChange={setDensity}  // Optional: shows density toggle in toolbar
+/>
+```
+
+**Inline Edit Input Styling (Compact)**
+```jsx
+// Inputs use densitySettings.inputPadding for consistent sizing
+<input className={`w-full ${densitySettings.inputPadding} ${densitySettings.fontSize}
+                   border border-slate-300 rounded focus:outline-none
+                   focus:border-slate-400 bg-white`} />
+
+// Select dropdowns
+<select className={`w-full ${densitySettings.inputPadding} pr-6
+                    border border-slate-300 rounded focus:outline-none
+                    focus:border-slate-400 bg-white cursor-pointer
+                    appearance-none ${densitySettings.fontSize}`} />
+```
+
+**Badge Styling by Density**
+```jsx
+// Compact: px-1.5 py-px text-[10px] rounded
+<span className="inline-flex items-center px-1.5 py-px rounded text-[10px] font-medium bg-green-100 text-green-800">
+  Active
+</span>
+
+// Regular: px-2 py-0.5 text-[11px] rounded
+<span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-green-100 text-green-800">
+  Active
+</span>
+
+// Relaxed: px-2.5 py-0.5 text-xs rounded
+<span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+  Active
+</span>
+```
+
+**Action Icons - Always Visible**
+```jsx
+// Action icons use densitySettings.actionIconSize
+// They are ALWAYS visible (no opacity-0 hover patterns)
+<div className="flex items-center justify-center gap-0.5">
+  {allActions.map((action) => (
+    <button className="p-1 rounded transition-colors text-slate-500 hover:text-slate-700 hover:bg-slate-100">
+      {React.cloneElement(action.icon, { className: densitySettings.actionIconSize })}
+    </button>
+  ))}
+</div>
+```
+
+**Related Component Styling (Compact)**
+
+| Component | Trigger Padding | Font Size | Icon Size |
+|-----------|-----------------|-----------|-----------|
+| `BadgeDropdownSelect` | `px-1.5 py-0.5 pr-6` | `text-xs` | `h-3 w-3` |
+| `EntityInstanceNameSelect` | `px-1.5 py-0.5` | `text-xs` | `w-3 h-3` |
+| Inline `<select>` | `px-1.5 py-0.5 pr-6` | Density-based | `h-3 w-3` |
+| Inline `<input>` | Density-based | Density-based | N/A |
+
+**Table Structure (Compact Density)**
+```jsx
+<div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+  {/* Toolbar */}
+  <div className="px-4 py-2.5 bg-white border-b border-slate-100">
+    {/* Filter controls */}
+  </div>
+
+  {/* Header - minimal with uppercase labels */}
+  <thead className="bg-white border-b border-slate-200 sticky top-0 z-30">
+    <tr>
+      <th className="px-3 py-1.5 text-left">
+        <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
+          Column Name
+        </span>
+      </th>
+    </tr>
+  </thead>
+
+  {/* Body - subtle dividers */}
+  <tbody className="bg-white divide-y divide-slate-100">
+    <tr className="group transition-colors duration-150 hover:bg-slate-50/40">
+      <td className="px-3 py-1 text-xs leading-snug text-slate-700">
+        Cell content
+      </td>
+    </tr>
+  </tbody>
+</div>
+```
+
+**CRITICAL COMPACT TABLE RULES:**
+- Row height: 32px (not 44px or larger)
+- Cell padding: `px-3 py-1` (minimal vertical padding)
+- Header labels: `text-[11px] font-medium uppercase tracking-wider text-slate-500`
+- Cell text: `text-xs text-slate-700 leading-snug`
+- Borders: `border-slate-100` (very subtle dividers)
+- Hover: `hover:bg-slate-50/40` (subtle, not heavy)
+- Actions: Always visible, `text-slate-500` color
 
 ### 3.6 Badges & Labels
 
@@ -1261,11 +1388,87 @@ Modern SaaS applications use subtle background variations and shadows to create 
 
 ---
 
+---
+
+## 13. Palette Unification Guide (v14.3.0)
+
+### The Problem: Mixed Palettes
+
+Current codebase mixes `slate-*` with `dark-*` classes, causing:
+- Visual inconsistency between components
+- Maintenance burden (two mental models)
+- Subtle color mismatches
+
+### The Solution: Unified `dark-*` Palette
+
+**Rule: Use ONLY `dark-*` tokens from tailwind.config.js**
+
+### Migration Mapping
+
+| OLD (slate-*) | NEW (dark-*) | Usage |
+|---------------|--------------|-------|
+| `bg-slate-50` | `bg-dark-canvas` | Page backgrounds |
+| `bg-slate-100` | `bg-dark-subtle` | Subtle backgrounds |
+| `bg-slate-100/50` | `bg-dark-50` | Very light backgrounds |
+| `hover:bg-slate-50` | `hover:bg-dark-hover` | Hover states |
+| `hover:bg-slate-50/80` | `hover:bg-dark-hover` | Hover states |
+| `hover:bg-slate-50/50` | `hover:bg-dark-hover/50` | Subtle hovers |
+| `border-slate-100` | `border-dark-border-subtle` | Subtle borders |
+| `border-slate-200` | `border-dark-border-default` | Default borders |
+| `border-slate-300` | `border-dark-border-medium` | Medium borders |
+| `text-slate-400` | `text-dark-text-placeholder` | Placeholder text |
+| `text-slate-500` | `text-dark-text-tertiary` | Tertiary text |
+| `text-slate-600` | `text-dark-text-secondary` | Secondary text |
+| `text-slate-700` | `text-dark-text-primary` | Primary text |
+| `text-slate-800` | `text-dark-800` | Headings |
+
+### Accent Colors (Exception)
+
+**Accent colors REMAIN `slate-*`** for visual pop on buttons/focus:
+
+```jsx
+// KEEP these slate-* for accent
+bg-slate-600        // Primary button background
+hover:bg-slate-700  // Primary button hover
+focus:ring-slate-500/20  // Focus ring
+text-slate-600      // Link text
+```
+
+### Quick Reference: Where to Use What
+
+| Component | Background | Borders | Text | Hover |
+|-----------|------------|---------|------|-------|
+| **Layout** | `bg-dark-canvas` | `border-dark-200` | `text-dark-*` | `hover:bg-dark-hover` |
+| **Table Container** | `bg-dark-surface` | `border-dark-border-subtle` | - | - |
+| **Table Header** | `bg-dark-subtle` | `border-dark-border-default` | `text-dark-text-secondary` | - |
+| **Table Row** | `bg-dark-surface` | `border-dark-border-subtle` | `text-dark-800` | `hover:bg-dark-hover` |
+| **Input** | `bg-white` | `border-dark-300` | `text-dark-800` | `focus:border-dark-400` |
+| **Primary Button** | `bg-slate-600` | - | `text-white` | `hover:bg-slate-700` |
+| **Secondary Button** | `bg-white` | `border-dark-300` | `text-dark-700` | `hover:bg-dark-hover` |
+
+### Files to Update
+
+1. **Layout.tsx**
+   - Line 100: `bg-slate-100/50` → `bg-dark-canvas`
+   - Line 299: `bg-dark-50` → `bg-dark-subtle` (content area)
+
+2. **EntityListOfInstancesTable.tsx**
+   - Container: `border-slate-100` → `border-dark-border-subtle`
+   - Header: `bg-slate-50/50` → `bg-dark-subtle`
+   - Rows: `hover:bg-slate-50/80` → `hover:bg-dark-hover`
+
+---
+
 ## Version History
 
 | Version | Date | Changes |
 |---------|------|---------|
-| **v13.1** | **2025-12-07** | **Section visual hierarchy** - unified dark-* palette for consistency with Layout, gradient backgrounds for depth, improved header/table/footer separation, eliminates slate-* color mixing |
+| **v14.4.2** | **2025-12-11** | **Table Hover Consistency Fix** - Removed inline `backgroundColor` from virtualized rows in EntityListOfInstancesTable. Now uses Tailwind `bg-dark-surface` class for both virtualized and regular rows, ensuring consistent `hover:bg-dark-hover` behavior across all tables |
+| **v14.4.1** | **2025-12-11** | **Design System Centralization** - All button/input/surface tokens now in designSystem.ts with warm sepia palette. CreateButton uses cx(button.base, button.variant.primary, button.size[size]). Refined button sizes: h-7 for sm (was h-8), less bulky appearance |
+| **v14.4** | **2025-12-10** | **Warm Sepia Palette** - Replaced cool grays with warm stone tones for eye comfort. No pure black (#292524 soft black), no pure white (#FEFDFB warm white), cream backgrounds (#FAF9F7). Updated Layout.tsx and EntityListOfInstancesTable.tsx |
+| v14.3 | 2025-12-10 | Palette Unification Guide - Migration mapping from slate-* to dark-*, clear rules for accent vs background usage, file-specific update checklist |
+| **v14.2** | **2025-12-10** | **Data Table Density System** - 3-tier density (compact/regular/relaxed) with 32px/40px/48px row heights, density-based input padding, compact inline edits, always-visible action icons, `BadgeDropdownSelect` and `EntityInstanceNameSelect` compact styling |
+| v13.1 | 2025-12-07 | **Section visual hierarchy** - unified dark-* palette for consistency with Layout, gradient backgrounds for depth, improved header/table/footer separation, eliminates slate-* color mixing |
 | v13.0 | 2025-12-07 | Production-grade design system, unified slate palette, zero !important, focus-visible accessibility, Button/IconButton/ButtonGroup components, typography scale with line-heights, Entity Detail Header v13.0.0 (two-line layout, hero title, metadata chips) |
 | v12.0 | 2025-11-13 | Minimalistic design system |
 | v11.0 | 2025-11-10 | YAML pattern detection |
@@ -1274,5 +1477,5 @@ Modern SaaS applications use subtle background variations and shadows to create 
 ---
 
 **Maintained by:** PMO Platform Team
-**Version:** 13.1 - SECTION VISUAL HIERARCHY
-**Last Updated:** 2025-12-09
+**Version:** 14.4.2 - TABLE HOVER CONSISTENCY FIX
+**Last Updated:** 2025-12-11

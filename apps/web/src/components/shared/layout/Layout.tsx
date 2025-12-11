@@ -95,16 +95,17 @@ export function Layout({ children, createButton }: LayoutProps) {
     return location.pathname === href;
   };
 
+  // v14.4.0: Warm sepia palette - easy on eyes for long sessions
   return (
-    <div className="h-screen bg-dark-50 flex">
+    <div className="h-screen bg-dark-canvas flex">
       {/* Main Sidebar - Always show, never show settings sidebar */}
       {isVisible && !isSettingsMode && (
-        <div className={`${isCollapsed ? 'w-16' : 'w-44'} bg-white border-r border-dark-200 transition-all duration-300 ease-in-out flex flex-col`}>
+        <div className={`${isCollapsed ? 'w-16' : 'w-44'} bg-dark-surface border-r border-dark-border-default transition-all duration-300 ease-in-out flex flex-col`}>
           <div className="flex flex-col h-full">
           {/* Logo and Collapse Button */}
-          <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} h-14 px-4 border-b border-dark-200`}>
+          <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} h-14 px-4 border-b border-dark-border-default`}>
             <div className="flex items-center">
-              <div className="h-7 w-7 bg-slate-600 rounded flex items-center justify-center">
+              <div className="h-7 w-7 bg-dark-accent rounded flex items-center justify-center">
                 <span className="text-white font-medium text-xs">PMO</span>
               </div>
               {!isCollapsed && (
@@ -123,7 +124,7 @@ export function Layout({ children, createButton }: LayoutProps) {
 
           {/* Expand Button (when collapsed) */}
           {isCollapsed && (
-            <div className="px-2 py-3 border-b border-dark-200">
+            <div className="px-2 py-3 border-b border-dark-border-default">
               <button
                 onClick={uncollapseSidebar}
                 className="w-full p-2 rounded-md text-dark-500 hover:text-dark-700 hover:bg-dark-100 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-all duration-200 flex justify-center"
@@ -173,7 +174,7 @@ export function Layout({ children, createButton }: LayoutProps) {
           </nav>
 
           {/* User Profile with Dropdown - fixed at bottom */}
-          <div className="border-t border-dark-200 p-3 relative flex-shrink-0">
+          <div className="border-t border-dark-border-default p-3 relative flex-shrink-0">
             {!isCollapsed ? (
               <>
                 <button
@@ -197,7 +198,7 @@ export function Layout({ children, createButton }: LayoutProps) {
 
                 {/* Dropdown Menu */}
                 {isUserMenuOpen && (
-                  <div className="absolute bottom-full left-3 right-3 mb-2 bg-white border border-dark-200 rounded-lg shadow-lg py-1 z-50">
+                  <div className="absolute bottom-full left-3 right-3 mb-2 bg-dark-surface border border-dark-border-default rounded-lg shadow-lg py-1 z-50">
                     {profileNavigationItems.map((item) => {
                       const IconComponent = item.icon;
                       const isActive = isCurrentPage(item.href);
@@ -221,7 +222,7 @@ export function Layout({ children, createButton }: LayoutProps) {
                         </Link>
                       );
                     })}
-                    <hr className="my-1 border-dark-200" />
+                    <hr className="my-1 border-dark-border-default" />
                     <button
                       onClick={handleLogout}
                       className="w-full flex items-center px-3 py-2 text-sm font-medium text-dark-700 hover:bg-dark-50 hover:text-dark-800 transition-colors duration-150"
@@ -247,8 +248,8 @@ export function Layout({ children, createButton }: LayoutProps) {
 
                 {/* Collapsed Dropdown Menu */}
                 {isUserMenuOpen && (
-                  <div className="absolute bottom-full left-16 mb-2 bg-white border border-dark-200 rounded-lg shadow-lg py-1 z-50 min-w-48">
-                    <div className="px-3 py-2 border-b border-dark-200">
+                  <div className="absolute bottom-full left-16 mb-2 bg-dark-surface border border-dark-border-default rounded-lg shadow-lg py-1 z-50 min-w-48">
+                    <div className="px-3 py-2 border-b border-dark-border-default">
                       <div className="text-sm font-medium text-dark-800 truncate">{user?.name}</div>
                       <div className="text-xs text-dark-500 truncate">{user?.email}</div>
                     </div>
@@ -275,7 +276,7 @@ export function Layout({ children, createButton }: LayoutProps) {
                         </a>
                       );
                     })}
-                    <hr className="my-1 border-dark-200" />
+                    <hr className="my-1 border-dark-border-default" />
                     <button
                       onClick={handleLogout}
                       className="w-full flex items-center px-3 py-2 text-sm font-medium text-dark-700 hover:bg-dark-50 hover:text-dark-800 transition-colors duration-150"
@@ -295,7 +296,7 @@ export function Layout({ children, createButton }: LayoutProps) {
       {/* Main content area - always present */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Page content - this is the key part that must stay mounted */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-dark-50 p-4 pb-8">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-dark-subtle p-4 pb-8">
           {/* Create Button in Content Area */}
           {createButton && (
             <div className="flex justify-end mb-4">

@@ -43,38 +43,39 @@ module.exports = {
         '4xl': ['30px', { lineHeight: '36px' }],
       },
       colors: {
-        // Production-Grade Neutral Palette (Notion/Linear inspired)
+        // Warm Sepia Palette (v14.4.0) - Easy on eyes for long sessions
+        // Based on Tailwind Stone palette with cream undertones
         // Single source of truth - no more color conflicts
         dark: {
-          // Background hierarchy
-          canvas: '#FAFAFA',        // Page background
-          surface: '#FFFFFF',       // Cards, panels
-          subtle: '#F7F7F7',        // Subtle backgrounds
-          hover: '#F3F3F3',         // Hover states
-          active: '#EBEBEB',        // Active/pressed states
-          muted: '#E5E5E5',         // Muted backgrounds
+          // Background hierarchy (warm cream tones)
+          canvas: '#FAF9F7',        // Cream page background (warm off-white)
+          surface: '#FEFDFB',       // Warm white for cards, panels
+          subtle: '#F5F5F4',        // Subtle backgrounds (stone-100)
+          hover: '#E7E5E4',         // Hover states (stone-200)
+          active: '#D6D3D1',        // Active/pressed states (stone-300)
+          muted: '#A8A29E',         // Muted backgrounds (stone-400)
 
-          // Text hierarchy (high contrast for readability)
-          'text-primary': '#1A1A1A',     // Primary text - near black
-          'text-secondary': '#6B6B6B',   // Secondary text
-          'text-tertiary': '#8F8F8F',    // Tertiary/muted text
-          'text-placeholder': '#ABABAB', // Placeholders
-          'text-disabled': '#C4C4C4',    // Disabled text
+          // Text hierarchy (softer contrast - easier on eyes)
+          'text-primary': '#292524',     // Soft black (stone-800) - NOT pure black
+          'text-secondary': '#57534E',   // Warm gray (stone-600)
+          'text-tertiary': '#78716C',    // Muted warm gray (stone-500)
+          'text-placeholder': '#A8A29E', // Placeholders (stone-400)
+          'text-disabled': '#D6D3D1',    // Disabled text (stone-300)
 
-          // Border hierarchy
-          'border-default': '#E5E5E5',   // Default borders
-          'border-subtle': '#EBEBEB',    // Subtle borders
-          'border-medium': '#D4D4D4',    // Medium emphasis
-          'border-strong': '#B3B3B3',    // Strong emphasis
+          // Border hierarchy (warm tones)
+          'border-default': '#E7E5E4',   // Default borders (stone-200)
+          'border-subtle': '#F5F5F4',    // Subtle borders (stone-100)
+          'border-medium': '#D6D3D1',    // Medium emphasis (stone-300)
+          'border-strong': '#A8A29E',    // Strong emphasis (stone-400)
 
-          // Primary accent - Slate (unified across all interactions)
-          accent: '#475569',             // Primary actions (slate-600)
-          'accent-hover': '#334155',     // Hover state (slate-700)
-          'accent-light': '#64748B',     // Light variant (slate-500)
-          'accent-bg': '#F1F5F9',        // Background tint (slate-100)
-          'accent-ring': 'rgba(71, 85, 105, 0.25)', // Focus ring
+          // Primary accent - Warm Stone (unified across all interactions)
+          accent: '#57534E',             // Primary actions (stone-600)
+          'accent-hover': '#44403C',     // Hover state (stone-700)
+          'accent-light': '#78716C',     // Light variant (stone-500)
+          'accent-bg': '#F5F5F4',        // Background tint (stone-100)
+          'accent-ring': 'rgba(87, 83, 78, 0.25)', // Focus ring (stone-600 @ 25%)
 
-          // Semantic colors
+          // Semantic colors (unchanged - these need to pop)
           success: '#059669',            // Success (emerald-600)
           'success-bg': '#ECFDF5',       // Success background
           warning: '#D97706',            // Warning (amber-600)
@@ -84,17 +85,17 @@ module.exports = {
           info: '#0284C7',               // Info (sky-600)
           'info-bg': '#F0F9FF',          // Info background
 
-          // Numbered scale (backwards compatibility)
-          50: '#FAFAFA',
-          100: '#F5F5F5',
-          200: '#E5E5E5',
-          300: '#D4D4D4',
-          400: '#A3A3A3',
-          500: '#737373',
-          600: '#525252',
-          700: '#404040',
-          800: '#262626',
-          900: '#171717',
+          // Numbered scale (warm stone tones for backwards compatibility)
+          50: '#FAFAF9',    // stone-50
+          100: '#F5F5F4',   // stone-100
+          200: '#E7E5E4',   // stone-200
+          300: '#D6D3D1',   // stone-300
+          400: '#A8A29E',   // stone-400
+          500: '#78716C',   // stone-500
+          600: '#57534E',   // stone-600
+          700: '#44403C',   // stone-700
+          800: '#292524',   // stone-800
+          900: '#1C1917',   // stone-900
         },
       },
       boxShadow: {

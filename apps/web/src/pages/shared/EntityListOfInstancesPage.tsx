@@ -664,7 +664,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
           <p className="text-red-600">{error}</p>
           <button
             onClick={() => refetch()}
-            className="mt-4 px-4 py-2 bg-slate-600 text-white text-sm font-medium rounded-md hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-slate-500/50 focus-visible:outline-none shadow-sm transition-colors"
+            className="mt-4 px-4 py-2 bg-dark-accent text-white text-sm font-medium rounded-md hover:bg-dark-accent-hover focus-visible:ring-2 focus-visible:ring-dark-accent-ring/50 focus-visible:outline-none shadow-sm transition-colors"
           >
             Retry
           </button>
@@ -676,7 +676,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     if (view === 'kanban' && config.kanban) {
       return (
         <div className="space-y-4">
-          <div className="bg-white border border-dark-200 rounded-lg shadow-sm p-6 h-full overflow-x-auto">
+          <div className="bg-dark-surface border border-dark-border-subtle rounded-lg shadow-sm p-6 h-full overflow-x-auto">
             <KanbanView
               config={config}
               data={data}
@@ -689,7 +689,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
             <div className="flex justify-center">
               <button
                 onClick={handleLoadMore}
-                className="px-4 py-2 bg-slate-600 text-white text-sm font-medium rounded-md hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-slate-500/50 focus-visible:outline-none shadow-sm transition-colors"
+                className="px-4 py-2 bg-dark-accent text-white text-sm font-medium rounded-md hover:bg-dark-accent-hover focus-visible:ring-2 focus-visible:ring-dark-accent-ring/50 focus-visible:outline-none shadow-sm transition-colors"
               >
                 Load More ({data.length} of {totalRecords})
               </button>
@@ -703,7 +703,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     if (view === 'grid' && config.grid) {
       return (
         <div className="space-y-4">
-          <div className="bg-white border border-dark-200 rounded-lg shadow-sm p-6">
+          <div className="bg-dark-surface border border-dark-border-subtle rounded-lg shadow-sm p-6">
             <GridView
               items={data}
               onItemClick={handleRowClick}
@@ -719,7 +719,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
             <div className="flex justify-center">
               <button
                 onClick={handleLoadMore}
-                className="px-4 py-2 bg-slate-600 text-white text-sm font-medium rounded-md hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-slate-500/50 focus-visible:outline-none shadow-sm transition-colors"
+                className="px-4 py-2 bg-dark-accent text-white text-sm font-medium rounded-md hover:bg-dark-accent-hover focus-visible:ring-2 focus-visible:ring-dark-accent-ring/50 focus-visible:outline-none shadow-sm transition-colors"
               >
                 Load More ({data.length} of {totalRecords})
               </button>
@@ -733,7 +733,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     if (view === 'calendar') {
       return (
         <div className="space-y-4">
-          <div className="bg-white border border-dark-200 rounded-lg shadow-sm p-6">
+          <div className="bg-dark-surface border border-dark-border-subtle rounded-lg shadow-sm p-6">
             <CalendarView
               config={config}
               data={data}
@@ -745,7 +745,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
             <div className="flex justify-center">
               <button
                 onClick={handleLoadMore}
-                className="px-4 py-2 bg-slate-600 text-white text-sm font-medium rounded-md hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-slate-500/50 focus-visible:outline-none shadow-sm transition-colors"
+                className="px-4 py-2 bg-dark-accent text-white text-sm font-medium rounded-md hover:bg-dark-accent-hover focus-visible:ring-2 focus-visible:ring-dark-accent-ring/50 focus-visible:outline-none shadow-sm transition-colors"
               >
                 Load More ({data.length} of {totalRecords})
               </button>
@@ -779,7 +779,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
         }));
 
         return (
-          <div className="bg-white border border-dark-200 rounded-lg shadow-sm p-6">
+          <div className="bg-dark-surface border border-dark-border-subtle rounded-lg shadow-sm p-6">
             <DAGVisualizer
               nodes={dagNodes}
             />
@@ -794,18 +794,19 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   // Get entity icon from centralized icon system
   const EntityIcon = getEntityIcon(entityCode);
 
+  // v14.2.0: Canvas background inherited from Layout
   return (
     <Layout>
       <div className="h-full flex flex-col w-[97%] max-w-[1536px] mx-auto">
-        {/* Sticky Header */}
-        <div className="sticky top-0 z-10 bg-dark-50 pb-4 pt-0">
+        {/* v14.2.0: Sticky Header - transparent to show canvas background */}
+        <div className="sticky top-0 z-10 pb-4 pt-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               {/* Back button for settings entities */}
               {isSettingsEntity && (
                 <button
                   onClick={() => navigate('/settings')}
-                  className="p-2 rounded-md text-dark-500 hover:text-dark-700 hover:bg-dark-100 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-all"
+                  className="p-2 rounded-md text-dark-500 hover:text-dark-700 hover:bg-dark-100 focus-visible:ring-2 focus-visible:ring-dark-accent-ring/30 focus-visible:outline-none transition-all"
                   title="Back to Settings"
                 >
                   <ArrowLeft className="h-4 w-4 stroke-[1.5]" />
@@ -831,7 +832,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
               )}
               <button
                 onClick={handleCreateClick}
-                className="inline-flex items-center px-4 py-2 bg-slate-600 text-white text-sm font-medium rounded-md hover:bg-slate-700 active:bg-slate-800 focus-visible:ring-2 focus-visible:ring-slate-500/50 focus-visible:outline-none shadow-sm transition-colors"
+                className="inline-flex items-center px-4 py-2 bg-dark-accent text-white text-sm font-medium rounded-md hover:bg-dark-accent-hover active:bg-dark-700 focus-visible:ring-2 focus-visible:ring-dark-accent-ring/50 focus-visible:outline-none shadow-sm transition-colors"
               >
                 <Plus className="h-4 w-4 mr-2 stroke-[2]" />
                 Create {config.displayName}

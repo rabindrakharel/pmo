@@ -1135,11 +1135,12 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   // DRY: Consistent metadata value styling (standardized to use Tailwind only)
   const metadataValueClass = "text-sm text-dark-600 leading-normal tracking-tight whitespace-nowrap";
 
+  // v14.2.0: Layered depth model for visual hierarchy
   return (
     <Layout>
       {/* Full-height flex container to prevent page-wide scroll when showing child entity tables */}
-      {/* overflow-hidden ensures child content doesn't cause page scroll - table handles its own scrolling */}
-      <div className="h-full flex flex-col -mx-4 -mt-4 overflow-hidden">
+      {/* v14.4.0: Canvas layer background for depth - warm sepia palette */}
+      <div className="h-full flex flex-col overflow-hidden bg-dark-canvas -mx-4 -mt-4">
         {/* ============================================================================
             v14.0.0: HEADER SECTION - per styling_patterns.md Section 10 & 12
             ============================================================================
@@ -1150,7 +1151,8 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
             - Minimalistic tabs (bg-slate-600 active, bg-white inactive)
             - Gradient background per Section 12 visual hierarchy
             ============================================================================ */}
-        <div className="sticky top-0 z-20 bg-gradient-to-b from-white to-dark-subtle/80 border-b border-slate-200 shadow-sm px-4 pt-3 pb-2 flex-shrink-0">
+        {/* v14.4.0: Clean warm header - warm sepia palette */}
+        <div className="sticky top-0 z-20 bg-dark-surface border-b border-dark-border-subtle px-4 pt-4 pb-3 flex-shrink-0">
           <div className="w-[97%] max-w-[1536px] mx-auto">
           {/* Header with two-line layout */}
           <div className="flex items-start justify-between gap-4">
@@ -1202,39 +1204,14 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                   )
                 )}
 
-                {/* ID chip - muted style, technical info */}
-                {id && !isEditing && (
-                  <EntityMetadataChip
-                    label="id"
-                    value={id}
-                    fieldKey="id"
-                    onCopy={handleCopy}
-                    copiedField={copiedField}
-                    monospace={true}
-                    variant="muted"
-                  />
-                )}
+                {/* v14.2.0: Simplified metadata - only show updated timestamp
+                    ID is hidden by default (too technical), accessible via code chip copy */}
 
-                {/* Created timestamp chip */}
-                {data.created_ts && (formViewType as Record<string, { visible?: boolean }> | undefined)?.created_ts?.visible !== false && !isEditing && (
-                  <EntityMetadataChip
-                    label="created"
-                    value={formatRelativeTime(String(data.created_ts))}
-                    fieldKey="created_ts"
-                    variant="muted"
-                    showLabel={true}
-                  />
-                )}
-
-                {/* Updated timestamp chip */}
-                {data.updated_ts && (formViewType as Record<string, { visible?: boolean }> | undefined)?.updated_ts?.visible !== false && !isEditing && (
-                  <EntityMetadataChip
-                    label="updated"
-                    value={formatRelativeTime(String(data.updated_ts))}
-                    fieldKey="updated_ts"
-                    variant="muted"
-                    showLabel={true}
-                  />
+                {/* Updated timestamp - only show if different from created */}
+                {data.updated_ts && !isEditing && (
+                  <span className="text-xs text-dark-text-placeholder">
+                    Updated {formatRelativeTime(String(data.updated_ts))}
+                  </span>
                 )}
 
                 {/* Version chip (for artifacts) */}
@@ -1379,17 +1356,18 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
           </div>
           </div>
 
-          {/* Sticky Tabs Section - Compact pill tabs */}
+          {/* v14.4.0: Tabs Section - Underline style tabs with border bottom */}
           {allTabs && allTabs.length > 0 && (
-            <DynamicChildEntityTabs
-              title={data?.name || data?.title || config.displayName}
-              parentType={entityCode}
-              parentId={id!}
-              parentName={data?.name || data?.title}
-              tabs={allTabs}
-              showBackButton={false}
-              className="mt-2"
-            />
+            <div className="mt-4 border-b border-dark-border-subtle">
+              <DynamicChildEntityTabs
+                title={data?.name || data?.title || config.displayName}
+                parentType={entityCode}
+                parentId={id!}
+                parentName={data?.name || data?.title}
+                tabs={allTabs}
+                showBackButton={false}
+              />
+            </div>
           )}
           </div>
         </div>
@@ -1419,8 +1397,8 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
               <EmailTemplateRenderer template={data} />
             </div>
           ) : entityCode === 'form' ? (
-            // Special Interactive Form Renderer
-            <div className="space-y-4 bg-dark-100 border border-dark-300 rounded-xl p-6 shadow-sm">
+            // Special Interactive Form Renderer - v14.4.0: Elevated surface layer
+            <div className="space-y-4 bg-dark-surface border border-dark-border-subtle rounded-xl p-6 shadow-sm">
               {(() => {
                 // Extract and prepare fields from schema
                 // Parse form_schema if it's a string
@@ -1530,7 +1508,8 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
           // Form Data Tab - Show form submissions
           <FormDataTable formId={id!} formSchema={data.form_schema} refreshKey={formDataRefreshKey} />
         ) : currentChildEntity === 'edit-submission' ? (
-          <div className="bg-dark-100 border border-dark-300 rounded-xl p-6 shadow-sm">
+          // v14.4.0: Elevated surface layer with subtle border
+          <div className="bg-dark-surface border border-dark-border-subtle rounded-xl p-6 shadow-sm">
             <FormSubmissionEditor
               form={data}
               formId={id!}
@@ -1551,11 +1530,11 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
         ) : (
           // Child Entity Tab - Direct EntityListOfInstancesTable (no FilteredDataTable/Outlet)
           // v9.7.0: Check both data loading AND metadata loading (two-query architecture)
-          // v13.1.0: Enhanced table container with dark-* palette for consistency
+          // v14.4.0: Surface layer with subtle border - warm sepia palette
           // flex-1 min-h-0 ensures table fits within available space without page scroll
-          <div className="flex-1 min-h-0 flex flex-col bg-white rounded-xl shadow-sm border border-dark-200 overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col bg-dark-surface rounded-xl shadow-sm border border-dark-border-subtle overflow-hidden">
             {(childLoading || childMetadataLoading) ? (
-              <div className="flex items-center justify-center h-64 bg-gradient-to-b from-dark-subtle/50 to-white">
+              <div className="flex items-center justify-center h-64">
                 <EllipsisBounce size="lg" text="Processing" />
               </div>
             ) : (

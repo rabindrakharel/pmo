@@ -35,7 +35,7 @@
  * Different from: SettingsDataTable (specialized for settings with fixed schema)
  */
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { ChevronDown, ChevronUp, Search, Filter, Columns, ChevronLeft, ChevronRight, Edit, Share, Trash2, X, Plus, Check } from 'lucide-react';
+import { ChevronDown, ChevronUp, Search, Filter, Columns, ChevronLeft, ChevronRight, Edit, Share, Trash2, X, Plus, Check, AlignJustify, Minus, Menu } from 'lucide-react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   getSettingDatalabel,
@@ -69,6 +69,7 @@ import { Chip } from './Chip';
 // ============================================================================
 export type TableDensity = 'compact' | 'regular' | 'relaxed';
 
+// v14.2.0: DENSITY CONFIG - Compact for minimal, elegant tables
 const DENSITY_CONFIG = {
   compact: {
     rowHeight: 32,
@@ -78,24 +79,27 @@ const DENSITY_CONFIG = {
     badgeSize: 'px-1.5 py-px text-[10px]',
     iconSize: 'h-3 w-3',
     actionIconSize: 'h-3.5 w-3.5',
+    inputPadding: 'px-1.5 py-0.5',  // For inline edit inputs
   },
   regular: {
-    rowHeight: 36,
-    cellPadding: 'px-3 py-1.5',
-    headerPadding: 'px-3 py-2',
+    rowHeight: 40,
+    cellPadding: 'px-4 py-2',
+    headerPadding: 'px-4 py-2',
     fontSize: 'text-[13px]',
     badgeSize: 'px-2 py-0.5 text-[11px]',
     iconSize: 'h-3.5 w-3.5',
-    actionIconSize: 'h-3.5 w-3.5',
+    actionIconSize: 'h-4 w-4',
+    inputPadding: 'px-2 py-1',
   },
   relaxed: {
-    rowHeight: 44,
-    cellPadding: 'px-4 py-2',
-    headerPadding: 'px-4 py-2.5',
+    rowHeight: 48,
+    cellPadding: 'px-5 py-3',
+    headerPadding: 'px-5 py-2.5',
     fontSize: 'text-sm',
     badgeSize: 'px-2.5 py-0.5 text-xs',
     iconSize: 'h-4 w-4',
     actionIconSize: 'h-4 w-4',
+    inputPadding: 'px-2.5 py-1.5',
   },
 } as const;
 
@@ -229,6 +233,9 @@ export interface EntityListOfInstancesTableProps<T = any> {
   isFetchingPreviousPage?: boolean; // Loading more data at top (bidirectional scroll)
   hasNextPage?: boolean;           // More data available at bottom
   hasPreviousPage?: boolean;       // More data available at top
+  // v14.1.0: Density control for compact/regular/relaxed table appearance
+  density?: TableDensity;
+  onDensityChange?: (density: TableDensity) => void;
 }
 
 export function EntityListOfInstancesTable<T = any>({
@@ -274,7 +281,15 @@ export function EntityListOfInstancesTable<T = any>({
   isFetchingPreviousPage = false,
   hasNextPage = false,
   hasPreviousPage = false,
+  // v14.2.0: Density control - default to regular for better readability
+  density = 'regular',
+  onDensityChange,
 }: EntityListOfInstancesTableProps<T>) {
+  // ============================================================================
+  // v14.1.0: DENSITY CONFIGURATION - Get current density settings
+  // ============================================================================
+  const densitySettings = DENSITY_CONFIG[density];
+
   // ============================================================================
   // METADATA-DRIVEN COLUMN GENERATION (Pure Backend-Driven Architecture)
   // ============================================================================
@@ -813,7 +828,7 @@ export function EntityListOfInstancesTable<T = any>({
   // ============================================================================
   // Uses @tanstack/react-virtual to render only rows in the viewport
   // Dramatically improves performance for 1000+ row tables
-  const ESTIMATED_ROW_HEIGHT = 44; // px - typical row height with padding
+  // v14.1.0: Row height now driven by density setting
   const VIRTUALIZATION_THRESHOLD = 50; // Only virtualize when more than this many rows
   // v13.1.0: Increased overscan to 10 for smoother fast scrolling (prevents blank gaps)
   const OVERSCAN_COUNT = 10;
@@ -825,7 +840,8 @@ export function EntityListOfInstancesTable<T = any>({
   const rowVirtualizer = useVirtualizer({
     count: paginatedData.length,
     getScrollElement: () => tableContainerRef.current,
-    estimateSize: useCallback(() => ESTIMATED_ROW_HEIGHT, []),
+    // v14.1.0: Use density-based row height
+    estimateSize: useCallback(() => densitySettings.rowHeight, [densitySettings.rowHeight]),
     overscan: OVERSCAN_COUNT, // v13.1.0: Higher overscan for smoother scrolling
     enabled: shouldVirtualize,
     // Stable keys improve React reconciliation performance
@@ -836,22 +852,23 @@ export function EntityListOfInstancesTable<T = any>({
   });
 
   // Helper to get row className (shared between virtualized and regular rendering)
-  // v13.1.0: Updated to use dark-* palette for consistency with Layout
+  // v14.4.1: Consistent hover across virtualized and regular rows
+  // Base bg-dark-surface ensures Tailwind hover works (no inline backgroundColor)
   const getRowClassName = useCallback((isDragging: boolean, isDragOver: boolean, isEditing: boolean) => {
-    return `group transition-all duration-200 ${
+    return `group transition-all duration-200 ease-out bg-dark-surface ${
       isDragging
-        ? 'opacity-40 scale-[0.98] bg-dark-100'
+        ? 'opacity-60 scale-[0.99] !bg-dark-active shadow-sm'
         : isDragOver
-          ? 'bg-dark-100/50'
+          ? '!bg-dark-hover shadow-inner'
           : ''
     } ${
       isEditing
-        ? 'bg-dark-subtle'
+        ? '!bg-blue-50/30 shadow-inner'
         : allowReordering && !isEditing
-          ? 'cursor-move hover:bg-dark-hover hover:shadow-sm'
+          ? 'cursor-move hover:bg-dark-hover'
           : onRowClick
-            ? 'cursor-pointer hover:bg-dark-hover/80'
-            : 'hover:bg-dark-hover/60'
+            ? 'cursor-pointer hover:bg-dark-hover'
+            : 'hover:bg-dark-hover'
     }`;
   }, [allowReordering, onRowClick]);
 
@@ -1010,47 +1027,14 @@ export function EntityListOfInstancesTable<T = any>({
     let filteredColumns = columns.filter(col => visibleColumns.has(col.key));
 
     // Add actions column if there are any actions
+    // v14.1.0: Reduced width for compact density icons
     if (allActions.length > 0) {
       const actionsColumn: Column<T> = {
         key: '_actions',
-        title: 'Actions',
-        width: allActions.length > 3 ? 120 : allActions.length * 40,
+        title: '',  // No header text for cleaner look
+        width: allActions.length > 3 ? 100 : allActions.length * 32,
         align: 'center',
-        render: (_, record) => {
-          return (
-            <div className="flex items-center justify-center space-x-1">
-              {allActions.map((action) => {
-                const isDisabled = action.disabled ? action.disabled(record) : false;
-
-                const buttonVariants = {
-                  default: 'text-dark-700 hover:text-dark-600 hover:bg-dark-100',
-                  primary: 'text-dark-600 hover:text-dark-600 hover:bg-dark-100',
-                  danger: 'text-red-600 hover:text-red-900 hover:bg-red-50'};
-
-                return (
-                  <button
-                    key={action.key}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!isDisabled) {
-                        action.onClick(record);
-                      }
-                    }}
-                    disabled={isDisabled}
-                    className={`p-1.5 rounded transition-colors ${
-                      isDisabled
-                        ? 'text-dark-300 cursor-not-allowed'
-                        : buttonVariants[action.variant || 'default']
-                    } ${action.className || ''}`}
-                    title={action.label}
-                  >
-                    {action.icon}
-                  </button>
-                );
-              })}
-            </div>
-          );
-        }};
+      };
 
       filteredColumns = [...filteredColumns, actionsColumn];
     }
@@ -1101,7 +1085,7 @@ export function EntityListOfInstancesTable<T = any>({
   // Pre-compute cell className for sticky first column
   // v13.1.0: Updated to use white background for clean look
   const getStickyClassName = useCallback((colIndex: number) => {
-    return colIndex === 0 ? 'sticky left-0 z-20 bg-white shadow-r' : '';
+    return colIndex === 0 ? 'sticky left-0 z-20 bg-dark-surface shadow-r' : '';
   }, []);
 
   // ============================================================================
@@ -1497,7 +1481,7 @@ export function EntityListOfInstancesTable<T = any>({
                 e.preventDefault();
                 onChange?.(1, Number(e.target.value));
               }}
-              className="ml-6 px-3 py-1.5 border border-dark-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-dark-accent-ring focus:border-dark-400 transition-all duration-200 text-dark-700"
+              className="ml-6 px-3 py-1.5 border border-dark-300 rounded-lg text-sm bg-dark-surface focus:ring-2 focus:ring-dark-accent-ring focus:border-dark-400 transition-all duration-200 text-dark-700"
             >
               {pageSizeOptions.map(size => (
                 <option key={size} value={size}>{size} per page</option>
@@ -1514,7 +1498,7 @@ export function EntityListOfInstancesTable<T = any>({
               onChange?.(current - 1, pageSize);
             }}
             disabled={current <= 1 || actualTotal === 0}
-            className="p-2 border border-dark-300 rounded-lg text-sm text-dark-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-dark-hover hover:border-dark-400 transition-all duration-200 bg-white"
+            className="p-2 border border-dark-300 rounded-lg text-sm text-dark-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-dark-hover hover:border-dark-400 transition-all duration-200 bg-dark-surface"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
@@ -1543,7 +1527,7 @@ export function EntityListOfInstancesTable<T = any>({
                   className={`px-3 py-1.5 text-sm border rounded-lg font-normal transition-all duration-200 ${
                     current === pageNum
                       ? 'bg-dark-accent text-white border-dark-accent shadow-sm'
-                      : 'border-dark-300 bg-white hover:bg-dark-hover hover:border-dark-400 text-dark-700'
+                      : 'border-dark-300 bg-dark-surface hover:bg-dark-hover hover:border-dark-400 text-dark-700'
                   }`}
                 >
                   {pageNum}
@@ -1559,7 +1543,7 @@ export function EntityListOfInstancesTable<T = any>({
               onChange?.(current + 1, pageSize);
             }}
             disabled={current >= totalPages || actualTotal === 0}
-            className="p-2 border border-dark-300 rounded-lg text-sm text-dark-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-dark-hover hover:border-dark-400 transition-all duration-200 bg-white"
+            className="p-2 border border-dark-300 rounded-lg text-sm text-dark-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-dark-hover hover:border-dark-400 transition-all duration-200 bg-dark-surface"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
@@ -1570,7 +1554,7 @@ export function EntityListOfInstancesTable<T = any>({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-dark-200">
+      <div className="bg-dark-surface rounded-xl shadow-sm border border-dark-200">
         <div className="flex items-center justify-center py-12 bg-gradient-to-b from-dark-subtle/50 to-white">
           <EllipsisBounce size="lg" text="Processing" />
         </div>
@@ -1582,15 +1566,16 @@ export function EntityListOfInstancesTable<T = any>({
   // v13.1.0: ENHANCED VISUAL HIERARCHY (dark-* palette)
   // ============================================================================
   // Design Principles:
-  // - Clean white surface for data clarity (bg-white)
+  // - Clean white surface for data clarity (bg-dark-surface)
   // - Consistent dark-* palette matching Layout (border-dark-200)
   // - Gradient toolbar for visual depth (from-dark-subtle to-white)
   // - Soft shadows for elevation (shadow-sm)
   // ============================================================================
+  // v14.2.0: Modern minimal container with very light border
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-dark-200 overflow-hidden flex flex-col h-full ${className}`}>
+    <div className={`bg-dark-surface rounded-xl shadow-sm border border-dark-border-subtle overflow-hidden flex flex-col h-full ${className}`}>
       {(filterable || columnSelection) && (
-        <div className="px-6 py-4 bg-gradient-to-b from-dark-subtle to-white border-b border-dark-200">
+        <div className="px-4 py-2.5 bg-dark-surface border-b border-dark-border-subtle">
           {filterable && (
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-6">
@@ -1604,7 +1589,7 @@ export function EntityListOfInstancesTable<T = any>({
                   <select
                     value={selectedFilterColumn}
                     onChange={(e) => setSelectedFilterColumn(e.target.value)}
-                    className="appearance-none px-4 py-1.5 pr-10 w-48 border border-dark-300 rounded-lg text-sm bg-white hover:border-dark-400 focus:ring-2 focus:ring-dark-accent-ring focus:border-dark-400 transition-all duration-200 shadow-sm font-normal text-dark-700"
+                    className="appearance-none px-4 py-1.5 pr-10 w-48 border border-dark-300 rounded-lg text-sm bg-dark-surface hover:border-dark-400 focus:ring-2 focus:ring-dark-accent-ring focus:border-dark-400 transition-all duration-200 shadow-sm font-normal text-dark-700"
                   >
                     <option value="" className="text-dark-500">Select column...</option>
                     {columns.filter(col => col.filterable).map(column => (
@@ -1629,12 +1614,12 @@ export function EntityListOfInstancesTable<T = any>({
                           setShowFilterDropdown(true);
                         }}
                         onFocus={() => setShowFilterDropdown(true)}
-                        className="pl-10 pr-4 py-1.5 w-64 border border-dark-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-dark-accent-ring focus:border-dark-400 transition-all duration-200 text-dark-700 placeholder:text-dark-400"
+                        className="pl-10 pr-4 py-1.5 w-64 border border-dark-300 rounded-lg text-sm bg-dark-surface focus:ring-2 focus:ring-dark-accent-ring focus:border-dark-400 transition-all duration-200 text-dark-700 placeholder:text-dark-400"
                       />
                     </div>
 
                     {showFilterDropdown && (
-                      <div className="absolute top-full left-0 mt-2 w-80 bg-white border border-dark-200 rounded-xl shadow-lg z-50 max-h-64 overflow-y-auto">
+                      <div className="absolute top-full left-0 mt-2 w-80 bg-dark-surface border border-dark-200 rounded-xl shadow-lg z-50 max-h-64 overflow-y-auto">
                         <div className="p-2">
                           {/* v9.4.2: Use memoized filteredColumnOptions for performance */}
                           {filteredColumnOptions.map((option) => {
@@ -1718,66 +1703,120 @@ export function EntityListOfInstancesTable<T = any>({
                 )}
               </div>
 
-              {/* v13.1.0: Column selector with slate palette */}
-              {columnSelection && (
-                <div className="relative" ref={columnSelectorRef}>
-                  <button
-                    onClick={() => setShowColumnSelector(!showColumnSelector)}
-                    className="flex items-center px-3 py-1.5 text-sm text-dark-600 border border-dark-300 rounded-lg hover:bg-dark-hover hover:border-dark-400 transition-colors"
-                  >
-                    <Columns className="h-4 w-4 mr-2 stroke-[1.5]" />
-                    Columns
-                  </button>
+              <div className="flex items-center gap-2">
+                {/* v14.1.0: Density toggle - compact/regular/relaxed */}
+                {onDensityChange && (
+                  <div className="flex items-center border border-dark-border-default rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => onDensityChange('compact')}
+                      className={`p-1.5 transition-colors ${density === 'compact' ? 'bg-dark-active text-dark-text-primary' : 'text-dark-text-placeholder hover:text-dark-text-secondary hover:bg-dark-hover'}`}
+                      title="Compact density"
+                    >
+                      <Minus className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => onDensityChange('regular')}
+                      className={`p-1.5 transition-colors ${density === 'regular' ? 'bg-dark-active text-dark-text-primary' : 'text-dark-text-placeholder hover:text-dark-text-secondary hover:bg-dark-hover'}`}
+                      title="Regular density"
+                    >
+                      <Menu className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => onDensityChange('relaxed')}
+                      className={`p-1.5 transition-colors ${density === 'relaxed' ? 'bg-dark-active text-dark-text-primary' : 'text-dark-text-placeholder hover:text-dark-text-secondary hover:bg-dark-hover'}`}
+                      title="Relaxed density"
+                    >
+                      <AlignJustify className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
 
-                  {showColumnSelector && (
-                    <div className="absolute right-0 mt-2 w-56 bg-white border border-dark-200 rounded-xl shadow-lg z-50">
-                      <div className="p-2">
-                        <div className="text-sm font-medium text-dark-700 mb-2 px-1">Show Columns</div>
-                        {/* v8.3.0: Column visibility determined by backend metadata (visible property), NOT frontend pattern detection */}
-                        {columns.filter(column => column.visible !== false).map(column => (
-                          <label key={column.key} className="flex items-center px-3 py-1.5 hover:bg-dark-hover rounded-lg cursor-pointer transition-colors">
-                            <input
-                              type="checkbox"
-                              checked={visibleColumns.has(column.key)}
-                              onChange={() => toggleColumnVisibility(column.key)}
-                              className="mr-3 text-dark-600 rounded focus:ring-dark-accent-ring"
-                            />
-                            <span className="text-sm text-dark-700">{column.title}</span>
-                          </label>
-                        ))}
+                {/* v13.1.0: Column selector with slate palette */}
+                {columnSelection && (
+                  <div className="relative" ref={columnSelectorRef}>
+                    <button
+                      onClick={() => setShowColumnSelector(!showColumnSelector)}
+                      className="flex items-center px-3 py-1.5 text-sm text-dark-text-secondary border border-dark-border-default rounded-lg hover:bg-dark-hover hover:border-dark-border-medium transition-colors"
+                    >
+                      <Columns className="h-4 w-4 mr-2 stroke-[1.5]" />
+                      Columns
+                    </button>
+
+                    {showColumnSelector && (
+                      <div className="absolute right-0 mt-2 w-56 bg-dark-surface border border-dark-border-default rounded-xl shadow-lg z-50">
+                        <div className="p-2">
+                          <div className="text-sm font-medium text-dark-text-primary mb-2 px-1">Show Columns</div>
+                          {columns.filter(column => column.visible !== false).map(column => (
+                            <label key={column.key} className="flex items-center px-3 py-1.5 hover:bg-dark-hover rounded-lg cursor-pointer transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={visibleColumns.has(column.key)}
+                                onChange={() => toggleColumnVisibility(column.key)}
+                                className="mr-3 text-dark-text-secondary rounded focus:ring-dark-accent-ring"
+                              />
+                              <span className="text-sm text-dark-text-primary">{column.title}</span>
+                            </label>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              )}
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
           {!filterable && columnSelection && (
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-end gap-2">
+              {/* v14.1.0: Density toggle */}
+              {onDensityChange && (
+                <div className="flex items-center border border-dark-border-default rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => onDensityChange('compact')}
+                    className={`p-1.5 transition-colors ${density === 'compact' ? 'bg-dark-active text-dark-text-primary' : 'text-dark-text-placeholder hover:text-dark-text-secondary hover:bg-dark-hover'}`}
+                    title="Compact density"
+                  >
+                    <Minus className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => onDensityChange('regular')}
+                    className={`p-1.5 transition-colors ${density === 'regular' ? 'bg-dark-active text-dark-text-primary' : 'text-dark-text-placeholder hover:text-dark-text-secondary hover:bg-dark-hover'}`}
+                    title="Regular density"
+                  >
+                    <Menu className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => onDensityChange('relaxed')}
+                    className={`p-1.5 transition-colors ${density === 'relaxed' ? 'bg-dark-active text-dark-text-primary' : 'text-dark-text-placeholder hover:text-dark-text-secondary hover:bg-dark-hover'}`}
+                    title="Relaxed density"
+                  >
+                    <AlignJustify className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+
               <div className="relative" ref={columnSelectorRef}>
                 <button
                   onClick={() => setShowColumnSelector(!showColumnSelector)}
-                  className="flex items-center px-3 py-1.5 text-sm text-dark-600 border border-dark-300 rounded-lg hover:bg-dark-hover hover:border-dark-400 transition-colors"
+                  className="flex items-center px-3 py-1.5 text-sm text-dark-text-secondary border border-dark-border-default rounded-lg hover:bg-dark-hover hover:border-dark-border-medium transition-colors"
                 >
                   <Columns className="h-4 w-4 mr-2 stroke-[1.5]" />
                   Columns
                 </button>
 
                 {showColumnSelector && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white border border-dark-200 rounded-xl shadow-lg z-50">
+                  <div className="absolute right-0 mt-2 w-56 bg-dark-surface border border-dark-border-default rounded-xl shadow-lg z-50">
                     <div className="p-2">
-                      <div className="text-sm font-medium text-dark-700 mb-2 px-1">Show Columns</div>
-                      {/* v8.3.0: Column visibility determined by backend metadata (visible property), NOT frontend pattern detection */}
+                      <div className="text-sm font-medium text-dark-text-primary mb-2 px-1">Show Columns</div>
                       {columns.filter(column => column.visible !== false).map(column => (
                         <label key={column.key} className="flex items-center px-3 py-1.5 hover:bg-dark-hover rounded-lg cursor-pointer transition-colors">
                           <input
                             type="checkbox"
                             checked={visibleColumns.has(column.key)}
                             onChange={() => toggleColumnVisibility(column.key)}
-                            className="mr-3 text-dark-600 rounded focus:ring-dark-accent-ring"
+                            className="mr-3 text-dark-text-secondary rounded focus:ring-dark-accent-ring"
                           />
-                          <span className="text-sm text-dark-700">{column.title}</span>
+                          <span className="text-sm text-dark-text-primary">{column.title}</span>
                         </label>
                       ))}
                     </div>
@@ -1843,44 +1882,42 @@ export function EntityListOfInstancesTable<T = any>({
           onScroll={handleTableScroll}
         >
           <table
-            className="w-full divide-y divide-dark-200"
+            className="w-full"
             style={{
               minWidth: processedColumns.length > 7 ? `${processedColumns.length * 200}px` : '100%',
               tableLayout: processedColumns.length <= 7 ? 'auto' : 'fixed'
             }}
           >
-            {/* v13.1.0: Enhanced table header with dark-* palette for consistency */}
+            {/* v14.2.0: Minimal header - clean white with very subtle bottom border */}
             <thead
-              className="bg-gradient-to-b from-dark-100 to-dark-subtle sticky top-0 z-30 shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
+              className="bg-dark-subtle border-b border-dark-border-subtle sticky top-0 z-30"
               style={shouldVirtualize ? { display: 'block' } : undefined}
             >
               <tr style={shouldVirtualize ? { display: 'flex', width: '100%' } : undefined}>
                 {processedColumns.map((column, index) => (
                   <th
                     key={column.key}
-                    className={`px-6 py-2.5 text-left ${
-                      column.sortable ? 'cursor-pointer hover:bg-dark-200/40 transition-colors' : ''
+                    className={`${densitySettings.headerPadding} text-left ${
+                      column.sortable ? 'cursor-pointer hover:bg-dark-hover transition-colors' : ''
                     } ${processedColumns.length > 7 ? 'min-w-[200px]' : ''} ${
-                      index === 0 ? 'sticky left-0 z-40 bg-dark-100 shadow-r' : ''
+                      index === 0 ? 'sticky left-0 z-40 bg-dark-surface' : ''
                     } ${shouldVirtualize ? 'flex-shrink-0' : ''}`}
                     style={{
                       width: processedColumns.length > 7 ? '200px' : (column.width || 'auto'),
-                      minWidth: processedColumns.length > 7 ? '200px' : '100px',
+                      minWidth: processedColumns.length > 7 ? '200px' : '80px',
                       boxSizing: 'border-box',
                       textAlign: column.align || 'left',
-                      color: '#404040', // dark-700 for better contrast
-                      font: "500 13px / 18px 'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
                       outline: 0,
-                      backgroundColor: 'transparent', // Let gradient show through
+                      backgroundColor: 'transparent',
                       flex: processedColumns.length > 7 ? undefined : '1',
                     }}
                     onClick={() => column.sortable && handleSort(column.key)}
                   >
                     <div className="flex items-center justify-start">
-                      <span className="select-none">{column.title}</span>
-                      <div className="flex items-center ml-3 space-x-1">
+                      <span className="select-none text-[11px] font-medium uppercase tracking-wider text-dark-text-tertiary">{column.title}</span>
+                      <div className="flex items-center ml-2">
                         {column.sortable && (
-                          <div className="text-dark-600 hover:text-dark-700 transition-colors">
+                          <div className="text-dark-text-placeholder hover:text-dark-text-secondary transition-colors">
                             {renderSortIcon(column.key)}
                           </div>
                         )}
@@ -1890,15 +1927,13 @@ export function EntityListOfInstancesTable<T = any>({
                 ))}
               </tr>
             </thead>
-            {/* v13.1.0: Clean white body with subtle dividers */}
+            {/* v14.4.1: Warm surface body - bg handled by Tailwind class for hover consistency */}
             <tbody
-              className="bg-white divide-y divide-dark-100"
+              className="bg-dark-surface"
               style={shouldVirtualize ? {
                 display: 'block',
                 position: 'relative',
                 height: `${rowVirtualizer.getTotalSize()}px`,
-                // v13.1.0: Ensure background fills the entire virtualized area
-                backgroundColor: '#FFFFFF',
               } : undefined}
             >
               {shouldVirtualize ? (
@@ -1941,9 +1976,8 @@ export function EntityListOfInstancesTable<T = any>({
                         left: 0,
                         width: '100%',
                         transform: `translateY(${virtualRow.start}px)`,
-                        height: `${ESTIMATED_ROW_HEIGHT}px`,
-                        backgroundColor: '#FFFFFF',
-                        borderBottom: '1px solid var(--color-dark-400, #e5e7eb)',
+                        height: `${densitySettings.rowHeight}px`,
+                        borderBottom: '1px solid #F5F5F4', // stone-100 warm subtle dividers
                       }}
                     >
                     {processedColumns.map((column, colIndex) => {
@@ -1954,10 +1988,11 @@ export function EntityListOfInstancesTable<T = any>({
                         return (
                           <td
                             key={column.key}
-                            className={`px-6 py-2.5 flex-shrink-0 ${getStickyClassName(colIndex)}`}
+                            className={`${densitySettings.cellPadding} flex-shrink-0 ${getStickyClassName(colIndex)}`}
                             style={columnStylesMap.get(column.key)}
                           >
-                            <div className="flex items-center justify-center gap-1">
+                            {/* v14.2.0: Actions always visible */}
+                            <div className="flex items-center justify-center gap-0.5">
                               {(isEditing || isAnyCellInRowEditing) ? (
                                 <>
                                   <button
@@ -1966,17 +2001,16 @@ export function EntityListOfInstancesTable<T = any>({
                                       if (activeEditingCell) {
                                         handleCellSave(recordId, activeEditingCell.columnKey, record);
                                       } else if (onSaveInlineEdit) {
-                                        // FIX: Merge editedData into record before saving
                                         const formattedRec = record as FormattedRow<any>;
                                         const rawRec = formattedRec.raw || record;
                                         const updatedRecord = { ...rawRec, ...editedData };
                                         onSaveInlineEdit(updatedRecord as T);
                                       }
                                     }}
-                                    className="p-1.5 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded transition-colors"
+                                    className="p-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded transition-colors"
                                     title="Save (Enter)"
                                   >
-                                    <Check className="h-4 w-4" />
+                                    <Check className={densitySettings.actionIconSize} />
                                   </button>
                                   <button
                                     onClick={(e) => {
@@ -1987,10 +2021,10 @@ export function EntityListOfInstancesTable<T = any>({
                                         onCancelInlineEdit?.();
                                       }
                                     }}
-                                    className="p-1.5 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded transition-colors"
+                                    className="p-1 text-dark-text-tertiary hover:text-dark-text-primary hover:bg-dark-active rounded transition-colors"
                                     title="Cancel (Esc)"
                                   >
-                                    <X className="h-4 w-4" />
+                                    <X className={densitySettings.actionIconSize} />
                                   </button>
                                 </>
                               ) : (
@@ -1998,9 +2032,9 @@ export function EntityListOfInstancesTable<T = any>({
                                   {allActions.map((action) => {
                                     const isDisabled = action.disabled ? action.disabled(record) : false;
                                     const buttonVariants = {
-                                      default: 'text-dark-700 hover:text-dark-600 hover:bg-dark-100',
-                                      primary: 'text-dark-600 hover:text-dark-600 hover:bg-dark-100',
-                                      danger: 'text-red-600 hover:text-red-900 hover:bg-red-50'};
+                                      default: 'text-dark-text-tertiary hover:text-dark-text-primary hover:bg-dark-active',
+                                      primary: 'text-blue-500 hover:text-blue-700 hover:bg-blue-50',
+                                      danger: 'text-dark-text-tertiary hover:text-red-600 hover:bg-red-50'};
                                     return (
                                       <button
                                         key={action.key}
@@ -2009,12 +2043,12 @@ export function EntityListOfInstancesTable<T = any>({
                                           if (!isDisabled) action.onClick(record);
                                         }}
                                         disabled={isDisabled}
-                                        className={`p-1.5 rounded transition-colors ${
-                                          isDisabled ? 'text-dark-300 cursor-not-allowed' : buttonVariants[action.variant || 'default']
+                                        className={`p-1 rounded transition-colors ${
+                                          isDisabled ? 'text-dark-text-disabled cursor-not-allowed' : buttonVariants[action.variant || 'default']
                                         } ${action.className || ''}`}
                                         title={action.label}
                                       >
-                                        {action.icon}
+                                        {React.cloneElement(action.icon as React.ReactElement, { className: densitySettings.actionIconSize })}
                                       </button>
                                     );
                                   })}
@@ -2042,9 +2076,9 @@ export function EntityListOfInstancesTable<T = any>({
                       return (
                         <td
                           key={column.key}
-                          className={`px-6 py-2.5 flex-shrink-0 ${getStickyClassName(colIndex)} ${
-                            fieldEditable && inlineEditable ? 'cursor-text hover:bg-dark-hover/30' : ''
-                          } ${isCellBeingEdited ? 'bg-dark-subtle/50' : ''}`}
+                          className={`${densitySettings.cellPadding} ${densitySettings.fontSize} leading-snug flex-shrink-0 ${getStickyClassName(colIndex)} ${
+                            fieldEditable && inlineEditable ? 'cursor-text hover:bg-dark-subtle' : ''
+                          } ${isCellBeingEdited ? 'bg-blue-50/30' : ''}`}
                           style={columnStylesMap.get(column.key)}
                           onClick={(e) => {
                             if (isEditing) {
@@ -2092,15 +2126,14 @@ export function EntityListOfInstancesTable<T = any>({
                                       handleCellSave(recordId, column.key, record, e.target.value);
                                     }}
                                     onClick={(e) => e.stopPropagation()}
-                                    className="w-full px-2.5 py-1.5 pr-8 border border-dark-400 rounded-md focus:outline-none focus:border-dark-500 bg-dark-100 shadow-sm hover:border-dark-400 transition-colors cursor-pointer appearance-none"
-                                    style={{ fontSize: '14px', minHeight: '32px', maxHeight: '32px' }}
+                                    className={`w-full ${densitySettings.inputPadding} pr-6 border border-dark-border-medium rounded focus:outline-none focus:border-dark-border-strong bg-dark-surface transition-colors cursor-pointer appearance-none ${densitySettings.fontSize}`}
                                   >
                                     <option value="">Select color...</option>
                                     {colorOptions.map(opt => (
                                       <option key={opt.value} value={opt.value}>{opt.label}</option>
                                     ))}
                                   </select>
-                                  <ChevronDown className="h-4 w-4 text-dark-700 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                                  <ChevronDown className={`${densitySettings.iconSize} text-dark-text-tertiary absolute right-1.5 top-1/2 transform -translate-y-1/2 pointer-events-none`} />
                                 </div>
                               ) : inputType === 'component' && hasLabelsMetadata ? (
                                 // v12.2.0: inputType 'component' with datalabel options renders BadgeDropdownSelect
@@ -2129,7 +2162,7 @@ export function EntityListOfInstancesTable<T = any>({
                                         handleCellSave(recordId, column.key, record, val);
                                       },
                                       {
-                                        className: 'w-full px-2 py-1 text-sm border border-dark-300 rounded focus:outline-none focus:border-dark-500',
+                                        className: `w-full ${densitySettings.inputPadding} ${densitySettings.fontSize} border border-dark-border-medium rounded focus:outline-none focus:border-dark-border-strong bg-dark-surface`,
                                         autoFocus: isCellBeingEdited
                                       }
                                     );
@@ -2138,11 +2171,8 @@ export function EntityListOfInstancesTable<T = any>({
                               )}
                             </div>
                           ) : (
-                            <div style={{
-                              position: 'relative', zIndex: 1, textOverflow: 'ellipsis', padding: '2px 8px',
-                              overflow: 'hidden', whiteSpace: 'nowrap', fontSize: '14px', color: '#37352F',
-                              userSelect: 'none', cursor: 'inherit'
-                            }}>
+                            // v14.1.0: Minimal display styling - no inline padding, uses cell padding
+                            <div className="truncate text-dark-text-primary">
                               {(() => {
                                 if (column.render) return column.render((record as any)[column.key], record);
                                 const formatted = record as FormattedRow<any>;
@@ -2150,13 +2180,14 @@ export function EntityListOfInstancesTable<T = any>({
                                   const displayValue = formatted.display[column.key];
                                   const styleClass = formatted.styles[column.key];
                                   if (styleClass) {
-                                    return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${styleClass}`}>{displayValue}</span>;
+                                    // v14.1.0: Compact badge with density-based sizing
+                                    return <span className={`inline-flex items-center ${densitySettings.badgeSize} rounded font-medium ${styleClass}`}>{displayValue}</span>;
                                   }
                                   return <span>{displayValue}</span>;
                                 }
                                 const value = (record as any)[column.key];
                                 if (value === null || value === undefined || value === '') {
-                                  return <span className="text-dark-400 italic">—</span>;
+                                  return <span className="text-dark-text-disabled">—</span>;
                                 }
                                 return <span>{String(value)}</span>;
                               })()}
@@ -2214,10 +2245,11 @@ export function EntityListOfInstancesTable<T = any>({
                         return (
                           <td
                             key={column.key}
-                            className={`px-6 py-2.5 ${getStickyClassName(colIndex)}`}
+                            className={`${densitySettings.cellPadding} ${getStickyClassName(colIndex)}`}
                             style={columnStylesMap.get(column.key)}
                           >
-                            <div className="flex items-center justify-center gap-1">
+                            {/* v14.2.0: Actions always visible */}
+                            <div className="flex items-center justify-center gap-0.5">
                               {(isEditing || isAnyCellInRowEditing) ? (
                                 <>
                                   <button
@@ -2226,17 +2258,16 @@ export function EntityListOfInstancesTable<T = any>({
                                       if (activeEditingCell) {
                                         handleCellSave(recordId, activeEditingCell.columnKey, record);
                                       } else if (onSaveInlineEdit) {
-                                        // FIX: Merge editedData into record before saving
                                         const formattedRec = record as FormattedRow<any>;
                                         const rawRec = formattedRec.raw || record;
                                         const updatedRecord = { ...rawRec, ...editedData };
                                         onSaveInlineEdit(updatedRecord as T);
                                       }
                                     }}
-                                    className="p-1.5 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded transition-colors"
+                                    className="p-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded transition-colors"
                                     title="Save (Enter)"
                                   >
-                                    <Check className="h-4 w-4" />
+                                    <Check className={densitySettings.actionIconSize} />
                                   </button>
                                   <button
                                     onClick={(e) => {
@@ -2247,10 +2278,10 @@ export function EntityListOfInstancesTable<T = any>({
                                         onCancelInlineEdit?.();
                                       }
                                     }}
-                                    className="p-1.5 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded transition-colors"
+                                    className="p-1 text-dark-text-tertiary hover:text-dark-text-primary hover:bg-dark-active rounded transition-colors"
                                     title="Cancel (Esc)"
                                   >
-                                    <X className="h-4 w-4" />
+                                    <X className={densitySettings.actionIconSize} />
                                   </button>
                                 </>
                               ) : (
@@ -2258,9 +2289,9 @@ export function EntityListOfInstancesTable<T = any>({
                                   {allActions.map((action) => {
                                     const isDisabled = action.disabled ? action.disabled(record) : false;
                                     const buttonVariants = {
-                                      default: 'text-dark-700 hover:text-dark-600 hover:bg-dark-100',
-                                      primary: 'text-dark-600 hover:text-dark-600 hover:bg-dark-100',
-                                      danger: 'text-red-600 hover:text-red-900 hover:bg-red-50'};
+                                      default: 'text-dark-text-tertiary hover:text-dark-text-primary hover:bg-dark-active',
+                                      primary: 'text-blue-500 hover:text-blue-700 hover:bg-blue-50',
+                                      danger: 'text-dark-text-tertiary hover:text-red-600 hover:bg-red-50'};
                                     return (
                                       <button
                                         key={action.key}
@@ -2269,12 +2300,12 @@ export function EntityListOfInstancesTable<T = any>({
                                           if (!isDisabled) action.onClick(record);
                                         }}
                                         disabled={isDisabled}
-                                        className={`p-1.5 rounded transition-colors ${
-                                          isDisabled ? 'text-dark-300 cursor-not-allowed' : buttonVariants[action.variant || 'default']
+                                        className={`p-1 rounded transition-colors ${
+                                          isDisabled ? 'text-dark-text-disabled cursor-not-allowed' : buttonVariants[action.variant || 'default']
                                         } ${action.className || ''}`}
                                         title={action.label}
                                       >
-                                        {action.icon}
+                                        {React.cloneElement(action.icon as React.ReactElement, { className: densitySettings.actionIconSize })}
                                       </button>
                                     );
                                   })}
@@ -2302,9 +2333,9 @@ export function EntityListOfInstancesTable<T = any>({
                       return (
                         <td
                           key={column.key}
-                          className={`px-6 py-2.5 ${getStickyClassName(colIndex)} ${
-                            fieldEditable && inlineEditable ? 'cursor-text hover:bg-dark-hover/30' : ''
-                          } ${isCellBeingEdited ? 'bg-dark-subtle/50' : ''}`}
+                          className={`${densitySettings.cellPadding} ${densitySettings.fontSize} leading-snug ${getStickyClassName(colIndex)} ${
+                            fieldEditable && inlineEditable ? 'cursor-text hover:bg-dark-subtle' : ''
+                          } ${isCellBeingEdited ? 'bg-blue-50/30' : ''}`}
                           style={columnStylesMap.get(column.key)}
                           onClick={(e) => {
                             if (isEditing) {
@@ -2358,15 +2389,7 @@ export function EntityListOfInstancesTable<T = any>({
                                       handleCellSave(recordId, column.key, record, e.target.value);
                                     }}
                                     onClick={(e) => e.stopPropagation()}
-                                    className="w-full px-2.5 py-1.5 pr-8 border border-dark-400 rounded-md focus:outline-none focus:border-dark-500 bg-dark-100 shadow-sm hover:border-dark-400 transition-colors cursor-pointer appearance-none"
-                                    style={{
-                                      fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
-                                      fontSize: '14px',
-                                      color: '#37352F',
-                                      minHeight: '32px',
-                                      maxHeight: '32px',
-                                      lineHeight: '1.2'
-                                    }}
+                                    className={`w-full ${densitySettings.inputPadding} pr-6 border border-dark-border-medium rounded focus:outline-none focus:border-dark-border-strong bg-dark-surface transition-colors cursor-pointer appearance-none ${densitySettings.fontSize}`}
                                   >
                                     <option value="" className="text-dark-600">Select color...</option>
                                     {colorOptions.map(opt => (
@@ -2375,7 +2398,7 @@ export function EntityListOfInstancesTable<T = any>({
                                       </option>
                                     ))}
                                   </select>
-                                  <ChevronDown className="h-4 w-4 text-dark-700 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                                  <ChevronDown className={`${densitySettings.iconSize} text-dark-text-tertiary absolute right-1.5 top-1/2 transform -translate-y-1/2 pointer-events-none`} />
                                 </div>
                               ) : inputType === 'component' && hasLabelsMetadata ? (
                                 // v12.2.0: inputType 'component' with datalabel options renders BadgeDropdownSelect
@@ -2405,7 +2428,7 @@ export function EntityListOfInstancesTable<T = any>({
                                         handleCellSave(recordId, column.key, record, val);
                                       },
                                       {
-                                        className: 'w-full px-2 py-1 text-sm border border-dark-300 rounded focus:outline-none focus:border-dark-500',
+                                        className: `w-full ${densitySettings.inputPadding} ${densitySettings.fontSize} border border-dark-border-medium rounded focus:outline-none focus:border-dark-border-strong bg-dark-surface`,
                                         autoFocus: isCellBeingEdited
                                       }
                                     );
@@ -2415,25 +2438,10 @@ export function EntityListOfInstancesTable<T = any>({
                             </div>
                           ) : (
                             // ============================================================================
-                            // VIEW MODE - v8.0.0 Format-at-Read Pattern
+                            // VIEW MODE - v14.1.0 Minimal display styling
                             // Data is pre-formatted (has raw/display/styles) via formatDataset()
-                            // Display values and styles are used directly from FormattedRow
                             // ============================================================================
-                            <div
-                              style={{
-                                position: 'relative',
-                                zIndex: 1,
-                                textOverflow: 'ellipsis',
-                                padding: '2px 8px',
-                                overflow: 'hidden',
-                                whiteSpace: 'nowrap',
-                                fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
-                                fontSize: '14px',
-                                color: '#37352F',
-                                userSelect: 'none',
-                                cursor: 'inherit'
-                              } as React.CSSProperties}
-                            >
+                            <div className="truncate text-dark-text-primary">
                               {(() => {
                                 // Custom render override
                                 if (column.render) {
@@ -2443,28 +2451,25 @@ export function EntityListOfInstancesTable<T = any>({
                                 // v7.0.0: Check if data is pre-formatted (FormattedRow structure)
                                 const formattedRecord = record as FormattedRow<any>;
                                 if (formattedRecord.display && formattedRecord.styles !== undefined) {
-                                  // Use pre-formatted display value
                                   const displayValue = formattedRecord.display[column.key];
                                   const styleClass = formattedRecord.styles[column.key];
 
-                                  // If this field has a style (badge), render with badge styling
+                                  // v14.1.0: Compact badge with density-based sizing
                                   if (styleClass) {
                                     return (
-                                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${styleClass}`}>
+                                      <span className={`inline-flex items-center ${densitySettings.badgeSize} rounded font-medium ${styleClass}`}>
                                         {displayValue}
                                       </span>
                                     );
                                   }
 
-                                  // Otherwise, render plain text
                                   return <span>{displayValue}</span>;
                                 }
 
-                                // v7.0.0: Simple fallback for non-formatted data
-                                // Routes should migrate to format-at-fetch pattern
+                                // Simple fallback for non-formatted data
                                 const value = (record as any)[column.key];
                                 if (value === null || value === undefined || value === '') {
-                                  return <span className="text-dark-400 italic">—</span>;
+                                  return <span className="text-dark-text-disabled">—</span>;
                                 }
                                 return <span>{String(value)}</span>;
                               })()}

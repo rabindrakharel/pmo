@@ -380,7 +380,7 @@ export function renderEditModeFromMetadata(
           required={required}
           disabled={disabled}
           placeholder={metadata.placeholder}
-          className={`px-2 py-1 border rounded ${className}`}
+          className={className || 'px-2 py-1 border rounded'}
         />
       );
 
@@ -392,7 +392,7 @@ export function renderEditModeFromMetadata(
           onChange={(e) => onChange(e.target.value)}
           required={required}
           disabled={disabled}
-          className={`px-2 py-1 border rounded ${className}`}
+          className={className || 'px-2 py-1 border rounded'}
         />
       );
 
@@ -404,7 +404,7 @@ export function renderEditModeFromMetadata(
           onChange={(e) => onChange(e.target.value)}
           required={required}
           disabled={disabled}
-          className={`px-2 py-1 border rounded ${className}`}
+          className={className || 'px-2 py-1 border rounded'}
         />
       );
 
@@ -429,7 +429,7 @@ export function renderEditModeFromMetadata(
           required={required}
           disabled={disabled}
           placeholder={metadata.placeholder}
-          className={`px-2 py-1 border rounded ${className}`}
+          className={className || 'px-2 py-1 border rounded'}
           rows={4}
         />
       );
@@ -451,7 +451,7 @@ export function renderEditModeFromMetadata(
             required={required}
             disabled={disabled}
             placeholder={metadata.placeholder || 'Missing entity configuration'}
-            className={`px-2 py-1 border rounded ${className}`}
+            className={className || 'px-2 py-1 border rounded'}
           />
         );
       }
@@ -486,7 +486,7 @@ export function renderEditModeFromMetadata(
             required={required}
             disabled={disabled}
             placeholder={metadata.placeholder || 'Missing entity configuration'}
-            className={`px-2 py-1 border rounded ${className}`}
+            className={className || 'px-2 py-1 border rounded'}
           />
         );
       }
@@ -523,7 +523,7 @@ export function renderEditModeFromMetadata(
             required={required}
             disabled={disabled}
             placeholder={metadata.placeholder || 'Missing component configuration'}
-            className={`px-2 py-1 border rounded ${className}`}
+            className={className || 'px-2 py-1 border rounded'}
           />
         );
       }
@@ -602,7 +602,7 @@ export function renderEditModeFromMetadata(
               onChange={(e) => onChange(e.target.value)}
               required={required}
               disabled={disabled}
-              className={`px-2 py-1 border rounded ${className}`}
+              className={className || 'px-2 py-1 border rounded'}
             >
               <option value="">Loading...</option>
             </select>
@@ -629,7 +629,7 @@ export function renderEditModeFromMetadata(
               required={required}
               disabled={disabled}
               placeholder={metadata.placeholder}
-              className={`px-2 py-1 border rounded ${className}`}
+              className={className || 'px-2 py-1 border rounded'}
             />
           );
       }
@@ -649,7 +649,7 @@ export function renderEditModeFromMetadata(
           required={required}
           disabled={disabled}
           placeholder={metadata.placeholder}
-          className={`px-2 py-1 border rounded ${className}`}
+          className={className || 'px-2 py-1 border rounded'}
         />
       );
   }

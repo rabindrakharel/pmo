@@ -269,53 +269,54 @@ export function EntityInstanceNameSelect({
       className={`relative w-full ${className}`}
       onKeyDown={handleKeyDown}
     >
-      {/* Trigger button */}
+      {/* Trigger button - v14.4.0: Compact styling with warm palette */}
       <div
         ref={triggerRef}
         onClick={() => !disabled && setIsOpen(!isOpen)}
         className={`
-          min-h-[32px] w-full border border-dark-300 rounded bg-white px-2.5 py-1
+          w-full border border-dark-border-medium rounded bg-dark-surface px-1.5 py-0.5
           flex items-center justify-between cursor-pointer transition-colors
-          ${disabled ? 'bg-dark-50 cursor-not-allowed opacity-60' : 'hover:border-dark-400'}
-          ${isOpen ? 'ring-1 ring-slate-500 border-slate-500' : ''}
+          ${disabled ? 'bg-dark-subtle cursor-not-allowed opacity-60' : 'hover:border-dark-border-strong'}
+          ${isOpen ? 'ring-1 ring-dark-accent-ring border-dark-border-strong' : ''}
         `}
         tabIndex={disabled ? -1 : 0}
         role="combobox"
         aria-expanded={isOpen}
         aria-haspopup="listbox"
       >
-        <span className={`text-sm truncate ${localValue ? 'text-dark-700' : 'text-dark-500'}`}>
+        <span className={`text-xs truncate ${localValue ? 'text-dark-text-primary' : 'text-dark-text-placeholder'}`}>
           {displayLabel || placeholder || `Select ${entityCode}...`}
         </span>
-        <div className="flex items-center gap-1 ml-2">
+        <div className="flex items-center gap-0.5 ml-1">
           {localValue && !disabled && (
             <button
               type="button"
               onClick={handleClear}
-              className="p-0.5 hover:bg-dark-100 rounded text-dark-400 hover:text-dark-600"
+              className="p-0.5 hover:bg-dark-hover rounded text-dark-text-placeholder hover:text-dark-text-secondary"
               title="Clear selection"
             >
-              <span className="text-xs">×</span>
+              <span className="text-[10px]">×</span>
             </button>
           )}
           <ChevronDown
-            className={`w-4 h-4 text-dark-400 transition-transform flex-shrink-0 ${isOpen ? 'transform rotate-180' : ''}`}
+            className={`w-3 h-3 text-dark-text-placeholder transition-transform flex-shrink-0 ${isOpen ? 'transform rotate-180' : ''}`}
           />
         </div>
       </div>
 
       {/* Dropdown menu - rendered via portal to avoid overflow clipping */}
+      {/* v14.4.0: Compact dropdown styling with warm palette */}
       {isOpen && !disabled && createPortal(
         <div
           ref={dropdownRef}
           data-dropdown-portal=""
-          className="bg-white border border-dark-200 rounded-md overflow-hidden"
+          className="bg-dark-surface border border-dark-border-default rounded-md overflow-hidden"
           style={{
             position: 'absolute',
             top: `${dropdownPosition.top}px`,
             left: `${dropdownPosition.left}px`,
-            width: `${dropdownPosition.width}px`,
-            maxHeight: '400px',
+            width: `${Math.max(dropdownPosition.width, 150)}px`,
+            maxHeight: '300px',
             zIndex: 9999,
             boxShadow: dropdownPosition.openUpward
               ? '0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06)'
@@ -323,25 +324,25 @@ export function EntityInstanceNameSelect({
           }}
         >
           {/* Search input */}
-          <div className="p-2 border-b border-dark-200 bg-dark-50">
+          <div className="p-1.5 border-b border-dark-border-subtle bg-dark-subtle">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-dark-400" />
+              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-dark-text-placeholder" />
               <input
                 ref={searchInputRef}
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder={`Search ${entityCode}...`}
-                className="w-full pl-8 pr-3 py-1.5 text-sm border border-dark-300 rounded focus:outline-none focus:ring-1 focus:ring-slate-500 focus:border-slate-500"
+                className="w-full pl-7 pr-2 py-1 text-xs border border-dark-border-default rounded focus:outline-none focus:ring-1 focus:ring-dark-accent-ring focus:border-dark-border-strong bg-dark-surface"
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
           </div>
 
           {/* Options list */}
-          <div ref={optionsRef} className="max-h-80 overflow-y-auto" role="listbox">
+          <div ref={optionsRef} className="max-h-60 overflow-y-auto" role="listbox">
             {filteredOptions.length === 0 ? (
-              <div className="px-3 py-3 text-sm text-dark-500 text-center">
+              <div className="px-2 py-2 text-xs text-dark-text-tertiary text-center">
                 No {entityCode} found
               </div>
             ) : (
@@ -353,19 +354,19 @@ export function EntityInstanceNameSelect({
                     key={option.value}
                     onClick={() => selectOption(option.value, option.label)}
                     className={`
-                      flex items-center justify-between px-3 py-2 cursor-pointer transition-colors
-                      ${isHighlighted ? 'bg-slate-100' : ''}
-                      ${isSelected ? 'bg-slate-50 text-slate-900' : 'text-dark-700'}
-                      ${!isHighlighted && !isSelected ? 'hover:bg-dark-50' : ''}
+                      flex items-center justify-between px-2 py-1 cursor-pointer transition-colors
+                      ${isHighlighted ? 'bg-dark-active' : ''}
+                      ${isSelected ? 'bg-dark-hover text-dark-text-primary' : 'text-dark-text-secondary'}
+                      ${!isHighlighted && !isSelected ? 'hover:bg-dark-hover' : ''}
                     `}
                     role="option"
                     aria-selected={isSelected}
                   >
-                    <span className={`text-sm truncate ${isSelected ? 'font-medium' : ''}`}>
+                    <span className={`text-xs truncate ${isSelected ? 'font-medium' : ''}`}>
                       {option.label}
                     </span>
                     {isSelected && (
-                      <Check className="w-4 h-4 text-slate-600 flex-shrink-0 ml-2" />
+                      <Check className="w-3 h-3 text-dark-text-secondary flex-shrink-0 ml-1" />
                     )}
                   </div>
                 );

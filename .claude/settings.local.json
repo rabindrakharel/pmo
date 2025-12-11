@@ -39,7 +39,11 @@
       "Bash(git commit -m \"$(cat <<''EOF''\nfeat(rbac): Add inline instance picker for granting specific permissions v2.3.0\n\n- Replace Grant Permission button with inline instance picker that:\n  - Shows searchable list of entity instances with checkboxes\n  - Allows selecting permission level via compact button row\n  - Excludes instances that already have permissions\n  - Supports \"Select All\" for visible items\n  - Grants selected permissions directly without modal\n- Pass roleId to EntityPermissionSection for API calls\n- Add onPermissionsGranted callback to refresh data after grant\n- Instances already with permissions appear in matrix table above\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(git commit:*)",
       "Bash(pkill:*)",
-      "Bash(./tools/start-all.sh:*)"
+      "Bash(./tools/start-all.sh:*)",
+      "Bash(npm run build:web:*)",
+      "Bash(npm run:*)",
+      "Bash(pnpm -r --filter web typecheck:*)",
+      "Bash(./node_modules/.bin/tsc:*)"
     ],
     "deny": [],
     "ask": [],

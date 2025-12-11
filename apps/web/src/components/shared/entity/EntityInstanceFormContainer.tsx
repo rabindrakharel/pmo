@@ -439,8 +439,9 @@ function EntityInstanceFormContainerInner({
   // RENDER
   // ============================================================================
 
+  // v14.4.0: Surface layer with subtle border - warm sepia palette
   return (
-    <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-dark-200
+    <div className="bg-dark-surface rounded-xl shadow-sm overflow-hidden border border-dark-border-subtle
                    transition-all hover:shadow-md">
       <div className="p-6">
         <div className="space-y-0">
@@ -517,8 +518,8 @@ function EntityInstanceFormContainerInner({
                         relative break-words rounded-lg px-3 py-2.5 -ml-3
                         transition-all duration-200 ease-out
                         ${effectiveIsEditing
-                          ? 'bg-dark-50 shadow-sm focus-within:bg-white focus-within:shadow-md focus-within:ring-2 focus-within:ring-slate-500/30'
-                          : 'hover:bg-dark-50'
+                          ? 'bg-dark-subtle shadow-sm focus-within:bg-dark-surface focus-within:shadow-md focus-within:ring-2 focus-within:ring-dark-accent-ring'
+                          : 'hover:bg-dark-hover'
                         }
                         ${!isEditing && inlineEditable && isFieldEditable ? 'cursor-text' : ''}
                         text-sm text-dark-700 leading-relaxed

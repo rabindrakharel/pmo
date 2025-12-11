@@ -50,10 +50,11 @@ export function DynamicChildEntityTabs({
   // Determine active tab - exact path match only
   const activeTab = tabs.find(tab => currentPath === tab.path);
 
+  // v14.2.0: Modern minimal tab styling with more breathing room
   return (
     <div className={className}>
-      {/* Tab Navigation - Minimalistic style per styling_patterns.md Section 3.2 */}
-      <nav className="flex items-center gap-2" aria-label="Project navigation">
+      {/* Tab Navigation - v14.2.0: Underline style tabs for cleaner look */}
+      <nav className="flex items-center gap-1" aria-label="Project navigation">
         {tabs.map((tab) => {
           const isActive = activeTab?.id === tab.id;
           const IconComponent = tab.icon || getIconComponent(null);
@@ -65,25 +66,30 @@ export function DynamicChildEntityTabs({
               disabled={tab.disabled}
               title={tab.tooltip}
               className={[
-                'flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none',
+                'flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all duration-200 focus-visible:outline-none relative',
                 isActive
-                  ? 'bg-slate-600 text-white shadow-sm'
+                  ? 'text-dark-text-primary'
                   : tab.disabled
-                  ? 'text-dark-400 cursor-not-allowed'
-                  : 'bg-white text-dark-600 border border-dark-300 hover:border-dark-400 cursor-pointer'
+                  ? 'text-dark-text-disabled cursor-not-allowed'
+                  : 'text-dark-text-tertiary hover:text-dark-text-secondary cursor-pointer'
               ].join(' ')}
             >
-              {/* Icon - h-3.5 w-3.5 per design system */}
-              <IconComponent className="h-3.5 w-3.5" aria-hidden="true" />
+              {/* Active indicator - bottom border */}
+              {isActive && (
+                <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-dark-700 rounded-full" />
+              )}
+
+              {/* Icon - h-4 w-4 for better visibility */}
+              <IconComponent className="h-4 w-4" aria-hidden="true" />
 
               {/* Label */}
               <span>{tab.label}</span>
 
-              {/* Count badge per styling_patterns.md Section 3.6 */}
+              {/* Count badge - v14.4.0: Subtle, smaller badge - warm palette */}
               {tab.count !== undefined && (
                 <span className={[
-                  'inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full text-xs font-medium',
-                  isActive ? 'bg-white/20 text-white' : 'bg-dark-200 text-dark-600'
+                  'inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full text-[10px] font-medium',
+                  isActive ? 'bg-dark-hover text-dark-text-primary' : 'bg-dark-subtle text-dark-text-tertiary'
                 ].join(' ')}>
                   {tab.count}
                 </span>
