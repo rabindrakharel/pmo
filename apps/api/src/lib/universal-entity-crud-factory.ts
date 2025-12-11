@@ -419,7 +419,7 @@ export function createEntityListEndpoint(
     defaultLimit,
     hooks = {},
     filterOverrides = {},
-    defaultOrderBy = 'created_ts DESC'
+    defaultOrderBy = 'updated_ts DESC'
   } = config;
 
   const TABLE_NAME = getTableName(entityCode, tableName);

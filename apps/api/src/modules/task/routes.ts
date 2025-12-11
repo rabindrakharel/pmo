@@ -454,7 +454,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         FROM app.task t
         ${joinClause}
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY t.created_ts DESC
+        ORDER BY t.updated_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 

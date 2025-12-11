@@ -403,7 +403,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
         FROM app.${sql.raw(ENTITY_CODE)} ${sql.raw(TABLE_ALIAS)}
         ${joinClause}
         ${whereClause}
-        ORDER BY ${sql.raw(TABLE_ALIAS)}.created_ts DESC
+        ORDER BY ${sql.raw(TABLE_ALIAS)}.updated_ts DESC
         LIMIT ${limit}
         OFFSET ${offset}
       `;

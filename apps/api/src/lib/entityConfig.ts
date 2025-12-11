@@ -297,8 +297,8 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
     },
 
     listView: {
-      defaultSort: 'name',
-      defaultSortOrder: 'asc',
+      defaultSort: 'updated_ts',
+      defaultSortOrder: 'desc',
       searchFields: ['name', 'descr', 'code'],
       filterFields: ['level_name', 'active_flag'],
       displayFields: ['name', 'code', 'level_name', 'budget_allocated_amt'],
@@ -532,7 +532,8 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
     },
 
     listView: {
-      defaultSort: 'name',
+      defaultSort: 'updated_ts',
+      defaultSortOrder: 'desc',
       searchFields: ['name', 'description', 'address'],
       filterFields: ['levelId', 'provinceCode', 'active_flag'],
       displayFields: ['name', 'levelName', 'address', 'provinceCode'],
@@ -789,7 +790,7 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
     },
 
     listView: {
-      defaultSort: 'created_ts',
+      defaultSort: 'updated_ts',
       defaultSortOrder: 'desc',
       searchFields: ['name', 'description', 'projectCode'],
       filterFields: ['projectType', 'priorityLevel', 'projectStage', 'projectStatus', 'active_flag'],
@@ -1060,7 +1061,8 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
     },
 
     listView: {
-      defaultSort: 'name',
+      defaultSort: 'updated_ts',
+      defaultSortOrder: 'desc',
       searchFields: ['name', 'email', 'employeeCode'],
       filterFields: ['status', 'employmentType', 'workMode', 'active_flag'],
       displayFields: ['name', 'email', 'employmentType', 'status', 'workMode'],
@@ -1217,7 +1219,8 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
     },
 
     listView: {
-      defaultSort: 'name',
+      defaultSort: 'updated_ts',
+      defaultSortOrder: 'desc',
       searchFields: ['name', 'description', 'roleCategory'],
       filterFields: ['roleType', 'authorityLevel', 'active_flag'],
       displayFields: ['name', 'roleType', 'roleCategory', 'authorityLevel', 'approvalLimit'],

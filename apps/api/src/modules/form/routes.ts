@@ -1096,7 +1096,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           fd.updated_ts
         FROM app.form_data fd
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY fd.created_ts DESC
+        ORDER BY fd.updated_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 

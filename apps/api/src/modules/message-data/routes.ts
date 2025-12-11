@@ -219,7 +219,7 @@ export async function messageDataRoutes(fastify: FastifyInstance) {
           md.metadata
         FROM app.f_message_data md
         ${whereClause}
-        ORDER BY md.created_ts DESC
+        ORDER BY md.updated_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
