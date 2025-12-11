@@ -1180,6 +1180,9 @@ export class EntityInfrastructureService {
     const granted_by_person_id = options?.granted_by_person_id || null;
     const expires_ts = options?.expires_ts || null;
 
+    // Properly escape JSONB value to avoid double-quoting issues
+    const childPermissionsJson = JSON.stringify(child_permissions).replace(/'/g, "''");
+
     const result = await this.db.execute(sql`
       INSERT INTO app.entity_rbac
       (role_id, entity_code, entity_instance_id, permission, inheritance_mode, child_permissions, is_deny, granted_by_person_id, expires_ts)
@@ -1189,7 +1192,7 @@ export class EntityInfrastructureService {
         ${entity_id}::uuid,
         ${permission_level},
         ${inheritance_mode},
-        ${JSON.stringify(child_permissions)}::jsonb,
+        ${sql.raw(`'${childPermissionsJson}'::jsonb`)},
         ${is_deny},
         ${granted_by_person_id}::uuid,
         ${expires_ts}::timestamptz

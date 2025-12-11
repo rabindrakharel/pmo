@@ -595,7 +595,9 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         setClauses.push(sql`inheritance_mode = ${updates.inheritance_mode}`);
       }
       if (updates.child_permissions !== undefined) {
-        setClauses.push(sql`child_permissions = ${JSON.stringify(updates.child_permissions)}::jsonb`);
+        // Use raw SQL for JSONB to avoid double-encoding issues
+        const childPermissionsJson = JSON.stringify(updates.child_permissions).replace(/'/g, "''");
+        setClauses.push(sql`child_permissions = ${sql.raw(`'${childPermissionsJson}'`)}::jsonb`);
       }
       if (updates.is_deny !== undefined) {
         setClauses.push(sql`is_deny = ${updates.is_deny}`);
@@ -1230,10 +1232,13 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       const hasChildPerms = Object.keys(newChildPerms).length > 0;
       const newInheritanceMode = hasChildPerms ? 'mapped' : existing.inheritance_mode;
 
+      // Use raw SQL for JSONB to avoid double-encoding issues
+      // Escape single quotes in JSON string for SQL literal
+      const newChildPermsJson = JSON.stringify(newChildPerms).replace(/'/g, "''");
       await db.execute(sql`
         UPDATE app.entity_rbac
         SET
-          child_permissions = ${JSON.stringify(newChildPerms)}::jsonb,
+          child_permissions = ${sql.raw(`'${newChildPermsJson}'`)}::jsonb,
           inheritance_mode = ${newInheritanceMode},
           updated_ts = NOW()
         WHERE id = ${permissionId}::uuid

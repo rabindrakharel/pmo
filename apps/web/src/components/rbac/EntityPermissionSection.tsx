@@ -145,7 +145,7 @@ export function EntityPermissionSection({
       const results = await Promise.all(
         Object.entries(configs).map(async ([instanceId, config]) => {
           const response = await fetch(
-            `${API_CONFIG.BASE_URL}/api/v1/entity_rbac`,
+            `${API_CONFIG.BASE_URL}/api/v1/entity_rbac/grant-permission`,
             {
               method: 'POST',
               headers: {

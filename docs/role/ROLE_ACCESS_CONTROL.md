@@ -1,8 +1,8 @@
 # Role Access Control - Complete Technical Reference
 
-> Role-Only RBAC Model v2.2.0 - Card-based hierarchical visualization, Permission Matrix, component design, and end-to-end data flow
+> Role-Only RBAC Model v2.3.6 - Unified Permission Matrix with icon-only display, two-step grant flow, and end-to-end data flow
 
-**Version**: 2.2.0 | **Updated**: 2025-12-10 | **Status**: Production
+**Version**: 2.3.6 | **Updated**: 2025-12-10 | **Status**: Production
 
 ---
 
@@ -79,7 +79,7 @@ The "Access Controls" tab on the Role detail page is a **custom non-entity tab**
 │  DynamicChildEntityTabs                                                      │
 │  ├── Overview (entity overview)                                              │
 │  ├── People (entity child tab - EntityListOfInstancesTable)                  │
-│  └── Access Controls (CUSTOM tab - RoleAccessControlPanel)     ◄── NEW      │
+│  └── Access Controls (CUSTOM tab - RoleAccessControlPanel)                   │
 │                                                                              │
 │  Route Pattern:                                                              │
 │  /role/:id              → Overview tab                                       │
@@ -100,23 +100,16 @@ The "Access Controls" tab on the Role detail page is a **custom non-entity tab**
 ### 2.3 Tab Generation (DynamicChildEntityTabs.tsx)
 
 ```typescript
-/**
- * Get custom (non-entity) tabs for specific entity types.
- * These tabs render custom components instead of EntityListOfInstancesTable.
- *
- * v9.5.0: Added 'Access Controls' tab for role entity
- */
 function getCustomTabsForEntity(parentType: string, parentId: string): HeaderTab[] {
   const customTabs: HeaderTab[] = [];
 
-  // Role entity: Add "Access Controls" tab for RBAC management
   if (parentType === 'role') {
     customTabs.push({
       id: 'access-control',
       label: 'Access Controls',
       path: `/${parentType}/${parentId}/access-control`,
       icon: getIconComponent('shield'),
-      order: 1000 // After entity tabs
+      order: 1000
     });
   }
 
@@ -127,40 +120,13 @@ function getCustomTabsForEntity(parentType: string, parentId: string): HeaderTab
 ### 2.4 Custom Tab Rendering (EntitySpecificInstancePage.tsx)
 
 ```typescript
-// In the main render JSX, after entity child tab checks:
 ) : currentChildEntity === 'access-control' && entityCode === 'role' ? (
-  // v9.5.0: Custom Access Controls tab for role entity (RBAC management)
   <RoleAccessControlPanel
     roleId={id!}
     roleName={data?.name || ''}
   />
 ) : (
-  // Default: EntityListOfInstancesTable for entity child tabs
   <EntityListOfInstancesTable ... />
-)
-```
-
-### 2.5 Adding Custom Tabs to Other Entities
-
-To add a custom tab for another entity type:
-
-1. **Add to `getCustomTabsForEntity()`**:
-```typescript
-if (parentType === 'your-entity') {
-  customTabs.push({
-    id: 'your-custom-tab',
-    label: 'Custom Tab Label',
-    path: `/${parentType}/${parentId}/your-custom-tab`,
-    icon: getIconComponent('icon-name'),
-    order: 1000
-  });
-}
-```
-
-2. **Add render condition in `EntitySpecificInstancePage.tsx`**:
-```typescript
-) : currentChildEntity === 'your-custom-tab' && entityCode === 'your-entity' ? (
-  <YourCustomComponent entityId={id!} />
 )
 ```
 
@@ -168,42 +134,29 @@ if (parentType === 'your-entity') {
 
 ## 3. Component Architecture
 
-### 3.1 Component Hierarchy
+### 3.1 Component Hierarchy (v2.3.2)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  Access Control Components (v2.2.0)                                          │
+│  RBAC Components (v2.3.2 - Unified Permission Matrix)                        │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  TWO ENTRY POINTS:                                                           │
+│  apps/web/src/components/rbac/                                               │
+│  ├── index.ts                      # Exports all components                  │
+│  ├── HierarchicalRbacMatrix.tsx    # Top-level container                     │
+│  ├── EntityPermissionSection.tsx   # Per-entity section + instance picker    │
+│  ├── PermissionMatrixTable.tsx     # Reusable matrix table                   │
+│  ├── PermissionLevelSelector.tsx   # Permission level picker (0-7)           │
+│  ├── InheritanceModeSelector.tsx   # None/Cascade/Mapped selector            │
+│  ├── ChildPermissionMapper.tsx     # Per-child-type permission config        │
+│  ├── GrantPermissionModal.tsx      # 4-step wizard for granting              │
+│  └── RoleAccessControlPanel.tsx    # Simplified panel for role detail        │
 │                                                                              │
-│  1. AccessControlPage (/settings/access-control)                             │
-│     ├── Left Panel: Role list with search                                    │
-│     └── Right Panel: Tabs (Permissions, Members, Permission Matrix)          │
-│         └── Permission Matrix uses HierarchicalRbacMatrix (card-based)       │
-│                                                                              │
-│  2. RoleAccessControlPanel (/role/:id/access-control)                        │
-│     └── Tabs (Permissions, Permission Matrix)                                │
-│         └── Permission Matrix uses RolePermissionsMatrix (table-based)       │
-│                                                                              │
-│  CARD-BASED VISUALIZATION (v2.2.0):                                          │
-│  ├── HierarchicalRbacMatrix   - Card layout with collapsible entity types   │
-│  ├── PermissionCard           - Single permission card with mode selector   │
-│  └── PermissionBar            - Visual bar for permission level (0-7)       │
-│                                                                              │
-│  TABLE-BASED VISUALIZATION (v2.1.0):                                         │
-│  ├── RolePermissionsMatrix    - Matrix table with 45° headers, inline edit  │
-│  └── EffectiveAccessTable     - Show resolved permissions with source       │
-│                                                                              │
-│  SHARED COMPONENTS (apps/web/src/components/rbac/):                          │
-│  ├── PermissionLevelSelector  - Visual bar chart permission picker (0-7)    │
-│  ├── PermissionBadge          - Inline permission level badge               │
-│  ├── InheritanceModeSelector  - None/Cascade/Mapped selector                │
-│  ├── InheritanceModeBadge     - Inline inheritance mode badge               │
-│  ├── ChildPermissionMapper    - Per-child-type permission table             │
-│  ├── PermissionRuleCard       - Display single permission with inheritance  │
-│  ├── PermissionRuleCardSkeleton - Loading state                             │
-│  └── GrantPermissionModal     - 4-step wizard for granting permissions      │
+│  REMOVED COMPONENTS (v2.3.0):                                                │
+│  ├── PermissionCard.tsx            # Replaced by PermissionMatrixTable       │
+│  ├── PermissionRuleCard.tsx        # Replaced by EntityPermissionSection     │
+│  ├── EffectiveAccessTable.tsx      # Effective access computed at runtime    │
+│  └── RolePermissionsMatrix.tsx     # Replaced by HierarchicalRbacMatrix      │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -212,19 +165,15 @@ if (parentType === 'your-entity') {
 
 **File**: `apps/web/src/components/rbac/RoleAccessControlPanel.tsx`
 
-**Purpose**: Extracted from AccessControlPage's right panel for use in Role detail page tabs. Shows permissions and effective access for a specific role.
+Simplified permission management panel showing only the Permission Matrix. Members are shown in the separate "People" tab.
 
 **Props**:
 ```typescript
 interface RoleAccessControlPanelProps {
-  roleId: string;    // Role UUID
-  roleName: string;  // Role display name
+  roleId: string;
+  roleName: string;
 }
 ```
-
-**Two Tabs** (Members removed - shown in separate People tab):
-1. **Permissions** - View/grant/revoke RBAC permissions (card-based view)
-2. **Permission Matrix** - Interactive matrix table with inline editing (v2.1.0)
 
 ### 3.3 AccessControlPage Layout
 
@@ -241,11 +190,11 @@ interface RoleAccessControlPanelProps {
 │  ┌────────────┐  │  ┌─────────────────────────────────────────────────────┐ │
 │  │ Search     │  │  │ Role Header: Icon | Name | Code | View Role →      │ │
 │  └────────────┘  │  ├─────────────────────────────────────────────────────┤ │
-│                  │  │ Tabs: [Permissions] [Members] [Effective Access]    │ │
-│  ┌────────────┐  │  ├─────────────────────────────────────────────────────┤ │
-│  │ CEO     ▸  │  │  │                                                     │ │
-│  │ PM         │  │  │  Tab Content Area                                   │ │
-│  │ Engineer   │  │  │  (scrollable)                                       │ │
+│                  │  │                                                     │ │
+│  ┌────────────┐  │  │  HierarchicalRbacMatrix                             │ │
+│  │ CEO     ▸  │  │  │  └── EntityPermissionSection (for each entity)     │ │
+│  │ PM         │  │  │      └── PermissionMatrixTable                      │ │
+│  │ Engineer   │  │  │                                                     │ │
 │  │ ...        │  │  │                                                     │ │
 │  └────────────┘  │  │                                                     │ │
 │                  │  │                                                     │ │
@@ -266,18 +215,6 @@ interface RoleAccessControlPanelProps {
 | 2 | Permission | Access level selection | PermissionLevelSelector |
 | 3 | Inheritance | Child entity behavior | InheritanceModeSelector, ChildPermissionMapper |
 | 4 | Options | Deny toggle + expiration | Checkbox, datetime input |
-
-**Form State**:
-| Field | Type | Default | Purpose |
-|-------|------|---------|---------|
-| `entityCode` | string | `''` | Target entity type |
-| `scope` | `'all' \| 'specific'` | `'all'` | Type-level vs instance-level |
-| `entityInstanceId` | string | `null` | Specific instance UUID |
-| `permission` | number | `0` | Permission level (0-7) |
-| `inheritanceMode` | `'none' \| 'cascade' \| 'mapped'` | `'none'` | Inheritance behavior |
-| `childPermissions` | `Record<string, number>` | `{ _default: 0 }` | Per-child-type permissions |
-| `isDeny` | boolean | `false` | Explicit deny flag |
-| `expiresTs` | string | `''` | Expiration timestamp |
 
 ---
 
@@ -370,23 +307,11 @@ check_entity_rbac(personId, entityCode, entityId, requiredLevel)
 
 | Route | Method | Business Logic |
 |-------|--------|----------------|
-| `GET /api/v1/entity_rbac/role/:roleId/permissions` | GET | List role's permissions |
+| `GET /api/v1/entity_rbac/role/:roleId/hierarchical-permissions` | GET | Get permissions grouped by entity type |
 | `POST /api/v1/entity_rbac/grant-permission` | POST | Grant/upsert permission |
 | `PUT /api/v1/entity_rbac/permission/:id` | PUT | Update permission (level, inheritance, etc.) |
+| `PATCH /api/v1/entity_rbac/permission/:id/child-permissions` | PATCH | Update child permission mapping |
 | `DELETE /api/v1/entity_rbac/permission/:id` | DELETE | Hard delete permission |
-
-**Update Permission Request** (v2.1.0):
-```typescript
-PUT /api/v1/entity_rbac/permission/:permissionId
-{
-  permission?: number,           // 0-7 permission level
-  inheritance_mode?: string,     // 'none' | 'cascade' | 'mapped'
-  child_permissions?: object,    // { "task": 3, "_default": 0 }
-  is_deny?: boolean,             // Explicit deny flag
-  expires_ts?: string | null     // Expiration timestamp
-}
-// Response: { id: string, message: "Permission updated successfully" }
-```
 
 **Grant Permission Request**:
 ```typescript
@@ -394,12 +319,33 @@ POST /api/v1/entity_rbac/grant-permission
 {
   role_id: "uuid",
   entity_code: "project",
-  entity_instance_id: "11111111-1111-1111-1111-111111111111", // ALL_ENTITIES_ID
+  entity_instance_id: "11111111-1111-1111-1111-111111111111",
   permission: 7,
   inheritance_mode: "mapped",
   child_permissions: { "task": 3, "_default": 0 },
   is_deny: false,
   expires_ts: null
+}
+```
+
+**Update Permission Request**:
+```typescript
+PUT /api/v1/entity_rbac/permission/:permissionId
+{
+  permission?: number,
+  inheritance_mode?: string,
+  child_permissions?: object,
+  is_deny?: boolean,
+  expires_ts?: string | null
+}
+```
+
+**Update Child Permissions Request**:
+```typescript
+PATCH /api/v1/entity_rbac/permission/:permissionId/child-permissions
+{
+  child_entity_code: string,
+  permission: number  // -1 to remove, 0-7 to set
 }
 ```
 
@@ -413,12 +359,6 @@ Role membership is managed via universal entity APIs:
 | `POST /api/v1/entity_instance_link` | POST | Add person to role |
 | `DELETE /api/v1/entity_instance_link/{linkId}` | DELETE | Remove person from role |
 
-### 5.4 Effective Access
-
-| Route | Method | Business Logic |
-|-------|--------|----------------|
-| `GET /api/v1/entity_rbac/person/:personId/effective-access` | GET | Compute resolved permissions after inheritance |
-
 ---
 
 ## 6. State Management
@@ -428,28 +368,32 @@ Role membership is managed via universal entity APIs:
 | Query Key | Endpoint | Purpose |
 |-----------|----------|---------|
 | `['access-control', 'roles']` | `GET /api/v1/role` | Role list |
-| `['access-control', 'role', roleId, 'permissions']` | `GET /api/v1/entity_rbac/role/:roleId/permissions` | Role's permissions |
-| `['access-control', 'role', roleId, 'members']` | `GET /api/v1/person?parent_entity_code=role&...` | Role's members |
-| `['access-control', 'role', roleId, 'effective']` | `GET /api/v1/entity_rbac/person/:personId/effective-access` | Resolved permissions |
-| `['access-control', 'entities']` | `GET /api/v1/entity/types` | Entity metadata |
+| `['access-control', 'role', roleId, 'hierarchical-permissions']` | `GET /api/v1/entity_rbac/role/:roleId/hierarchical-permissions` | Role's hierarchical permissions |
 
 ### 6.2 Cache Invalidation
 
 ```typescript
-// After granting/revoking permission
-queryClient.invalidateQueries(['access-control', 'role', roleId, 'permissions']);
-queryClient.invalidateQueries(['access-control', 'role', roleId, 'effective']);
-
-// After adding/removing member (AccessControlPage only)
-queryClient.invalidateQueries(['access-control', 'role', roleId, 'members']);
+// After granting/revoking/updating permission
+queryClient.invalidateQueries({
+  queryKey: ['access-control', 'role', roleId, 'hierarchical-permissions']
+});
 ```
 
-### 6.3 Local State (RoleAccessControlPanel)
+### 6.3 Local State (HierarchicalRbacMatrix)
 
 | State Variable | Type | Purpose |
 |----------------|------|---------|
-| `activeTab` | `'permissions' \| 'effective'` | Active detail tab |
-| `showGrantModal` | `boolean` | GrantPermissionModal visibility |
+| `pendingChanges` | `Record<string, PendingChange>` | Track unsaved permission changes |
+| `searchQuery` | `string` | Filter entities by name |
+
+### 6.4 Local State (EntityPermissionSection)
+
+| State Variable | Type | Purpose |
+|----------------|------|---------|
+| `isExpanded` | `boolean` | Section expand/collapse |
+| `showInstancePicker` | `boolean` | Instance picker visibility |
+| `selectedInstanceConfigs` | `Record<string, PendingInstanceConfig>` | Pending grant configurations |
+| `expandedConfigId` | `string | null` | Expanded inheritance config row |
 
 ---
 
@@ -467,68 +411,67 @@ queryClient.invalidateQueries(['access-control', 'role', roleId, 'members']);
 │     └── Renders <RoleAccessControlPanel roleId={id} roleName={name} />       │
 │                                                                              │
 │  2. RoleAccessControlPanel mounts                                            │
-│     └── useQuery(['access-control', 'role', roleId, 'permissions'])          │
-│     └── GET /api/v1/entity_rbac/role/:roleId/permissions                     │
+│     └── Renders <HierarchicalRbacMatrix roleId={roleId} ... />               │
 │                                                                              │
-│  3. API handler (rbac/routes.ts)                                             │
-│     └── entityInfra.get_role_permissions(roleId)                             │
-│     └── SELECT * FROM entity_rbac WHERE role_id = $roleId                    │
+│  3. HierarchicalRbacMatrix fetches data                                      │
+│     └── useQuery(['access-control', 'role', roleId, 'hierarchical-permissions'])
+│     └── GET /api/v1/entity_rbac/role/:roleId/hierarchical-permissions        │
 │                                                                              │
-│  4. Response flows back                                                      │
-│     └── TanStack Query caches at ['access-control', 'role', roleId, 'permissions']
-│     └── Component renders PermissionRuleCard for each permission             │
+│  4. Response contains permissions grouped by entity type                     │
+│     └── Each entity section rendered as <EntityPermissionSection />          │
+│     └── Permissions displayed in <PermissionMatrixTable />                   │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 7.2 Granting Permission
+### 7.2 Granting Permission (Two-Step Flow v2.3.0)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  User clicks "Grant Permission" button                                       │
+│  Step 1: Select Instances                                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  1. User clicks "Grant Permission to [Entity]" button                        │
+│  2. Instance picker panel opens                                              │
+│  3. User searches and checks instances to grant                              │
+│  4. "All [Entity]s" appears first if not already granted                     │
+│  5. User clicks "Add (N)" button                                             │
+│  6. Selected instances added to pending config                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Step 2: Configure in Table                                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  1. Pending instances appear in unified table with emerald background        │
+│  2. User clicks permission level cells to set access                         │
+│  3. User clicks Settings icon to configure inheritance                       │
+│  4. User clicks "Save (N)" button                                            │
+│  5. POST /api/v1/entity_rbac/grant-permission called for each               │
+│  6. queryClient.invalidateQueries() refreshes data                          │
+│  7. Pending rows become normal rows                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 7.3 Modifying Existing Permission
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  User modifies permission in matrix table                                    │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  1. GrantPermissionModal opens (4-step wizard)                               │
-│     └── Step 1: Select entity type + scope                                   │
-│     └── Step 2: Select permission level (0-7)                                │
-│     └── Step 3: Configure inheritance mode                                   │
-│     └── Step 4: Optional deny/expiration                                     │
+│  1. Click permission level cell in table                                     │
+│     └── Row highlights amber with "modified" badge                           │
+│     └── Change tracked in pendingChanges state                               │
 │                                                                              │
-│  2. User completes wizard, clicks "Grant Permission"                         │
-│     └── POST /api/v1/entity_rbac/grant-permission                            │
-│     └── Body: { role_id, entity_code, entity_instance_id, permission, ... }  │
+│  2. Click Settings icon for inheritance config                               │
+│     └── Inline panel expands below row                                       │
+│     └── Select None/Cascade/Mapped                                           │
+│     └── For Mapped: configure child permissions                              │
 │                                                                              │
-│  3. API handler                                                              │
-│     └── Validate role exists and is active                                   │
-│     └── entityInfra.set_entity_rbac() → UPSERT into entity_rbac              │
+│  3. Click "Save Changes" in header                                           │
+│     └── PUT /api/v1/entity_rbac/permission/:id (for each change)            │
+│     └── PATCH /api/v1/entity_rbac/permission/:id/child-permissions          │
 │                                                                              │
 │  4. On success                                                               │
-│     └── Modal closes                                                         │
-│     └── queryClient.invalidateQueries(['access-control', 'role', roleId, ...])
-│     └── Permissions list auto-refetches                                      │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### 7.3 Checking Effective Access
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  User clicks "Effective Access" tab                                          │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  1. Tab change triggers query                                                │
-│     └── First: Fetch members (GET /api/v1/person?parent_entity_code=role...) │
-│     └── Then: Fetch effective access for first member                        │
-│                                                                              │
-│  2. GET /api/v1/entity_rbac/person/:personId/effective-access                │
-│     └── Computes resolved permissions after inheritance                      │
-│     └── Walks ancestor chain via entity_instance_link                        │
-│     └── Returns: [{ entity_code, permission, source: 'direct'|'inherited' }] │
-│                                                                              │
-│  3. EffectiveAccessTable renders                                             │
-│     └── Shows each permission with source indicator                          │
-│     └── Direct = Target icon, Inherited = GitBranch icon                     │
+│     └── pendingChanges cleared                                               │
+│     └── Query invalidated, data refreshed                                    │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -537,271 +480,116 @@ queryClient.invalidateQueries(['access-control', 'role', roleId, 'members']);
 
 ## 8. UI/UX Design Patterns
 
-### 8.1 Permission Level Visual Selector
+### 8.1 Permission Matrix Table (v2.3.4 - Icon Only)
 
 ```
-                                              ┌───────┐
-                                              │ OWNER │
-                                     ┌───────┐│   7   │
-                                     │CREATE ││       │
-                            ┌───────┐│   6   ││       │
-                            │DELETE ││       ││       │
-                   ┌───────┐│   5   ││       ││       │
-                   │ SHARE ││       ││       ││       │
-          ┌───────┐│   4   ││       ││       ││       │
-          │ EDIT  ││       ││       ││       ││       │
- ┌───────┐│   3   ││       ││       ││       ││       │
- │COMMENT││       ││       ││       ││       ││       │
- │   1   ││       ││       ││       ││       ││       │
-─┴───────┴┴───────┴┴───────┴┴───────┴┴───────┴┴───────┴─
-     ▲ Selected (click to change)
+┌────────────────────────────────────────────────────────────────────────────┐
+│                     (empty header - no icons)                  Actions     │
+├────────────────────────────────────────────────────────────────────────────┤
+│ 🌐 All Projects      ◉   ◉   ◉   ●   ○   ○   ○   ○     ⚙️  🗑️             │
+│ 📄 Kitchen Reno      ◉   ◉   ●   ○   ○   ○   ○   ○     ⚙️  🗑️             │
+│ 📄 Bathroom [pending]◉   ●   ○   ○   ○   ○   ○   ○     ⚙️  🗑️             │
+└────────────────────────────────────────────────────────────────────────────┘
+
+Legend:
+  ● = Current level (colored icon with glow effect)
+  ◉ = Active level below current (colored icon, slightly dim)
+  ○ = Inactive level (dim gray icon)
+
+Icon States (no headers, no checkboxes - icons only):
+  Inactive       = colored but dim ({textColor} opacity-30)
+  Active         = colored ({textColor} opacity-80)
+  Current Level  = colored + glow (drop-shadow-[0_0_6px_currentColor])
+  Modified       = colored + amber glow (drop-shadow amber)
+
+NOTE: Icon colors NEVER change - each permission keeps its own color
+      (slate, sky, cyan, blue, violet, orange, emerald, red)
+      Only opacity changes between dim (30%) and bright (80-100%)
+
+Icon Sizes (v2.3.6):
+  Normal         = h-4 w-4 (16px)
+  Compact        = h-3.5 w-3.5 (14px)
+
+Permission Icons (hover shows name):
+  Eye          = VIEW (Slate)       - Read-only access
+  MessageSquare = COMMENT (Sky)     - Add comments (+ View)
+  PlusCircle    = CONTRIBUTE (Cyan) - Add content (+ Comment)
+  Pencil       = EDIT (Blue)        - Modify data (+ Contribute)
+  Share2       = SHARE (Violet)     - Share with others (+ Edit)
+  Trash2       = DELETE (Orange)    - Soft delete (+ Share)
+  Plus         = CREATE (Emerald)   - Create new (type-level)
+  Crown        = OWNER (Red)        - Full control
+
+Row States:
+  Normal      = White background
+  Pending     = Emerald-50 background + "pending" badge
+  Modified    = Amber-50 background + "modified" badge
+  Expanded    = Slate-100 background + ring
+  Deny        = Red-50 background + "DENY" badge (Ban icon for all)
+
+Actions:
+  ⚙️ Settings2  = Configure inheritance (expands inline panel)
+  🗑️ Trash2     = Revoke/remove permission
+  ↩️ Undo2      = Revert changes (if modified)
 ```
 
-### 8.2 Inheritance Mode Visual Selector
+### 8.2 Instance Picker
 
-```
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│        ●        │  │        ●        │  │    ●   ●   ●    │
-│                 │  │       /|\       │  │   /|\ /|\ /|\   │
-│                 │  │      / | \      │  │  E=3 W=0 T=5    │
-│                 │  │     ●  ●  ●     │  │  ●   ●   ●      │
-│                 │  │   (same level)  │  │ (different)     │
-├─────────────────┤  ├─────────────────┤  ├─────────────────┤
-│      NONE       │  │     CASCADE     │  │     MAPPED      │
-│  This entity    │  │  Same to all    │  │  Different per  │
-│  only           │  │  children       │  │  child type     │
-└─────────────────┘  └─────────────────┘  └─────────────────┘
-```
-
-### 8.3 Permission Card Display
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  🏢 Office (All Instances)                           OWNER (7)  │
-│                                                                  │
-│  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  │
-│                                                                  │
-│  Inheritance: Mapped                                             │
-│  ├─ Business     DELETE (5)   ▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░            │
-│  ├─ Project      EDIT (3)     ▓▓▓▓▓▓░░░░░░░░░░░░░░░░            │
-│  ├─ Task         EDIT (3)     ▓▓▓▓▓▓░░░░░░░░░░░░░░░░            │
-│  └─ _default     VIEW (0)     ▓░░░░░░░░░░░░░░░░░░░░░            │
-│                                                                  │
-│  Granted: 2025-01-15                         [Edit] [Revoke]    │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### 8.4 HierarchicalRbacMatrix (v2.2.0) - Card-Based Visualization
-
-**File**: `apps/web/src/components/rbac/HierarchicalRbacMatrix.tsx`
-
-Card-based hierarchical permission visualization with fold/unfold capability.
-
-**Features**:
-- Entity types as collapsible accordion sections
-- Permission cards with visual permission bars
-- Mode-first inheritance selection (None/Cascade/Mapped)
-- Child permissions only shown for Mapped mode
-- Cascade mode shows summary without expansion
-- Batch save functionality with pending change tracking
-- Expand All / Collapse All controls
-
-**Visual Layout**:
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ Permission Overview  [5 permissions]  [● 1 unsaved]     [Discard] [Save]    │
-├─────────────────────────────────────────────────────────────────────────────┤
-│ [🔍 Filter by entity type or instance...]                                    │
-│ [Expand All] [Collapse All]                                                  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│ ┌─ 📁 Project (2 permissions) ───────────────────────────── [▼ Expand] ────┐│
-│ │                                                                          ││
-│ │  ┌─────────────────────────────────────────────────────────────────────┐ ││
-│ │  │ 📦 All Projects                                              [🗑️]   │ ││
-│ │  │ Permission Level                                                     │ ││
-│ │  │ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░  OWNER                     │ ││
-│ │  │ Child Entity Inheritance                                             │ ││
-│ │  │ [ None ] [ Cascade ] [ ●Mapped ]                                     │ ││
-│ │  │ ┌ Child Permissions (3 types) ─────────────────────────────────────┐ │ ││
-│ │  │ │  📋 Task      ▓▓▓▓▓▓▓▓░░░░  EDIT                                 │ │ ││
-│ │  │ │  📎 Artifact  ▓▓▓▓░░░░░░░░  VIEW                                 │ │ ││
-│ │  │ │  👤 Employee  ▓▓░░░░░░░░░░  COMMENT                              │ │ ││
-│ │  │ └──────────────────────────────────────────────────────────────────┘ │ ││
-│ │  └─────────────────────────────────────────────────────────────────────┘ ││
-│ │                                                                          ││
-│ │  ┌─────────────────────────────────────────────────────────────────────┐ ││
-│ │  │ 📄 Kitchen Renovation                              [Modified] [🗑️]   │ ││
-│ │  │ Permission Level                                                     │ ││
-│ │  │ ▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░  EDIT *                    │ ││
-│ │  │ Child Entity Inheritance                                             │ ││
-│ │  │ [ ●None ] [ Cascade ] [ Mapped ]                                     │ ││
-│ │  └─────────────────────────────────────────────────────────────────────┘ ││
-│ └──────────────────────────────────────────────────────────────────────────┘│
-│                                                                              │
-│ ┌─ ✅ Task (1 permission) ───────────────────────────────── [▶ Collapsed] ─┐│
-│ └──────────────────────────────────────────────────────────────────────────┘│
-│                                                                              │
-├─────────────────────────────────────────────────────────────────────────────┤
-│ Quick Reference:                                                             │
-│   Permission Bar: ▓▓▓▓▓▓░░░░ = EDIT                                         │
-│   Inheritance: ⬜ None (stops here)  🟣 Cascade (same to all)  🔵 Mapped     │
-│   Status: 🟠 Modified  🔴 Explicit DENY                                      │
+│ Select instances to grant permissions:                   [Cancel] [Add(2)]  │
+│ [🔍 Search instances...]                                                     │
+│ ┌─────────────────────────────────────────────────────────────────────────┐ │
+│ │ ☐ 🌐 All Projects           (type-level, first if not granted)         │ │
+│ │ ☑ 📄 Basement Renovation                                                │ │
+│ │ ☑ 📄 Deck Construction                                                  │ │
+│ │ ☐ 📄 Garage Addition                                                    │ │
+│ │ ☐ 📄 Kitchen Remodel                                                    │ │
+│ └─────────────────────────────────────────────────────────────────────────┘ │
+│ [ ] Select all visible (4)                                                   │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Props**:
-```typescript
-interface HierarchicalRbacMatrixProps {
-  roleId: string;       // Role UUID
-  roleName: string;     // Role display name
-  onRevoke?: (permissionId: string) => void;  // Revoke callback
-}
-```
-
-**API Endpoint**:
-```typescript
-GET /api/v1/entity_rbac/role/:roleId/hierarchical-permissions
-// Returns permissions grouped by entity type with child_entity_codes
-```
-
-### 8.5 PermissionCard Component (v2.2.0)
-
-**File**: `apps/web/src/components/rbac/PermissionCard.tsx`
-
-Card component for visualizing a single permission with mode selection.
-
-**Features**:
-- Visual permission bar with clickable segments
-- Mode selection buttons (None/Cascade/Mapped)
-- Expandable child permissions section (Mapped mode only)
-- Cascade mode shows summary of inherited children
-- Pending change tracking with amber highlighting
-
-**Props**:
-```typescript
-interface PermissionCardProps {
-  id: string;                                   // Permission UUID
-  entityInstanceId: string;                     // Target instance UUID
-  entityInstanceName: string | null;            // Display name
-  entityLabel: string;                          // Entity type label
-  permission: number;                           // Current level (0-7)
-  inheritanceMode: InheritanceMode;             // 'none' | 'cascade' | 'mapped'
-  childPermissions: Record<string, number>;     // Child type → level mapping
-  childEntityCodes: ChildEntityConfig[];        // Available child types
-  isDeny: boolean;                              // Explicit deny flag
-  isTypeLevel: boolean;                         // Type-level vs instance-level
-  hasPendingChange: boolean;                    // Permission level modified
-  hasModePendingChange: boolean;                // Mode modified
-  pendingPermission?: number;                   // Pending permission level
-  pendingMode?: InheritanceMode;                // Pending mode
-  pendingChildPermissions?: Record<string, number>; // Pending child changes
-  onPermissionChange: (level: number) => void;
-  onModeChange: (mode: InheritanceMode) => void;
-  onChildPermissionChange: (childCode: string, level: number) => void;
-  onRevoke: () => void;
-  disabled?: boolean;
-}
-```
-
-### 8.6 PermissionBar Component (v2.2.0)
-
-**File**: `apps/web/src/components/rbac/PermissionCard.tsx` (exported)
-
-Visual bar for displaying and editing permission levels.
-
-**Features**:
-- 8 clickable segments (VIEW through OWNER)
-- Color-coded by permission level
-- Amber highlighting for modified values
-- Compact mode for child permission sliders
-- Label display with asterisk for modifications
-
-**Props**:
-```typescript
-interface PermissionBarProps {
-  level: number;                    // Current permission level
-  onChange?: (level: number) => void; // Click handler
-  disabled?: boolean;               // Disable interaction
-  compact?: boolean;                // Smaller size for child rows
-  showLabel?: boolean;              // Show level label
-  pendingLevel?: number;            // Pending value (for amber highlight)
-}
-```
-
-**Click Behavior**:
-- Click unchecked segment → Set to that level
-- Click current level → Reduce by 1 (minimum 0)
-- Click lower segment → Set to that level
-
-### 8.7 RolePermissionsMatrix (v2.1.0) - Table-Based Visualization
-
-**File**: `apps/web/src/components/rbac/RolePermissionsMatrix.tsx`
-
-Interactive matrix table with 45° rotated column headers and inline editing.
-
-**Features**:
-- 45° rotated permission column headers (VIEW, COMMENT, CONTRIBUTE, EDIT, SHARE, DELETE, CREATE, OWNER)
-- Checkmark indicators for each permission level
-- Click to change permission level (batch edit mode)
-- Unsaved changes tracked with amber highlighting
-- Save Changes / Discard buttons appear when changes pending
-- Per-row Undo button
-- Revoke button per permission
-
-**Visual Layout**:
-```
-┌──────────┬──────────────────┬────────────────────────────────────┬─────────┐
-│ Entity   │ Target           │ V  C  Co Ed Sh De Cr Ow            │ Actions │
-│          │                  │ ╱  ╱  ╱  ╱  ╱  ╱  ╱  ╱  (rotated) │         │
-├──────────┼──────────────────┼────────────────────────────────────┼─────────┤
-│ 📁 Project│ All Projects    │ ✓  ✓  ✓  ✓  ✓  ✓  ✓  ·            │ 🗑️      │
-│          │ Kitchen Reno 🔄  │ ✓  ✓  ✓  ·  ·  ·  ·  ·            │ ↩️ 🗑️    │
-│ ✅ Task  │ All Tasks        │ ✓  ✓  ·  ·  ·  ·  ·  ·            │ 🗑️      │
-└──────────┴──────────────────┴────────────────────────────────────┴─────────┘
-                                🔄 = cascade inheritance indicator
-
-Legend:
-  ✓ Green = Granted (inherited)
-  ✓ Blue  = Current level
-  ✓ Amber = Modified (unsaved)
-  ✕ Red   = Explicit DENY
-```
-
-**Batch Save Flow**:
-1. Click checkmarks to modify permissions (tracked locally)
-2. Amber highlighting shows modified rows
-3. "Save Changes" button appears in header
-4. Click Save to persist all changes via batch API calls
-5. Click Discard or per-row Undo to revert
-
-**Props**:
-```typescript
-interface RolePermissionsMatrixProps {
-  roleId: string;
-  roleName: string;
-  permissions: Permission[];
-  isLoading?: boolean;
-  entityLabels?: Record<string, string>;
-  entityIcons?: Record<string, string>;
-  onRevoke?: (permissionId: string) => void;
-}
-```
-
-### 8.8 Effective Access Table
+### 8.3 Inheritance Configuration Panel
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  Effective Access for "CEO Role"                                 │
-├─────────────────────────────────────────────────────────────────┤
-│  Entity Type     Access Level   Source                          │
-├─────────────────────────────────────────────────────────────────┤
-│  Office          OWNER (7)      Direct                          │
-│  Business        DELETE (5)     ← Inherited from Office         │
-│  Project         EDIT (3)       ← Inherited from Office         │
-│  Task            EDIT (3)       ← Inherited from Project        │
-│  Wiki            ⛔ DENIED      Direct (Explicit Deny)          │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ⚙️ Inheritance: Kitchen Renovation                                      ✕   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Inheritance to Child Entities:                                               │
+│ ┌─────────────┐  ┌───────────────┐  ┌─────────────┐                         │
+│ │ ○   None    │  │ ↓  Cascade    │  │ ⑂  Mapped   │                         │
+│ └─────────────┘  └───────────────┘  └─────────────┘                         │
+│                                                                              │
+│ [If Cascade selected:]                                                       │
+│ ┌─────────────────────────────────────────────────────────────────────────┐ │
+│ │ ↓ All 3 child types inherit EDIT                                        │ │
+│ │ [Task] [Document] [Comment]                                             │ │
+│ └─────────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│ [If Mapped selected:]                                                        │
+│ ┌─────────────────────────────────────────────────────────────────────────┐ │
+│ │ ⑂ Child Entity Permissions (3 types)                                    │ │
+│ │ Target         Vi Co Cn Ed Sh De Cr Ow                                  │ │
+│ │ Task            ✓  ✓  ✓  ●                                              │ │
+│ │ Document        ✓  ●                                                    │ │
+│ │ Comment         ✓  ✓  ●                                                 │ │
+│ └─────────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 8.4 Permission Level Visual
+
+```
+Permission Levels (color-coded):
+  0 VIEW       = Slate   (read-only)
+  1 COMMENT    = Sky     (add comments)
+  2 CONTRIBUTE = Cyan    (insert data)
+  3 EDIT       = Blue    (modify)
+  4 SHARE      = Violet  (share access)
+  5 DELETE     = Orange  (soft delete)
+  6 CREATE     = Emerald (create new)
+  7 OWNER      = Red     (full control)
 ```
 
 ---
@@ -851,9 +639,9 @@ INSERT INTO app.entity_instance_link (
 
 | Document | Path | Purpose |
 |----------|------|---------|
+| RBAC Components | `docs/ui_components/RolePermissionsMatrix.md` | Component architecture |
 | Entity Infrastructure Service | `docs/services/entity-infrastructure.service.md` | Service API |
 | State Management | `docs/state_management/STATE_MANAGEMENT.md` | TanStack Query patterns |
-| Page Architecture | `docs/design_pattern/PAGE_LAYOUT_COMPONENT_ARCHITECTURE.md` | Universal page patterns |
 | DDL Schema | `db/entity_configuration_settings/06_entity_rbac.ddl` | Database schema |
 
 ---
@@ -862,7 +650,14 @@ INSERT INTO app.entity_instance_link (
 
 | Version | Date | Changes |
 |---------|------|---------|
-| v2.2.0 | 2025-12-10 | **Card-Based Visualization** - HierarchicalRbacMatrix with fold/unfold, PermissionCard, PermissionBar components |
-| v2.1.0 | 2025-12-09 | **RolePermissionsMatrix** - Interactive matrix table with 45° headers, inline editing, batch save |
-| v2.0.0 | 2025-12-09 | Role-Only Model with custom tab architecture, merged access_control.md and AccessControlPage.md |
-| v1.0.0 | 2025-10-01 | Initial release with employee/role dual model |
+| v2.3.6 | 2025-12-10 | **Consistent icon colors** - Icons always keep their permission color; only opacity changes for dim/highlight states |
+| v2.3.5 | 2025-12-10 | **Icon Refinement** - Increased inactive icon visibility (`opacity-50`), reduced icon size by 15% (h-4 w-4 normal, h-3.5 w-3.5 compact) |
+| v2.3.4 | 2025-12-10 | **Icon-only Matrix** - Removed header icons and checkboxes; icons show dim (inactive) vs highlighted with glow (active) |
+| v2.3.3 | 2025-12-10 | **Icon Headers** - Permission columns show Lucide icons with colored backgrounds and hover tooltips; removed "Target" label |
+| v2.3.2 | 2025-12-10 | **Unified Permissions Table** - Existing + pending in one view, fixed grant-permission endpoint URL, fixed JSONB child_permissions storage |
+| v2.3.1 | 2025-12-10 | "All [Entity]s" merged into instance picker dropdown |
+| v2.3.0 | 2025-12-09 | **Two-step grant flow** - Instance picker → Configure in table; removed card-based components |
+| v2.2.0 | 2025-12-08 | Permission Matrix UI with entity sections |
+| v2.1.0 | 2025-12-07 | 45° rotated headers, batch save |
+| v2.0.0 | 2025-12-06 | Role-Only RBAC Model with custom tab architecture |
+| v1.0.0 | 2025-10-01 | Initial release |

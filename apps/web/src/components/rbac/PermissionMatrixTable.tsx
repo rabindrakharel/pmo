@@ -61,27 +61,19 @@ export function PermissionMatrixTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
-        {/* Header with 45° rotated permission columns */}
+        {/* Minimal header - no permission icons, just spacing */}
         <thead>
           <tr>
-            <th className={`text-left font-medium text-dark-600 ${compact ? 'py-2 px-3' : 'py-3 px-4'}`}>
-              Target
+            <th className={`text-left font-medium text-dark-600 ${compact ? 'py-1 px-3' : 'py-2 px-4'}`}>
+              {/* Empty */}
             </th>
             {PERMISSION_LEVELS.map((perm) => (
               <th
                 key={perm.value}
-                className={`${compact ? 'w-8' : 'w-10'} relative`}
-                style={{ height: compact ? '60px' : '70px' }}
-              >
-                <div
-                  className="absolute bottom-1 left-1/2 origin-bottom-left whitespace-nowrap text-xs font-medium"
-                  style={{ transform: 'rotate(-45deg) translateX(-50%)' }}
-                >
-                  <span className={perm.textColor}>{perm.shortLabel || perm.label.slice(0, 2)}</span>
-                </div>
-              </th>
+                className={`${compact ? 'w-7' : 'w-9'} ${compact ? 'py-1' : 'py-2'}`}
+              />
             ))}
-            <th className={`text-center font-medium text-dark-600 ${compact ? 'py-2 px-2 w-16' : 'py-3 px-3 w-24'}`}>
+            <th className={`text-center font-medium text-dark-500 text-xs ${compact ? 'py-1 px-2 w-16' : 'py-2 px-3 w-20'}`}>
               Actions
             </th>
           </tr>
@@ -137,11 +129,12 @@ export function PermissionMatrixTable({
                   </div>
                 </td>
 
-                {/* Permission Level Checkboxes */}
+                {/* Permission Level Icons - dim/highlighted */}
                 {PERMISSION_LEVELS.map((perm) => {
                   const isActive = effectiveLevel >= perm.value;
                   const isCurrentLevel = effectiveLevel === perm.value;
                   const canClick = !disabled && !row.isDeny;
+                  const Icon = perm.icon;
 
                   return (
                     <td key={perm.value} className="text-center">
@@ -157,27 +150,35 @@ export function PermissionMatrixTable({
                         }}
                         disabled={!canClick}
                         className={`
-                          ${compact ? 'w-6 h-6' : 'w-7 h-7'} rounded-md flex items-center justify-center mx-auto
-                          transition-all
+                          ${compact ? 'p-1' : 'p-1.5'} rounded-md flex items-center justify-center mx-auto
+                          transition-all group relative
                           ${canClick ? 'cursor-pointer hover:scale-110' : 'cursor-default'}
-                          ${row.isDeny
-                            ? 'bg-red-100 text-red-500'
-                            : isActive
-                              ? isCurrentLevel
-                                ? isModified
-                                  ? 'bg-amber-500 text-white ring-2 ring-amber-300'
-                                  : `${perm.bgColor} text-white ring-2 ring-offset-1 ${perm.ringColor}`
-                                : `${perm.bgColor} text-white opacity-60`
-                              : 'bg-dark-100 text-dark-300 hover:bg-dark-200'
-                          }
                         `}
                         title={`${perm.label}: ${perm.description}`}
                       >
                         {row.isDeny ? (
-                          <LucideIcons.X className={compact ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
-                        ) : isActive ? (
-                          <LucideIcons.Check className={compact ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
-                        ) : null}
+                          <LucideIcons.Ban className={`${compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} text-red-400`} />
+                        ) : (
+                          <Icon
+                            className={`
+                              ${compact ? 'h-3.5 w-3.5' : 'h-4 w-4'}
+                              transition-all
+                              ${perm.textColor}
+                              ${isActive
+                                ? isCurrentLevel
+                                  ? isModified
+                                    ? 'drop-shadow-[0_0_6px_rgba(245,158,11,0.7)]'
+                                    : 'drop-shadow-[0_0_6px_currentColor]'
+                                  : 'opacity-80'
+                                : 'opacity-30'
+                              }
+                            `}
+                          />
+                        )}
+                        {/* Tooltip on hover */}
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-dark-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20 shadow-lg">
+                          {perm.label}
+                        </div>
                       </button>
                     </td>
                   );
@@ -240,17 +241,11 @@ export function PermissionMatrixTableSkeleton({ rows = 2, compact = false }: { r
       <table className="w-full text-sm">
         <thead>
           <tr>
-            <th className={`text-left ${compact ? 'py-2 px-3' : 'py-3 px-4'}`}>
-              <div className="h-4 w-20 bg-dark-200 rounded animate-pulse" />
-            </th>
+            <th className={`text-left ${compact ? 'py-1 px-3' : 'py-2 px-4'}`} />
             {[...Array(8)].map((_, i) => (
-              <th key={i} className={compact ? 'w-8' : 'w-10'} style={{ height: compact ? '60px' : '70px' }}>
-                <div className="h-3 w-6 bg-dark-200 rounded animate-pulse mx-auto" />
-              </th>
+              <th key={i} className={`${compact ? 'w-7' : 'w-9'} ${compact ? 'py-1' : 'py-2'}`} />
             ))}
-            <th className={compact ? 'w-16' : 'w-24'}>
-              <div className="h-4 w-12 bg-dark-200 rounded animate-pulse mx-auto" />
-            </th>
+            <th className={compact ? 'w-16' : 'w-20'} />
           </tr>
         </thead>
         <tbody>
@@ -261,11 +256,11 @@ export function PermissionMatrixTableSkeleton({ rows = 2, compact = false }: { r
               </td>
               {[...Array(8)].map((_, j) => (
                 <td key={j} className="text-center">
-                  <div className={`${compact ? 'w-6 h-6' : 'w-7 h-7'} bg-dark-200 rounded-md animate-pulse mx-auto`} />
+                  <div className={`${compact ? 'w-3.5 h-3.5' : 'w-4 h-4'} bg-dark-200 rounded animate-pulse mx-auto`} />
                 </td>
               ))}
               <td className="text-center">
-                <div className="h-6 w-12 bg-dark-200 rounded animate-pulse mx-auto" />
+                <div className="h-5 w-10 bg-dark-200 rounded animate-pulse mx-auto" />
               </td>
             </tr>
           ))}
