@@ -427,6 +427,7 @@ export function HierarchicalRbacMatrix({
             entityIcon={entity.entity_icon}
             childEntityCodes={entity.child_entity_codes}
             permissions={entity.permissions}
+            roleId={roleId}
             pendingPermissions={pendingPermissions}
             pendingModes={pendingModes}
             pendingChildPermissions={pendingChildPermissions}
@@ -435,6 +436,7 @@ export function HierarchicalRbacMatrix({
             onChildPermissionChange={handleChildPermissionChange}
             onRevoke={(id) => onRevoke?.(id)}
             onGrantPermission={handleGrantPermission}
+            onPermissionsGranted={() => queryClient.invalidateQueries({ queryKey: ['access-control', 'role', roleId, 'hierarchical-permissions'] })}
             disabled={batchUpdateMutation.isPending}
           />
         ))}

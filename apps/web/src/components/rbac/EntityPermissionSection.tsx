@@ -1,8 +1,10 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import * as LucideIcons from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { API_CONFIG } from '../../lib/config/api';
 import { PermissionMatrixTable } from './PermissionMatrixTable';
 import { InheritanceMode } from './InheritanceModeSelector';
-import { getPermissionLabel } from './PermissionLevelSelector';
+import { getPermissionLabel, PERMISSION_LEVELS } from './PermissionLevelSelector';
 
 const ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -23,12 +25,19 @@ interface PermissionData {
   is_deny: boolean;
 }
 
+interface EntityInstance {
+  id: string;
+  name: string;
+  code?: string;
+}
+
 interface EntityPermissionSectionProps {
   entityCode: string;
   entityLabel: string;
   entityIcon?: string;
   childEntityCodes: ChildEntityConfig[];
   permissions: PermissionData[];
+  roleId: string;
   // Pending changes tracking
   pendingPermissions: Record<string, number>;
   pendingModes: Record<string, InheritanceMode>;
@@ -39,6 +48,7 @@ interface EntityPermissionSectionProps {
   onChildPermissionChange: (permissionId: string, childCode: string, level: number) => void;
   onRevoke: (permissionId: string) => void;
   onGrantPermission: (entityCode: string, scope: 'all' | 'specific') => void;
+  onPermissionsGranted?: () => void;
   disabled?: boolean;
   defaultExpanded?: boolean;
 }
@@ -64,7 +74,7 @@ function getIcon(iconName?: string, className = 'h-4 w-4') {
  * - Inheritance mode selector (None/Cascade/Mapped)
  * - Child entity permissions matrix (when Mapped)
  * - Specific instance permissions with matrix
- * - Grant permission button
+ * - Inline instance picker for granting specific permissions
  */
 export function EntityPermissionSection({
   entityCode,
@@ -72,6 +82,7 @@ export function EntityPermissionSection({
   entityIcon,
   childEntityCodes,
   permissions,
+  roleId,
   pendingPermissions,
   pendingModes,
   pendingChildPermissions,
@@ -80,11 +91,79 @@ export function EntityPermissionSection({
   onChildPermissionChange,
   onRevoke,
   onGrantPermission,
+  onPermissionsGranted,
   disabled = false,
   defaultExpanded = true
 }: EntityPermissionSectionProps) {
+  const queryClient = useQueryClient();
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [specificExpanded, setSpecificExpanded] = useState(true);
+
+  // Instance picker state
+  const [showInstancePicker, setShowInstancePicker] = useState(false);
+  const [instanceSearch, setInstanceSearch] = useState('');
+  const [selectedInstances, setSelectedInstances] = useState<Set<string>>(new Set());
+  const [selectedPermissionLevel, setSelectedPermissionLevel] = useState(3); // Default to EDIT
+
+  // Fetch instances for this entity type
+  const { data: instancesData, isLoading: instancesLoading } = useQuery({
+    queryKey: ['entity-instances', entityCode],
+    queryFn: async () => {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/api/v1/${entityCode}?limit=500&active_flag=true`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!response.ok) throw new Error('Failed to fetch instances');
+      return response.json();
+    },
+    enabled: showInstancePicker
+  });
+
+  // Grant permissions mutation
+  const grantPermissionsMutation = useMutation({
+    mutationFn: async (instances: string[]) => {
+      const token = localStorage.getItem('auth_token');
+
+      // Grant permission to each selected instance
+      const results = await Promise.all(
+        instances.map(async (instanceId) => {
+          const response = await fetch(
+            `${API_CONFIG.BASE_URL}/api/v1/entity_rbac`,
+            {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                role_id: roleId,
+                entity_code: entityCode,
+                entity_instance_id: instanceId,
+                permission: selectedPermissionLevel,
+                inheritance_mode: 'none',
+                is_deny: false
+              })
+            }
+          );
+          if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.error || 'Failed to grant permission');
+          }
+          return response.json();
+        })
+      );
+
+      return results;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['access-control', 'role', roleId] });
+      setSelectedInstances(new Set());
+      setShowInstancePicker(false);
+      setInstanceSearch('');
+      onPermissionsGranted?.();
+    }
+  });
 
   // Separate type-level and instance-level permissions
   const typePermission = useMemo(() => {
@@ -94,6 +173,28 @@ export function EntityPermissionSection({
   const instancePermissions = useMemo(() => {
     return permissions.filter(p => p.entity_instance_id !== ALL_ENTITIES_ID);
   }, [permissions]);
+
+  // Get IDs of instances that already have permissions
+  const existingPermissionInstanceIds = useMemo(() => {
+    return new Set(instancePermissions.map(p => p.entity_instance_id));
+  }, [instancePermissions]);
+
+  // Filter instances based on search and exclude already permitted ones
+  const filteredInstances = useMemo(() => {
+    const instances = instancesData?.data || [];
+    return instances.filter((inst: EntityInstance) => {
+      // Exclude instances that already have permissions
+      if (existingPermissionInstanceIds.has(inst.id)) return false;
+
+      // Filter by search
+      if (!instanceSearch.trim()) return true;
+      const query = instanceSearch.toLowerCase();
+      return (
+        inst.name?.toLowerCase().includes(query) ||
+        inst.code?.toLowerCase().includes(query)
+      );
+    });
+  }, [instancesData, instanceSearch, existingPermissionInstanceIds]);
 
   // Get effective values (pending or original)
   const getEffectiveMode = useCallback((permId: string, original: InheritanceMode): InheritanceMode => {
@@ -185,6 +286,47 @@ export function EntityPermissionSection({
     }
     return changes;
   }, [typePermission, pendingChildPermissions, pendingPermissions]);
+
+  // Toggle instance selection
+  const toggleInstance = useCallback((instanceId: string) => {
+    setSelectedInstances(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(instanceId)) {
+        newSet.delete(instanceId);
+      } else {
+        newSet.add(instanceId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // Select/deselect all visible instances
+  const toggleAllVisible = useCallback(() => {
+    const visibleIds = filteredInstances.map((i: EntityInstance) => i.id);
+    const allSelected = visibleIds.every((id: string) => selectedInstances.has(id));
+
+    if (allSelected) {
+      // Deselect all visible
+      setSelectedInstances(prev => {
+        const newSet = new Set(prev);
+        visibleIds.forEach((id: string) => newSet.delete(id));
+        return newSet;
+      });
+    } else {
+      // Select all visible
+      setSelectedInstances(prev => {
+        const newSet = new Set(prev);
+        visibleIds.forEach((id: string) => newSet.add(id));
+        return newSet;
+      });
+    }
+  }, [filteredInstances, selectedInstances]);
+
+  // Handle grant permissions
+  const handleGrantPermissions = useCallback(() => {
+    if (selectedInstances.size === 0) return;
+    grantPermissionsMutation.mutate(Array.from(selectedInstances));
+  }, [selectedInstances, grantPermissionsMutation]);
 
   const totalPermissions = permissions.length;
 
@@ -404,15 +546,202 @@ export function EntityPermissionSection({
             </div>
           )}
 
-          {/* Grant Permission Button */}
-          <button
-            type="button"
-            onClick={() => onGrantPermission(entityCode, 'specific')}
-            className="w-full px-4 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-800 bg-white hover:bg-slate-50 border border-dashed border-slate-300 hover:border-slate-400 rounded-lg transition-all flex items-center justify-center gap-2"
-          >
-            <LucideIcons.Plus className="h-4 w-4" />
-            Grant Permission to {entityLabel}
-          </button>
+          {/* INLINE INSTANCE PICKER */}
+          {showInstancePicker ? (
+            <div className="bg-white rounded-lg border border-blue-300 overflow-hidden shadow-sm">
+              {/* Picker Header */}
+              <div className="px-4 py-3 bg-blue-50 border-b border-blue-200 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <LucideIcons.ListChecks className="h-4 w-4 text-blue-600" />
+                  <span className="text-sm font-semibold text-blue-700">
+                    Select {entityLabel}s to Grant Permission
+                  </span>
+                  {selectedInstances.size > 0 && (
+                    <span className="px-2 py-0.5 text-xs font-medium bg-blue-600 text-white rounded-full">
+                      {selectedInstances.size} selected
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowInstancePicker(false);
+                    setSelectedInstances(new Set());
+                    setInstanceSearch('');
+                  }}
+                  className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-100 rounded-lg transition-colors"
+                >
+                  <LucideIcons.X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Permission Level Selector */}
+              <div className="px-4 py-3 border-b border-dark-100 bg-dark-50/50">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-medium text-dark-600">Permission Level:</span>
+                  <div className="flex gap-1">
+                    {PERMISSION_LEVELS.map((level) => (
+                      <button
+                        key={level.value}
+                        type="button"
+                        onClick={() => setSelectedPermissionLevel(level.value)}
+                        className={`
+                          px-2 py-1 text-xs font-medium rounded transition-all
+                          ${selectedPermissionLevel === level.value
+                            ? `${level.bgColor} text-white`
+                            : 'bg-dark-100 text-dark-600 hover:bg-dark-200'
+                          }
+                        `}
+                        title={level.description}
+                      >
+                        {level.shortLabel}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="text-xs text-dark-500">
+                    ({getPermissionLabel(selectedPermissionLevel)})
+                  </span>
+                </div>
+              </div>
+
+              {/* Search */}
+              <div className="p-3 border-b border-dark-100">
+                <div className="relative">
+                  <LucideIcons.Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-dark-400" />
+                  <input
+                    type="text"
+                    placeholder={`Search ${entityLabel.toLowerCase()}s...`}
+                    value={instanceSearch}
+                    onChange={(e) => setInstanceSearch(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 text-sm border border-dark-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              {/* Instance List */}
+              <div className="max-h-64 overflow-y-auto">
+                {instancesLoading ? (
+                  <div className="p-8 text-center">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto" />
+                    <p className="text-sm text-dark-500 mt-2">Loading {entityLabel.toLowerCase()}s...</p>
+                  </div>
+                ) : filteredInstances.length === 0 ? (
+                  <div className="p-8 text-center text-dark-500">
+                    <LucideIcons.SearchX className="h-8 w-8 mx-auto text-dark-300 mb-2" />
+                    <p className="text-sm">
+                      {instanceSearch ? `No ${entityLabel.toLowerCase()}s match your search` : `No ${entityLabel.toLowerCase()}s available`}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Select All Header */}
+                    <div className="px-4 py-2 bg-dark-50 border-b border-dark-100 sticky top-0">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={filteredInstances.length > 0 && filteredInstances.every((i: EntityInstance) => selectedInstances.has(i.id))}
+                          onChange={toggleAllVisible}
+                          className="w-4 h-4 text-blue-600 rounded border-dark-300 focus:ring-blue-500"
+                        />
+                        <span className="text-xs font-medium text-dark-600">
+                          Select all ({filteredInstances.length})
+                        </span>
+                      </label>
+                    </div>
+
+                    {/* Instance Items */}
+                    <div className="divide-y divide-dark-100">
+                      {filteredInstances.map((instance: EntityInstance) => (
+                        <label
+                          key={instance.id}
+                          className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${
+                            selectedInstances.has(instance.id) ? 'bg-blue-50' : 'hover:bg-dark-50'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedInstances.has(instance.id)}
+                            onChange={() => toggleInstance(instance.id)}
+                            className="w-4 h-4 text-blue-600 rounded border-dark-300 focus:ring-blue-500"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-dark-800 truncate">
+                              {instance.name}
+                            </div>
+                            {instance.code && (
+                              <div className="text-xs text-dark-500 truncate">
+                                {instance.code}
+                              </div>
+                            )}
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Footer Actions */}
+              <div className="px-4 py-3 bg-dark-50 border-t border-dark-200 flex items-center justify-between">
+                <span className="text-xs text-dark-500">
+                  {selectedInstances.size > 0
+                    ? `${selectedInstances.size} ${entityLabel.toLowerCase()}${selectedInstances.size !== 1 ? 's' : ''} selected`
+                    : 'Select instances to grant permission'
+                  }
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowInstancePicker(false);
+                      setSelectedInstances(new Set());
+                      setInstanceSearch('');
+                    }}
+                    className="px-3 py-1.5 text-sm font-medium text-dark-600 hover:text-dark-800 hover:bg-dark-100 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleGrantPermissions}
+                    disabled={selectedInstances.size === 0 || grantPermissionsMutation.isPending}
+                    className="px-4 py-1.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {grantPermissionsMutation.isPending ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                        Granting...
+                      </>
+                    ) : (
+                      <>
+                        <LucideIcons.Shield className="h-4 w-4" />
+                        Grant {getPermissionLabel(selectedPermissionLevel)}
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Error Message */}
+              {grantPermissionsMutation.isError && (
+                <div className="px-4 py-2 bg-red-50 border-t border-red-200 text-sm text-red-700 flex items-center gap-2">
+                  <LucideIcons.AlertCircle className="h-4 w-4" />
+                  {(grantPermissionsMutation.error as Error).message}
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Grant Permission Button */
+            <button
+              type="button"
+              onClick={() => setShowInstancePicker(true)}
+              className="w-full px-4 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-800 bg-white hover:bg-slate-50 border border-dashed border-slate-300 hover:border-slate-400 rounded-lg transition-all flex items-center justify-center gap-2"
+            >
+              <LucideIcons.Plus className="h-4 w-4" />
+              Grant Permission to {entityLabel}
+            </button>
+          )}
         </div>
       )}
     </div>
