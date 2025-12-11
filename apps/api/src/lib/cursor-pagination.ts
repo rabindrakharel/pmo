@@ -294,10 +294,15 @@ export function buildCursorResponse<T extends { id: string; [key: string]: any }
 /**
  * Default cursor pagination configuration
  */
-export const CURSOR_PAGINATION_DEFAULTS = {
+export const CURSOR_PAGINATION_DEFAULTS: {
+  limit: number;
+  sortField: string;
+  sortOrder: 'asc' | 'desc';
+  includeTotal: boolean;
+} = {
   limit: 20,
   sortField: 'created_ts',
-  sortOrder: 'desc' as const,
+  sortOrder: 'desc',
   includeTotal: false
 };
 
