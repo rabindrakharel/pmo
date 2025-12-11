@@ -1064,15 +1064,37 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         ORDER BY er.entity_code, er.permission DESC
       `);
 
-      // Build entity type map
+      // Build entity lookup for child entity details
+      const entityLookup = new Map<string, { ui_label: string; ui_icon: string | null }>();
+      for (const et of entityTypesResult) {
+        const entityType = et as any;
+        entityLookup.set(entityType.code, {
+          ui_label: entityType.ui_label || entityType.name,
+          ui_icon: entityType.ui_icon || null,
+        });
+      }
+
+      // Build entity type map with transformed child_entity_codes
       const entityTypeMap = new Map<string, any>();
       for (const et of entityTypesResult) {
         const entityType = et as any;
+        // Transform child_entity_codes from strings to objects
+        const childCodes: string[] = entityType.child_entity_codes || [];
+        const transformedChildCodes = childCodes.map((code: string, index: number) => {
+          const childDetails = entityLookup.get(code);
+          return {
+            entity: code,
+            ui_label: childDetails?.ui_label || code,
+            ui_icon: childDetails?.ui_icon || null,
+            order: index,
+          };
+        });
+
         entityTypeMap.set(entityType.code, {
           entity_code: entityType.code,
           entity_label: entityType.ui_label || entityType.name,
           entity_icon: entityType.ui_icon,
-          child_entity_codes: entityType.child_entity_codes || [],
+          child_entity_codes: transformedChildCodes,
           permissions: [],
         });
       }

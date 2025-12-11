@@ -3,14 +3,18 @@ import * as LucideIcons from 'lucide-react';
 
 /**
  * Permission Level Configuration
- * Role-Only RBAC Model v2.0.0
+ * Role-Only RBAC Model v2.3.0
  */
 export const PERMISSION_LEVELS = [
   {
     value: 0,
     label: 'VIEW',
+    shortLabel: 'Vi',
     description: 'Read-only access',
     color: 'bg-slate-500',
+    bgColor: 'bg-slate-500',
+    textColor: 'text-slate-600',
+    ringColor: 'ring-slate-300',
     selectedClass: 'bg-slate-500 text-white',
     defaultClass: 'bg-slate-100 text-slate-600 hover:bg-slate-200',
     icon: LucideIcons.Eye
@@ -18,8 +22,12 @@ export const PERMISSION_LEVELS = [
   {
     value: 1,
     label: 'COMMENT',
+    shortLabel: 'Co',
     description: 'Add comments (+ View)',
     color: 'bg-sky-500',
+    bgColor: 'bg-sky-500',
+    textColor: 'text-sky-600',
+    ringColor: 'ring-sky-300',
     selectedClass: 'bg-sky-500 text-white',
     defaultClass: 'bg-sky-100 text-sky-600 hover:bg-sky-200',
     icon: LucideIcons.MessageSquare
@@ -27,8 +35,12 @@ export const PERMISSION_LEVELS = [
   {
     value: 2,
     label: 'CONTRIBUTE',
+    shortLabel: 'Cn',
     description: 'Add content (+ Comment)',
     color: 'bg-cyan-500',
+    bgColor: 'bg-cyan-500',
+    textColor: 'text-cyan-600',
+    ringColor: 'ring-cyan-300',
     selectedClass: 'bg-cyan-500 text-white',
     defaultClass: 'bg-cyan-100 text-cyan-600 hover:bg-cyan-200',
     icon: LucideIcons.PlusCircle
@@ -36,8 +48,12 @@ export const PERMISSION_LEVELS = [
   {
     value: 3,
     label: 'EDIT',
+    shortLabel: 'Ed',
     description: 'Modify data (+ Contribute)',
     color: 'bg-blue-500',
+    bgColor: 'bg-blue-500',
+    textColor: 'text-blue-600',
+    ringColor: 'ring-blue-300',
     selectedClass: 'bg-blue-500 text-white',
     defaultClass: 'bg-blue-100 text-blue-600 hover:bg-blue-200',
     icon: LucideIcons.Pencil
@@ -45,8 +61,12 @@ export const PERMISSION_LEVELS = [
   {
     value: 4,
     label: 'SHARE',
+    shortLabel: 'Sh',
     description: 'Share with others (+ Edit)',
     color: 'bg-violet-500',
+    bgColor: 'bg-violet-500',
+    textColor: 'text-violet-600',
+    ringColor: 'ring-violet-300',
     selectedClass: 'bg-violet-500 text-white',
     defaultClass: 'bg-violet-100 text-violet-600 hover:bg-violet-200',
     icon: LucideIcons.Share2
@@ -54,8 +74,12 @@ export const PERMISSION_LEVELS = [
   {
     value: 5,
     label: 'DELETE',
+    shortLabel: 'De',
     description: 'Soft delete (+ Share)',
     color: 'bg-orange-500',
+    bgColor: 'bg-orange-500',
+    textColor: 'text-orange-600',
+    ringColor: 'ring-orange-300',
     selectedClass: 'bg-orange-500 text-white',
     defaultClass: 'bg-orange-100 text-orange-600 hover:bg-orange-200',
     icon: LucideIcons.Trash2
@@ -63,8 +87,12 @@ export const PERMISSION_LEVELS = [
   {
     value: 6,
     label: 'CREATE',
+    shortLabel: 'Cr',
     description: 'Create new (type-level)',
     color: 'bg-emerald-500',
+    bgColor: 'bg-emerald-500',
+    textColor: 'text-emerald-600',
+    ringColor: 'ring-emerald-300',
     selectedClass: 'bg-emerald-500 text-white',
     defaultClass: 'bg-emerald-100 text-emerald-600 hover:bg-emerald-200',
     icon: LucideIcons.Plus
@@ -72,8 +100,12 @@ export const PERMISSION_LEVELS = [
   {
     value: 7,
     label: 'OWNER',
+    shortLabel: 'Ow',
     description: 'Full control',
     color: 'bg-red-500',
+    bgColor: 'bg-red-500',
+    textColor: 'text-red-600',
+    ringColor: 'ring-red-300',
     selectedClass: 'bg-red-500 text-white',
     defaultClass: 'bg-red-100 text-red-600 hover:bg-red-200',
     icon: LucideIcons.Crown
