@@ -60,6 +60,46 @@ import { BadgeDropdownSelect } from './BadgeDropdownSelect';
 import { Chip } from './Chip';
 
 // ============================================================================
+// v14.1.0: DENSITY CONTROL SYSTEM - Modern minimal table design
+// ============================================================================
+// Three density levels for different use cases:
+// - compact: Power users, data comparison, maximizes visible rows
+// - regular: Default everyday use, balanced readability
+// - relaxed: Accessibility, sparse data, touch-friendly
+// ============================================================================
+export type TableDensity = 'compact' | 'regular' | 'relaxed';
+
+const DENSITY_CONFIG = {
+  compact: {
+    rowHeight: 32,
+    cellPadding: 'px-3 py-1',
+    headerPadding: 'px-3 py-1.5',
+    fontSize: 'text-xs',
+    badgeSize: 'px-1.5 py-px text-[10px]',
+    iconSize: 'h-3 w-3',
+    actionIconSize: 'h-3.5 w-3.5',
+  },
+  regular: {
+    rowHeight: 36,
+    cellPadding: 'px-3 py-1.5',
+    headerPadding: 'px-3 py-2',
+    fontSize: 'text-[13px]',
+    badgeSize: 'px-2 py-0.5 text-[11px]',
+    iconSize: 'h-3.5 w-3.5',
+    actionIconSize: 'h-3.5 w-3.5',
+  },
+  relaxed: {
+    rowHeight: 44,
+    cellPadding: 'px-4 py-2',
+    headerPadding: 'px-4 py-2.5',
+    fontSize: 'text-sm',
+    badgeSize: 'px-2.5 py-0.5 text-xs',
+    iconSize: 'h-4 w-4',
+    actionIconSize: 'h-4 w-4',
+  },
+} as const;
+
+// ============================================================================
 // METADATA-DRIVEN RENDERING (Pure Backend-Driven)
 // ============================================================================
 // v8.2.0: Metadata is REQUIRED from backend - no fallback generation
