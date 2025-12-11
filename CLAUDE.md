@@ -11,7 +11,7 @@
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4
 - **State Management**: TanStack Query + Dexie (offline-first IndexedDB) - server state + persistence
 - **Infrastructure**: AWS EC2/S3/Lambda, Terraform, Docker
-- **Version**: 9.6.0 (Role-Only RBAC v2.1.0 + Permission Matrix + Dexie v4 Schema)
+- **Version**: 10.1.0 (Role-Only RBAC v2.1.0 + Permission Matrix + DB-Driven List Config + Dexie v4 Schema)
 
 ## Critical Operations
 
@@ -36,11 +36,14 @@
 ### 4 Infrastructure Tables
 
 ```sql
-entity                   -- Entity type metadata (icons, labels, child_entity_codes) - HAS active_flag
+entity                   -- Entity type metadata (icons, labels, child_entity_codes, config_datatable) - HAS active_flag
 entity_instance          -- Instance registry (entity_instance_name, code cache) - HARD DELETE, NO active_flag
 entity_instance_link     -- Parent-child relationships - HARD DELETE, NO active_flag
 entity_rbac              -- Permissions (0-7: VIEW, COMMENT, CONTRIBUTE, EDIT, SHARE, DELETE, CREATE, OWNER) - HARD DELETE, NO active_flag
 ```
+
+**Entity Table Key Columns (v10.1.0)**:
+- `config_datatable` JSONB: List view settings `{defaultSort, defaultSortOrder, itemsPerPage}` - DB-driven, cached in-memory
 
 **Delete Semantics**:
 - `entity` (type metadata): Soft delete with `active_flag`
@@ -702,17 +705,26 @@ renderEditModeFromMetadata(50000, fieldMeta, onChange)
 
 ```typescript
 // apps/web/src/lib/entityConfig.ts
+// NOTE: listView config (defaultSort, defaultSortOrder, itemsPerPage) now in app.entity.config_datatable (DB-driven v10.1.0)
 export const entityConfig: Record<string, EntityConfigEntry> = {
   project: {
     label: 'Project',
     labelPlural: 'Projects',
     icon: 'folder',
     columns: ['name', 'code', 'dl__project_stage', 'budget_allocated_amt'],
-    defaultSort: { field: 'created_ts', order: 'desc' },
-    searchFields: ['name', 'code', 'descr'],
+    // listView config now in app.entity.config_datatable (DB-driven)
   },
   // ... other entities
 };
+```
+
+**List View Configuration (v10.1.0)**: Stored in `app.entity.config_datatable` JSONB column:
+```json
+{
+  "defaultSort": "updated_ts",
+  "defaultSortOrder": "desc",
+  "itemsPerPage": 25
+}
 ```
 
 ---
@@ -881,9 +893,17 @@ Comprehensive page and component architecture documentation. Used by LLMs when i
 
 ---
 
-**Version**: 9.6.0 | **Updated**: 2025-12-09 | **Pattern**: TanStack Query + Dexie v4 (Offline-First) + Redis Field Cache + Role-Only RBAC v2.1.0
+**Version**: 10.1.0 | **Updated**: 2025-12-11 | **Pattern**: TanStack Query + Dexie v4 (Offline-First) + Redis Field Cache + Role-Only RBAC v2.1.0
 
 **Recent Updates**:
+- v10.1.0 (2025-12-11): **DB-Driven List View Configuration**
+  - Added `config_datatable` JSONB column to `app.entity` table
+  - Stores `{defaultSort, defaultSortOrder, itemsPerPage}` per entity type
+  - Removed hardcoded `listView` from `entityConfig.ts` (now deprecated)
+  - API reads config via `getEntityDatatableConfig()` with in-memory caching
+  - Priority chain: query param > route config > DB config > default
+  - Default: `{defaultSort: 'updated_ts', defaultSortOrder: 'desc', itemsPerPage: 25}`
+  - See: `docs/caching-backend/ENTITY_METADATA_CACHING.md` for full architecture
 - v9.6.0 (2025-12-09): **Permission Matrix Component (RBAC v2.1.0)**
   - New `RolePermissionsMatrix` component for inline permission editing
   - 45° rotated column headers for 8 permission levels

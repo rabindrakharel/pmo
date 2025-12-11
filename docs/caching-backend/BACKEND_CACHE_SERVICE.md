@@ -224,19 +224,59 @@ v{schemaVersion}:{domain}:{...path}
 │  ║                                                                        ║  │
 │  ╚═══════════════════════════════════════════════════════════════════════╝  │
 │                                                                              │
+│  ╔═══════════════════════════════════════════════════════════════════════╗  │
+│  ║  DOMAIN: ENTITY_CONFIG_DATATABLE (v10.1.0 - In-Memory Cache)          ║  │
+│  ╠═══════════════════════════════════════════════════════════════════════╣  │
+│  ║                                                                        ║  │
+│  ║  Storage: In-Memory Map (NOT Redis)                                   ║  │
+│  ║  Location: apps/api/src/lib/universal-entity-crud-factory.ts          ║  │
+│  ║                                                                        ║  │
+│  ║  Cache Structure:                                                      ║  │
+│  ║  Map<entityCode, EntityDatatableConfig>                               ║  │
+│  ║                                                                        ║  │
+│  ║  EntityDatatableConfig:                                                ║  │
+│  ║  {                                                                     ║  │
+│  ║    defaultSort: string;        // e.g., "updated_ts"                  ║  │
+│  ║    defaultSortOrder: 'asc'|'desc';  // e.g., "desc"                   ║  │
+│  ║    itemsPerPage: number;       // e.g., 25                            ║  │
+│  ║  }                                                                     ║  │
+│  ║                                                                        ║  │
+│  ║  Source: app.entity.config_datatable (JSONB column)                   ║  │
+│  ║  Used by: createEntityListEndpoint() for ORDER BY + LIMIT defaults   ║  │
+│  ║                                                                        ║  │
+│  ║  Functions:                                                            ║  │
+│  ║  ───────────                                                           ║  │
+│  ║  getEntityDatatableConfig(entityCode, db)  → Fetch/cache config      ║  │
+│  ║  clearEntityConfigCache()                  → Clear all cached configs ║  │
+│  ║                                                                        ║  │
+│  ║  Cache Behavior:                                                       ║  │
+│  ║  • First request: Query DB, validate, cache result                    ║  │
+│  ║  • Subsequent: Return from Map immediately                            ║  │
+│  ║  • TTL: Infinite (process lifetime) - cleared on server restart      ║  │
+│  ║  • Invalidation: Call clearEntityConfigCache() after config changes  ║  │
+│  ║                                                                        ║  │
+│  ║  Priority Chain (for list endpoints):                                 ║  │
+│  ║  query param > route config > DB config > DEFAULT_DATATABLE_CONFIG   ║  │
+│  ║                                                                        ║  │
+│  ║  Default Fallback:                                                     ║  │
+│  ║  { defaultSort: 'updated_ts', defaultSortOrder: 'desc', itemsPerPage: 25 }║
+│  ║                                                                        ║  │
+│  ╚═══════════════════════════════════════════════════════════════════════╝  │
+│                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 2.3 TTL Standards
 
-| Domain | Default TTL | Rationale |
-|--------|-------------|-----------|
-| `entity_rbac` | 5 min (300s) | Balance freshness with performance |
-| `datalabel` | 30 min (1800s) | Rarely changes, frequently accessed |
-| `entity_metadata` | 24 hours (86400s) | Schema changes are rare |
-| `entity` | 5 min (300s) | Data changes frequently |
-| `entity_instance` | 10 min (600s) | Names change less often than data |
-| `entity_code` | 1 hour (3600s) | Entity types rarely added/modified |
+| Domain | Default TTL | Storage | Rationale |
+|--------|-------------|---------|-----------|
+| `entity_rbac` | 5 min (300s) | Redis | Balance freshness with performance |
+| `datalabel` | 30 min (1800s) | Redis | Rarely changes, frequently accessed |
+| `entity_metadata` | 24 hours (86400s) | Redis | Schema changes are rare |
+| `entity` | 5 min (300s) | Redis | Data changes frequently |
+| `entity_instance` | 10 min (600s) | Redis | Names change less often than data |
+| `entity_code` | 1 hour (3600s) | Redis | Entity types rarely added/modified |
+| `entity_config_datatable` | ∞ (process) | In-Memory Map | List view config rarely changes; cleared on restart |
 
 ### 2.4 Tag Structure for Bulk Invalidation
 

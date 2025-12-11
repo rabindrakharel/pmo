@@ -13,6 +13,7 @@ EntityListOfInstancesPage is a universal listing page that renders the main list
 - Config-driven view switching
 - Two-query architecture (metadata → data)
 - Format-at-read pattern for display values
+- **v10.1.0:** Default sort/pagination from `app.entity.config_datatable` (DB-driven)
 
 ---
 

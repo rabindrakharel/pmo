@@ -2,7 +2,7 @@
  * ============================================================================
  * UNIVERSAL ENTITY CRUD FACTORY - Consolidated REST API Generation
  * ============================================================================
- * Version: 3.0.0
+ * Version: 3.1.0 (v10.1.0)
  *
  * PURPOSE:
  * Single source of truth for all entity CRUD endpoint generation.
@@ -13,6 +13,7 @@
  * - Hook system: Customize behavior without modification (Open-Closed Principle)
  * - Composable: Use individual factories or combined createUniversalEntityRoutes
  * - Type-safe: Full TypeScript support with generics
+ * - DB-driven: Reads config_datatable from app.entity for sort/pagination defaults (v10.1.0)
  *
  * FEATURES:
  * - RBAC filtering via Entity Infrastructure Service
@@ -24,6 +25,7 @@
  * - Registry sync on updates
  * - Transactional DELETE with infrastructure cleanup
  * - Configurable soft/hard delete per entity
+ * - DB-driven list view config (defaultSort, defaultSortOrder, itemsPerPage) from app.entity.config_datatable
  *
  * USAGE:
  * ```typescript
@@ -86,6 +88,86 @@ import {
   shouldUseCursorPagination,
   type CursorPaginationResult
 } from './cursor-pagination.js';
+
+// ============================================================================
+// ENTITY CONFIG FROM DATABASE (v10.1.0)
+// ============================================================================
+
+/**
+ * DataTable configuration from app.entity.config_datatable
+ */
+export interface EntityDatatableConfig {
+  defaultSort: string;
+  defaultSortOrder: 'asc' | 'desc';
+  itemsPerPage: number;
+}
+
+// In-memory cache for entity datatable config (avoids repeated DB queries)
+const entityConfigCache = new Map<string, EntityDatatableConfig>();
+
+// Default config if entity not found or config_datatable is null
+const DEFAULT_DATATABLE_CONFIG: EntityDatatableConfig = {
+  defaultSort: 'updated_ts',
+  defaultSortOrder: 'desc',
+  itemsPerPage: 25
+};
+
+/**
+ * Fetch entity datatable configuration from app.entity.config_datatable
+ * Caches result in memory to avoid repeated database queries.
+ *
+ * @param entityCode - Entity type code (e.g., 'project', 'task')
+ * @param dbClient - Database client
+ * @returns EntityDatatableConfig with defaultSort, defaultSortOrder, itemsPerPage
+ */
+export async function getEntityDatatableConfig(
+  entityCode: string,
+  dbClient: typeof db
+): Promise<EntityDatatableConfig> {
+  // Check cache first
+  if (entityConfigCache.has(entityCode)) {
+    return entityConfigCache.get(entityCode)!;
+  }
+
+  try {
+    const result = await dbClient.execute(sql`
+      SELECT config_datatable
+      FROM app.entity
+      WHERE code = ${entityCode}
+        AND active_flag = true
+      LIMIT 1
+    `);
+
+    if (result.length > 0 && result[0].config_datatable) {
+      const config = result[0].config_datatable as EntityDatatableConfig;
+      // Validate and merge with defaults
+      const validatedConfig: EntityDatatableConfig = {
+        defaultSort: config.defaultSort || DEFAULT_DATATABLE_CONFIG.defaultSort,
+        defaultSortOrder: (config.defaultSortOrder === 'asc' || config.defaultSortOrder === 'desc')
+          ? config.defaultSortOrder
+          : DEFAULT_DATATABLE_CONFIG.defaultSortOrder,
+        itemsPerPage: typeof config.itemsPerPage === 'number' && config.itemsPerPage > 0
+          ? config.itemsPerPage
+          : DEFAULT_DATATABLE_CONFIG.itemsPerPage
+      };
+      entityConfigCache.set(entityCode, validatedConfig);
+      return validatedConfig;
+    }
+  } catch (error) {
+    console.warn(`Failed to fetch config_datatable for ${entityCode}:`, error);
+  }
+
+  // Cache and return default config
+  entityConfigCache.set(entityCode, DEFAULT_DATATABLE_CONFIG);
+  return DEFAULT_DATATABLE_CONFIG;
+}
+
+/**
+ * Clear the entity config cache (useful for testing or after config updates)
+ */
+export function clearEntityConfigCache(): void {
+  entityConfigCache.clear();
+}
 
 // ============================================================================
 // ENTITY-TO-TABLE MAPPING
@@ -419,7 +501,7 @@ export function createEntityListEndpoint(
     defaultLimit,
     hooks = {},
     filterOverrides = {},
-    defaultOrderBy = 'created_ts DESC'
+    defaultOrderBy  // Now optional - falls back to DB config
   } = config;
 
   const TABLE_NAME = getTableName(entityCode, tableName);
@@ -476,8 +558,6 @@ export function createEntityListEndpoint(
     },
   }, async (request, reply) => {
     const query = request.query as Record<string, any>;
-    const limit = query.limit ?? defaultLimit ?? getEntityLimit(ENTITY_CODE);
-    const offset = query.page ? (query.page - 1) * limit : (query.offset ?? 0);
     const { parent_entity_code, parent_entity_instance_id, view, content } = query;
 
     const userId = (request as any).user?.sub;
@@ -488,6 +568,26 @@ export function createEntityListEndpoint(
     const metadataOnly = content === 'metadata';
 
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // v10.1.0: FETCH DB-DRIVEN CONFIGURATION
+      // Read from app.entity.config_datatable (cached after first fetch)
+      // ═══════════════════════════════════════════════════════════════
+      const dbConfig = await getEntityDatatableConfig(ENTITY_CODE, db);
+
+      // Priority: query param > route config > DB config > legacy pagination
+      const effectiveLimit = query.limit ?? defaultLimit ?? dbConfig.itemsPerPage ?? getEntityLimit(ENTITY_CODE);
+      const limit = effectiveLimit;
+      const offset = query.page ? (query.page - 1) * limit : (query.offset ?? 0);
+
+      // Build ORDER BY: route config > DB config > default
+      // Note: if no direction specified, defaults to DESC for consistency
+      let effectiveOrderBy = defaultOrderBy
+        ?? `${dbConfig.defaultSort} ${dbConfig.defaultSortOrder.toUpperCase()}`;
+
+      // Normalize: ensure ORDER BY always has direction (default to DESC if missing)
+      if (!effectiveOrderBy.toLowerCase().includes('asc') && !effectiveOrderBy.toLowerCase().includes('desc')) {
+        effectiveOrderBy = `${effectiveOrderBy} DESC`;
+      }
       // ═══════════════════════════════════════════════════════════════
       // BUILD QUERY COMPONENTS
       // ═══════════════════════════════════════════════════════════════
@@ -604,9 +704,9 @@ export function createEntityListEndpoint(
         // CURSOR PAGINATION: O(1) performance at any depth
         // ═══════════════════════════════════════════════════════════
         const cursorParams = getCursorPaginationParams(query, {
-          limit: defaultLimit ?? 20,
-          sortField: defaultOrderBy.split(' ')[0] || 'created_ts',
-          sortOrder: (defaultOrderBy.toLowerCase().includes('asc') ? 'asc' : 'desc') as 'asc' | 'desc'
+          limit: effectiveLimit ?? 20,
+          sortField: effectiveOrderBy.split(' ')[0] || dbConfig.defaultSort,
+          sortOrder: effectiveOrderBy.toLowerCase().includes('asc') ? 'asc' : 'desc'
         });
 
         const cursor = decodeCursor(cursorParams.cursor);
@@ -715,12 +815,13 @@ export function createEntityListEndpoint(
 
         // Data query
         // v9.5.0: Use selectClause to conditionally include entity_instance_link_id
+        // v10.1.0: Use effectiveOrderBy from DB config
         const dataQuery = sql`
           SELECT DISTINCT ${selectClause}
           FROM app.${sql.raw(TABLE_NAME)} ${sql.raw(TABLE_ALIAS)}
           ${joinClause}
           ${whereClause}
-          ORDER BY ${sql.raw(`${TABLE_ALIAS}.${defaultOrderBy}`)}
+          ORDER BY ${sql.raw(`${TABLE_ALIAS}.${effectiveOrderBy}`)}
           LIMIT ${limit}
           OFFSET ${offset}
         `;
@@ -1609,6 +1710,11 @@ export default {
   getTableName,
   getEntityTableName,
   getEntityTable,
+
+  // v10.1.0: DB-driven entity config
+  getEntityDatatableConfig,
+  clearEntityConfigCache,
+  DEFAULT_DATATABLE_CONFIG,
 
   // Individual factories
   createEntityListEndpoint,

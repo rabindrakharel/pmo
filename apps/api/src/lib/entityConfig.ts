@@ -89,14 +89,17 @@ export interface EntityConfig {
   // Field definitions
   fields: Record<string, FieldConfig>;
   
-  // Table configuration for data display
+  // Table configuration - DEPRECATED: Now stored in app.entity.config_datatable
+  // Only kept for schema route backwards compatibility
+  // See: db/entity_configuration_settings/02_entity.ddl
   listView?: {
     defaultSort?: string;
     defaultSortOrder?: 'asc' | 'desc';
-    searchFields?: string[];
-    filterFields?: string[];
-    displayFields?: string[];
     itemsPerPage?: number;
+    // REMOVED (auto-generated from DB schema):
+    // - searchFields
+    // - filterFields
+    // - displayFields
   };
   
   // Form configuration
@@ -296,14 +299,7 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
       }
     },
 
-    listView: {
-      defaultSort: 'name',
-      defaultSortOrder: 'asc',
-      searchFields: ['name', 'descr', 'code'],
-      filterFields: ['level_name', 'active_flag'],
-      displayFields: ['name', 'code', 'level_name', 'budget_allocated_amt'],
-      itemsPerPage: 25
-    },
+    // listView config now in app.entity.config_datatable (DB-driven)
 
     createForm: {
       sections: [
@@ -531,13 +527,7 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
       }
     },
 
-    listView: {
-      defaultSort: 'name',
-      searchFields: ['name', 'description', 'address'],
-      filterFields: ['levelId', 'provinceCode', 'active_flag'],
-      displayFields: ['name', 'levelName', 'address', 'provinceCode'],
-      itemsPerPage: 25
-    }
+    // listView config now in app.entity.config_datatable (DB-driven)
   },
 
   // PROJECT
@@ -788,15 +778,8 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
       }
     },
 
-    listView: {
-      defaultSort: 'created_ts',
-      defaultSortOrder: 'desc',
-      searchFields: ['name', 'description', 'projectCode'],
-      filterFields: ['projectType', 'priorityLevel', 'projectStage', 'projectStatus', 'active_flag'],
-      displayFields: ['name', 'projectCode', 'projectType', 'priorityLevel', 'projectStage', 'budgetAllocated'],
-      itemsPerPage: 25
-    },
-    
+    // listView config now in app.entity.config_datatable (DB-driven)
+
     createForm: {
       sections: [
         {
@@ -1059,14 +1042,8 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
       }
     },
 
-    listView: {
-      defaultSort: 'name',
-      searchFields: ['name', 'email', 'employeeCode'],
-      filterFields: ['status', 'employmentType', 'workMode', 'active_flag'],
-      displayFields: ['name', 'email', 'employmentType', 'status', 'workMode'],
-      itemsPerPage: 25
-    },
-    
+    // listView config now in app.entity.config_datatable (DB-driven)
+
     createForm: {
       sections: [
         {
@@ -1216,14 +1193,8 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
       }
     },
 
-    listView: {
-      defaultSort: 'name',
-      searchFields: ['name', 'description', 'roleCategory'],
-      filterFields: ['roleType', 'authorityLevel', 'active_flag'],
-      displayFields: ['name', 'roleType', 'roleCategory', 'authorityLevel', 'approvalLimit'],
-      itemsPerPage: 25
-    },
-    
+    // listView config now in app.entity.config_datatable (DB-driven)
+
     createForm: {
       sections: [
         {

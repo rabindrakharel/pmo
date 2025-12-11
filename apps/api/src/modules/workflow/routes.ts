@@ -138,7 +138,7 @@ export async function workflowRoutes(fastify: FastifyInstance) {
         FROM app.workflow_data w
         LEFT JOIN app.workflow wh ON w.workflow_head_id = wh.id
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY w.created_ts DESC
+        ORDER BY w.updated_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `;
       const workflows = await db.execute(workflowsQuery);

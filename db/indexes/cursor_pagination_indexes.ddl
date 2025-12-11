@@ -48,9 +48,17 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_employee_cursor_created
   ON app.employee (created_ts DESC, id DESC)
   WHERE active_flag = true;
 
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_employee_cursor_updated
+  ON app.employee (updated_ts DESC, id DESC)
+  WHERE active_flag = true;
+
 -- Client/Customer (medium volume)
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_cust_cursor_created
   ON app.cust (created_ts DESC, id DESC)
+  WHERE active_flag = true;
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_cust_cursor_updated
+  ON app.cust (updated_ts DESC, id DESC)
   WHERE active_flag = true;
 
 -- ============================================================================
@@ -62,9 +70,17 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_interaction_cursor_created
   ON app.interaction (created_ts DESC, id DESC)
   WHERE active_flag = true;
 
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_interaction_cursor_updated
+  ON app.interaction (updated_ts DESC, id DESC)
+  WHERE active_flag = true;
+
 -- Message (high volume)
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_message_data_cursor_created
   ON app.message_data (created_ts DESC, id DESC)
+  WHERE active_flag = true;
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_message_data_cursor_updated
+  ON app.message_data (updated_ts DESC, id DESC)
   WHERE active_flag = true;
 
 -- ============================================================================
@@ -74,6 +90,10 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_message_data_cursor_created
 -- Event (high volume)
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_event_cursor_created
   ON app.event (created_ts DESC, id DESC)
+  WHERE active_flag = true;
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_event_cursor_updated
+  ON app.event (updated_ts DESC, id DESC)
   WHERE active_flag = true;
 
 -- Event by start time (for calendar queries)
@@ -86,13 +106,20 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_person_calendar_cursor_created
   ON app.person_calendar (created_ts DESC, id DESC)
   WHERE active_flag = true;
 
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_person_calendar_cursor_updated
+  ON app.person_calendar (updated_ts DESC, id DESC)
+  WHERE active_flag = true;
+
 -- ============================================================================
 -- INFRASTRUCTURE ENTITIES
 -- ============================================================================
 
 -- Entity Instance (used for lookups)
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_entity_instance_cursor_created
-  ON app.entity_instance (created_ts DESC, id DESC);
+  ON app.entity_instance (created_ts DESC, order_id DESC);
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_entity_instance_cursor_updated
+  ON app.entity_instance (updated_ts DESC, order_id DESC);
 
 -- Entity Instance Link (used for parent-child queries)
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_entity_instance_link_cursor_created
@@ -107,9 +134,17 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_office_cursor_created
   ON app.office (created_ts DESC, id DESC)
   WHERE active_flag = true;
 
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_office_cursor_updated
+  ON app.office (updated_ts DESC, id DESC)
+  WHERE active_flag = true;
+
 -- Business
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_business_cursor_created
   ON app.business (created_ts DESC, id DESC)
+  WHERE active_flag = true;
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_business_cursor_updated
+  ON app.business (updated_ts DESC, id DESC)
   WHERE active_flag = true;
 
 -- Role
@@ -117,9 +152,17 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_role_cursor_created
   ON app.role (created_ts DESC, id DESC)
   WHERE active_flag = true;
 
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_role_cursor_updated
+  ON app.role (updated_ts DESC, id DESC)
+  WHERE active_flag = true;
+
 -- Worksite
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_worksite_cursor_created
   ON app.worksite (created_ts DESC, id DESC)
+  WHERE active_flag = true;
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_worksite_cursor_updated
+  ON app.worksite (updated_ts DESC, id DESC)
   WHERE active_flag = true;
 
 -- ============================================================================
@@ -131,9 +174,17 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_cost_cursor_created
   ON app.cost (created_ts DESC, id DESC)
   WHERE active_flag = true;
 
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_cost_cursor_updated
+  ON app.cost (updated_ts DESC, id DESC)
+  WHERE active_flag = true;
+
 -- Invoice
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_invoice_cursor_created
   ON app.invoice (created_ts DESC, id DESC)
+  WHERE active_flag = true;
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_invoice_cursor_updated
+  ON app.invoice (updated_ts DESC, id DESC)
   WHERE active_flag = true;
 
 -- ============================================================================

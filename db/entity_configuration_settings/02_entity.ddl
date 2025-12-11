@@ -38,6 +38,7 @@ CREATE TABLE app.entity (
     domain_code varchar(50),
     domain_name varchar(100),
     column_metadata jsonb DEFAULT '[]'::jsonb,
+    config_datatable jsonb DEFAULT '{"defaultSort": "updated_ts", "defaultSortOrder": "desc", "itemsPerPage": 25}'::jsonb,
     active_flag boolean DEFAULT true,
     created_ts timestamptz DEFAULT now(),
     updated_ts timestamptz DEFAULT now()
@@ -54,6 +55,7 @@ COMMENT ON COLUMN app.entity.child_entity_codes IS 'JSONB array of child entity 
 COMMENT ON COLUMN app.entity.domain_id IS 'Domain ID (denormalized from d_domain for performance)';
 COMMENT ON COLUMN app.entity.domain_code IS 'Domain code (denormalized from d_domain for performance)';
 COMMENT ON COLUMN app.entity.domain_name IS 'Domain name (denormalized from d_domain for performance)';
+COMMENT ON COLUMN app.entity.config_datatable IS 'DataTable configuration: {defaultSort, defaultSortOrder, itemsPerPage} - DB-driven list view settings';
 
 -- =====================================================
 -- DATA CURATION

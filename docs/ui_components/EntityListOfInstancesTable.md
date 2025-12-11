@@ -12,6 +12,8 @@ EntityListOfInstancesTable is a universal data table component with **virtualize
 
 **Core Principle:** Backend metadata with `{ viewType, editType }` structure controls all columns, rendering, and edit behavior. Frontend is a pure renderer.
 
+**v10.1.0 Backend Config:** Default sorting (`updated_ts DESC`) and pagination (`itemsPerPage: 25`) are now DB-driven via `app.entity.config_datatable` JSONB column. API reads config with in-memory caching. See: `docs/caching-backend/ENTITY_METADATA_CACHING.md`
+
 **v12.3.0 Key Change:** All three components (`EntityListOfInstancesTable`, `EntityInstanceFormContainer`, `EntityMetadataField`) now use the same **slow click-and-hold (500ms) inline editing pattern** for consistent UX. Flat metadata format `{ viewType, editType }` used across all components. Entity reference fields resolved via `getEntityInstanceNameSync()` which reads directly from TanStack Query cache.
 
 ---
