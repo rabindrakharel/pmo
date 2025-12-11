@@ -109,10 +109,14 @@ export function EntityPermissionSection({
   // Instance picker state
   const [showInstancePicker, setShowInstancePicker] = useState(false);
   const [instanceSearch, setInstanceSearch] = useState('');
-  // Track selected instances with full config: instanceId -> PendingInstanceConfig
+  // Step 1: Checkbox selection (just IDs)
+  const [checkedInstanceIds, setCheckedInstanceIds] = useState<Set<string>>(new Set());
+  // Step 2: After "Select" is clicked, these become pending configs for RBAC setup
   const [selectedInstanceConfigs, setSelectedInstanceConfigs] = useState<Record<string, PendingInstanceConfig>>({});
   // Track which instance's inheritance config is expanded
   const [expandedInstanceConfig, setExpandedInstanceConfig] = useState<string | null>(null);
+  // Track if we're in "configure" mode (after Select button clicked)
+  const [isConfiguringPermissions, setIsConfiguringPermissions] = useState(false);
 
   // Fetch instances for this entity type
   const { data: instancesData, isLoading: instancesLoading } = useQuery({
@@ -169,7 +173,9 @@ export function EntityPermissionSection({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['access-control', 'role', roleId] });
       setSelectedInstanceConfigs({});
+      setCheckedInstanceIds(new Set());
       setExpandedInstanceConfig(null);
+      setIsConfiguringPermissions(false);
       setShowInstancePicker(false);
       setInstanceSearch('');
       onPermissionsGranted?.();
@@ -323,25 +329,34 @@ export function EntityPermissionSection({
     return changes;
   }, [typePermission, pendingChildPermissions, pendingPermissions]);
 
-  // Toggle instance selection with default config
-  const toggleInstance = useCallback((instanceId: string) => {
-    setSelectedInstanceConfigs(prev => {
-      const updated = { ...prev };
-      if (instanceId in updated) {
-        delete updated[instanceId];
-        if (expandedInstanceConfig === instanceId) {
-          setExpandedInstanceConfig(null);
-        }
+  // Toggle checkbox selection (Step 1 - just selecting, no config yet)
+  const toggleInstanceCheckbox = useCallback((instanceId: string) => {
+    setCheckedInstanceIds(prev => {
+      const updated = new Set(prev);
+      if (updated.has(instanceId)) {
+        updated.delete(instanceId);
       } else {
-        updated[instanceId] = {
-          permission: 3, // Default to EDIT
-          inheritanceMode: 'none',
-          childPermissions: {}
-        };
+        updated.add(instanceId);
       }
       return updated;
     });
-  }, [expandedInstanceConfig]);
+  }, []);
+
+  // Handle "Select" button click - transition from Step 1 to Step 2
+  const handleConfirmSelection = useCallback(() => {
+    // Convert checked IDs to configs with default values
+    const configs: Record<string, PendingInstanceConfig> = {};
+    checkedInstanceIds.forEach(id => {
+      configs[id] = {
+        permission: 3, // Default to EDIT
+        inheritanceMode: 'none',
+        childPermissions: {}
+      };
+    });
+    setSelectedInstanceConfigs(configs);
+    setIsConfiguringPermissions(true);
+    setCheckedInstanceIds(new Set()); // Clear checkboxes
+  }, [checkedInstanceIds]);
 
   // Handle permission level change for pending instance
   const handlePendingInstancePermissionChange = useCallback((rowId: string, level: number) => {
@@ -402,36 +417,27 @@ export function EntityPermissionSection({
     setExpandedInstanceConfig(prev => prev === instanceId ? null : instanceId);
   }, []);
 
-  // Select/deselect all visible instances
-  const toggleAllVisible = useCallback(() => {
+  // Select/deselect all visible instances (Step 1 - checkboxes)
+  const toggleAllVisibleCheckboxes = useCallback(() => {
     const visibleIds = filteredInstances.map((i: EntityInstance) => i.id);
-    const allSelected = visibleIds.every((id: string) => id in selectedInstanceConfigs);
+    const allChecked = visibleIds.every((id: string) => checkedInstanceIds.has(id));
 
-    if (allSelected) {
+    if (allChecked) {
       // Deselect all visible
-      setSelectedInstanceConfigs(prev => {
-        const updated = { ...prev };
-        visibleIds.forEach((id: string) => delete updated[id]);
+      setCheckedInstanceIds(prev => {
+        const updated = new Set(prev);
+        visibleIds.forEach((id: string) => updated.delete(id));
         return updated;
       });
-      setExpandedInstanceConfig(null);
     } else {
-      // Select all visible with default config
-      setSelectedInstanceConfigs(prev => {
-        const updated = { ...prev };
-        visibleIds.forEach((id: string) => {
-          if (!(id in updated)) {
-            updated[id] = {
-              permission: 3, // Default to EDIT
-              inheritanceMode: 'none',
-              childPermissions: {}
-            };
-          }
-        });
+      // Select all visible
+      setCheckedInstanceIds(prev => {
+        const updated = new Set(prev);
+        visibleIds.forEach((id: string) => updated.add(id));
         return updated;
       });
     }
-  }, [filteredInstances, selectedInstanceConfigs]);
+  }, [filteredInstances, checkedInstanceIds]);
 
   // Handle grant permissions
   const handleGrantPermissions = useCallback(() => {
@@ -440,6 +446,7 @@ export function EntityPermissionSection({
   }, [selectedInstanceConfigs, grantPermissionsMutation]);
 
   const totalPermissions = permissions.length;
+  const checkedCount = checkedInstanceIds.size;
   const selectedCount = Object.keys(selectedInstanceConfigs).length;
 
   // Build child rows for a pending instance
@@ -679,129 +686,177 @@ export function EntityPermissionSection({
             </div>
           )}
 
-          {/* INLINE INSTANCE PICKER */}
+          {/* GRANT PERMISSION FLOW - Two Steps */}
           {showInstancePicker ? (
             <div className="bg-white rounded-lg border border-blue-300 overflow-hidden shadow-sm">
-              {/* Picker Header */}
-              <div className="px-4 py-3 bg-blue-50 border-b border-blue-200 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <LucideIcons.ListChecks className="h-4 w-4 text-blue-600" />
-                  <span className="text-sm font-semibold text-blue-700">
-                    Grant Permission to {entityLabel}s
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowInstancePicker(false);
-                    setSelectedInstanceConfigs({});
-                    setExpandedInstanceConfig(null);
-                    setInstanceSearch('');
-                  }}
-                  className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-100 rounded-lg transition-colors"
-                >
-                  <LucideIcons.X className="h-4 w-4" />
-                </button>
-              </div>
-
-              {/* Search */}
-              <div className="p-3 border-b border-dark-100">
-                <div className="relative">
-                  <LucideIcons.Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-dark-400" />
-                  <input
-                    type="text"
-                    placeholder={`Search ${entityLabel.toLowerCase()}s...`}
-                    value={instanceSearch}
-                    onChange={(e) => setInstanceSearch(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 text-sm border border-dark-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
-                    autoFocus
-                  />
-                </div>
-              </div>
-
-              {/* Instance List with Checkboxes */}
-              <div className="max-h-48 overflow-y-auto border-b border-dark-100">
-                {instancesLoading ? (
-                  <div className="p-8 text-center">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto" />
-                    <p className="text-sm text-dark-500 mt-2">Loading {entityLabel.toLowerCase()}s...</p>
-                  </div>
-                ) : filteredInstances.length === 0 ? (
-                  <div className="p-6 text-center text-dark-500">
-                    <LucideIcons.SearchX className="h-6 w-6 mx-auto text-dark-300 mb-2" />
-                    <p className="text-sm">
-                      {instanceSearch ? `No ${entityLabel.toLowerCase()}s match your search` : `No ${entityLabel.toLowerCase()}s available`}
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    {/* Select All Header */}
-                    <div className="px-4 py-2 bg-dark-50 border-b border-dark-100 sticky top-0">
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={filteredInstances.length > 0 && filteredInstances.every((i: EntityInstance) => i.id in selectedInstanceConfigs)}
-                          onChange={toggleAllVisible}
-                          className="w-4 h-4 text-blue-600 rounded border-dark-300 focus:ring-blue-500"
-                        />
-                        <span className="text-xs font-medium text-dark-600">
-                          Select all ({filteredInstances.length})
-                        </span>
-                      </label>
-                    </div>
-
-                    {/* Instance Items */}
-                    <div className="divide-y divide-dark-100">
-                      {filteredInstances.map((instance: EntityInstance) => (
-                        <label
-                          key={instance.id}
-                          className={`flex items-center gap-3 px-4 py-2 cursor-pointer transition-colors ${
-                            instance.id in selectedInstanceConfigs ? 'bg-blue-50' : 'hover:bg-dark-50'
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={instance.id in selectedInstanceConfigs}
-                            onChange={() => toggleInstance(instance.id)}
-                            className="w-4 h-4 text-blue-600 rounded border-dark-300 focus:ring-blue-500"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-dark-800 truncate">
-                              {instance.name}
-                            </div>
-                            {instance.code && (
-                              <div className="text-xs text-dark-500 truncate">
-                                {instance.code}
-                              </div>
-                            )}
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* SELECTED INSTANCES WITH FULL CONFIG */}
-              {selectedCount > 0 && (
-                <div className="border-b border-dark-100">
-                  <div className="px-4 py-2 bg-emerald-50 border-b border-emerald-200">
+              {/* STEP 1: Instance Selection (when NOT configuring) */}
+              {!isConfiguringPermissions ? (
+                <>
+                  {/* Picker Header */}
+                  <div className="px-4 py-3 bg-blue-50 border-b border-blue-200 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <LucideIcons.CheckSquare className="h-4 w-4 text-emerald-600" />
+                      <LucideIcons.ListChecks className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-semibold text-blue-700">
+                        Step 1: Select {entityLabel}s
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowInstancePicker(false);
+                        setCheckedInstanceIds(new Set());
+                        setInstanceSearch('');
+                      }}
+                      className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-100 rounded-lg transition-colors"
+                    >
+                      <LucideIcons.X className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {/* Search */}
+                  <div className="p-3 border-b border-dark-100">
+                    <div className="relative">
+                      <LucideIcons.Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-dark-400" />
+                      <input
+                        type="text"
+                        placeholder={`Search ${entityLabel.toLowerCase()}s...`}
+                        value={instanceSearch}
+                        onChange={(e) => setInstanceSearch(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 text-sm border border-dark-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+
+                  {/* Instance List with Checkboxes */}
+                  <div className="max-h-64 overflow-y-auto">
+                    {instancesLoading ? (
+                      <div className="p-8 text-center">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto" />
+                        <p className="text-sm text-dark-500 mt-2">Loading {entityLabel.toLowerCase()}s...</p>
+                      </div>
+                    ) : filteredInstances.length === 0 ? (
+                      <div className="p-6 text-center text-dark-500">
+                        <LucideIcons.SearchX className="h-6 w-6 mx-auto text-dark-300 mb-2" />
+                        <p className="text-sm">
+                          {instanceSearch ? `No ${entityLabel.toLowerCase()}s match your search` : `No ${entityLabel.toLowerCase()}s available`}
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Select All Header */}
+                        <div className="px-4 py-2 bg-dark-50 border-b border-dark-100 sticky top-0">
+                          <label className="flex items-center gap-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={filteredInstances.length > 0 && filteredInstances.every((i: EntityInstance) => checkedInstanceIds.has(i.id))}
+                              onChange={toggleAllVisibleCheckboxes}
+                              className="w-4 h-4 text-blue-600 rounded border-dark-300 focus:ring-blue-500"
+                            />
+                            <span className="text-xs font-medium text-dark-600">
+                              Select all ({filteredInstances.length})
+                            </span>
+                          </label>
+                        </div>
+
+                        {/* Instance Items */}
+                        <div className="divide-y divide-dark-100">
+                          {filteredInstances.map((instance: EntityInstance) => (
+                            <label
+                              key={instance.id}
+                              className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${
+                                checkedInstanceIds.has(instance.id) ? 'bg-blue-50' : 'hover:bg-dark-50'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checkedInstanceIds.has(instance.id)}
+                                onChange={() => toggleInstanceCheckbox(instance.id)}
+                                className="w-4 h-4 text-blue-600 rounded border-dark-300 focus:ring-blue-500"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-dark-800 truncate">
+                                  {instance.name}
+                                </div>
+                                {instance.code && (
+                                  <div className="text-xs text-dark-500 truncate">
+                                    {instance.code}
+                                  </div>
+                                )}
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Footer with Select Button */}
+                  <div className="px-4 py-3 bg-dark-50 border-t border-dark-100 flex items-center justify-between">
+                    <span className="text-xs text-dark-500">
+                      {checkedCount > 0
+                        ? `${checkedCount} ${entityLabel.toLowerCase()}${checkedCount !== 1 ? 's' : ''} selected`
+                        : 'Select instances to configure permissions'
+                      }
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowInstancePicker(false);
+                          setCheckedInstanceIds(new Set());
+                          setInstanceSearch('');
+                        }}
+                        className="px-3 py-1.5 text-sm font-medium text-dark-600 hover:text-dark-800 hover:bg-dark-100 rounded-lg transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleConfirmSelection}
+                        disabled={checkedCount === 0}
+                        className="px-4 py-1.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        <LucideIcons.ArrowRight className="h-4 w-4" />
+                        Select ({checkedCount})
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* STEP 2: Configure Permissions (after Select clicked) */
+                <>
+                  {/* Header */}
+                  <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-200 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <LucideIcons.Shield className="h-4 w-4 text-emerald-600" />
                       <span className="text-sm font-semibold text-emerald-700">
-                        Selected {entityLabel}s
+                        Step 2: Configure Permissions
                       </span>
                       <span className="text-xs text-emerald-500">
-                        ({selectedCount} instance{selectedCount !== 1 ? 's' : ''})
+                        ({selectedCount} {entityLabel.toLowerCase()}{selectedCount !== 1 ? 's' : ''})
                       </span>
                     </div>
-                    <p className="text-xs text-emerald-600 mt-1">
-                      Set permission levels and inheritance, then Grant to save
-                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // Go back to step 1
+                        setIsConfiguringPermissions(false);
+                        setSelectedInstanceConfigs({});
+                        setExpandedInstanceConfig(null);
+                      }}
+                      className="px-2 py-1 text-xs text-emerald-600 hover:text-emerald-800 hover:bg-emerald-100 rounded transition-colors flex items-center gap-1"
+                    >
+                      <LucideIcons.ArrowLeft className="h-3 w-3" />
+                      Back
+                    </button>
                   </div>
 
                   {/* Matrix Table for Selected Instances */}
-                  <div className="p-3">
+                  <div className="p-3 border-b border-dark-100">
+                    <div className="text-xs font-medium text-dark-600 mb-2">
+                      Set permission levels for each {entityLabel.toLowerCase()}:
+                    </div>
                     <PermissionMatrixTable
                       rows={selectedInstanceRows}
                       pendingChanges={{}}
@@ -929,57 +984,56 @@ export function EntityPermissionSection({
                       </div>
                     </div>
                   )}
-                </div>
-              )}
 
-              {/* Footer Actions */}
-              <div className="px-4 py-3 bg-dark-50 flex items-center justify-between">
-                <span className="text-xs text-dark-500">
-                  {selectedCount > 0
-                    ? `${selectedCount} ${entityLabel.toLowerCase()}${selectedCount !== 1 ? 's' : ''} ready to grant`
-                    : 'Select instances above to grant permissions'
-                  }
-                </span>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowInstancePicker(false);
-                      setSelectedInstanceConfigs({});
-                      setExpandedInstanceConfig(null);
-                      setInstanceSearch('');
-                    }}
-                    className="px-3 py-1.5 text-sm font-medium text-dark-600 hover:text-dark-800 hover:bg-dark-100 rounded-lg transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleGrantPermissions}
-                    disabled={selectedCount === 0 || grantPermissionsMutation.isPending}
-                    className="px-4 py-1.5 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                    {grantPermissionsMutation.isPending ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                        Granting...
-                      </>
-                    ) : (
-                      <>
-                        <LucideIcons.Shield className="h-4 w-4" />
-                        Grant Permissions
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
+                  {/* Footer Actions */}
+                  <div className="px-4 py-3 bg-dark-50 flex items-center justify-between">
+                    <span className="text-xs text-dark-500">
+                      {selectedCount} {entityLabel.toLowerCase()}{selectedCount !== 1 ? 's' : ''} ready to grant
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowInstancePicker(false);
+                          setSelectedInstanceConfigs({});
+                          setCheckedInstanceIds(new Set());
+                          setExpandedInstanceConfig(null);
+                          setIsConfiguringPermissions(false);
+                          setInstanceSearch('');
+                        }}
+                        className="px-3 py-1.5 text-sm font-medium text-dark-600 hover:text-dark-800 hover:bg-dark-100 rounded-lg transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleGrantPermissions}
+                        disabled={selectedCount === 0 || grantPermissionsMutation.isPending}
+                        className="px-4 py-1.5 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        {grantPermissionsMutation.isPending ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                            Granting...
+                          </>
+                        ) : (
+                          <>
+                            <LucideIcons.Shield className="h-4 w-4" />
+                            Grant Permissions
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
 
-              {/* Error Message */}
-              {grantPermissionsMutation.isError && (
-                <div className="px-4 py-2 bg-red-50 border-t border-red-200 text-sm text-red-700 flex items-center gap-2">
-                  <LucideIcons.AlertCircle className="h-4 w-4" />
-                  {(grantPermissionsMutation.error as Error).message}
-                </div>
+                  {/* Error Message */}
+                  {grantPermissionsMutation.isError && (
+                    <div className="px-4 py-2 bg-red-50 border-t border-red-200 text-sm text-red-700 flex items-center gap-2">
+                      <LucideIcons.AlertCircle className="h-4 w-4" />
+                      {(grantPermissionsMutation.error as Error).message}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           ) : (
