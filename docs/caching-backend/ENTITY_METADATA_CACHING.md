@@ -898,6 +898,161 @@ async function getCachedMetadataResponse(apiPath: string): Promise<EntityRespons
 
 ---
 
+## Entity Datatable Config Caching (v10.1.0)
+
+### Overview
+
+List view configuration (`defaultSort`, `defaultSortOrder`, `itemsPerPage`) is stored in `app.entity.config_datatable` JSONB column and cached in-memory for fast access.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    ENTITY CONFIG DATATABLE CACHING                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  GET /api/v1/{entity}                                                       │
+│         │                                                                    │
+│         ▼                                                                    │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │  getEntityDatatableConfig(entityCode, db)                               ││
+│  └───────────────────────────────┬─────────────────────────────────────────┘│
+│                                  │                                           │
+│                      ┌───────────┴───────────┐                              │
+│                      │                       │                              │
+│              entityConfigCache.has()?   CACHE MISS                          │
+│                      │                       │                              │
+│                   HIT │                      │                              │
+│                      │                       ▼                              │
+│                      │            ┌─────────────────────┐                   │
+│                      │            │ SELECT config_      │                   │
+│                      │            │ datatable FROM      │                   │
+│                      │            │ app.entity WHERE    │                   │
+│                      │            │ code = entityCode   │                   │
+│                      │            └──────────┬──────────┘                   │
+│                      │                       │                              │
+│                      │                       ▼                              │
+│                      │            ┌─────────────────────┐                   │
+│                      │            │ Validate & merge    │                   │
+│                      │            │ with defaults       │                   │
+│                      │            └──────────┬──────────┘                   │
+│                      │                       │                              │
+│                      │                       ▼                              │
+│                      │            ┌─────────────────────┐                   │
+│                      │            │ entityConfigCache   │                   │
+│                      │            │   .set(entityCode,  │                   │
+│                      │            │    validatedConfig) │                   │
+│                      │            └──────────┬──────────┘                   │
+│                      │                       │                              │
+│                      ▼                       ▼                              │
+│              ┌───────────────────────────────────────────┐                  │
+│              │  Return EntityDatatableConfig:            │                  │
+│              │  {                                        │                  │
+│              │    defaultSort: "updated_ts",             │                  │
+│              │    defaultSortOrder: "desc",              │                  │
+│              │    itemsPerPage: 25                       │                  │
+│              │  }                                        │                  │
+│              └───────────────────────────────────────────┘                  │
+│                                                                              │
+│  Used to build:                                                              │
+│  • ORDER BY ${TABLE_ALIAS}.${effectiveOrderBy}                              │
+│  • LIMIT ${effectiveLimit}                                                  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Implementation
+
+```typescript
+// apps/api/src/lib/universal-entity-crud-factory.ts
+
+export interface EntityDatatableConfig {
+  defaultSort: string;
+  defaultSortOrder: 'asc' | 'desc';
+  itemsPerPage: number;
+}
+
+// In-memory cache (Map)
+const entityConfigCache = new Map<string, EntityDatatableConfig>();
+
+const DEFAULT_DATATABLE_CONFIG: EntityDatatableConfig = {
+  defaultSort: 'updated_ts',
+  defaultSortOrder: 'desc',
+  itemsPerPage: 25
+};
+
+export async function getEntityDatatableConfig(
+  entityCode: string,
+  dbClient: typeof db
+): Promise<EntityDatatableConfig> {
+  // Check cache first
+  if (entityConfigCache.has(entityCode)) {
+    return entityConfigCache.get(entityCode)!;
+  }
+
+  // Query DB
+  const result = await dbClient.execute(sql`
+    SELECT config_datatable FROM app.entity
+    WHERE code = ${entityCode} AND active_flag = true
+    LIMIT 1
+  `);
+
+  // Validate and cache
+  const config = result[0]?.config_datatable;
+  const validatedConfig = {
+    defaultSort: config?.defaultSort || DEFAULT_DATATABLE_CONFIG.defaultSort,
+    defaultSortOrder: ['asc', 'desc'].includes(config?.defaultSortOrder)
+      ? config.defaultSortOrder
+      : DEFAULT_DATATABLE_CONFIG.defaultSortOrder,
+    itemsPerPage: typeof config?.itemsPerPage === 'number' && config.itemsPerPage > 0
+      ? config.itemsPerPage
+      : DEFAULT_DATATABLE_CONFIG.itemsPerPage
+  };
+
+  entityConfigCache.set(entityCode, validatedConfig);
+  return validatedConfig;
+}
+
+export function clearEntityConfigCache(): void {
+  entityConfigCache.clear();
+}
+```
+
+### Priority Chain
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│                       LIST ENDPOINT CONFIGURATION PRIORITY                  │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  1. Query Parameter          ?limit=50&sort=name                           │
+│         │                                                                   │
+│         ▼                    (highest priority - user override)             │
+│  2. Route Config             defaultOrderBy: 'name ASC'                    │
+│         │                                                                   │
+│         ▼                    (route-specific override)                      │
+│  3. DB Config                app.entity.config_datatable                   │
+│         │                                                                   │
+│         ▼                    (entity-specific DB config)                    │
+│  4. Default Fallback         DEFAULT_DATATABLE_CONFIG                      │
+│                                                                             │
+│                              (hardcoded fallback)                           │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Cache Behavior
+
+| Aspect | Behavior |
+|--------|----------|
+| **Storage** | In-memory `Map<string, EntityDatatableConfig>` |
+| **TTL** | Infinite (process lifetime) |
+| **Invalidation** | Server restart or `clearEntityConfigCache()` |
+| **First Access** | DB query + cache |
+| **Subsequent** | Immediate Map lookup |
+| **Failure Mode** | Falls back to `DEFAULT_DATATABLE_CONFIG` |
+
+---
+
 ## Related Documentation
 
 | Document | Path | Description |
@@ -906,11 +1061,12 @@ async function getCachedMetadataResponse(apiPath: string): Promise<EntityRespons
 | Entity Infrastructure Service | `docs/services/entity-infrastructure.service.md` | Entity CRUD + ref_data_entityInstance |
 | State Management | `docs/state_management/STATE_MANAGEMENT.md` | Frontend TanStack Query + Dexie |
 | Dexie Schema | `docs/migrations/DEXIE_SCHEMA_REFACTORING.md` | IndexedDB v4 schema |
+| Backend Cache Service | `docs/caching-backend/BACKEND_CACHE_SERVICE.md` | Unified cache architecture |
 
 ---
 
-**Document Version**: 3.0.0
-**Last Updated**: 2025-11-30
+**Document Version**: 4.0.0
+**Last Updated**: 2025-12-11
 **Status**: Production Ready
 
 ### Version History
@@ -920,3 +1076,4 @@ async function getCachedMetadataResponse(apiPath: string): Promise<EntityRespons
 | 1.0.0 | 2025-11-30 | Initial Redis field caching |
 | 2.0.0 | 2025-11-30 | Added `content=metadata` API parameter |
 | 3.0.0 | 2025-11-30 | Complete rewrite with end-to-end architecture, sequence diagrams, use case matrix |
+| 4.0.0 | 2025-12-11 | Added Entity Datatable Config Caching (v10.1.0) - in-memory cache for list view settings |
