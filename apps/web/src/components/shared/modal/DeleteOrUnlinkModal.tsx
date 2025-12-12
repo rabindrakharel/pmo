@@ -179,61 +179,101 @@ export const DeleteOrUnlinkModal: React.FC<DeleteOrUnlinkModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Render step indicator (follows styling_patterns.md)
-  const renderSteps = () => (
-    <div className="space-y-2 py-2">
-      {steps.map((step) => (
-        <div
-          key={step.id}
-          className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
-            step.status === 'processing'
-              ? 'bg-slate-100'
-              : step.status === 'completed'
-                ? 'bg-green-50'
-                : step.status === 'error'
-                  ? 'bg-red-50'
-                  : 'bg-dark-50'
-          }`}
-        >
-          {/* Status Icon */}
-          <div className="flex-shrink-0 w-5 h-5">
-            {step.status === 'pending' && (
-              <div className="w-4 h-4 rounded-full border-2 border-dark-300 mt-0.5" />
-            )}
-            {step.status === 'processing' && (
-              <Loader2 className="w-5 h-5 text-slate-600 animate-spin" />
-            )}
-            {step.status === 'completed' && (
-              <div className="w-5 h-5 rounded-full bg-green-600 flex items-center justify-center">
-                <Check className="w-3 h-3 text-white" strokeWidth={3} />
-              </div>
-            )}
-            {step.status === 'error' && (
-              <div className="w-5 h-5 rounded-full bg-red-600 flex items-center justify-center">
-                <X className="w-3 h-3 text-white" strokeWidth={3} />
-              </div>
-            )}
-          </div>
+  // Render step indicator with connected timeline (follows styling_patterns.md)
+  const renderSteps = () => {
+    // Calculate progress percentage based on completed steps
+    const completedCount = steps.filter((s) => s.status === 'completed').length;
+    const processingIndex = steps.findIndex((s) => s.status === 'processing');
+    // Progress: completed steps + half of processing step
+    const progressPercent =
+      processingIndex >= 0
+        ? ((processingIndex + 0.5) / (steps.length - 1)) * 100
+        : (completedCount / (steps.length - 1)) * 100;
 
-          {/* Step Label */}
-          <span
-            className={`text-sm ${
-              step.status === 'processing'
-                ? 'text-slate-700 font-medium'
-                : step.status === 'completed'
-                  ? 'text-green-700'
-                  : step.status === 'error'
-                    ? 'text-red-700'
-                    : 'text-dark-600'
-            }`}
-          >
-            {step.label}
-            {step.status === 'processing' && '...'}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
+    // Node size = 20px (w-5), center at 10px
+    // Container padding: py-3 (12px top), pl-2 (8px left)
+    // Line should start at center of first node: 8px (pl-2) + 10px (half node) = 18px from left, but we use left-[10px] relative to node container
+    // Each step has pb-5 (20px) bottom padding except last
+    // Line starts from center of first node to center of last node
+
+    const nodeSize = 20; // w-5 = 20px
+    const stepSpacing = 20; // pb-5 = 20px
+    const totalLineHeight = (steps.length - 1) * (nodeSize + stepSpacing);
+
+    return (
+      <div className="py-3 pl-2 relative">
+        {/* Background line (gray) - connects center of first node to center of last node */}
+        <div
+          className="absolute w-0.5 bg-dark-200"
+          style={{
+            left: '18px', // 8px (pl-2) + 10px (center of 20px node)
+            top: '22px', // 12px (py-3) + 10px (center of first node)
+            height: `${totalLineHeight}px`,
+          }}
+        />
+
+        {/* Progress line (green) - fills as steps complete */}
+        <div
+          className="absolute w-0.5 bg-green-500 transition-all duration-500 ease-out"
+          style={{
+            left: '18px',
+            top: '22px',
+            height: `${totalLineHeight * Math.min(progressPercent, 100) / 100}px`,
+          }}
+        />
+
+        {/* Steps */}
+        {steps.map((step, index) => {
+          const isCompleted = step.status === 'completed';
+          const isProcessing = step.status === 'processing';
+          const isError = step.status === 'error';
+          const isPending = step.status === 'pending';
+
+          return (
+            <div key={step.id} className="relative flex items-start gap-4 pb-5 last:pb-0">
+              {/* Node */}
+              <div className="flex-shrink-0 w-5 h-5 relative z-10">
+                {isPending && (
+                  <div className="w-5 h-5 rounded-full border-2 border-dark-300 bg-white" />
+                )}
+                {isProcessing && (
+                  <div className="w-5 h-5 rounded-full bg-white border-2 border-slate-500 flex items-center justify-center">
+                    <Loader2 className="w-3 h-3 text-slate-600 animate-spin" />
+                  </div>
+                )}
+                {isCompleted && (
+                  <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                    <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                  </div>
+                )}
+                {isError && (
+                  <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
+                    <X className="w-3 h-3 text-white" strokeWidth={3} />
+                  </div>
+                )}
+              </div>
+
+              {/* Label */}
+              <span
+                className={`text-sm leading-5 transition-colors duration-200 ${
+                  isProcessing
+                    ? 'text-slate-700 font-medium'
+                    : isCompleted
+                      ? 'text-green-700 font-medium'
+                      : isError
+                        ? 'text-red-700 font-medium'
+                        : 'text-dark-500'
+                }`}
+              >
+                {step.label}
+                {isProcessing && '...'}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   const parentDisplayLabel = parentContext?.entityName
     ? `"${parentContext.entityName}"`

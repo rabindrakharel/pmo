@@ -44,7 +44,9 @@
       "Bash(npm run:*)",
       "Bash(pnpm -r --filter web typecheck:*)",
       "Bash(./node_modules/.bin/tsc:*)",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(git checkout:*)",
+      "Bash(pnpm typecheck:*)"
     ],
     "deny": [],
     "ask": [],

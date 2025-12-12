@@ -88,37 +88,19 @@ const MIN_STEPS_BEFORE_COMPLETE = 5;
 const getStatusIcon = (status: StepStatus): React.ReactNode => {
   switch (status) {
     case 'pending':
-      return (
-        <div className="w-5 h-5 rounded-full border-2 border-dark-300 flex items-center justify-center">
-          <div className="w-2 h-2 rounded-full bg-dark-300" />
-        </div>
-      );
+      return <div className="w-5 h-5 rounded-full border-2 border-dark-300 bg-white" />;
     case 'processing':
       return (
-        <div className="w-5 h-5 flex items-center justify-center">
-          <Loader2 className="w-5 h-5 text-slate-600 animate-spin" />
+        <div className="w-5 h-5 rounded-full bg-white border-2 border-slate-500 flex items-center justify-center">
+          <Loader2 className="w-3 h-3 text-slate-600 animate-spin" />
         </div>
       );
     case 'completed':
       return (
-        <div className="w-5 h-5 rounded-full bg-green-600 flex items-center justify-center">
+        <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
           <Check className="w-3 h-3 text-white" strokeWidth={3} />
         </div>
       );
-  }
-};
-
-/**
- * Get background color for step row based on status
- */
-const getStepBackground = (status: StepStatus): string => {
-  switch (status) {
-    case 'processing':
-      return 'bg-slate-100';
-    case 'completed':
-      return 'bg-green-50';
-    default:
-      return 'bg-dark-50';
   }
 };
 
@@ -130,10 +112,72 @@ const getStepTextColor = (status: StepStatus): string => {
     case 'processing':
       return 'text-slate-700 font-medium';
     case 'completed':
-      return 'text-green-700';
+      return 'text-green-700 font-medium';
     default:
       return 'text-dark-500';
   }
+};
+
+/**
+ * Render connected timeline stepper
+ * Same visual pattern as DeleteOrUnlinkModal
+ */
+const renderTimelineStepper = (steps: LoadingStep[]): React.ReactNode => {
+  // Calculate progress percentage based on completed steps
+  const completedCount = steps.filter((s) => s.status === 'completed').length;
+  const processingIndex = steps.findIndex((s) => s.status === 'processing');
+  // Progress: completed steps + half of processing step
+  const progressPercent =
+    processingIndex >= 0
+      ? ((processingIndex + 0.5) / (steps.length - 1)) * 100
+      : (completedCount / (steps.length - 1)) * 100;
+
+  // Node size = 20px (w-5), center at 10px
+  // Each step has pb-5 (20px) bottom padding except last
+  // Line starts from center of first node to center of last node
+  const nodeSize = 20; // w-5 = 20px
+  const stepSpacing = 20; // pb-5 = 20px
+  const totalLineHeight = (steps.length - 1) * (nodeSize + stepSpacing);
+
+  return (
+    <div className="py-3 pl-2 relative">
+      {/* Background line (gray) - connects center of first node to center of last node */}
+      <div
+        className="absolute w-0.5 bg-dark-200"
+        style={{
+          left: '18px', // 8px (pl-2) + 10px (center of 20px node)
+          top: '22px', // 12px (py-3) + 10px (center of first node)
+          height: `${totalLineHeight}px`,
+        }}
+      />
+
+      {/* Progress line (green) - fills as steps complete */}
+      <div
+        className="absolute w-0.5 bg-green-500 transition-all duration-500 ease-out"
+        style={{
+          left: '18px',
+          top: '22px',
+          height: `${(totalLineHeight * Math.min(progressPercent, 100)) / 100}px`,
+        }}
+      />
+
+      {/* Steps */}
+      {steps.map((step) => (
+        <div key={step.id} className="relative flex items-start gap-4 pb-5 last:pb-0">
+          {/* Node */}
+          <div className="flex-shrink-0 w-5 h-5 relative z-10">{getStatusIcon(step.status)}</div>
+
+          {/* Label */}
+          <span
+            className={`text-sm leading-5 transition-colors duration-200 ${getStepTextColor(step.status)}`}
+          >
+            {step.label}
+            {step.status === 'processing' && '...'}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
 };
 
 /**
@@ -243,33 +287,9 @@ export function MetadataGate({
             )}
           </div>
 
-          {/* Progress Bar */}
-          <div className="h-1 bg-dark-200">
-            <div
-              className="h-full transition-all duration-300 ease-out bg-slate-600"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-
-          {/* Steps List */}
-          <div className="px-4 py-3 space-y-1 max-h-80 overflow-y-auto">
-            {steps.map((step) => (
-              <div
-                key={step.id}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-md transition-all duration-200 ${getStepBackground(step.status)}`}
-              >
-                {/* Status Icon */}
-                <div className="flex-shrink-0">{getStatusIcon(step.status)}</div>
-
-                {/* Step Label */}
-                <span className={`text-sm ${getStepTextColor(step.status)}`}>
-                  {step.label}
-                  {step.status === 'processing' && (
-                    <span className="animate-pulse">...</span>
-                  )}
-                </span>
-              </div>
-            ))}
+          {/* Steps List - Connected Timeline */}
+          <div className="px-4 max-h-80 overflow-y-auto">
+            {renderTimelineStepper(steps)}
           </div>
 
           {/* Branding Footer */}
@@ -429,33 +449,9 @@ export function LogoutGate({ children, onLogoutComplete }: LogoutGateProps) {
             )}
           </div>
 
-          {/* Progress Bar */}
-          <div className="h-1 bg-dark-200">
-            <div
-              className="h-full transition-all duration-300 ease-out bg-slate-600"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-
-          {/* Steps List */}
-          <div className="px-4 py-3 space-y-1 max-h-80 overflow-y-auto">
-            {steps.map((step) => (
-              <div
-                key={step.id}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-md transition-all duration-200 ${getStepBackground(step.status)}`}
-              >
-                {/* Status Icon */}
-                <div className="flex-shrink-0">{getStatusIcon(step.status)}</div>
-
-                {/* Step Label */}
-                <span className={`text-sm ${getStepTextColor(step.status)}`}>
-                  {step.label}
-                  {step.status === 'processing' && (
-                    <span className="animate-pulse">...</span>
-                  )}
-                </span>
-              </div>
-            ))}
+          {/* Steps List - Connected Timeline */}
+          <div className="px-4 max-h-80 overflow-y-auto">
+            {renderTimelineStepper(steps)}
           </div>
 
           {/* Branding Footer */}

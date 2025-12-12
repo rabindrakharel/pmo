@@ -375,8 +375,6 @@ export function renderEditModeFromMetadata(
           step={metadata.inputType === 'currency' ? '0.01' : '1'}
           value={value ?? ''}
           onChange={(val) => onChange(val ? parseFloat(val) : null)}
-          debounceMs={300}
-          onBlurCommit={true}
           required={required}
           disabled={disabled}
           placeholder={metadata.placeholder}
@@ -424,8 +422,6 @@ export function renderEditModeFromMetadata(
         <DebouncedTextarea
           value={value ?? ''}
           onChange={(val) => onChange(val)}
-          debounceMs={300}
-          onBlurCommit={true}
           required={required}
           disabled={disabled}
           placeholder={metadata.placeholder}
@@ -446,8 +442,6 @@ export function renderEditModeFromMetadata(
             type="text"
             value={value ?? ''}
             onChange={(val) => onChange(val)}
-            debounceMs={300}
-            onBlurCommit={true}
             required={required}
             disabled={disabled}
             placeholder={metadata.placeholder || 'Missing entity configuration'}
@@ -481,8 +475,6 @@ export function renderEditModeFromMetadata(
             type="text"
             value={Array.isArray(value) ? value.join(', ') : (value ?? '')}
             onChange={(val) => onChange(val)}
-            debounceMs={300}
-            onBlurCommit={true}
             required={required}
             disabled={disabled}
             placeholder={metadata.placeholder || 'Missing entity configuration'}
@@ -518,8 +510,6 @@ export function renderEditModeFromMetadata(
             type="text"
             value={value ?? ''}
             onChange={(val) => onChange(val)}
-            debounceMs={300}
-            onBlurCommit={true}
             required={required}
             disabled={disabled}
             placeholder={metadata.placeholder || 'Missing component configuration'}
@@ -534,7 +524,7 @@ export function renderEditModeFromMetadata(
           const entityCode = metadata.lookupEntity;
           if (!entityCode) {
             console.warn(`[EDIT] Missing lookupEntity for EntityInstanceNameSelect field ${metadata.key}`);
-            return <DebouncedInput type="text" value={value ?? ''} onChange={(val) => onChange(val)} debounceMs={300} onBlurCommit={true} />;
+            return <DebouncedInput type="text" value={value ?? ''} onChange={(val) => onChange(val)} />;
           }
           return (
             <EntityInstanceNameSelect
@@ -553,7 +543,7 @@ export function renderEditModeFromMetadata(
           const entityCode = metadata.lookupEntity;
           if (!entityCode) {
             console.warn(`[EDIT] Missing lookupEntity for EntityInstanceNameMultiSelect field ${metadata.key}`);
-            return <DebouncedInput type="text" value={value ?? ''} onChange={(val) => onChange(val)} debounceMs={300} onBlurCommit={true} />;
+            return <DebouncedInput type="text" value={value ?? ''} onChange={(val) => onChange(val)} />;
           }
           const arrayValue = Array.isArray(value) ? value : (value ? [value] : []);
           return (
@@ -624,8 +614,6 @@ export function renderEditModeFromMetadata(
               type="text"
               value={value ?? ''}
               onChange={(val) => onChange(val)}
-              debounceMs={300}
-              onBlurCommit={true}
               required={required}
               disabled={disabled}
               placeholder={metadata.placeholder}
@@ -644,8 +632,6 @@ export function renderEditModeFromMetadata(
           type="text"
           value={value ?? ''}
           onChange={(val) => onChange(val)}
-          debounceMs={300}
-          onBlurCommit={true}
           required={required}
           disabled={disabled}
           placeholder={metadata.placeholder}
