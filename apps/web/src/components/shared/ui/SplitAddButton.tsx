@@ -84,33 +84,33 @@ export function SplitAddButton({
   }, [disabled, onLinkExisting]);
 
   // ============================================================================
-  // RENDER - Tabbed layout (shows 1 or 2 tabs based on context)
+  // RENDER - v14.6.0: Minimal tab style matching DynamicChildEntityTabs
   // ============================================================================
 
   return (
-    <div className={`flex ${className}`}>
+    <nav className={`flex items-center gap-1 ${className}`} aria-label="Add actions">
       {/* Tab 1: Create New (always visible) */}
       <button
         onClick={handleCreateNewClick}
         disabled={disabled}
-        className={`flex-1 px-4 py-3 text-sm text-dark-700 hover:bg-dark-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-500/30 focus-visible:outline-none ${showLinkOption ? 'border-r border-dark-300' : ''}`}
+        className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-all duration-200 focus-visible:outline-none text-dark-text-tertiary hover:text-dark-text-secondary disabled:text-dark-text-disabled disabled:cursor-not-allowed"
       >
         <Plus className="h-4 w-4" />
-        <span>Create New {entityLabel}</span>
+        <span>New {entityLabel}</span>
       </button>
 
-      {/* Tab 2: Add Existing (only in parent context) */}
+      {/* Tab 2: Link Existing (only in parent context) */}
       {showLinkOption && (
         <button
           onClick={handleAddExistingClick}
           disabled={disabled}
-          className="flex-1 px-4 py-3 text-sm text-dark-700 hover:bg-dark-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-500/30 focus-visible:outline-none"
+          className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-all duration-200 focus-visible:outline-none text-dark-text-tertiary hover:text-dark-text-secondary disabled:text-dark-text-disabled disabled:cursor-not-allowed"
         >
           <Link2 className="h-4 w-4" />
-          <span>Add Existing {entityLabel}</span>
+          <span>Link Existing</span>
         </button>
       )}
-    </div>
+    </nav>
   );
 }
 

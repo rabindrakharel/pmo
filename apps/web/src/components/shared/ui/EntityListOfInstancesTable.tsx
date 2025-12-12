@@ -472,9 +472,8 @@ export function EntityListOfInstancesTable<T = any>({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
-  // Add row state
-  const [isAddingRow, setIsAddingRow] = useState(false);
-  const [newRowData, setNewRowData] = useState<Partial<T>>({});
+  // Add row state - v11.0.0: Handled by parent via onAddRow callback
+  // (isAddingRow/newRowData removed - parent manages add row state)
 
   // Bottom scrollbar positioning state
   const [scrollbarStyles, setScrollbarStyles] = useState<{
@@ -496,7 +495,6 @@ export function EntityListOfInstancesTable<T = any>({
 
   // Local cell editing state (if parent doesn't control it)
   const [localEditingCell, setLocalEditingCell] = useState<{ rowId: string; columnKey: string } | null>(null);
-  const [localFocusedRowId, setLocalFocusedRowId] = useState<string | null>(null);
 
   // v8.4.0: Undo stack for cell edits
   type UndoEntry = { rowId: string; columnKey: string; oldValue: any; newValue: any; record: T };
@@ -505,7 +503,6 @@ export function EntityListOfInstancesTable<T = any>({
 
   // Use parent-controlled state if provided, otherwise use local state
   const activeEditingCell = editingCell ?? localEditingCell;
-  const activeFocusedRowId = focusedRowId ?? localFocusedRowId;
 
   // Ref for click-outside detection
   const editingCellRef = useRef<HTMLDivElement | null>(null);
@@ -607,19 +604,12 @@ export function EntityListOfInstancesTable<T = any>({
     // Quick click: don't stop propagation, let row onClick handle navigation
   }, []);
 
-  // Handle cell value change
   // v13.0.0: Cell-Isolated State Pattern (Industry Standard)
   // ─────────────────────────────────────────────────────────
-  // NO-OP for cell-level edits. DebouncedInput manages its own local state.
+  // DebouncedInput manages its own local state for instant UI feedback.
   // Value is passed directly to handleCellSave on blur/enter via valueOverride.
   // This eliminates ALL parent re-renders during typing (0 vs 2 per debounce).
-  //
-  // NOTE: Row-level edit and Add Row flows still use editedData via their
-  // own handlers (handleFieldChange). This change only affects cell-level edits.
-  const handleCellValueChange = useCallback((_rowId: string, _columnKey: string, _value: any) => {
-    // NO-OP: Cell component (DebouncedInput) manages its own local state
-    // for instant UI feedback. Parent is only notified on COMMIT (blur/enter).
-  }, []);
+  // (handleCellValueChange removed - was a NO-OP)
 
   // Handle cell save (Enter key or blur)
   // v13.0.0: valueOverride is REQUIRED - DebouncedInput always passes value directly
@@ -796,24 +786,9 @@ export function EntityListOfInstancesTable<T = any>({
     return optionsMap;
   }, [labelsMetadata]);
 
-  // Preload colors for all settings columns (for filter dropdowns and inline edit)
-  useEffect(() => {
-    const preloadColors = async () => {
-      // v12.0.0: Find all columns with datalabel lookup using backend metadata
-      const settingsColumns = columns.filter(col => {
-        const backendMeta = (col as any).backendMetadata as BackendFieldMetadata | undefined;
-        return backendMeta?.lookupSourceTable === 'datalabel' || backendMeta?.lookupField || col.lookupSourceTable === 'datalabel' || col.lookupField;
-      });
-
-      // Extract datalabels and preload colors
-      // Colors are now resolved at format time via formatDataset()
-      // and stored in datalabelMetadataStore - no preloading needed
-    };
-
-    if (filterable || inlineEditable) {
-      preloadColors();
-    }
-  }, [columns, filterable, inlineEditable]);
+  // v13.0.0: Colors are resolved at format time via formatDataset()
+  // and stored in datalabelMetadataStore - no preloading needed
+  // (preloadColors useEffect removed as it was a no-op)
 
   // Helper to get row key
   // v9.5.1: Handle FormattedRow structure where id is inside record.raw
@@ -1161,13 +1136,18 @@ export function EntityListOfInstancesTable<T = any>({
         boxSizing: 'border-box',
       };
 
-      // Responsive width logic
-      if (processedColumns.length > 7) {
-        baseStyle.width = '200px';
-        baseStyle.minWidth = '200px';
+      // v14.6.0: Always respect backend-specified widths
+      // When column has explicit width from metadata, use it; otherwise use defaults
+      if (col.width) {
+        baseStyle.width = col.width;
+        baseStyle.minWidth = col.width;
+      } else if (processedColumns.length > 7) {
+        // Fallback for columns without specified width
+        baseStyle.width = '150px';
+        baseStyle.minWidth = '150px';
       } else {
-        baseStyle.width = col.width || 'auto';
-        baseStyle.minWidth = '100px';
+        baseStyle.width = 'auto';
+        baseStyle.minWidth = '80px';
         baseStyle.flex = '1';
       }
 
@@ -1248,8 +1228,8 @@ export function EntityListOfInstancesTable<T = any>({
           const rawRecord = formattedRecord.raw || record;
           const rawValue = (rawRecord as any)[firstEditableColumn.key];
 
+          // v13.0.0: DebouncedInput manages its own local state
           setLocalEditingCell({ rowId, columnKey: firstEditableColumn.key });
-          setLocalCellValue(rawValue);
           if (onInlineEdit) {
             onInlineEdit(rowId, firstEditableColumn.key, rawValue);
           }
@@ -1546,36 +1526,13 @@ export function EntityListOfInstancesTable<T = any>({
   }, [data.length, columns.length]); // Only re-run when data or column count changes
 
   // Add row handlers
-  // Handle add row - adds empty row inline and enters edit mode
+  // v11.0.0: handleStartAddRow triggers parent's onAddRow callback
+  // Parent is responsible for adding the new row to their data array
   const handleStartAddRow = () => {
-    // Generate temporary ID for the new row
-    const tempId = `temp_${Date.now()}`;
-
-    // Create empty row with default values
-    const newRow: any = {
-      id: tempId,
-      _isNew: true, // Flag to identify new rows
-    };
-
-    // Add empty row to data
-    const newData = [...data, newRow];
-
-    // Trigger parent's onAddRow with the new row data to update parent state
-    // Parent should add this to their data array
     if (onAddRow) {
-      onAddRow(newRow);
+      const tempId = `temp_${Date.now()}`;
+      onAddRow({ id: tempId, _isNew: true } as Partial<T>);
     }
-  };
-
-  const handleSaveNewRow = () => {
-    // This is handled by the regular save flow now
-    setIsAddingRow(false);
-    setNewRowData({});
-  };
-
-  const handleCancelAddRow = () => {
-    setIsAddingRow(false);
-    setNewRowData({});
   };
 
   // v11.5.0: Scroll to top when adding new row (row appears at top, must be visible)
@@ -1605,104 +1562,7 @@ export function EntityListOfInstancesTable<T = any>({
       <ChevronDown className="h-4 w-4" />;
   };
 
-  const PaginationComponent = () => {
-    if (!pagination) return null;
-
-    const { current, pageSize, total, showSizeChanger = true, pageSizeOptions = [20, 50, 100, 200], onChange } = pagination;
-    const totalPages = Math.max(1, Math.ceil((total || filteredAndSortedData.length) / pageSize));
-    const actualTotal = Math.max(0, total || filteredAndSortedData.length);
-    const startRecord = actualTotal > 0 ? (current - 1) * pageSize + 1 : 0;
-    const endRecord = actualTotal > 0 ? Math.min(current * pageSize, actualTotal) : 0;
-
-
-    // v13.1.0: Pagination with dark-* palette for consistency with Layout
-    return (
-      <div className="flex items-center justify-between px-6 py-4 border-t border-dark-200 bg-gradient-to-t from-dark-subtle to-white">
-        <div className="flex items-center text-sm text-dark-600">
-          <span className="font-normal">
-            {loading ? (
-              <InlineSpinner />
-            ) : (
-              <>Showing <span className="text-dark-700 font-medium">{startRecord}</span> to <span className="text-dark-700 font-medium">{endRecord}</span> of <span className="text-dark-700 font-medium">{actualTotal}</span> results</>
-            )}
-          </span>
-          {showSizeChanger && (
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                e.preventDefault();
-                onChange?.(1, Number(e.target.value));
-              }}
-              className="ml-6 px-3 py-1.5 border border-dark-300 rounded-lg text-sm bg-dark-surface focus:ring-2 focus:ring-dark-accent-ring focus:border-dark-400 transition-all duration-200 text-dark-700"
-            >
-              {pageSizeOptions.map(size => (
-                <option key={size} value={size}>{size} per page</option>
-              ))}
-            </select>
-          )}
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              onChange?.(current - 1, pageSize);
-            }}
-            disabled={current <= 1 || actualTotal === 0}
-            className="p-2 border border-dark-300 rounded-lg text-sm text-dark-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-dark-hover hover:border-dark-400 transition-all duration-200 bg-dark-surface"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-
-          <div className="flex items-center space-x-1">
-            {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
-              let pageNum;
-              if (totalPages <= 7) {
-                pageNum = i + 1;
-              } else if (current <= 4) {
-                pageNum = i + 1;
-              } else if (current >= totalPages - 3) {
-                pageNum = totalPages - 6 + i;
-              } else {
-                pageNum = current - 3 + i;
-              }
-
-              return (
-                <button
-                  type="button"
-                  key={pageNum}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    onChange?.(pageNum, pageSize);
-                  }}
-                  className={`px-3 py-1.5 text-sm border rounded-lg font-normal transition-all duration-200 ${
-                    current === pageNum
-                      ? 'bg-dark-accent text-white border-dark-accent shadow-sm'
-                      : 'border-dark-300 bg-dark-surface hover:bg-dark-hover hover:border-dark-400 text-dark-700'
-                  }`}
-                >
-                  {pageNum}
-                </button>
-              );
-            })}
-          </div>
-
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              onChange?.(current + 1, pageSize);
-            }}
-            disabled={current >= totalPages || actualTotal === 0}
-            className="p-2 border border-dark-300 rounded-lg text-sm text-dark-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-dark-hover hover:border-dark-400 transition-all duration-200 bg-dark-surface"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-    );
-  };
+  // v14.6.0: PaginationComponent removed - pagination now inline in unified footer
 
   if (loading) {
     return (
@@ -2036,7 +1896,15 @@ export function EntityListOfInstancesTable<T = any>({
           <table
             className="w-full"
             style={{
-              minWidth: processedColumns.length > 7 ? `${processedColumns.length * 200}px` : '100%',
+              // v14.6.0: Calculate minWidth from actual column widths (sum of specified + 150px default)
+              minWidth: processedColumns.length > 7
+                ? `${processedColumns.reduce((sum, col) => {
+                    const w = col.width;
+                    if (typeof w === 'string') return sum + parseInt(w, 10) || 150;
+                    if (typeof w === 'number') return sum + w;
+                    return sum + 150;
+                  }, 0)}px`
+                : '100%',
               tableLayout: processedColumns.length <= 7 ? 'auto' : 'fixed'
             }}
           >
@@ -2052,17 +1920,18 @@ export function EntityListOfInstancesTable<T = any>({
                     key={column.key}
                     className={`${densitySettings.headerPadding} text-left ${
                       column.sortable ? 'cursor-pointer hover:bg-dark-hover transition-colors' : ''
-                    } ${processedColumns.length > 7 ? 'min-w-[200px]' : ''} ${
+                    } ${
                       index === 0 ? 'sticky left-0 z-40 bg-dark-surface' : ''
                     } flex-shrink-0`}
                     style={{
-                      width: processedColumns.length > 7 ? '200px' : (column.width || 'auto'),
-                      minWidth: processedColumns.length > 7 ? '200px' : '80px',
+                      // v14.6.0: Respect backend-specified widths
+                      width: column.width || (processedColumns.length > 7 ? '150px' : 'auto'),
+                      minWidth: column.width || (processedColumns.length > 7 ? '150px' : '80px'),
                       boxSizing: 'border-box',
                       textAlign: column.align || 'left',
                       outline: 0,
                       backgroundColor: 'transparent',
-                      flex: processedColumns.length > 7 ? undefined : '1',
+                      flex: column.width ? undefined : (processedColumns.length > 7 ? undefined : '1'),
                     }}
                     onClick={() => column.sortable && handleSort(column.key)}
                   >
@@ -2395,18 +2264,6 @@ export function EntityListOfInstancesTable<T = any>({
         </div>
       )}
 
-      {/* v11.0.0: Add Row Button - Dynamic label with optional "Link Existing" */}
-      {allowAddRow && (
-        <div className="flex-shrink-0 border-t border-dark-300 bg-dark-100">
-          <SplitAddButton
-            entityLabel={entityLabel}
-            onAddNew={handleStartAddRow}
-            onLinkExisting={() => setShowLinkExistingModal(true)}
-            showLinkOption={!!parentContext}
-          />
-        </div>
-      )}
-
       {/* v11.0.0: Link Existing Entity Modal */}
       {parentContext && entityCode && (
         <Modal_LinkExistingEntityInstanceToDataTable
@@ -2420,8 +2277,111 @@ export function EntityListOfInstancesTable<T = any>({
         />
       )}
 
-      <div className="flex-shrink-0 mt-4">
-        <PaginationComponent />
+      {/* v14.6.0: Unified footer - minimal & elegant matching child entity tabs */}
+      <div className="flex-shrink-0 border-t border-dark-border-subtle">
+        <div className="flex items-center justify-between px-4 py-2">
+          {/* Left side: Add button */}
+          <div className="flex items-center">
+            {allowAddRow && (
+              <SplitAddButton
+                entityLabel={entityLabel}
+                onAddNew={handleStartAddRow}
+                onLinkExisting={() => setShowLinkExistingModal(true)}
+                showLinkOption={!!parentContext}
+              />
+            )}
+          </div>
+
+          {/* Right side: Pagination info + controls - minimal style */}
+          {pagination && (
+            <div className="flex items-center gap-3">
+              {/* Results info - subtle text */}
+              <span className="text-xs text-dark-text-tertiary">
+                {loading ? (
+                  <InlineSpinner />
+                ) : (
+                  <>{Math.max(0, pagination.total || filteredAndSortedData.length) > 0 ? (pagination.current - 1) * pagination.pageSize + 1 : 0}–{Math.max(0, pagination.total || filteredAndSortedData.length) > 0 ? Math.min(pagination.current * pagination.pageSize, Math.max(0, pagination.total || filteredAndSortedData.length)) : 0} of {Math.max(0, pagination.total || filteredAndSortedData.length)}</>
+                )}
+              </span>
+
+              {/* Page size selector - minimal */}
+              {pagination.showSizeChanger !== false && (
+                <select
+                  value={pagination.pageSize}
+                  onChange={(e) => {
+                    e.preventDefault();
+                    pagination.onChange?.(1, Number(e.target.value));
+                  }}
+                  className="px-2 py-1 text-xs text-dark-text-tertiary bg-transparent border-0 focus:ring-0 focus:outline-none cursor-pointer hover:text-dark-text-secondary transition-colors"
+                >
+                  {(pagination.pageSizeOptions || [20, 50, 100, 200]).map(size => (
+                    <option key={size} value={size}>{size} / page</option>
+                  ))}
+                </select>
+              )}
+
+              {/* Page controls - minimal icons only */}
+              <div className="flex items-center">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    pagination.onChange?.(pagination.current - 1, pagination.pageSize);
+                  }}
+                  disabled={pagination.current <= 1 || Math.max(0, pagination.total || filteredAndSortedData.length) === 0}
+                  className="p-1 text-dark-text-tertiary hover:text-dark-text-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+
+                {(() => {
+                  const totalPages = Math.max(1, Math.ceil((pagination.total || filteredAndSortedData.length) / pagination.pageSize));
+                  return Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (pagination.current <= 3) {
+                      pageNum = i + 1;
+                    } else if (pagination.current >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = pagination.current - 2 + i;
+                    }
+                    return (
+                      <button
+                        type="button"
+                        key={pageNum}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          pagination.onChange?.(pageNum, pagination.pageSize);
+                        }}
+                        className={`min-w-[24px] h-6 text-xs font-medium transition-colors ${
+                          pagination.current === pageNum
+                            ? 'text-dark-text-primary'
+                            : 'text-dark-text-tertiary hover:text-dark-text-secondary'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  });
+                })()}
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    pagination.onChange?.(pagination.current + 1, pagination.pageSize);
+                  }}
+                  disabled={pagination.current >= Math.max(1, Math.ceil((pagination.total || filteredAndSortedData.length) / pagination.pageSize)) || Math.max(0, pagination.total || filteredAndSortedData.length) === 0}
+                  className="p-1 text-dark-text-tertiary hover:text-dark-text-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* v8.4.0: Undo notification toast */}

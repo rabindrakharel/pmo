@@ -1,6 +1,6 @@
 # State Management Architecture
 
-**Version:** 14.0.0 | **Updated:** 2025-12-09 | **Status:** Production
+**Version:** 14.2.0 | **Updated:** 2025-12-11 | **Status:** Production
 
 ---
 
@@ -547,10 +547,374 @@ queryFn: async () => {
 
 ---
 
+## Component State Management Patterns (v14.1.0)
+
+This section documents the **two types of state** in PMO components and when to use each.
+
+### State Type Classification
+
+```
++-----------------------------------------------------------------------------+
+|                    STATE TYPE CLASSIFICATION                                  |
++-----------------------------------------------------------------------------+
+|                                                                               |
+|  CACHE STATE (Server Data)              LOCAL UI STATE (Component Data)       |
+|  ─────────────────────────              ───────────────────────────────       |
+|  Managed by: TanStack Query + Dexie     Managed by: useState / useReducer     |
+|  Persisted: Yes (IndexedDB)             Persisted: No (in-memory only)        |
+|  Shared: Yes (across components)        Shared: No (component-scoped)         |
+|  Source: API / Backend                  Source: User interaction              |
+|                                                                               |
+|  Examples:                              Examples:                             |
+|  • Entity data (projects, tasks)        • Sort field/direction                |
+|  • Datalabel options                    • Visible columns                     |
+|  • Entity codes                         • Dropdown open/closed                |
+|  • Entity instance names                • Editing cell (rowId, columnKey)     |
+|  • Drafts                               • Undo stack                          |
+|                                         • Selection state (multi-select)      |
+|                                         • Focused row index                   |
+|                                         • Modal open/closed                   |
+|                                         • Search/filter terms                 |
+|                                                                               |
++-----------------------------------------------------------------------------+
+```
+
+### Decision Tree: Which State Type?
+
+```
+Is this data from the server (API)?
+    │
+    ├── YES → Use CACHE STATE (TanStack Query hooks)
+    │         • useEntityInstanceData()
+    │         • useDatalabel()
+    │         • useEntityCodes()
+    │         • getDatalabelSync() (after Hydration Gate)
+    │
+    └── NO → Is it user interaction state?
+              │
+              ├── YES → Use LOCAL UI STATE (useState/useReducer)
+              │         • Sorting, filtering, pagination
+              │         • Modal/dropdown visibility
+              │         • Editing state (which cell, undo stack)
+              │         • Selection state
+              │
+              └── NO → Is it derived from props/data?
+                        │
+                        └── YES → Use useMemo() (computed value)
+```
+
+---
+
+### Component State Analysis
+
+#### 1. EntityListOfInstancesTable (2,442 lines)
+
+**Purpose:** Universal data table for all entity types with inline editing, filtering, sorting.
+
+| State Category | Variables | Hook | Optimization Target |
+|----------------|-----------|------|---------------------|
+| **Cache State** | datalabel options | `getDatalabelSync()` | ✓ Correct |
+| **Cache State** | entity codes | `useEntityCodes()` | ✓ Correct |
+| **Local UI - Sorting** | `sortField`, `sortDirection` | `useState` | → `useReducer` |
+| **Local UI - Filtering** | `dropdownFilters`, `filterSearchTerm`, `selectedFilterColumn` | `useState` | → `useReducer` |
+| **Local UI - Columns** | `visibleColumns`, `showColumnSelector` | `useState` | → `useReducer` |
+| **Local UI - Cell Editing** | `localEditingCell`, `undoStack` | `useState` | → `useCellEditing` hook (v13.0.0: `localCellValue` removed - DebouncedInput manages own state) |
+| **Local UI - Selection** | `focusedRowIndex`, `selectionAnchorIndex`, `internalSelectedRows` | `useState` | → `useTableSelection` hook |
+| **Local UI - Drag/Drop** | `draggedIndex`, `dragOverIndex` | `useState` | Keep as-is |
+| **Local UI - Add Row** | (removed v13.0.0) | - | Parent manages add row state via `onAddRow` callback |
+| **Rendering** | `labelsMetadata`, `badgeDropdownOptionsMap`, `columnStylesMap` | `useMemo` | ✓ Correct |
+| **Rendering** | `filteredAndSortedData`, `paginatedData`, `processedColumns` | `useMemo` | ✓ Correct |
+
+**State Flow:**
+```
+Props (data, metadata)
+    │
+    ├─→ useMemo: columns (from metadata)
+    ├─→ useMemo: labelsMetadata (from getDatalabelSync)
+    ├─→ useMemo: filteredAndSortedData (from data + filters + sort)
+    ├─→ useMemo: paginatedData (from filteredAndSortedData + pagination)
+    │
+    └─→ useVirtualizer: rowVirtualizer (from paginatedData)
+            │
+            └─→ Render: VirtualizedRows
+```
+
+**Recommended Extractions:**
+```typescript
+// Extract to: hooks/useCellEditing.ts
+const cellEditing = useCellEditing({
+  onCellSave,
+  onInlineEdit,
+  onCancelInlineEdit,
+});
+// Returns: { activeCell, enterEdit, saveCell, cancelEdit, undo, undoStack }
+
+// Extract to: hooks/useTableSelection.ts
+const selection = useTableSelection(paginatedData, getRowKey);
+// Returns: { selectedRows, focusedIndex, toggleSelection, selectRange, isSelected }
+
+// Consolidate with useReducer
+const [tableState, dispatch] = useReducer(tableReducer, {
+  sort: { field: '', direction: 'asc' },
+  filters: { dropdown: {}, column: '', search: '' },
+  ui: { showColumnSelector: false, showFilterDropdown: false },
+  visibleColumns: new Set(initialVisibleColumns),
+});
+```
+
+---
+
+#### 2. CalendarView (1,058 lines)
+
+**Purpose:** Weekly calendar with drag-drop scheduling, multi-person filtering.
+
+| State Category | Variables | Hook | Notes |
+|----------------|-----------|------|-------|
+| **Cache State** | People data | `useEffect` + fetch | Could use `useEntityInstanceData` |
+| **Local UI - Navigation** | `currentWeekStart` | `useState` | Keep as-is |
+| **Local UI - Selection** | `selectedPersonIds` | `useState` | Keep as-is |
+| **Local UI - Sidebar** | `sidebarCollapsed`, `expandedSections` | `useState` | → `useReducer` |
+| **Local UI - Search** | `employeeSearchTerm`, `customerSearchTerm` | `useState` | → `useReducer` |
+| **Local UI - Modal** | `modalOpen`, `modalMode`, `modalData` | `useState` | → `useCalendarModal` hook |
+| **Local UI - Popover** | `popoverOpen`, `popoverEvent`, `popoverPosition` | `useState` | → `useCalendarPopover` hook |
+| **Local UI - Drag** | `dragState`, `dragOverSlot` | `useState` | → `useCalendarDrag` hook |
+| **Rendering** | `filteredData`, `peopleByType`, `weekDays`, `timeSlots`, `slotsByDateTime` | `useMemo` | ✓ Correct |
+
+**State Flow:**
+```
+Props (data)
+    │
+    ├─→ useEffect: fetch people (API)
+    ├─→ useMemo: filteredData (from data + selectedPersonIds)
+    ├─→ useMemo: weekDays (from currentWeekStart)
+    ├─→ useMemo: slotsByDateTime (from filteredData + weekDays)
+    │
+    └─→ Render: CalendarGrid + Sidebar
+```
+
+---
+
+#### 3. EntityInstanceFormContainer (609 lines)
+
+**Purpose:** Auto-generated form for entity create/edit with inline editing.
+
+| State Category | Variables | Hook | Notes |
+|----------------|-----------|------|-------|
+| **Cache State** | Datalabel options | `getDatalabelSync()` | ✓ Correct |
+| **Local UI - Data** | `localData` | `useState` | Mirrors props, syncs on change |
+| **Local UI - Inline Edit** | `inlineEditingField`, `inlineEditValue` | `useState` | → `useInlineFieldEdit` hook |
+| **Local UI - Long Press** | `longPressTimerRef`, `longPressTriggeredRef` | `useRef` | Part of inline edit |
+| **Rendering** | `fields`, `labelsMetadata` | `useMemo` | ✓ Correct |
+
+**State Flow:**
+```
+Props (data, metadata, onChange)
+    │
+    ├─→ useState: localData (copy of data)
+    ├─→ useMemo: fields (from metadata.viewType)
+    ├─→ useMemo: labelsMetadata (from getDatalabelSync)
+    │
+    └─→ Render: Form fields
+            │
+            └─→ onChange → handleFieldChange → onChange(localData)
+```
+
+---
+
+#### 4. KanbanBoard (416 lines)
+
+**Purpose:** Kanban view for entities with drag-drop between columns.
+
+| State Category | Variables | Hook | Notes |
+|----------------|-----------|------|-------|
+| **Local UI - Columns** | `columns` | `useState` | Mirrors props or auto-generated |
+| **Local UI - Generation** | `isGenerating` | `useState` | Loading state for auto-gen |
+| **Local UI - Card Menu** | `showMenu` (in KanbanCard) | `useState` | Keep as-is |
+| **Local UI - Drag Over** | `isDragOver` (in KanbanColumn) | `useState` | Keep as-is |
+
+**State Flow:**
+```
+Props (data, columns, statusField)
+    │
+    ├─→ useState: columns (from props or auto-generated)
+    │
+    └─→ Render: KanbanColumn[] → KanbanCard[]
+            │
+            └─→ onDrop → onCardMove(cardId, newStatus)
+```
+
+---
+
+#### 5. DeleteOrUnlinkModal (559 lines)
+
+**Purpose:** Confirmation modal for delete vs unlink operations on child entities.
+
+| State Category | Variables | Hook | Notes |
+|----------------|-----------|------|-------|
+| **Local UI - Selection** | `selectedAction` | `useState` | 'unlink' or 'delete' |
+| **Local UI - Processing** | `isProcessing`, `steps`, `error` | `useState` | → `useProcessingSteps` hook |
+
+**State Flow:**
+```
+Props (isOpen, parentEntity, childEntity, onConfirm)
+    │
+    ├─→ useState: selectedAction (default based on context)
+    ├─→ useState: steps (progress stepper)
+    │
+    └─→ Render: Action selection → Stepper → Confirm
+            │
+            └─→ onConfirm → processWithSteps → onSuccess/onError
+```
+
+---
+
+#### 6. BadgeDropdownSelect (267 lines)
+
+**Purpose:** Colored badge dropdown for datalabel fields.
+
+| State Category | Variables | Hook | Notes |
+|----------------|-----------|------|-------|
+| **Local UI - Dropdown** | `dropdownOpen`, `dropdownPosition` | `useState` | Keep as-is |
+
+**State Flow:**
+```
+Props (value, options, onChange)
+    │
+    ├─→ useState: dropdownOpen
+    ├─→ useEffect: calculate dropdownPosition
+    │
+    └─→ Render: Badge button → Portal dropdown
+            │
+            └─→ onClick → onChange(newValue) → dropdownOpen = false
+```
+
+---
+
+#### 7. EntityInstanceNameSelect (381 lines)
+
+**Purpose:** Searchable dropdown for selecting entity instances.
+
+| State Category | Variables | Hook | Notes |
+|----------------|-----------|------|-------|
+| **Local UI - Dropdown** | `isOpen`, `searchTerm`, `highlightedIndex` | `useState` | Keep as-is |
+| **Local UI - Position** | `dropdownPosition` | `useState` | Calculated on open |
+| **Local UI - Value** | `localValue`, `localLabel` | `useState` | Controlled/uncontrolled hybrid |
+
+**State Flow:**
+```
+Props (value, options, onChange)
+    │
+    ├─→ useState: localValue (mirrors value prop)
+    ├─→ useState: searchTerm (filter options)
+    ├─→ filtered options = options.filter(searchTerm)
+    │
+    └─→ Render: Input → Portal dropdown
+            │
+            └─→ selectOption → onChange(value) → isOpen = false
+```
+
+---
+
+#### 8. DynamicChildEntityTabs (233 lines)
+
+**Purpose:** Renders child entity tabs based on parent entity's `child_entity_codes`.
+
+| State Category | Variables | Hook | Notes |
+|----------------|-----------|------|-------|
+| **Cache State** | Entity codes | `useEntityCodes()` | ✓ Correct |
+| **Local UI - Tabs** | `tabs`, `loading` | `useState` | Derived from entity codes |
+
+**State Flow:**
+```
+Props (entityCode, childEntityCodes)
+    │
+    ├─→ useEntityCodes: getEntityByCode
+    ├─→ useEffect: build tabs from childEntityCodes + entity metadata
+    │
+    └─→ Render: Tab headers + Tab content (EntityListOfInstancesTable)
+```
+
+---
+
+### Optimization Opportunities Summary
+
+| Component | Current State Count | After Optimization | Extraction Target |
+|-----------|--------------------|--------------------|-------------------|
+| **EntityListOfInstancesTable** | ~25 useState | ~10 useState + 2 hooks + 1 reducer | `useCellEditing`, `useTableSelection`, `useReducer` |
+| **CalendarView** | ~15 useState | ~8 useState + 3 hooks | `useCalendarModal`, `useCalendarPopover`, `useCalendarDrag` |
+| **EntityInstanceFormContainer** | ~4 useState | ~2 useState + 1 hook | `useInlineFieldEdit` |
+| **KanbanBoard** | ~5 useState | Keep as-is | None needed |
+| **DeleteOrUnlinkModal** | ~4 useState | ~2 useState + 1 hook | `useProcessingSteps` |
+| **BadgeDropdownSelect** | ~2 useState | Keep as-is | None needed |
+| **EntityInstanceNameSelect** | ~6 useState | Keep as-is | None needed |
+| **DynamicChildEntityTabs** | ~2 useState | Keep as-is | None needed |
+
+---
+
+### Key Principles
+
+#### 1. Cache State vs Local UI State
+
+```
+CACHE STATE: Use TanStack Query / Dexie
+─────────────────────────────────────────
+• Data from API (entities, datalabels, settings)
+• Shared across components
+• Persisted to IndexedDB
+• Invalidated by WebSocket
+
+LOCAL UI STATE: Use useState / useReducer
+─────────────────────────────────────────
+• User interaction state (open/closed, selected, editing)
+• Component-scoped (not shared)
+• Not persisted (resets on unmount)
+• Changed by user actions only
+```
+
+#### 2. When to Extract to Custom Hook
+
+Extract when:
+- **3+ related state variables** that always change together
+- **Complex handlers** that operate on the state
+- **Reusable pattern** across multiple components
+- **Testability** - logic can be unit tested in isolation
+
+Don't extract when:
+- Simple open/close toggle
+- Single state variable
+- Component-specific logic
+
+#### 3. When to Use useReducer
+
+Use `useReducer` when:
+- **5+ related state variables** in same logical group
+- **Complex state transitions** (e.g., sort + filter + pagination)
+- **Actions have names** (e.g., 'SET_SORT', 'TOGGLE_COLUMN', 'CLEAR_FILTERS')
+
+Example:
+```typescript
+type TableAction =
+  | { type: 'SET_SORT'; field: string; direction: 'asc' | 'desc' }
+  | { type: 'SET_FILTER'; column: string; values: string[] }
+  | { type: 'TOGGLE_COLUMN'; column: string }
+  | { type: 'CLEAR_FILTERS' };
+
+function tableReducer(state: TableState, action: TableAction): TableState {
+  switch (action.type) {
+    case 'SET_SORT':
+      return { ...state, sort: { field: action.field, direction: action.direction } };
+    // ...
+  }
+}
+```
+
+---
+
 ## Version History
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 14.2.0 | 2025-12-11 | **Component State Patterns**: Added comprehensive documentation for Cache State vs Local UI State classification. Documented state analysis for 8 major components (EntityListOfInstancesTable, CalendarView, EntityInstanceFormContainer, KanbanBoard, DeleteOrUnlinkModal, BadgeDropdownSelect, EntityInstanceNameSelect, DynamicChildEntityTabs). Added optimization opportunities and extraction targets. |
 | 14.0.0 | 2025-12-09 | **Cache Disappearance Fix**: Aligned hydration maxAge with persistMaxAge (24h). Applied `gcTime: Infinity` to datalabel/entityCodes. Implemented stale-while-revalidate pattern (Dexie-first). |
 | 13.0.0 | 2025-12-07 | **Hydration Gate Pattern**: MetadataGate blocks rendering until all session metadata loaded. Sync accessors guaranteed non-null. |
 | 11.3.1 | 2025-12-03 | Inline add row pattern with `useInlineAddRow` hook |
@@ -560,4 +924,4 @@ queryFn: async () => {
 
 ---
 
-**Version:** 14.0.0 | **Updated:** 2025-12-09 | **Status:** Production
+**Version:** 14.2.0 | **Updated:** 2025-12-11 | **Status:** Production
