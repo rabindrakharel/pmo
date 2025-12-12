@@ -76,11 +76,13 @@ import { useEntityCodes } from '../../../db/cache/hooks';
 export type TableDensity = 'compact' | 'regular' | 'relaxed';
 
 // v14.2.0: DENSITY CONFIG - Compact for minimal, elegant tables
+// v14.3.0: Removed vertical padding from cells - row height + flex centering controls spacing
+// v14.3.1: Reduced row heights for tighter, more compact appearance
 const DENSITY_CONFIG = {
   compact: {
-    rowHeight: 32,
-    cellPadding: 'px-3 py-1',
-    headerPadding: 'px-3 py-1.5',
+    rowHeight: 28,
+    cellPadding: 'px-3',  // No vertical padding - flex items-center handles alignment
+    headerPadding: 'px-3 py-1',
     fontSize: 'text-xs',
     badgeSize: 'px-1.5 py-px text-[10px]',
     iconSize: 'h-3 w-3',
@@ -88,9 +90,9 @@ const DENSITY_CONFIG = {
     inputPadding: 'px-1.5 py-0.5',  // For inline edit inputs
   },
   regular: {
-    rowHeight: 40,
-    cellPadding: 'px-4 py-2',
-    headerPadding: 'px-4 py-2',
+    rowHeight: 34,
+    cellPadding: 'px-4',  // No vertical padding - flex items-center handles alignment
+    headerPadding: 'px-4 py-1.5',
     fontSize: 'text-[13px]',
     badgeSize: 'px-2 py-0.5 text-[11px]',
     iconSize: 'h-3.5 w-3.5',
@@ -98,9 +100,9 @@ const DENSITY_CONFIG = {
     inputPadding: 'px-2 py-1',
   },
   relaxed: {
-    rowHeight: 48,
-    cellPadding: 'px-5 py-3',
-    headerPadding: 'px-5 py-2.5',
+    rowHeight: 42,
+    cellPadding: 'px-5',  // No vertical padding - flex items-center handles alignment
+    headerPadding: 'px-5 py-2',
     fontSize: 'text-sm',
     badgeSize: 'px-2.5 py-0.5 text-xs',
     iconSize: 'h-4 w-4',
@@ -208,6 +210,8 @@ export interface EntityListOfInstancesTableProps<T = any> {
   onEdit?: (record: T) => void;
   onShare?: (record: T) => void;
   onDelete?: (record: T) => void;
+  /** v14.3.0: Batch delete callback - triggered by Delete key with selected rows */
+  onBatchDelete?: (selectedIds: string[]) => void;
   // Bulk selection support
   selectable?: boolean;
   selectedRows?: string[];
@@ -273,6 +277,7 @@ export function EntityListOfInstancesTable<T = any>({
   onEdit,
   onShare,
   onDelete,
+  onBatchDelete,
   selectable = false,
   selectedRows = [],
   onSelectionChange,
@@ -310,6 +315,22 @@ export function EntityListOfInstancesTable<T = any>({
   // v14.1.0: DENSITY CONFIGURATION - Get current density settings
   // ============================================================================
   const densitySettings = DENSITY_CONFIG[density];
+
+  // ============================================================================
+  // v14.3.0: MULTI-SELECT - State for Ctrl+Click and Ctrl+Shift+Arrow selection
+  // ============================================================================
+  // Track focused row index for keyboard navigation
+  const [focusedRowIndex, setFocusedRowIndex] = useState<number | null>(null);
+
+  // Anchor point for shift-selection (the starting point of a range selection)
+  const [selectionAnchorIndex, setSelectionAnchorIndex] = useState<number | null>(null);
+
+  // Internal selection state (used when parent doesn't control selection)
+  const [internalSelectedRows, setInternalSelectedRows] = useState<string[]>([]);
+
+  // Use parent-controlled selection if provided, otherwise use internal state
+  const effectiveSelectedRows = selectable && (selectedRows.length > 0 || onSelectionChange) ? selectedRows : internalSelectedRows;
+  const setEffectiveSelectedRows = onSelectionChange || setInternalSelectedRows;
 
   // ============================================================================
   // v11.0.0: LINK EXISTING ENTITY - Modal state and entity label
@@ -856,26 +877,62 @@ export function EntityListOfInstancesTable<T = any>({
   }, [filteredAndSortedData, pagination]);
 
   // ============================================================================
-  // VIRTUALIZATION - Only render visible rows for performance
+  // v14.3.0: MULTI-SELECT - Handlers (after paginatedData is defined)
+  // ============================================================================
+  // Toggle selection for a row (Ctrl+Click or Cmd+Click on Mac)
+  // Also sets this row as the anchor for subsequent shift-selections
+  const toggleRowSelection = useCallback((rowId: string, rowIndex: number) => {
+    if (!selectable) return;
+    const newSelection = effectiveSelectedRows.includes(rowId)
+      ? effectiveSelectedRows.filter(id => id !== rowId)
+      : [...effectiveSelectedRows, rowId];
+    setEffectiveSelectedRows(newSelection);
+    // Set anchor for shift-selection
+    setSelectionAnchorIndex(rowIndex);
+  }, [selectable, effectiveSelectedRows, setEffectiveSelectedRows]);
+
+  // Select range from anchor to target index (Ctrl+Shift+Arrow)
+  // This replaces the range selection, allowing deselection when reversing direction
+  const selectRangeFromAnchor = useCallback((targetIndex: number) => {
+    if (!selectable) return;
+
+    // If no anchor, use current target as anchor
+    const anchor = selectionAnchorIndex ?? targetIndex;
+    const start = Math.min(anchor, targetIndex);
+    const end = Math.max(anchor, targetIndex);
+
+    // Build the new selection: only rows in the range from anchor to target
+    const rangeRowIds: string[] = [];
+    for (let i = start; i <= end; i++) {
+      if (paginatedData[i]) {
+        rangeRowIds.push(getRowKey(paginatedData[i], i));
+      }
+    }
+
+    // Replace selection with just the range (allows deselection on reverse)
+    setEffectiveSelectedRows(rangeRowIds);
+  }, [selectable, selectionAnchorIndex, paginatedData, getRowKey, setEffectiveSelectedRows]);
+
+  // Check if row is selected
+  const isRowSelected = useCallback((rowId: string) => {
+    return selectable && effectiveSelectedRows.includes(rowId);
+  }, [selectable, effectiveSelectedRows]);
+
+  // ============================================================================
+  // VIRTUALIZATION - Always enabled for consistent rendering
   // ============================================================================
   // Uses @tanstack/react-virtual to render only rows in the viewport
-  // Dramatically improves performance for 1000+ row tables
-  // v14.1.0: Row height now driven by density setting
-  const VIRTUALIZATION_THRESHOLD = 50; // Only virtualize when more than this many rows
+  // v14.5.0: Always virtualize - single code path for simplicity
   // v13.1.0: Increased overscan to 10 for smoother fast scrolling (prevents blank gaps)
   const OVERSCAN_COUNT = 10;
 
-  // Determine if we should use virtualization
-  const shouldVirtualize = paginatedData.length > VIRTUALIZATION_THRESHOLD;
-
-  // Row virtualizer - only active when we have enough rows
+  // Row virtualizer - always active
   const rowVirtualizer = useVirtualizer({
     count: paginatedData.length,
     getScrollElement: () => tableContainerRef.current,
     // v14.1.0: Use density-based row height
     estimateSize: useCallback(() => densitySettings.rowHeight, [densitySettings.rowHeight]),
-    overscan: OVERSCAN_COUNT, // v13.1.0: Higher overscan for smoother scrolling
-    enabled: shouldVirtualize,
+    overscan: OVERSCAN_COUNT,
     // Stable keys improve React reconciliation performance
     getItemKey: useCallback((index: number) => {
       const record = paginatedData[index];
@@ -883,11 +940,16 @@ export function EntityListOfInstancesTable<T = any>({
     }, [paginatedData]),
   });
 
-  // Helper to get row className (shared between virtualized and regular rendering)
-  // v14.4.1: Consistent hover across virtualized and regular rows
+  // Helper to get row className for virtualized rows
+  // v14.5.0: Simplified - always virtualized
+  // v14.3.0: Added isSelected param for multi-select visual feedback
   // Base bg-dark-surface ensures Tailwind hover works (no inline backgroundColor)
-  const getRowClassName = useCallback((isDragging: boolean, isDragOver: boolean, isEditing: boolean) => {
+  const getRowClassName = useCallback((isDragging: boolean, isDragOver: boolean, isEditing: boolean, isSelected: boolean = false) => {
     return `group transition-all duration-200 ease-out bg-dark-surface ${
+      isSelected
+        ? '!bg-blue-50 ring-1 ring-inset ring-blue-200 [&_td]:!bg-blue-50'  // Selection highlight
+        : ''
+    } ${
       isDragging
         ? 'opacity-60 scale-[0.99] !bg-dark-active shadow-sm'
         : isDragOver
@@ -898,11 +960,11 @@ export function EntityListOfInstancesTable<T = any>({
         ? '!bg-blue-50/30 shadow-inner'
         : allowReordering && !isEditing
           ? 'cursor-move hover:bg-dark-hover'
-          : onRowClick
+          : onRowClick || selectable
             ? 'cursor-pointer hover:bg-dark-hover'
             : 'hover:bg-dark-hover'
     }`;
-  }, [allowReordering, onRowClick]);
+  }, [allowReordering, onRowClick, selectable]);
 
   // ============================================================================
   // v8.4.0: Click outside to save and close (moved here after paginatedData)
@@ -1122,13 +1184,54 @@ export function EntityListOfInstancesTable<T = any>({
 
   // ============================================================================
   // v8.4.0: Keyboard handler for row-level shortcuts (E to edit)
+  // v14.3.0: Added Ctrl+Shift+Arrow for multi-select with anchor-based range
   // Defined here after processedColumns is available
   // ============================================================================
   const handleRowKeyDown = useCallback((
     e: React.KeyboardEvent,
     rowId: string,
-    record: T
+    record: T,
+    rowIndex: number
   ) => {
+    // v14.3.0: Ctrl+Shift+Arrow for range selection from anchor
+    const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+    if (selectable && isCtrlOrCmd && e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault();
+      const newIndex = e.key === 'ArrowUp'
+        ? Math.max(0, rowIndex - 1)
+        : Math.min(paginatedData.length - 1, rowIndex + 1);
+
+      if (newIndex !== rowIndex) {
+        // Select range from anchor to new index (replaces selection, allows deselect on reverse)
+        selectRangeFromAnchor(newIndex);
+        setFocusedRowIndex(newIndex);
+
+        // Focus the new row for continued keyboard navigation
+        const newRowId = getRowKey(paginatedData[newIndex], newIndex);
+        const newRowElement = document.querySelector(`[data-row-id="${newRowId}"]`) as HTMLElement;
+        newRowElement?.focus();
+      }
+      return;
+    }
+
+    // v14.3.0: Plain Arrow keys for navigation (update focused index)
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      const newIndex = e.key === 'ArrowUp'
+        ? Math.max(0, rowIndex - 1)
+        : Math.min(paginatedData.length - 1, rowIndex + 1);
+
+      if (newIndex !== rowIndex) {
+        e.preventDefault();
+        setFocusedRowIndex(newIndex);
+
+        // Focus the new row
+        const newRowId = getRowKey(paginatedData[newIndex], newIndex);
+        const newRowElement = document.querySelector(`[data-row-id="${newRowId}"]`) as HTMLElement;
+        newRowElement?.focus();
+      }
+      return;
+    }
+
     // E to enter edit mode (edit first editable column)
     if (e.key === 'e' || e.key === 'E') {
       if (!activeEditingCell && inlineEditable) {
@@ -1153,7 +1256,16 @@ export function EntityListOfInstancesTable<T = any>({
         }
       }
     }
-  }, [activeEditingCell, inlineEditable, processedColumns, onInlineEdit]);
+
+    // v14.3.0: Delete key triggers batch delete for selected rows
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      // Only trigger if not editing and we have selected rows
+      if (!activeEditingCell && onBatchDelete && effectiveSelectedRows.length > 0) {
+        e.preventDefault();
+        onBatchDelete(effectiveSelectedRows);
+      }
+    }
+  }, [activeEditingCell, inlineEditable, processedColumns, onInlineEdit, selectable, paginatedData, selectRangeFromAnchor, getRowKey, onBatchDelete, effectiveSelectedRows]);
 
   // ============================================================================
   // v8.4.0: Tab Navigation - Find next/previous editable cell
@@ -1929,11 +2041,12 @@ export function EntityListOfInstancesTable<T = any>({
             }}
           >
             {/* v14.2.0: Minimal header - clean white with very subtle bottom border */}
+            {/* v14.5.0: Always use flexbox layout (virtualization always on) */}
             <thead
               className="bg-dark-subtle border-b border-dark-border-subtle sticky top-0 z-30"
-              style={shouldVirtualize ? { display: 'block' } : undefined}
+              style={{ display: 'block' }}
             >
-              <tr style={shouldVirtualize ? { display: 'flex', width: '100%' } : undefined}>
+              <tr style={{ display: 'flex', width: '100%' }}>
                 {processedColumns.map((column, index) => (
                   <th
                     key={column.key}
@@ -1941,7 +2054,7 @@ export function EntityListOfInstancesTable<T = any>({
                       column.sortable ? 'cursor-pointer hover:bg-dark-hover transition-colors' : ''
                     } ${processedColumns.length > 7 ? 'min-w-[200px]' : ''} ${
                       index === 0 ? 'sticky left-0 z-40 bg-dark-surface' : ''
-                    } ${shouldVirtualize ? 'flex-shrink-0' : ''}`}
+                    } flex-shrink-0`}
                     style={{
                       width: processedColumns.length > 7 ? '200px' : (column.width || 'auto'),
                       minWidth: processedColumns.length > 7 ? '200px' : '80px',
@@ -1968,19 +2081,16 @@ export function EntityListOfInstancesTable<T = any>({
               </tr>
             </thead>
             {/* v14.4.1: Warm surface body - bg handled by Tailwind class for hover consistency */}
+            {/* v14.5.0: Always virtualized - single code path */}
             <tbody
               className="bg-dark-surface"
-              style={shouldVirtualize ? {
+              style={{
                 display: 'block',
                 position: 'relative',
                 height: `${rowVirtualizer.getTotalSize()}px`,
-              } : undefined}
+              }}
             >
-              {shouldVirtualize ? (
-                // ============================================================================
-                // VIRTUALIZED RENDERING - Only visible rows rendered in DOM
-                // ============================================================================
-                rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                   const index = virtualRow.index;
                   const record = paginatedData[index];
                   const recordId = getRowKey(record, index);
@@ -2000,17 +2110,27 @@ export function EntityListOfInstancesTable<T = any>({
                       onDrop={(e) => handleDrop(e, index)}
                       onDragEnd={handleDragEnd}
                       onClick={(e) => {
+                        // v14.3.0: Ctrl+Click (or Cmd+Click on Mac) for multi-select
+                        const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+                        if (selectable && isCtrlOrCmd) {
+                          e.preventDefault();
+                          toggleRowSelection(recordId, index);
+                          setFocusedRowIndex(index);
+                          return;
+                        }
                         // v9.4.1: Robust click handling for virtualized rows
                         // Only trigger row click if not editing and click wasn't stopped by child
                         if (!isEditing && !activeEditingCell && onRowClick) {
                           onRowClick(record);
                         }
                       }}
-                      onKeyDown={(e) => handleRowKeyDown(e, recordId, record)}
+                      onKeyDown={(e) => handleRowKeyDown(e, recordId, record, index)}
                       tabIndex={0}
-                      className={`${getRowClassName(isDragging, isDragOver, isEditing || !!isCellEditing(recordId, ''))} outline-none`}
+                      data-row-id={recordId}
+                      className={`${getRowClassName(isDragging, isDragOver, isEditing || !!isCellEditing(recordId, ''), isRowSelected(recordId))} outline-none`}
                       style={{
                         display: 'flex',
+                        alignItems: 'center',  // v14.3.0: Center cells vertically within row height
                         position: 'absolute',
                         top: 0,
                         left: 0,
@@ -2028,7 +2148,7 @@ export function EntityListOfInstancesTable<T = any>({
                         return (
                           <td
                             key={column.key}
-                            className={`${densitySettings.cellPadding} flex-shrink-0 ${getStickyClassName(colIndex)}`}
+                            className={`${densitySettings.cellPadding} flex-shrink-0 h-full flex items-center ${getStickyClassName(colIndex)}`}
                             style={columnStylesMap.get(column.key)}
                           >
                             {/* v14.2.0: Actions always visible */}
@@ -2116,7 +2236,7 @@ export function EntityListOfInstancesTable<T = any>({
                       return (
                         <td
                           key={column.key}
-                          className={`${densitySettings.cellPadding} ${densitySettings.fontSize} leading-snug flex-shrink-0 ${getStickyClassName(colIndex)} ${
+                          className={`${densitySettings.cellPadding} ${densitySettings.fontSize} leading-snug flex-shrink-0 h-full flex items-center ${getStickyClassName(colIndex)} ${
                             fieldEditable && inlineEditable ? 'cursor-text hover:bg-dark-subtle' : ''
                           } ${isCellBeingEdited ? 'bg-blue-50/30' : ''}`}
                           style={columnStylesMap.get(column.key)}
@@ -2238,291 +2358,7 @@ export function EntityListOfInstancesTable<T = any>({
                     })}
                   </tr>
                 );
-                })
-              ) : (
-                // ============================================================================
-                // REGULAR RENDERING - Standard table rendering for small datasets
-                // ============================================================================
-                paginatedData.map((record, index) => {
-                  const recordId = getRowKey(record, index);
-                  const isEditing = inlineEditable && editingRow === recordId;
-                  const isDragging = draggedIndex === index;
-                  const isDragOver = dragOverIndex === index;
-
-                  return (
-                    <React.Fragment key={recordId}>
-                      {isDragOver && draggedIndex !== null && (
-                        <tr className="relative pointer-events-none">
-                          <td colSpan={columns.length} className="p-0 h-0">
-                            <div className="absolute left-0 right-0 h-1 bg-dark-1000 shadow-sm z-50 animate-pulse"
-                                 style={{ top: '-2px', boxShadow: '0 0 8px rgba(107, 114, 128, 0.5)' }}
-                            />
-                          </td>
-                        </tr>
-                      )}
-                      <tr
-                        draggable={allowReordering && !isEditing && !activeEditingCell}
-                        onDragStart={(e) => handleDragStart(e, index)}
-                        onDragOver={(e) => handleDragOver(e, index)}
-                        onDragLeave={handleDragLeave}
-                        onDrop={(e) => handleDrop(e, index)}
-                        onDragEnd={handleDragEnd}
-                        onClick={(e) => {
-                          // v9.4.1: Consistent click handling for both virtualized and regular rows
-                          if (!isEditing && !activeEditingCell && onRowClick) {
-                            onRowClick(record);
-                          }
-                        }}
-                        onKeyDown={(e) => handleRowKeyDown(e, recordId, record)}
-                        tabIndex={0}
-                        className={`${getRowClassName(isDragging, isDragOver, isEditing || !!isCellEditing(recordId, ''))} outline-none`}
-                      >
-                    {processedColumns.map((column, colIndex) => {
-                      // Actions column: Show edit/save icons based on editing state
-                      // v8.4.0: Also show save/cancel when any cell in the row is being edited
-                      const isAnyCellInRowEditing = activeEditingCell?.rowId === recordId;
-                      if (column.key === '_actions') {
-                        return (
-                          <td
-                            key={column.key}
-                            className={`${densitySettings.cellPadding} ${getStickyClassName(colIndex)}`}
-                            style={columnStylesMap.get(column.key)}
-                          >
-                            {/* v14.2.0: Actions always visible */}
-                            <div className="flex items-center justify-center gap-0.5">
-                              {(isEditing || isAnyCellInRowEditing) ? (
-                                <>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (activeEditingCell) {
-                                        handleCellSave(recordId, activeEditingCell.columnKey, record);
-                                      } else if (onSaveInlineEdit) {
-                                        const formattedRec = record as FormattedRow<any>;
-                                        const rawRec = formattedRec.raw || record;
-                                        const updatedRecord = { ...rawRec, ...editedData };
-                                        onSaveInlineEdit(updatedRecord as T);
-                                      }
-                                    }}
-                                    className="p-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded transition-colors"
-                                    title="Save (Enter)"
-                                  >
-                                    <Check className={densitySettings.actionIconSize} />
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (activeEditingCell) {
-                                        handleCellCancel();
-                                      } else {
-                                        onCancelInlineEdit?.();
-                                      }
-                                    }}
-                                    className="p-1 text-dark-text-tertiary hover:text-dark-text-primary hover:bg-dark-active rounded transition-colors"
-                                    title="Cancel (Esc)"
-                                  >
-                                    <X className={densitySettings.actionIconSize} />
-                                  </button>
-                                </>
-                              ) : (
-                                <>
-                                  {allActions.map((action) => {
-                                    const isDisabled = action.disabled ? action.disabled(record) : false;
-                                    const buttonVariants = {
-                                      default: 'text-dark-text-tertiary hover:text-dark-text-primary hover:bg-dark-active',
-                                      primary: 'text-blue-500 hover:text-blue-700 hover:bg-blue-50',
-                                      danger: 'text-dark-text-tertiary hover:text-red-600 hover:bg-red-50'};
-                                    return (
-                                      <button
-                                        key={action.key}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          if (!isDisabled) action.onClick(record);
-                                        }}
-                                        disabled={isDisabled}
-                                        className={`p-1 rounded transition-colors ${
-                                          isDisabled ? 'text-dark-text-disabled cursor-not-allowed' : buttonVariants[action.variant || 'default']
-                                        } ${action.className || ''}`}
-                                        title={action.label}
-                                      >
-                                        {React.cloneElement(action.icon as React.ReactElement, { className: densitySettings.actionIconSize })}
-                                      </button>
-                                    );
-                                  })}
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        );
-                      }
-
-                      // Data columns: Extract metadata and render based on field type
-                      const backendMeta = (column as any).backendMetadata as BackendFieldMetadata | undefined;
-                      const fieldEditable = backendMeta?.editable ?? column.editable ?? false;
-                      // v12.2.0: inputType determines rendering (e.g., 'text', 'number', 'component')
-                      const inputType = backendMeta?.inputType ?? column.editType ?? 'text';
-                      const hasLabelsMetadata = labelsMetadata.has(column.key);
-                      const columnOptions = hasLabelsMetadata ? labelsMetadata.get(column.key)! : [];
-                      const formattedRecord = record as FormattedRow<any>;
-                      const rawRecord = formattedRecord.raw || record;
-                      const rawValue = (rawRecord as any)[column.key];
-
-                      // v8.4.0: Check if THIS specific cell is being edited (Airtable-style)
-                      const isCellBeingEdited = isCellEditing(recordId, column.key);
-
-                      return (
-                        <td
-                          key={column.key}
-                          className={`${densitySettings.cellPadding} ${densitySettings.fontSize} leading-snug ${getStickyClassName(colIndex)} ${
-                            fieldEditable && inlineEditable ? 'cursor-text hover:bg-dark-subtle' : ''
-                          } ${isCellBeingEdited ? 'bg-blue-50/30' : ''}`}
-                          style={columnStylesMap.get(column.key)}
-                          onClick={(e) => {
-                            if (isEditing) {
-                              e.stopPropagation();
-                            } else if (fieldEditable && inlineEditable) {
-                              handleCellClick(e, recordId, column.key, record, fieldEditable);
-                            }
-                          }}
-                          onMouseDown={(e) => {
-                            if (fieldEditable && inlineEditable) {
-                              handleCellMouseDown(e, recordId, column.key, record, fieldEditable);
-                            }
-                          }}
-                          onMouseUp={handleCellMouseUp}
-                          onMouseLeave={handleCellMouseLeave}
-                        >
-                          {/* v8.4.0: Cell editing - show edit field if THIS cell is being edited OR row-level editing */}
-                          {(isCellBeingEdited || (isEditing && fieldEditable)) ? (
-                            // ============================================================================
-                            // v8.4.0: EDIT MODE - Airtable-style cell editing
-                            // Wrapped with keyboard handlers for Enter/Tab/Escape
-                            // ============================================================================
-                            <div
-                              ref={isCellBeingEdited ? editingCellRef : undefined}
-                              onKeyDown={(e) => handleCellKeyDown(e, recordId, column.key, record, inputType)}
-                              className="w-full"
-                            >
-                              {inputType === 'file' ? (
-                                // FILE UPLOAD - Complex drag-drop component
-                                <InlineFileUploadCell
-                                  value={rawValue}
-                                  entityCode={onEdit ? 'artifact' : 'cost'}
-                                  entityId={(rawRecord as any).id}
-                                  fieldName={column.key}
-                                  accept={backendMeta?.accept}
-                                  onUploadComplete={(fileUrl) => {
-                                    // v13.0.0: Direct save on upload complete
-                                    handleCellSave(recordId, column.key, record, fileUrl);
-                                  }}
-                                  disabled={false}
-                                />
-                              ) : column.key === 'color_code' && colorOptions ? (
-                                // COLOR PICKER - Entity-specific field for settings tables
-                                // v13.0.0: Cell-Isolated State - Direct save on selection
-                                <div className="relative w-full">
-                                  <select
-                                    autoFocus
-                                    value={rawValue ?? ''}  // v13.0.0: Use rawValue (select saves immediately)
-                                    onChange={(e) => {
-                                      // v13.0.0: Direct save - no intermediate state updates
-                                      handleCellSave(recordId, column.key, record, e.target.value);
-                                    }}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className={`w-full ${densitySettings.inputPadding} pr-6 border border-dark-border-medium rounded focus:outline-none focus:border-dark-border-strong bg-dark-surface transition-colors cursor-pointer appearance-none ${densitySettings.fontSize}`}
-                                  >
-                                    <option value="" className="text-dark-600">Select color...</option>
-                                    {colorOptions.map(opt => (
-                                      <option key={opt.value} value={opt.value} className="text-dark-600 py-1.5">
-                                        {opt.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <ChevronDown className={`${densitySettings.iconSize} text-dark-text-tertiary absolute right-1.5 top-1/2 transform -translate-y-1/2 pointer-events-none`} />
-                                </div>
-                              ) : inputType === 'component' && hasLabelsMetadata ? (
-                                // v12.2.0: inputType 'component' with datalabel options renders BadgeDropdownSelect
-                                // v13.0.0: Cell-Isolated State - Direct save on selection (atomic action)
-                                <BadgeDropdownSelect
-                                  value={rawValue ?? ''}  // v13.0.0: Use rawValue (dropdown saves immediately)
-                                  options={badgeDropdownOptionsMap.get(column.key) || []}
-                                  onChange={(value) => {
-                                    // v13.0.0: Direct save - no intermediate state updates
-                                    handleCellSave(recordId, column.key, record, value);
-                                  }}
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                              ) : (
-                                // ALL OTHER FIELDS - Backend-driven renderer with auto-focus
-                                // v13.0.0: Cell-Isolated State - DebouncedInput manages local state,
-                                // onChange triggers handleCellSave directly (commit-only pattern)
-                                <div onClick={(e) => e.stopPropagation()}>
-                                  {(() => {
-                                    // v8.2.0: Backend metadata required - minimal fallback for text input
-                                    const metadata = (column as any).backendMetadata || { inputType: 'text', label: column.key };
-                                    return renderEditModeFromMetadata(
-                                      rawValue,  // v13.0.0: Use rawValue only (DebouncedInput has its own local state)
-                                      metadata,
-                                      (val) => {
-                                        // v13.0.0: Direct save on commit (blur/enter from DebouncedInput)
-                                        handleCellSave(recordId, column.key, record, val);
-                                      },
-                                      {
-                                        className: `w-full ${densitySettings.inputPadding} ${densitySettings.fontSize} border border-dark-border-medium rounded focus:outline-none focus:border-dark-border-strong bg-dark-surface`,
-                                        autoFocus: isCellBeingEdited
-                                      }
-                                    );
-                                  })()}
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            // ============================================================================
-                            // VIEW MODE - v14.1.0 Minimal display styling
-                            // Data is pre-formatted (has raw/display/styles) via formatDataset()
-                            // ============================================================================
-                            <div className="truncate text-dark-text-primary">
-                              {(() => {
-                                // Custom render override
-                                if (column.render) {
-                                  return column.render((record as any)[column.key], record);
-                                }
-
-                                // v7.0.0: Check if data is pre-formatted (FormattedRow structure)
-                                const formattedRecord = record as FormattedRow<any>;
-                                if (formattedRecord.display && formattedRecord.styles !== undefined) {
-                                  const displayValue = formattedRecord.display[column.key];
-                                  const styleClass = formattedRecord.styles[column.key];
-
-                                  // v14.1.0: Compact badge with density-based sizing
-                                  if (styleClass) {
-                                    return (
-                                      <span className={`inline-flex items-center ${densitySettings.badgeSize} rounded font-medium ${styleClass}`}>
-                                        {displayValue}
-                                      </span>
-                                    );
-                                  }
-
-                                  return <span>{displayValue}</span>;
-                                }
-
-                                // Simple fallback for non-formatted data
-                                const value = (record as any)[column.key];
-                                if (value === null || value === undefined || value === '') {
-                                  return <span className="text-dark-text-disabled">—</span>;
-                                }
-                                return <span>{String(value)}</span>;
-                              })()}
-                            </div>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                  </React.Fragment>
-                );
-              })
-              )}
+              })}
             </tbody>
           </table>
         </div>

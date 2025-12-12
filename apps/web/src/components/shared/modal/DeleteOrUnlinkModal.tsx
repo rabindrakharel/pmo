@@ -49,8 +49,13 @@ interface DeleteOrUnlinkModalProps {
   entityCode: string;
   /** Entity display label (e.g., 'Task', 'Project') */
   entityLabel?: string;
-  /** Name of the entity instance being removed */
+  /** Name of the entity instance being removed (for single item) */
   entityName: string;
+  /**
+   * v14.3.0: Batch mode - array of entity IDs for batch delete/unlink
+   * When provided with length > 1, modal shows "X items" instead of entity name
+   */
+  entityIds?: string[];
   /**
    * Parent context - OPTIONAL
    * When provided: Modal shows Unlink + Delete options (radio selection)
@@ -90,10 +95,14 @@ export const DeleteOrUnlinkModal: React.FC<DeleteOrUnlinkModalProps> = ({
   entityCode,
   entityLabel,
   entityName,
+  entityIds,
   parentContext,
   onUnlink,
   onDelete,
 }) => {
+  // Batch mode: when multiple IDs are provided
+  const isBatchMode = entityIds && entityIds.length > 1;
+  const itemCount = entityIds?.length || 1;
   // In standalone mode (no parentContext), default to 'delete'
   // In child entity tab mode, default to 'unlink'
   const [selectedAction, setSelectedAction] = useState<'unlink' | 'delete'>(
@@ -324,12 +333,23 @@ export const DeleteOrUnlinkModal: React.FC<DeleteOrUnlinkModalProps> = ({
               {!isProcessing ? (
                 <>
                   <p className="text-sm text-dark-600">
-                    Are you sure you want to delete{' '}
-                    <span className="font-medium text-dark-700">"{entityName}"</span>?
+                    {isBatchMode ? (
+                      <>
+                        Are you sure you want to delete{' '}
+                        <span className="font-medium text-dark-700">{itemCount} {displayEntityLabel.toLowerCase()}{itemCount > 1 ? 's' : ''}</span>?
+                      </>
+                    ) : (
+                      <>
+                        Are you sure you want to delete{' '}
+                        <span className="font-medium text-dark-700">"{entityName}"</span>?
+                      </>
+                    )}
                   </p>
                   <p className="text-sm text-dark-500">
-                    This action cannot be undone. The {displayEntityLabel.toLowerCase()} will be
-                    permanently removed from the system.
+                    This action cannot be undone. {isBatchMode
+                      ? `These ${itemCount} items will be`
+                      : `The ${displayEntityLabel.toLowerCase()} will be`
+                    } permanently removed from the system.
                   </p>
                 </>
               ) : (
@@ -405,9 +425,19 @@ export const DeleteOrUnlinkModal: React.FC<DeleteOrUnlinkModalProps> = ({
             {!isProcessing ? (
               <>
                 <p className="text-sm text-dark-600">
-                  Choose how to remove{' '}
-                  <span className="font-medium text-dark-700">"{entityName}"</span> from{' '}
-                  {parentDisplayLabel}:
+                  {isBatchMode ? (
+                    <>
+                      Choose how to remove{' '}
+                      <span className="font-medium text-dark-700">{itemCount} {displayEntityLabel.toLowerCase()}{itemCount > 1 ? 's' : ''}</span> from{' '}
+                      {parentDisplayLabel}:
+                    </>
+                  ) : (
+                    <>
+                      Choose how to remove{' '}
+                      <span className="font-medium text-dark-700">"{entityName}"</span> from{' '}
+                      {parentDisplayLabel}:
+                    </>
+                  )}
                 </p>
 
                 {/* Option: Unlink - uses slate accent per styling_patterns.md */}
@@ -440,8 +470,10 @@ export const DeleteOrUnlinkModal: React.FC<DeleteOrUnlinkModalProps> = ({
                       <p className="text-sm text-dark-500 mt-1">
                         Remove from this{' '}
                         {parentContext.entityLabel?.toLowerCase() || parentContext.entityCode} only.
-                        The {displayEntityLabel.toLowerCase()} will remain in the system and can be
-                        linked to other entities.
+                        {isBatchMode
+                          ? ` These ${itemCount} items will remain in the system and can be linked to other entities.`
+                          : ` The ${displayEntityLabel.toLowerCase()} will remain in the system and can be linked to other entities.`
+                        }
                       </p>
                     </div>
                   </div>
@@ -474,7 +506,7 @@ export const DeleteOrUnlinkModal: React.FC<DeleteOrUnlinkModalProps> = ({
                       </div>
                       <p className="text-sm text-dark-500 mt-1">
                         Remove from entire system. This action cannot be undone and will remove all
-                        associated data.
+                        associated data{isBatchMode ? ` for all ${itemCount} items` : ''}.
                       </p>
                     </div>
                   </div>

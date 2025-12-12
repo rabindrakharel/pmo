@@ -184,8 +184,10 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   const [isAddingRow, setIsAddingRow] = useState(false);
 
   // v9.5.1: Delete confirmation modal state (replaces window.confirm)
+  // v14.3.0: Added entityIds for batch delete support
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteModalRecord, setDeleteModalRecord] = useState<any>(null);
+  const [deleteModalEntityIds, setDeleteModalEntityIds] = useState<string[] | undefined>(undefined);
 
   // Combine raw data with any appended data from pagination
   // v11.3.0: No more localData - cache is single source of truth
@@ -542,6 +544,38 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     }
   }, [deleteModalRecord, entityCode, deleteEntity, queryClient, editingRow]);
 
+  // v14.3.0: Batch delete handler - triggered by Delete key on selected rows
+  const handleBatchDelete = useCallback((selectedIds: string[]) => {
+    if (!config || selectedIds.length === 0) return;
+
+    // For batch mode, use first record as placeholder for modal display
+    // The actual delete will use entityIds
+    const firstRecord = data.find((r: any) => {
+      const rawRecord = r.raw || r;
+      return selectedIds.includes(rawRecord.id);
+    });
+
+    setDeleteModalRecord(firstRecord || { id: selectedIds[0] });
+    setDeleteModalEntityIds(selectedIds);
+    setDeleteModalOpen(true);
+  }, [config, data]);
+
+  // v14.3.0: Batch delete confirm handler
+  const handleBatchDeleteConfirm = useCallback(async () => {
+    if (!deleteModalEntityIds || deleteModalEntityIds.length === 0) return;
+
+    debugCache('Batch delete: Starting', { entityCode, count: deleteModalEntityIds.length });
+
+    try {
+      // Delete all selected entities in parallel
+      await Promise.all(deleteModalEntityIds.map(id => deleteEntity(id)));
+      debugCache('Batch delete: Completed', { entityCode, count: deleteModalEntityIds.length });
+    } catch (error) {
+      debugCache('Batch delete: Failed', { entityCode, error });
+      throw error;
+    }
+  }, [deleteModalEntityIds, entityCode, deleteEntity]);
+
   // Row actions for EntityListOfInstancesTable
   const rowActions: RowAction[] = useMemo(() => {
     const actions: RowAction[] = [];
@@ -610,6 +644,8 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
           columnSelection={true}
           rowActions={rowActions}
           selectable={true}
+          // v14.3.0: Batch delete via Delete key
+          onBatchDelete={handleBatchDelete}
           inlineEditable={true}
           editingRow={editingRow}
           editedData={editedData}
@@ -826,11 +862,13 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
       </div>
 
       {/* v9.5.1: Delete confirmation modal (replaces window.confirm) */}
+      {/* v14.3.0: Supports batch delete via entityIds prop */}
       <DeleteOrUnlinkModal
         isOpen={deleteModalOpen}
         onClose={() => {
           setDeleteModalOpen(false);
           setDeleteModalRecord(null);
+          setDeleteModalEntityIds(undefined);
         }}
         entityCode={entityCode}
         entityLabel={config?.displayName}
@@ -841,8 +879,12 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
           deleteModalRecord?.code ||
           'this record'
         }
+        entityIds={deleteModalEntityIds}
         // No parentContext = standalone mode (delete confirmation only)
-        onDelete={handleDeleteConfirm}
+        onDelete={deleteModalEntityIds && deleteModalEntityIds.length > 1
+          ? handleBatchDeleteConfirm
+          : handleDeleteConfirm
+        }
       />
     </Layout>
   );

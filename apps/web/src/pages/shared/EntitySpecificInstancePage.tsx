@@ -194,9 +194,11 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   // v9.5.0: Delete/Unlink modal state for child entity tabs
+  // v14.3.0: Added entityIds for batch delete/unlink support
   const [deleteUnlinkModal, setDeleteUnlinkModal] = useState<{
     open: boolean;
     record: any | null;
+    entityIds?: string[];  // For batch mode
   }>({ open: false, record: null });
 
   // Keyboard shortcut hints
@@ -565,6 +567,74 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
       throw error; // Re-throw to let modal handle the error display
     }
   }, [childConfig, currentChildEntity, deleteUnlinkModal.record, refetchChild]);
+
+  // v14.3.0: Batch delete handler - triggered by Delete key on selected rows
+  const handleChildBatchDelete = useCallback((selectedIds: string[]) => {
+    if (!childConfig || !currentChildEntity || selectedIds.length === 0) return;
+    setDeleteUnlinkModal({ open: true, record: { id: selectedIds[0] }, entityIds: selectedIds });
+  }, [childConfig, currentChildEntity]);
+
+  // v14.3.0: Batch unlink handler - unlinks multiple children from parent
+  const handleChildBatchUnlink = useCallback(async () => {
+    if (!childConfig || !currentChildEntity || !deleteUnlinkModal.entityIds || !id) return;
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+
+      // Call unlink endpoint for each selected ID
+      const unlinkPromises = deleteUnlinkModal.entityIds.map(childId =>
+        fetch(
+          `${API_CONFIG.BASE_URL}/api/v1/${entityCode}/${id}/${currentChildEntity}/${childId}/link`,
+          { method: 'DELETE', headers }
+        )
+      );
+
+      const results = await Promise.all(unlinkPromises);
+      const failedCount = results.filter(r => !r.ok).length;
+
+      if (failedCount === 0) {
+        await refetchChild();
+        setDeleteUnlinkModal({ open: false, record: null });
+      } else {
+        throw new Error(`Failed to unlink ${failedCount} of ${deleteUnlinkModal.entityIds.length} items`);
+      }
+    } catch (error: any) {
+      console.error('Error batch unlinking child records:', error);
+      throw error;
+    }
+  }, [childConfig, currentChildEntity, deleteUnlinkModal.entityIds, id, entityCode, refetchChild]);
+
+  // v14.3.0: Batch actual delete handler - permanently deletes multiple child entities
+  const handleChildBatchActualDelete = useCallback(async () => {
+    if (!childConfig || !currentChildEntity || !deleteUnlinkModal.entityIds) return;
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+
+      // Call delete endpoint for each selected ID
+      const deletePromises = deleteUnlinkModal.entityIds.map(childId =>
+        fetch(
+          `${API_CONFIG.BASE_URL}${childConfig.apiEndpoint}/${childId}`,
+          { method: 'DELETE', headers }
+        )
+      );
+
+      const results = await Promise.all(deletePromises);
+      const failedCount = results.filter(r => !r.ok).length;
+
+      if (failedCount === 0) {
+        await refetchChild();
+        setDeleteUnlinkModal({ open: false, record: null });
+      } else {
+        throw new Error(`Failed to delete ${failedCount} of ${deleteUnlinkModal.entityIds.length} items`);
+      }
+    } catch (error: any) {
+      console.error('Error batch deleting child records:', error);
+      throw error;
+    }
+  }, [childConfig, currentChildEntity, deleteUnlinkModal.entityIds, refetchChild]);
 
   // Child row click handler - navigate to child entity detail page
   const handleChildRowClick = useCallback((item: any) => {
@@ -1549,6 +1619,8 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                 columnSelection={true}
                 rowActions={childRowActions}
                 selectable={true}
+                // v14.3.0: Batch delete via Delete key
+                onBatchDelete={handleChildBatchDelete}
                 inlineEditable={true}
                 editingRow={childEditingRow}
                 editedData={childEditedData}
@@ -1597,6 +1669,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
       <UnifiedLinkageModal {...linkageModal.modalProps} />
 
       {/* v9.5.0: Delete or Unlink Modal for child entity tabs */}
+      {/* v14.3.0: Supports batch mode via entityIds prop */}
       {deleteUnlinkModal.record && currentChildEntity && (
         <DeleteOrUnlinkModal
           isOpen={deleteUnlinkModal.open}
@@ -1610,14 +1683,21 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
             deleteUnlinkModal.record.title ||
             currentChildEntity
           }
+          entityIds={deleteUnlinkModal.entityIds}
           parentContext={{
             entityCode,
             entityId: id!,
             entityName: data?.name || data?.title,
             entityLabel: config?.displayName
           }}
-          onUnlink={handleChildUnlink}
-          onDelete={handleChildActualDelete}
+          onUnlink={deleteUnlinkModal.entityIds && deleteUnlinkModal.entityIds.length > 1
+            ? handleChildBatchUnlink
+            : handleChildUnlink
+          }
+          onDelete={deleteUnlinkModal.entityIds && deleteUnlinkModal.entityIds.length > 1
+            ? handleChildBatchActualDelete
+            : handleChildActualDelete
+          }
         />
       )}
       </div>

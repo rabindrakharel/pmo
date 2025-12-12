@@ -346,7 +346,7 @@ input.size.lg // px-4 py-2.5 text-base
 </div>
 ```
 
-### 3.5 Tables - DENSITY SYSTEM (v14.2.0)
+### 3.5 Tables - DENSITY SYSTEM (v14.3.1)
 
 **Data Table Density Configuration**
 
@@ -354,17 +354,19 @@ The `EntityListOfInstancesTable` supports three density levels for different use
 
 | Density | Row Height | Cell Padding | Font Size | Use Case |
 |---------|------------|--------------|-----------|----------|
-| **compact** | 32px | `px-3 py-1` | `text-xs` (12px) | Power users, data comparison, maximizing visible rows |
-| **regular** | 40px | `px-4 py-2` | `text-[13px]` | Default everyday use, balanced readability |
-| **relaxed** | 48px | `px-5 py-3` | `text-sm` (14px) | Accessibility, touch devices, sparse data |
+| **compact** | 28px | `px-3` | `text-xs` (12px) | Power users, data comparison, maximizing visible rows |
+| **regular** | 34px | `px-4` | `text-[13px]` | Default everyday use, balanced readability |
+| **relaxed** | 42px | `px-5` | `text-sm` (14px) | Accessibility, touch devices, sparse data |
+
+**v14.3.1 Changes:** Reduced row heights (28/34/42px), removed vertical cell padding (flex centering controls alignment).
 
 **Density Config Constants (EntityListOfInstancesTable.tsx)**
 ```typescript
 const DENSITY_CONFIG = {
   compact: {
-    rowHeight: 32,
-    cellPadding: 'px-3 py-1',
-    headerPadding: 'px-3 py-1.5',
+    rowHeight: 28,
+    cellPadding: 'px-3',  // No vertical padding - flex items-center handles alignment
+    headerPadding: 'px-3 py-1',
     fontSize: 'text-xs',
     badgeSize: 'px-1.5 py-px text-[10px]',
     iconSize: 'h-3 w-3',
@@ -372,9 +374,9 @@ const DENSITY_CONFIG = {
     inputPadding: 'px-1.5 py-0.5',
   },
   regular: {
-    rowHeight: 40,
-    cellPadding: 'px-4 py-2',
-    headerPadding: 'px-4 py-2',
+    rowHeight: 34,
+    cellPadding: 'px-4',  // No vertical padding - flex items-center handles alignment
+    headerPadding: 'px-4 py-1.5',
     fontSize: 'text-[13px]',
     badgeSize: 'px-2 py-0.5 text-[11px]',
     iconSize: 'h-3.5 w-3.5',
@@ -382,9 +384,9 @@ const DENSITY_CONFIG = {
     inputPadding: 'px-2 py-1',
   },
   relaxed: {
-    rowHeight: 48,
-    cellPadding: 'px-5 py-3',
-    headerPadding: 'px-5 py-2.5',
+    rowHeight: 42,
+    cellPadding: 'px-5',  // No vertical padding - flex items-center handles alignment
+    headerPadding: 'px-5 py-2',
     fontSize: 'text-sm',
     badgeSize: 'px-2.5 py-0.5 text-xs',
     iconSize: 'h-4 w-4',
@@ -491,8 +493,8 @@ import { EntityListOfInstancesTable, TableDensity } from '@/components/shared/ui
 ```
 
 **CRITICAL COMPACT TABLE RULES:**
-- Row height: 32px (not 44px or larger)
-- Cell padding: `px-3 py-1` (minimal vertical padding)
+- Row height: 28px (v14.3.1 - reduced from 32px)
+- Cell padding: `px-3` (no vertical padding - flex centering controls alignment)
 - Header labels: `text-[11px] font-medium uppercase tracking-wider text-slate-500`
 - Cell text: `text-xs text-slate-700 leading-snug`
 - Borders: `border-slate-100` (very subtle dividers)

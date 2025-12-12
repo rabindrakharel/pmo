@@ -1,6 +1,8 @@
 # EntityListOfInstancesTable Component
 
-**Version:** 14.2.0 | **Location:** `apps/web/src/components/shared/ui/EntityListOfInstancesTable.tsx` | **Updated:** 2025-12-10
+**Version:** 14.3.1 | **Location:** `apps/web/src/components/shared/ui/EntityListOfInstancesTable.tsx` | **Updated:** 2025-12-11
+
+**v14.3.0:** Multi-Select System - Ctrl+Click/Ctrl+Shift+Arrow selection with Delete key batch delete/unlink integration
 
 **v14.2.0:** Table Density System - 3-tier density control (compact/regular/relaxed) with compact as default for lightweight, minimal tables
 
@@ -126,6 +128,9 @@ export interface EntityListOfInstancesTableProps<T = any> {
   selectable?: boolean;
   selectedIds?: string[];
   onSelectionChange?: (ids: string[]) => void;
+
+  /** v14.3.0: Batch delete callback - triggered by Delete key with selected rows */
+  onBatchDelete?: (selectedIds: string[]) => void;
 
   /** v13.1.0: Infinite scroll loading indicators */
   isFetchingNextPage?: boolean;     // Loading more data at bottom
@@ -803,30 +808,33 @@ const createMutation = useMutation({
 
 ---
 
-## Table Density System (v14.2.0)
+## Table Density System (v14.3.1)
 
 ### Overview
 
 The density system provides 3 tiers of visual density for tables, with **compact as the universal default**. This creates lightweight, minimal tables that work well with inline editing and complex cell content.
 
+**v14.3.1 Changes:** Reduced row heights (28/34/42px from 32/40/48px), removed vertical cell padding (flex centering with `h-full flex items-center` on cells controls alignment).
+
 ### Density Tiers
 
 | Density | Row Height | Cell Padding | Header Padding | Font Size | Badge Size | Icon Size | Input Padding |
 |---------|------------|--------------|----------------|-----------|------------|-----------|---------------|
-| **compact** (default) | 32px | `px-3 py-1` | `px-3 py-1.5` | `text-xs` | `px-1.5 py-px text-[10px]` | `h-3 w-3` | `px-1.5 py-0.5` |
-| regular | 40px | `px-4 py-2` | `px-4 py-2` | `text-[13px]` | `px-2 py-0.5 text-[11px]` | `h-3.5 w-3.5` | `px-2 py-1` |
-| relaxed | 48px | `px-5 py-3` | `px-5 py-2.5` | `text-sm` | `px-2.5 py-0.5 text-xs` | `h-4 w-4` | `px-2.5 py-1.5` |
+| **compact** (default) | 28px | `px-3` | `px-3 py-1` | `text-xs` | `px-1.5 py-px text-[10px]` | `h-3 w-3` | `px-1.5 py-0.5` |
+| regular | 34px | `px-4` | `px-4 py-1.5` | `text-[13px]` | `px-2 py-0.5 text-[11px]` | `h-3.5 w-3.5` | `px-2 py-1` |
+| relaxed | 42px | `px-5` | `px-5 py-2` | `text-sm` | `px-2.5 py-0.5 text-xs` | `h-4 w-4` | `px-2.5 py-1.5` |
 
 ### DENSITY_CONFIG Constant
 
 ```typescript
 export type TableDensity = 'compact' | 'regular' | 'relaxed';
 
+// v14.3.1: Reduced row heights, removed vertical cell padding
 const DENSITY_CONFIG = {
   compact: {
-    rowHeight: 32,
-    cellPadding: 'px-3 py-1',
-    headerPadding: 'px-3 py-1.5',
+    rowHeight: 28,
+    cellPadding: 'px-3',  // No vertical padding - flex items-center handles alignment
+    headerPadding: 'px-3 py-1',
     fontSize: 'text-xs',
     badgeSize: 'px-1.5 py-px text-[10px]',
     iconSize: 'h-3 w-3',
@@ -834,9 +842,9 @@ const DENSITY_CONFIG = {
     inputPadding: 'px-1.5 py-0.5',
   },
   regular: {
-    rowHeight: 40,
-    cellPadding: 'px-4 py-2',
-    headerPadding: 'px-4 py-2',
+    rowHeight: 34,
+    cellPadding: 'px-4',  // No vertical padding - flex items-center handles alignment
+    headerPadding: 'px-4 py-1.5',
     fontSize: 'text-[13px]',
     badgeSize: 'px-2 py-0.5 text-[11px]',
     iconSize: 'h-3.5 w-3.5',
@@ -844,9 +852,9 @@ const DENSITY_CONFIG = {
     inputPadding: 'px-2 py-1',
   },
   relaxed: {
-    rowHeight: 48,
-    cellPadding: 'px-5 py-3',
-    headerPadding: 'px-5 py-2.5',
+    rowHeight: 42,
+    cellPadding: 'px-5',  // No vertical padding - flex items-center handles alignment
+    headerPadding: 'px-5 py-2',
     fontSize: 'text-sm',
     badgeSize: 'px-2.5 py-0.5 text-xs',
     iconSize: 'h-4 w-4',
@@ -894,6 +902,227 @@ All inline edit components use `densitySettings.inputPadding` for consistent siz
 2. **Action Icons Always Visible**: Removed `opacity-0 group-hover:opacity-100` - actions are always visible
 3. **Inline Edit Alignment**: Input padding matches cell content for seamless view/edit transitions
 4. **Badge Scaling**: Smaller badges in compact mode (`text-[10px]`) for visual balance
+
+---
+
+## Multi-Select System (v14.3.0)
+
+### Overview
+
+The multi-select system enables users to select multiple rows using keyboard shortcuts and trigger batch operations via the Delete key. This integrates seamlessly with the `DeleteOrUnlinkModal` for batch delete/unlink operations.
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+Click` (Mac: `Cmd+Click`) | Toggle row selection, set as anchor |
+| `Ctrl+Shift+Arrow Up` | Extend/contract selection upward from anchor |
+| `Ctrl+Shift+Arrow Down` | Extend/contract selection downward from anchor |
+| `Delete` or `Backspace` | Open batch delete modal for selected rows |
+| `Arrow Up/Down` | Navigate between rows (updates focus, not selection) |
+
+### Anchor-Based Range Selection
+
+The multi-select system uses an anchor point for intuitive range selection:
+
+```
+1. User Ctrl+Clicks row 3 → Row 3 selected, anchor set to index 3
+2. User Ctrl+Shift+↓ → Rows 3-4 selected
+3. User Ctrl+Shift+↓ → Rows 3-5 selected
+4. User Ctrl+Shift+↑ → Rows 3-4 selected (row 5 deselected)
+5. User Ctrl+Shift+↑ → Row 3 only selected
+```
+
+**Key Behavior:** Reversing direction deselects rows outside the new anchor-to-current range.
+
+### Internal State
+
+```typescript
+// Track focused row for keyboard navigation
+const [focusedRowIndex, setFocusedRowIndex] = useState<number | null>(null);
+
+// Anchor point for shift-selection (starting point of range)
+const [selectionAnchorIndex, setSelectionAnchorIndex] = useState<number | null>(null);
+
+// Internal selection state (when parent doesn't control)
+const [internalSelectedRows, setInternalSelectedRows] = useState<string[]>([]);
+
+// Effective selection (parent-controlled or internal)
+const effectiveSelectedRows = selectable && (selectedRows.length > 0 || onSelectionChange)
+  ? selectedRows
+  : internalSelectedRows;
+```
+
+### Selection Handlers
+
+```typescript
+// Toggle single row selection (Ctrl+Click)
+const toggleRowSelection = useCallback((rowId: string, rowIndex: number) => {
+  if (!selectable) return;
+  const newSelection = effectiveSelectedRows.includes(rowId)
+    ? effectiveSelectedRows.filter(id => id !== rowId)
+    : [...effectiveSelectedRows, rowId];
+  setEffectiveSelectedRows(newSelection);
+  setSelectionAnchorIndex(rowIndex);  // Set anchor for future range selection
+}, [selectable, effectiveSelectedRows, setEffectiveSelectedRows]);
+
+// Select range from anchor to target (Ctrl+Shift+Arrow)
+const selectRangeFromAnchor = useCallback((targetIndex: number) => {
+  if (!selectable) return;
+  const anchor = selectionAnchorIndex ?? targetIndex;
+  const start = Math.min(anchor, targetIndex);
+  const end = Math.max(anchor, targetIndex);
+
+  // Build selection: only rows in anchor-to-target range
+  const rangeRowIds: string[] = [];
+  for (let i = start; i <= end; i++) {
+    if (paginatedData[i]) {
+      rangeRowIds.push(getRowKey(paginatedData[i], i));
+    }
+  }
+
+  // Replace selection (allows deselection on reverse)
+  setEffectiveSelectedRows(rangeRowIds);
+}, [selectable, selectionAnchorIndex, paginatedData, getRowKey, setEffectiveSelectedRows]);
+```
+
+### Visual Feedback
+
+Selected rows receive distinct styling with blue background and ring:
+
+```typescript
+const getRowClassName = useCallback((isDragging, isDragOver, isEditing, isSelected = false) => {
+  return `group transition-all duration-200 ease-out bg-dark-surface ${
+    isSelected
+      ? '!bg-blue-50 ring-1 ring-inset ring-blue-200 [&_td]:!bg-blue-50'  // Selection highlight
+      : ''
+  } ${
+    // ... other styles
+  }`;
+}, []);
+```
+
+**Styling Details:**
+- Background: `bg-blue-50` on row
+- Ring: `ring-1 ring-inset ring-blue-200` for subtle border
+- Child cells: `[&_td]:!bg-blue-50` ensures all td elements match
+
+### Delete Key Handler
+
+```typescript
+// In handleRowKeyDown
+if (e.key === 'Delete' || e.key === 'Backspace') {
+  // Only trigger if not editing and rows are selected
+  if (!activeEditingCell && onBatchDelete && effectiveSelectedRows.length > 0) {
+    e.preventDefault();
+    onBatchDelete(effectiveSelectedRows);
+  }
+}
+```
+
+### Integration with DeleteOrUnlinkModal
+
+When `onBatchDelete` is triggered, the parent component opens the modal in batch mode:
+
+```typescript
+// In parent component (e.g., EntitySpecificInstancePage)
+const handleChildBatchDelete = useCallback((selectedIds: string[]) => {
+  setDeleteUnlinkModal({
+    open: true,
+    record: { id: selectedIds[0] },  // Placeholder for compatibility
+    entityIds: selectedIds           // Enable batch mode
+  });
+}, []);
+
+// Pass to table
+<EntityListOfInstancesTable
+  selectable={true}
+  onBatchDelete={handleChildBatchDelete}
+  // ... other props
+/>
+
+// Modal with batch handlers
+<DeleteOrUnlinkModal
+  isOpen={deleteUnlinkModal.open}
+  entityIds={deleteUnlinkModal.entityIds}  // Triggers batch message
+  onUnlink={entityIds?.length > 1 ? handleBatchUnlink : handleSingleUnlink}
+  onDelete={entityIds?.length > 1 ? handleBatchDelete : handleSingleDelete}
+/>
+```
+
+### Batch API Flow
+
+```
+DELETE KEY PRESSED
+       │
+       v
+┌─────────────────────────────────────┐
+│ onBatchDelete(selectedIds)          │
+└─────────────────────────────────────┘
+       │
+       v
+┌─────────────────────────────────────┐
+│ DeleteOrUnlinkModal opens           │
+│ Shows: "X items will be deleted"    │
+│ Options: Unlink (if child tab)      │
+│          Delete                     │
+└─────────────────────────────────────┘
+       │
+       v (User confirms)
+┌─────────────────────────────────────┐
+│ handleBatchUnlink() OR              │
+│ handleBatchDelete()                 │
+│                                     │
+│ Promise.all(                        │
+│   entityIds.map(id =>               │
+│     fetch(DELETE endpoint)          │
+│   )                                 │
+│ )                                   │
+└─────────────────────────────────────┘
+       │
+       v
+┌─────────────────────────────────────┐
+│ refetchChild()                      │
+│ setDeleteUnlinkModal({ open: false })│
+│ Clear selection                     │
+└─────────────────────────────────────┘
+```
+
+### Props for Multi-Select
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `selectable` | `boolean` | `false` | Enable row selection |
+| `selectedRows` | `string[]` | `[]` | Controlled selection (parent manages state) |
+| `onSelectionChange` | `(ids: string[]) => void` | - | Called when selection changes |
+| `onBatchDelete` | `(ids: string[]) => void` | - | Called when Delete key pressed with selection |
+
+### Usage Example
+
+```tsx
+// Child entity tab with full multi-select and batch delete
+<EntityListOfInstancesTable
+  data={childData}
+  metadata={childMetadata}
+
+  // Enable selection
+  selectable={true}
+  selectedRows={selectedIds}
+  onSelectionChange={setSelectedIds}
+
+  // Batch delete via Delete key
+  onBatchDelete={handleChildBatchDelete}
+
+  // Parent context enables Unlink option in modal
+  parentContext={{
+    entityCode: 'project',
+    entityId: projectId,
+    entityLabel: 'Project'
+  }}
+
+  // ... other props
+/>
+```
 
 ---
 
@@ -1391,9 +1620,27 @@ Inline Edit Flow (v12.3.0 - Slow Click-and-Hold)
 
 ---
 
-**Version:** 14.0.0 | **Last Updated:** 2025-12-09 | **Status:** Production
+**Version:** 14.3.1 | **Last Updated:** 2025-12-11 | **Status:** Production
 
 **Recent Updates:**
+- v14.3.1 (2025-12-11): **Reduced Row Heights**
+  - Compact: 28px (from 32px), Regular: 34px (from 40px), Relaxed: 42px (from 48px)
+  - Removed vertical cell padding - flex centering (`h-full flex items-center`) controls alignment
+  - Tighter header padding to match reduced row heights
+- v14.3.0 (2025-12-11): **Multi-Select System with Batch Delete**
+  - New `onBatchDelete` prop - callback triggered by Delete key with selected rows
+  - Ctrl+Click to toggle row selection and set anchor point
+  - Ctrl+Shift+Arrow Up/Down for range selection from anchor
+  - Anchor-based selection: reversing direction deselects rows outside new range
+  - Visual feedback: `bg-blue-50 ring-1 ring-blue-200` on selected rows
+  - Integration with `DeleteOrUnlinkModal` batch mode (`entityIds` prop)
+  - Batch API calls via `Promise.all()` for unlink/delete operations
+  - Internal state: `focusedRowIndex`, `selectionAnchorIndex`, `internalSelectedRows`
+  - Selection handlers: `toggleRowSelection()`, `selectRangeFromAnchor()`, `isRowSelected()`
+- v14.2.0 (2025-12-10): **Table Density System**
+  - 3-tier density control (v14.3.1: now 28px/34px/42px)
+  - Compact as default for lightweight, minimal tables
+  - `density` and `onDensityChange` props
 - v14.0.0 (2025-12-09): **Unified DeleteOrUnlinkModal Integration**
   - New `parentContext` prop determines modal behavior
   - With `parentContext`: Modal shows Unlink + Delete radio selection
