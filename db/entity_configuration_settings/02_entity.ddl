@@ -14,11 +14,11 @@
 -- • UPSERT: INSERT ... ON CONFLICT (code) DO UPDATE
 --
 -- PARENT-CHILD MAPPING:
--- • office → task, artifact, wiki, form, cost, revenue
--- • business → project, cost, revenue
--- • project → task, wiki, artifact, form, cost, revenue
--- • task → form, artifact, cost, revenue, employee (assignees)
--- • cust → project, artifact, form, cost, revenue
+-- • office → task, artifact, wiki, form, expense, revenue
+-- • business → project, expense, revenue
+-- • project → task, artifact, wiki, form, customer, event, revenue, expense
+-- • task → customer, quote, order, event, shipment, revenue, expense
+-- • customer → project, artifact, form, expense, revenue
 -- • role → person (role membership per RBAC v2.0.0)
 -- • form, quote, order → (have children per child_entity_codes JSONB)
 -- • Leaf nodes: employee, wiki, artifact, worksite, reports, service, product, etc.
@@ -88,7 +88,7 @@ VALUES (
   20
 );
 
--- Project entity type (has 6 child types)
+-- Project entity type (has 8 child types)
 INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'project',
@@ -97,11 +97,11 @@ VALUES (
   'FolderOpen',
   'project',
   'f',
-  '["task", "wiki", "artifact", "form", "expense", "revenue"]'::jsonb,
+  '["task", "artifact", "wiki", "form", "customer", "event", "revenue", "expense"]'::jsonb,
   30
 );
 
--- Task entity type (has 4 child types)
+-- Task entity type (has 7 child types)
 -- NOTE: task_data is NOT a child entity - it's rendered via custom TaskDataContainer component (activity feed)
 INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
@@ -111,7 +111,7 @@ VALUES (
   'CheckSquare',
   'task',
   'f',
-  '["form", "artifact", "expense", "revenue"]'::jsonb,
+  '["customer", "quote", "order", "event", "shipment", "revenue", "expense"]'::jsonb,
   40
 );
 

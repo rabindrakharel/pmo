@@ -317,7 +317,7 @@ export function EntityListOfInstancesTable<T = any>({
   const densitySettings = DENSITY_CONFIG[density];
 
   // ============================================================================
-  // v14.3.0: MULTI-SELECT - State for Ctrl+Click and Ctrl+Shift+Arrow selection
+  // v14.3.0: MULTI-SELECT - State for Ctrl+Click, Shift+Click, and Shift+Arrow selection
   // ============================================================================
   // Track focused row index for keyboard navigation
   const [focusedRowIndex, setFocusedRowIndex] = useState<number | null>(null);
@@ -866,7 +866,7 @@ export function EntityListOfInstancesTable<T = any>({
     setSelectionAnchorIndex(rowIndex);
   }, [selectable, effectiveSelectedRows, setEffectiveSelectedRows]);
 
-  // Select range from anchor to target index (Ctrl+Shift+Arrow)
+  // Select range from anchor to target index (Shift+Arrow)
   // This replaces the range selection, allowing deselection when reversing direction
   const selectRangeFromAnchor = useCallback((targetIndex: number) => {
     if (!selectable) return;
@@ -1164,7 +1164,7 @@ export function EntityListOfInstancesTable<T = any>({
 
   // ============================================================================
   // v8.4.0: Keyboard handler for row-level shortcuts (E to edit)
-  // v14.3.0: Added Ctrl+Shift+Arrow for multi-select with anchor-based range
+  // v14.3.0: Added Shift+Arrow for multi-select with anchor-based range
   // Defined here after processedColumns is available
   // ============================================================================
   const handleRowKeyDown = useCallback((
@@ -1173,9 +1173,8 @@ export function EntityListOfInstancesTable<T = any>({
     record: T,
     rowIndex: number
   ) => {
-    // v14.3.0: Ctrl+Shift+Arrow for range selection from anchor
-    const isCtrlOrCmd = e.ctrlKey || e.metaKey;
-    if (selectable && isCtrlOrCmd && e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    // v14.3.0: Shift+Arrow for range selection from anchor (standard spreadsheet pattern)
+    if (selectable && e.shiftKey && !e.ctrlKey && !e.metaKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
       e.preventDefault();
       const newIndex = e.key === 'ArrowUp'
         ? Math.max(0, rowIndex - 1)
@@ -1194,7 +1193,7 @@ export function EntityListOfInstancesTable<T = any>({
       return;
     }
 
-    // v14.3.0: Plain Arrow keys for navigation (update focused index)
+    // Plain Arrow keys for navigation (update focused index)
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       const newIndex = e.key === 'ArrowUp'
         ? Math.max(0, rowIndex - 1)
@@ -1979,9 +1978,9 @@ export function EntityListOfInstancesTable<T = any>({
                       onDrop={(e) => handleDrop(e, index)}
                       onDragEnd={handleDragEnd}
                       onClick={(e) => {
-                        // v14.3.0: Ctrl+Click (or Cmd+Click on Mac) for multi-select
+                        // v14.3.0: Ctrl+Click (or Cmd+Click on Mac) for multi-select toggle
                         const isCtrlOrCmd = e.ctrlKey || e.metaKey;
-                        if (selectable && isCtrlOrCmd) {
+                        if (selectable && (isCtrlOrCmd || e.shiftKey)) {
                           e.preventDefault();
                           toggleRowSelection(recordId, index);
                           setFocusedRowIndex(index);

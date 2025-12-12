@@ -86,6 +86,7 @@ const COLUMNS: Column<LinkableEntity>[] = [
     key: 'code',
     title: 'Code',
     width: 120,
+    searchable: true,  // v14.3.0: Always searchable
     render: (value) => (
       <span className="font-mono text-dark-600">{value || '-'}</span>
     ),
@@ -94,6 +95,7 @@ const COLUMNS: Column<LinkableEntity>[] = [
     key: 'name',
     title: 'Name',
     width: 200,
+    searchable: true,  // v14.3.0: Always searchable
     render: (value) => (
       <span className="font-medium text-dark-900 truncate block">{value}</span>
     ),
@@ -101,6 +103,7 @@ const COLUMNS: Column<LinkableEntity>[] = [
   {
     key: 'descr',
     title: 'Description',
+    searchable: true,  // v14.3.0: Always searchable
     render: (value) => (
       <span className="text-dark-500 truncate block" title={value || undefined}>
         {value || '-'}
@@ -276,7 +279,7 @@ export function Modal_LinkExistingEntityInstanceToDataTable({
                   {selectedIds.length > 0 && ` • ${selectedIds.length} selected`}
                 </div>
                 <div className="text-dark-400">
-                  <kbd className="px-1 py-0.5 bg-dark-100 border border-dark-200 rounded text-[10px]">Ctrl</kbd>+Click to select • <kbd className="px-1 py-0.5 bg-dark-100 border border-dark-200 rounded text-[10px]">Ctrl</kbd>+<kbd className="px-1 py-0.5 bg-dark-100 border border-dark-200 rounded text-[10px]">Shift</kbd>+↑↓ to extend
+                  <kbd className="px-1 py-0.5 bg-dark-100 border border-dark-200 rounded text-[10px]">Shift</kbd>+Click to select • <kbd className="px-1 py-0.5 bg-dark-100 border border-dark-200 rounded text-[10px]">Shift</kbd>+↑↓ to extend
                 </div>
               </>
             )}
