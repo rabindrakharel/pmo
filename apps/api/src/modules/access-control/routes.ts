@@ -5,24 +5,28 @@ import { sql } from 'drizzle-orm';
 import {
   getEntityInfrastructure,
   Permission,
-  ALL_ENTITIES_ID
+  ALL_ENTITIES_ID,
+  type InheritanceMode
 } from '@/services/entity-infrastructure.service.js';
 import { generateEntityResponse } from '@/services/entity-component-metadata.service.js';
 
 /**
- * Access Control Routes Module
+ * Access Control Routes Module (v2.1.0 - Role-Only RBAC)
  *
  * Dedicated endpoints for managing:
- * - Role permissions (entity_rbac records)
+ * - Role permissions (entity_rbac records) - uses role_id column
  * - Role-person assignments (entity_instance_link records)
  *
  * This is a purpose-built UI for access control administration,
  * separate from the existing entity/settings infrastructure.
+ *
+ * IMPORTANT: Uses new entity_rbac schema with role_id (not person_code/person_id)
  */
 
 const PERMISSION_LABELS: Record<number, string> = {
   0: 'View',
   1: 'Comment',
+  2: 'Contribute',
   3: 'Edit',
   4: 'Share',
   5: 'Delete',
@@ -56,16 +60,18 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
       return reply.status(404).send({ error: 'Role not found' });
     }
 
-    // Get all permissions for this role
+    // Get all permissions for this role using the new schema (role_id column)
     const permissions = await db.execute(sql`
       SELECT
         r.id,
-        r.person_code,
-        r.person_id,
+        r.role_id,
         r.entity_code,
         r.entity_instance_id,
         r.permission,
-        r.granted_by__employee_id,
+        r.inheritance_mode,
+        r.child_permissions,
+        r.is_deny,
+        r.granted_by_person_id,
         r.granted_ts,
         r.expires_ts,
         r.created_ts,
@@ -74,27 +80,26 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
         e.ui_label as entity_ui_label
       FROM app.entity_rbac r
       LEFT JOIN app.entity e ON r.entity_code = e.code
-      WHERE r.person_code = 'role'
-        AND r.person_id = ${roleId}
+      WHERE r.role_id = ${roleId}::uuid
       ORDER BY r.entity_code ASC, r.permission DESC
     `);
 
     // Build ref_data_entityInstance for granted_by lookup
     const grantedByIds = [...new Set(
       permissions
-        .filter((p: any) => p.granted_by__employee_id)
-        .map((p: any) => p.granted_by__employee_id as string)
+        .filter((p: any) => p.granted_by_person_id)
+        .map((p: any) => p.granted_by_person_id as string)
     )];
 
-    let refData: Record<string, Record<string, string>> = { employee: {} };
+    let refData: Record<string, Record<string, string>> = { person: {} };
 
     if (grantedByIds.length > 0) {
-      const employees = await db.execute(sql`
-        SELECT id, name FROM app.employee WHERE id = ANY(${grantedByIds}::uuid[])
+      const persons = await db.execute(sql`
+        SELECT id, name FROM app.person WHERE id = ANY(${grantedByIds}::uuid[])
       `);
 
-      employees.forEach((emp: any) => {
-        refData.employee[emp.id] = emp.name;
+      persons.forEach((p: any) => {
+        refData.person[p.id] = p.name;
       });
     }
 
@@ -105,7 +110,10 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
         { name: 'entity_code' },
         { name: 'entity_instance_id' },
         { name: 'permission' },
-        { name: 'granted_by__employee_id' },
+        { name: 'inheritance_mode' },
+        { name: 'child_permissions' },
+        { name: 'is_deny' },
+        { name: 'granted_by_person_id' },
         { name: 'granted_ts' },
         { name: 'expires_ts' },
         { name: 'entity_name' },
@@ -121,7 +129,7 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
 
   // ============================================================================
   // GET /api/v1/access-control/role/:roleId/persons
-  // Get ALL person types (employee, customer, vendor, supplier) assigned to a role
+  // Get ALL person types (employee, customer, vendor, supplier, person) assigned to a role
   // ============================================================================
   fastify.get('/api/v1/access-control/role/:roleId/persons', {
     preHandler: [fastify.authenticate],
@@ -143,7 +151,7 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
     }
 
     // Get ALL person types assigned to this role via entity_instance_link
-    // Uses a UNION-style approach via the person table which has entity_code
+    // Role membership: entity_code='role', child_entity_code='person' (or other person types)
     const persons = await db.execute(sql`
       SELECT
         l.child_entity_code as person_type,
@@ -158,8 +166,8 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
       LEFT JOIN app.cust c ON l.child_entity_code = 'cust' AND l.child_entity_instance_id = c.id
       LEFT JOIN app.person p ON l.child_entity_instance_id = p.id
       WHERE l.entity_code = 'role'
-        AND l.entity_instance_id = ${roleId}
-        AND l.child_entity_code IN ('employee', 'cust', 'vendor', 'supplier')
+        AND l.entity_instance_id = ${roleId}::uuid
+        AND l.child_entity_code IN ('employee', 'cust', 'vendor', 'supplier', 'person')
       ORDER BY l.child_entity_code ASC, COALESCE(e.name, c.name, p.name) ASC
     `);
 
@@ -194,7 +202,8 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
           Type.Literal('employee'),
           Type.Literal('cust'),
           Type.Literal('vendor'),
-          Type.Literal('supplier')
+          Type.Literal('supplier'),
+          Type.Literal('person')
         ]),
         person_id: Type.String({ format: 'uuid' })
       }),
@@ -202,7 +211,7 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { roleId } = request.params as { roleId: string };
     const { person_type, person_id } = request.body as {
-      person_type: 'employee' | 'cust' | 'vendor' | 'supplier';
+      person_type: 'employee' | 'cust' | 'vendor' | 'supplier' | 'person';
       person_id: string;
     };
 
@@ -220,18 +229,18 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
     if (person_type === 'employee') {
       personCheck = await db.execute(sql`
         SELECT id, name FROM app.employee
-        WHERE id = ${person_id} AND active_flag = true
+        WHERE id = ${person_id}::uuid AND active_flag = true
       `);
     } else if (person_type === 'cust') {
       personCheck = await db.execute(sql`
         SELECT id, name FROM app.cust
-        WHERE id = ${person_id} AND active_flag = true
+        WHERE id = ${person_id}::uuid AND active_flag = true
       `);
     } else {
-      // For vendor/supplier, check the person table
+      // For vendor/supplier/person, check the person table
       personCheck = await db.execute(sql`
         SELECT id, name FROM app.person
-        WHERE id = ${person_id} AND active_flag = true
+        WHERE id = ${person_id}::uuid AND active_flag = true
       `);
     }
 
@@ -245,9 +254,9 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
     const existingLink = await db.execute(sql`
       SELECT id FROM app.entity_instance_link
       WHERE entity_code = 'role'
-        AND entity_instance_id = ${roleId}
+        AND entity_instance_id = ${roleId}::uuid
         AND child_entity_code = ${person_type}
-        AND child_entity_instance_id = ${person_id}
+        AND child_entity_instance_id = ${person_id}::uuid
     `);
 
     if (existingLink.length > 0) {
@@ -258,10 +267,10 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
 
     // Create the link using entity infrastructure service
     const link = await entityInfra.set_entity_instance_link({
-      entity_code: 'role',
-      entity_instance_id: roleId,
+      parent_entity_code: 'role',
+      parent_entity_id: roleId,
       child_entity_code: person_type,
-      child_entity_instance_id: person_id,
+      child_entity_id: person_id,
       relationship_type: 'has_member',
     });
 
@@ -284,7 +293,8 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
           Type.Literal('employee'),
           Type.Literal('cust'),
           Type.Literal('vendor'),
-          Type.Literal('supplier')
+          Type.Literal('supplier'),
+          Type.Literal('person')
         ]),
         personId: Type.String({ format: 'uuid' })
       }),
@@ -292,7 +302,7 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { roleId, personType, personId } = request.params as {
       roleId: string;
-      personType: 'employee' | 'cust' | 'vendor' | 'supplier';
+      personType: 'employee' | 'cust' | 'vendor' | 'supplier' | 'person';
       personId: string;
     };
 
@@ -300,9 +310,9 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
     const result = await db.execute(sql`
       DELETE FROM app.entity_instance_link
       WHERE entity_code = 'role'
-        AND entity_instance_id = ${roleId}
+        AND entity_instance_id = ${roleId}::uuid
         AND child_entity_code = ${personType}
-        AND child_entity_instance_id = ${personId}
+        AND child_entity_instance_id = ${personId}::uuid
       RETURNING id
     `);
 
@@ -315,7 +325,7 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
 
   // ============================================================================
   // POST /api/v1/access-control/role/:roleId/permissions
-  // Grant a permission to a role
+  // Grant a permission to a role (uses entity-infrastructure service)
   // ============================================================================
   fastify.post('/api/v1/access-control/role/:roleId/permissions', {
     preHandler: [fastify.authenticate],
@@ -327,22 +337,40 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
         entity_code: Type.String(),
         entity_instance_id: Type.Optional(Type.String()),
         permission: Type.Number({ minimum: 0, maximum: 7 }),
+        inheritance_mode: Type.Optional(Type.Union([
+          Type.Literal('none'),
+          Type.Literal('cascade'),
+          Type.Literal('mapped')
+        ])),
+        child_permissions: Type.Optional(Type.Record(Type.String(), Type.Number())),
+        is_deny: Type.Optional(Type.Boolean()),
         expires_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
       }),
     },
   }, async (request, reply) => {
     const { roleId } = request.params as { roleId: string };
-    const { entity_code, entity_instance_id, permission, expires_ts } = request.body as {
+    const {
+      entity_code,
+      entity_instance_id,
+      permission,
+      inheritance_mode = 'none',
+      child_permissions = {},
+      is_deny = false,
+      expires_ts
+    } = request.body as {
       entity_code: string;
       entity_instance_id?: string;
       permission: number;
+      inheritance_mode?: InheritanceMode;
+      child_permissions?: Record<string, number>;
+      is_deny?: boolean;
       expires_ts?: string | null;
     };
     const userId = (request as any).user?.sub;
 
     // Verify role exists
     const roleCheck = await db.execute(sql`
-      SELECT id FROM app.role WHERE id = ${roleId} AND active_flag = true
+      SELECT id, name FROM app.role WHERE id = ${roleId}::uuid AND active_flag = true
     `);
 
     if (roleCheck.length === 0) {
@@ -351,40 +379,24 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
 
     const targetEntityInstanceId = entity_instance_id || ALL_ENTITIES_ID;
 
-    // Upsert pattern - insert or update
-    const result = await db.execute(sql`
-      INSERT INTO app.entity_rbac (
-        person_code,
-        person_id,
-        entity_code,
-        entity_instance_id,
-        permission,
-        granted_by__employee_id,
-        granted_ts,
-        expires_ts
-      ) VALUES (
-        'role',
-        ${roleId},
-        ${entity_code},
-        ${targetEntityInstanceId},
-        ${permission},
-        ${userId},
-        NOW(),
-        ${expires_ts || null}
-      )
-      ON CONFLICT (person_code, person_id, entity_code, entity_instance_id)
-      DO UPDATE SET
-        permission = EXCLUDED.permission,
-        granted_by__employee_id = EXCLUDED.granted_by__employee_id,
-        granted_ts = NOW(),
-        expires_ts = EXCLUDED.expires_ts,
-        updated_ts = NOW()
-      RETURNING id, entity_code, permission
-    `);
+    // Use entity infrastructure service for proper upsert
+    const result = await entityInfra.set_entity_rbac(
+      roleId,
+      entity_code,
+      targetEntityInstanceId,
+      permission,
+      {
+        inheritance_mode,
+        child_permissions,
+        is_deny,
+        granted_by_person_id: userId,
+        expires_ts: expires_ts || null
+      }
+    );
 
     return reply.status(201).send({
       message: 'Permission granted successfully',
-      permission: result[0],
+      permission: result,
     });
   });
 
@@ -403,6 +415,13 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
           entity_code: Type.String(),
           entity_instance_id: Type.Optional(Type.String()),
           permission: Type.Number({ minimum: 0, maximum: 7 }),
+          inheritance_mode: Type.Optional(Type.Union([
+            Type.Literal('none'),
+            Type.Literal('cascade'),
+            Type.Literal('mapped')
+          ])),
+          child_permissions: Type.Optional(Type.Record(Type.String(), Type.Number())),
+          is_deny: Type.Optional(Type.Boolean()),
           expires_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
         }))
       }),
@@ -414,6 +433,9 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
         entity_code: string;
         entity_instance_id?: string;
         permission: number;
+        inheritance_mode?: InheritanceMode;
+        child_permissions?: Record<string, number>;
+        is_deny?: boolean;
         expires_ts?: string | null;
       }>
     };
@@ -421,49 +443,33 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
 
     // Verify role exists
     const roleCheck = await db.execute(sql`
-      SELECT id FROM app.role WHERE id = ${roleId} AND active_flag = true
+      SELECT id FROM app.role WHERE id = ${roleId}::uuid AND active_flag = true
     `);
 
     if (roleCheck.length === 0) {
       return reply.status(404).send({ error: 'Role not found' });
     }
 
-    // Grant each permission (upsert pattern)
+    // Grant each permission using entity infrastructure service
     const results = [];
     for (const perm of permissions) {
       const entityInstanceId = perm.entity_instance_id || ALL_ENTITIES_ID;
 
-      const result = await db.execute(sql`
-        INSERT INTO app.entity_rbac (
-          person_code,
-          person_id,
-          entity_code,
-          entity_instance_id,
-          permission,
-          granted_by__employee_id,
-          granted_ts,
-          expires_ts
-        ) VALUES (
-          'role',
-          ${roleId},
-          ${perm.entity_code},
-          ${entityInstanceId},
-          ${perm.permission},
-          ${userId},
-          NOW(),
-          ${perm.expires_ts || null}
-        )
-        ON CONFLICT (person_code, person_id, entity_code, entity_instance_id)
-        DO UPDATE SET
-          permission = EXCLUDED.permission,
-          granted_by__employee_id = EXCLUDED.granted_by__employee_id,
-          granted_ts = NOW(),
-          expires_ts = EXCLUDED.expires_ts,
-          updated_ts = NOW()
-        RETURNING id, entity_code, permission
-      `);
+      const result = await entityInfra.set_entity_rbac(
+        roleId,
+        perm.entity_code,
+        entityInstanceId,
+        perm.permission,
+        {
+          inheritance_mode: perm.inheritance_mode || 'none',
+          child_permissions: perm.child_permissions || {},
+          is_deny: perm.is_deny || false,
+          granted_by_person_id: userId,
+          expires_ts: perm.expires_ts || null
+        }
+      );
 
-      results.push(result[0]);
+      results.push(result);
     }
 
     return reply.status(201).send({
@@ -474,16 +480,16 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
 
   // ============================================================================
   // GET /api/v1/access-control/entities
-  // Get all entity types for permission dropdowns
+  // Get all entity types for permission dropdowns (includes ownership info)
   // ============================================================================
   fastify.get('/api/v1/access-control/entities', {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     const entities = await db.execute(sql`
-      SELECT code, name, ui_label, ui_icon
+      SELECT code, name, ui_label, ui_icon, child_entity_codes, root_level_entity_flag
       FROM app.entity
       WHERE active_flag = true
-      ORDER BY ui_label ASC
+      ORDER BY display_order ASC, ui_label ASC
     `);
 
     return reply.send({ data: entities });
@@ -521,5 +527,22 @@ export async function accessControlRoutes(fastify: FastifyInstance) {
     `);
 
     return reply.send({ data: customers });
+  });
+
+  // ============================================================================
+  // GET /api/v1/access-control/persons
+  // Get all persons (unified - for person picker)
+  // ============================================================================
+  fastify.get('/api/v1/access-control/persons', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const persons = await db.execute(sql`
+      SELECT id, name, email, 'person' as entity_type
+      FROM app.person
+      WHERE active_flag = true
+      ORDER BY name ASC
+    `);
+
+    return reply.send({ data: persons });
   });
 }

@@ -13,6 +13,7 @@ interface ChildEntityConfig {
   ui_label: string;
   ui_icon?: string;
   order?: number;
+  ownership_flag: boolean; // true=owned (cascade), false=lookup (COMMENT max)
 }
 
 interface PermissionData {
@@ -42,6 +43,7 @@ interface EntityPermissionSectionProps {
   entityCode: string;
   entityLabel: string;
   entityIcon?: string;
+  rootLevelEntityFlag?: boolean; // true=traversal root (business, project, customer)
   childEntityCodes: ChildEntityConfig[];
   permissions: PermissionData[];
   roleId: string;
@@ -88,6 +90,7 @@ export function EntityPermissionSection({
   entityCode,
   entityLabel,
   entityIcon,
+  rootLevelEntityFlag = false,
   childEntityCodes,
   permissions,
   roleId,
@@ -341,18 +344,24 @@ export function EntityPermissionSection({
     return childEntityCodes.map(child => {
       const originalLevel = perm.child_permissions[child.entity] ?? -1;
       const effectiveLevel = getEffectiveChildPermission(permId, child.entity, originalLevel);
-      const displayLevel = effectiveLevel >= 0 ? effectiveLevel : (pendingPermissions[permId] ?? perm.permission);
+      // For lookup children (ownership_flag=false), cap at COMMENT (1)
+      const maxLevel = child.ownership_flag === false ? 1 : (pendingPermissions[permId] ?? perm.permission);
+      const displayLevel = effectiveLevel >= 0
+        ? Math.min(effectiveLevel, maxLevel)
+        : maxLevel;
 
       return {
         id: `${permId}:child:${child.entity}`,
-        label: child.ui_label,
+        label: child.ownership_flag === false ? `${child.ui_label} (lookup)` : child.ui_label,
         icon: child.ui_icon,
         permission: displayLevel,
         isDeny: false,
         isTypeLevel: false,
         hasInheritanceConfig: false,
         _childCode: child.entity,
-        _inheritsParent: effectiveLevel < 0
+        _inheritsParent: effectiveLevel < 0,
+        _isLookup: child.ownership_flag === false,
+        _maxLevel: maxLevel
       };
     });
   }, [permissions, childEntityCodes, getEffectiveMode, getEffectiveChildPermission, pendingPermissions]);
@@ -499,19 +508,23 @@ export function EntityPermissionSection({
   const buildPendingChildRows = useCallback((instanceId: string, config: PendingInstanceConfig) => {
     return childEntityCodes.map(child => {
       const level = config.childPermissions[child.entity] ?? -1;
-      // If -1, inherit from parent
-      const displayLevel = level >= 0 ? level : config.permission;
+      // For lookup children (ownership_flag=false), cap at COMMENT (1)
+      const maxLevel = child.ownership_flag === false ? 1 : config.permission;
+      // If -1, inherit from parent (but still capped for lookup)
+      const displayLevel = level >= 0 ? Math.min(level, maxLevel) : maxLevel;
 
       return {
         id: `pending:${instanceId}:child:${child.entity}`,
-        label: child.ui_label,
+        label: child.ownership_flag === false ? `${child.ui_label} (lookup)` : child.ui_label,
         icon: child.ui_icon,
         permission: displayLevel,
         isDeny: false,
         isTypeLevel: false,
         hasInheritanceConfig: false,
         _childCode: child.entity,
-        _inheritsParent: level < 0
+        _inheritsParent: level < 0,
+        _isLookup: child.ownership_flag === false,
+        _maxLevel: maxLevel
       };
     });
   }, [childEntityCodes]);
@@ -529,8 +542,19 @@ export function EntityPermissionSection({
             {getIcon(entityIcon, 'h-5 w-5 text-slate-700')}
           </div>
           <div className="text-left">
-            <div className="text-sm font-bold text-slate-800 uppercase tracking-wide">
-              {entityLabel} Access
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-slate-800 uppercase tracking-wide">
+                {entityLabel} Access
+              </span>
+              {rootLevelEntityFlag && (
+                <span
+                  className="px-1.5 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 rounded-full flex items-center gap-1"
+                  title="Root entity - traversal boundary for permission inheritance"
+                >
+                  <LucideIcons.Anchor className="h-3 w-3" />
+                  ROOT
+                </span>
+              )}
             </div>
             <div className="text-xs text-dark-500">
               {totalPermissions} permission{totalPermissions !== 1 ? 's' : ''}
@@ -728,20 +752,45 @@ export function EntityPermissionSection({
                           <div className="flex items-center gap-2 text-sm text-violet-700">
                             <LucideIcons.ArrowDownCircle className="h-4 w-4" />
                             <span>
-                              All {childEntityCodes.length} child types inherit{' '}
-                              <strong>{getPermissionLabel(pendingPermissions[perm.id] ?? perm.permission)}</strong>
+                              Child types inherit based on ownership
                             </span>
                           </div>
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {childEntityCodes.map(child => (
-                              <span
-                                key={child.entity}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-100 text-violet-600 text-xs rounded"
-                              >
-                                {getIcon(child.ui_icon, 'h-3 w-3')}
-                                {child.ui_label}
-                              </span>
-                            ))}
+                          <div className="mt-2 space-y-1.5">
+                            {/* Owned children (full cascade) */}
+                            {childEntityCodes.filter(c => c.ownership_flag !== false).length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 items-center">
+                                <span className="text-xs text-violet-600 font-medium w-16">Owned:</span>
+                                {childEntityCodes.filter(c => c.ownership_flag !== false).map(child => (
+                                  <span
+                                    key={child.entity}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-100 text-violet-600 text-xs rounded"
+                                    title={`Inherits full ${getPermissionLabel(pendingPermissions[perm.id] ?? perm.permission)} permission`}
+                                  >
+                                    {getIcon(child.ui_icon, 'h-3 w-3')}
+                                    {child.ui_label}
+                                    <span className="text-violet-400">→ {getPermissionLabel(pendingPermissions[perm.id] ?? perm.permission)}</span>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            {/* Lookup children (COMMENT max) */}
+                            {childEntityCodes.filter(c => c.ownership_flag === false).length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 items-center">
+                                <span className="text-xs text-amber-600 font-medium w-16">Lookup:</span>
+                                {childEntityCodes.filter(c => c.ownership_flag === false).map(child => (
+                                  <span
+                                    key={child.entity}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-600 text-xs rounded"
+                                    title="Lookup relationship - max COMMENT permission (traversal stops)"
+                                  >
+                                    {getIcon(child.ui_icon, 'h-3 w-3')}
+                                    {child.ui_label}
+                                    <span className="text-amber-400">→ Comment</span>
+                                    <LucideIcons.Link2 className="h-3 w-3 text-amber-400" />
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
@@ -850,20 +899,45 @@ export function EntityPermissionSection({
                         <div className="flex items-center gap-2 text-sm text-violet-700">
                           <LucideIcons.ArrowDownCircle className="h-4 w-4" />
                           <span>
-                            All {childEntityCodes.length} child types inherit{' '}
-                            <strong>{getPermissionLabel(selectedInstanceConfigs[expandedInstanceConfig]?.permission || 0)}</strong>
+                            Child types inherit based on ownership
                           </span>
                         </div>
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {childEntityCodes.map(child => (
-                            <span
-                              key={child.entity}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-100 text-violet-600 text-xs rounded"
-                            >
-                              {getIcon(child.ui_icon, 'h-3 w-3')}
-                              {child.ui_label}
-                            </span>
-                          ))}
+                        <div className="mt-2 space-y-1.5">
+                          {/* Owned children (full cascade) */}
+                          {childEntityCodes.filter(c => c.ownership_flag !== false).length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 items-center">
+                              <span className="text-xs text-violet-600 font-medium w-16">Owned:</span>
+                              {childEntityCodes.filter(c => c.ownership_flag !== false).map(child => (
+                                <span
+                                  key={child.entity}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-100 text-violet-600 text-xs rounded"
+                                  title={`Inherits full ${getPermissionLabel(selectedInstanceConfigs[expandedInstanceConfig]?.permission || 0)} permission`}
+                                >
+                                  {getIcon(child.ui_icon, 'h-3 w-3')}
+                                  {child.ui_label}
+                                  <span className="text-violet-400">→ {getPermissionLabel(selectedInstanceConfigs[expandedInstanceConfig]?.permission || 0)}</span>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {/* Lookup children (COMMENT max) */}
+                          {childEntityCodes.filter(c => c.ownership_flag === false).length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 items-center">
+                              <span className="text-xs text-amber-600 font-medium w-16">Lookup:</span>
+                              {childEntityCodes.filter(c => c.ownership_flag === false).map(child => (
+                                <span
+                                  key={child.entity}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-600 text-xs rounded"
+                                  title="Lookup relationship - max COMMENT permission (traversal stops)"
+                                >
+                                  {getIcon(child.ui_icon, 'h-3 w-3')}
+                                  {child.ui_label}
+                                  <span className="text-amber-400">→ Comment</span>
+                                  <LucideIcons.Link2 className="h-3 w-3 text-amber-400" />
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
