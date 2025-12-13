@@ -55,12 +55,21 @@ import type Redis from 'ioredis';
 // TYPE DEFINITIONS
 // ============================================================================
 
+export interface ChildEntityConfig {
+  entity: string;
+  ui_label?: string;
+  ui_icon?: string;
+  order?: number;
+  ownership_flag?: boolean; // true=owned (cascade), false=lookup (COMMENT only)
+}
+
 export interface Entity {
   code: string;
   name: string;
   ui_label: string;
   ui_icon: string;
-  child_entity_codes: Array<string | { entity: string; ui_label?: string; ui_icon?: string; order?: number }>;
+  child_entity_codes: Array<string | ChildEntityConfig>;
+  root_level_entity_flag: boolean; // true=traversal root (business, project, customer)
   display_order: number;
   active_flag: boolean;
   created_ts: string;
@@ -84,6 +93,7 @@ export interface EntityLink {
   child_entity_code: string;  // Child entity code (keeps prefix for clarity)
   child_entity_instance_id: string;  // Child entity instance ID
   relationship_type: string;
+  ownership_flag: boolean; // true=owned (cascade), false=lookup (COMMENT only, traversal stops)
   created_ts: string;
   updated_ts: string;
 }
@@ -203,7 +213,7 @@ export class EntityInfrastructureService {
 
     // Cache miss or inactive query - fetch from database
     const result = await this.db.execute(sql`
-      SELECT code, name, ui_label, ui_icon, child_entity_codes, display_order, active_flag, created_ts, updated_ts
+      SELECT code, name, ui_label, ui_icon, child_entity_codes, root_level_entity_flag, display_order, active_flag, created_ts, updated_ts
       FROM app.entity
       WHERE code = ${entity_code}
         ${include_inactive ? sql`` : sql`AND active_flag = true`}
@@ -220,6 +230,7 @@ export class EntityInfrastructureService {
       child_entity_codes: typeof row.child_entity_codes === 'string'
         ? JSON.parse(row.child_entity_codes)
         : (row.child_entity_codes || []),
+      root_level_entity_flag: row.root_level_entity_flag as boolean || false,
       display_order: row.display_order as number,
       active_flag: row.active_flag as boolean,
       created_ts: row.created_ts as string,
@@ -768,26 +779,48 @@ export class EntityInfrastructureService {
     child_entity_code: string;
     child_entity_id: string;
     relationship_type?: string;
+    ownership_flag?: boolean; // Optional override, defaults to lookup from parent entity config
   }): Promise<EntityLink> {
     const {
       parent_entity_code,
       parent_entity_id,
       child_entity_code,
       child_entity_id,
-      relationship_type = 'contains'
+      relationship_type = 'contains',
+      ownership_flag: ownershipFlagOverride
     } = params;
 
-    // Validate both entities exist (optional - can be skipped for performance)
-    // const parentExists = await this.validateInstanceExists(parent_entity_code, parent_entity_id);
-    // const childExists = await this.validateInstanceExists(child_entity_code, child_entity_id);
-    // if (!parentExists || !childExists) {
-    //   throw new Error(`Entity not in registry: parent=${parentExists}, child=${childExists}`);
-    // }
+    // Determine ownership_flag: use override if provided, otherwise lookup from parent entity config
+    let ownershipFlag = true; // Default to owned if not found
+    if (ownershipFlagOverride !== undefined) {
+      ownershipFlag = ownershipFlagOverride;
+    } else {
+      // Look up parent entity's child_entity_codes to get ownership_flag
+      const parentEntity = await this.db.execute(sql`
+        SELECT child_entity_codes FROM app.entity WHERE code = ${parent_entity_code}
+      `);
+      if (parentEntity.length > 0 && parentEntity[0].child_entity_codes) {
+        const childConfigs = parentEntity[0].child_entity_codes as Array<string | ChildEntityConfig>;
+        for (const config of childConfigs) {
+          if (typeof config === 'string') {
+            // Legacy string format - default to owned
+            if (config === child_entity_code) {
+              ownershipFlag = true;
+              break;
+            }
+          } else if (config.entity === child_entity_code) {
+            // Object format with ownership_flag
+            ownershipFlag = config.ownership_flag !== false; // Default true if undefined
+            break;
+          }
+        }
+      }
+    }
 
     const result = await this.db.execute(sql`
       INSERT INTO app.entity_instance_link
-      (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
-      VALUES (${parent_entity_code}, ${parent_entity_id}, ${child_entity_code}, ${child_entity_id}, ${relationship_type})
+      (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type, ownership_flag)
+      VALUES (${parent_entity_code}, ${parent_entity_id}, ${child_entity_code}, ${child_entity_id}, ${relationship_type}, ${ownershipFlag})
       RETURNING *
     `);
 
@@ -1066,12 +1099,15 @@ export class EntityInfrastructureService {
       -- ═══════════════════════════════════════════════════════════════════════
       -- 4. FIND ANCESTORS (for inheritance resolution)
       --    Recursive CTE to traverse entity_instance_link up the hierarchy
+      --    Includes ownership_flag for permission capping (lookup vs owned)
+      --    Stops at root entities (root_level_entity_flag = true)
       -- ═══════════════════════════════════════════════════════════════════════
       ancestor_chain AS (
         -- Base case: direct parents of the target entity
         SELECT
           eil.entity_code AS ancestor_code,
           eil.entity_instance_id AS ancestor_id,
+          eil.ownership_flag,  -- TRUE=owned (cascade), FALSE=lookup (COMMENT only)
           1 AS depth
         FROM app.entity_instance_link eil
         WHERE eil.child_entity_code = ${entity_code}
@@ -1080,27 +1116,48 @@ export class EntityInfrastructureService {
         UNION ALL
 
         -- Recursive case: grandparents and beyond
+        -- STOP at root entities (root_level_entity_flag = true)
         SELECT
           eil.entity_code,
           eil.entity_instance_id,
+          eil.ownership_flag,
           ac.depth + 1
         FROM ancestor_chain ac
         JOIN app.entity_instance_link eil
           ON eil.child_entity_code = ac.ancestor_code
           AND eil.child_entity_instance_id = ac.ancestor_id
+        -- Check if current entity is a root (stop traversal)
+        JOIN app.entity e ON e.code = ac.ancestor_code
         WHERE ac.depth < 10  -- Prevent infinite loops
+          AND COALESCE(e.root_level_entity_flag, false) = false  -- Stop at root entities
+          AND ac.ownership_flag = true  -- Only continue through OWNED links (lookup stops traversal)
       ),
 
       -- ═══════════════════════════════════════════════════════════════════════
       -- 5. INHERITED PERMISSIONS FROM ANCESTORS
       --    Apply inheritance_mode: cascade (same permission) or mapped (per-child)
+      --    OWNERSHIP_FLAG: lookup children (false) get max COMMENT(1)
       -- ═══════════════════════════════════════════════════════════════════════
       inherited_perms AS (
         SELECT
           CASE
-            -- Cascade mode: same permission to all children
+            -- If ownership_flag is FALSE (lookup), cap at COMMENT(1)
+            WHEN ac.ownership_flag = false THEN
+              CASE
+                WHEN er.inheritance_mode IN ('cascade', 'mapped') THEN LEAST(1,
+                  CASE
+                    WHEN er.inheritance_mode = 'cascade' THEN er.permission
+                    WHEN er.child_permissions ? ${entity_code}
+                      THEN (er.child_permissions->> ${entity_code})::int
+                    WHEN er.child_permissions ? '_default'
+                      THEN (er.child_permissions->>'_default')::int
+                    ELSE -1
+                  END
+                )
+                ELSE -1
+              END
+            -- Owned children get full cascade/mapped permission
             WHEN er.inheritance_mode = 'cascade' THEN er.permission
-            -- Mapped mode: use child_permissions JSONB for per-child-type mapping
             WHEN er.inheritance_mode = 'mapped' THEN
               CASE
                 -- Explicit mapping for this entity type

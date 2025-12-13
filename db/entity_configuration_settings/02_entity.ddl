@@ -39,6 +39,7 @@ CREATE TABLE app.entity (
     domain_name varchar(100),
     column_metadata jsonb DEFAULT '[]'::jsonb,
     config_datatable jsonb DEFAULT '{"defaultSort": "updated_ts", "defaultSortOrder": "desc", "itemsPerPage": 25}'::jsonb,
+    root_level_entity_flag boolean DEFAULT false, -- TRUE for traversal root entities (business, project, customer)
     active_flag boolean DEFAULT true,
     created_ts timestamptz DEFAULT now(),
     updated_ts timestamptz DEFAULT now()
@@ -51,11 +52,12 @@ COMMENT ON COLUMN app.entity.ui_label IS 'UI display label for entity type plura
 COMMENT ON COLUMN app.entity.ui_icon IS 'Lucide icon name for UI display (FolderOpen, CheckSquare, Users, etc.)';
 COMMENT ON COLUMN app.entity.db_table IS 'Physical table name without prefix (person, inventory, order, office_hierarchy, etc.) - Single source of truth for entity-to-table mapping';
 COMMENT ON COLUMN app.entity.db_model_type IS 'Data model classification: d=dimension, dh=dimension hierarchy, f=fact, fh=fact head, fd=fact data';
-COMMENT ON COLUMN app.entity.child_entity_codes IS 'JSONB array of child entity metadata: [{"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1}]';
+COMMENT ON COLUMN app.entity.child_entity_codes IS 'JSONB array of child entity metadata: [{"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1, "ownership_flag": true}]. ownership_flag: true=owned (permissions cascade), false=lookup (COMMENT only).';
 COMMENT ON COLUMN app.entity.domain_id IS 'Domain ID (denormalized from d_domain for performance)';
 COMMENT ON COLUMN app.entity.domain_code IS 'Domain code (denormalized from d_domain for performance)';
 COMMENT ON COLUMN app.entity.domain_name IS 'Domain name (denormalized from d_domain for performance)';
 COMMENT ON COLUMN app.entity.config_datatable IS 'DataTable configuration: {defaultSort, defaultSortOrder, itemsPerPage} - DB-driven list view settings';
+COMMENT ON COLUMN app.entity.root_level_entity_flag IS 'Traversal root: TRUE for entities that serve as permission boundaries (business, project, customer). RBAC traversal stops at root entities.';
 
 -- =====================================================
 -- DATA CURATION
@@ -63,7 +65,7 @@ COMMENT ON COLUMN app.entity.config_datatable IS 'DataTable configuration: {defa
 -- =====================================================
 
 -- Office entity type (has 6 child types)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'office',
   'Office',
@@ -71,12 +73,20 @@ VALUES (
   'MapPin',
   'office',
   'd',
-  '["task", "artifact", "wiki", "form", "expense", "revenue"]'::jsonb,
+  '[
+    {"entity": "task", "ui_label": "Tasks", "ui_icon": "CheckSquare", "order": 1, "ownership_flag": true},
+    {"entity": "artifact", "ui_label": "Artifacts", "ui_icon": "FileText", "order": 2, "ownership_flag": true},
+    {"entity": "wiki", "ui_label": "Wiki Pages", "ui_icon": "BookOpen", "order": 3, "ownership_flag": true},
+    {"entity": "form", "ui_label": "Forms", "ui_icon": "FileText", "order": 4, "ownership_flag": true},
+    {"entity": "expense", "ui_label": "Expenses", "ui_icon": "Receipt", "order": 5, "ownership_flag": true},
+    {"entity": "revenue", "ui_label": "Revenue", "ui_icon": "TrendingUp", "order": 6, "ownership_flag": true}
+  ]'::jsonb,
+  false,
   10
 );
 
--- Business entity type (has 3 child types)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+-- Business entity type (has 3 child types) - ROOT LEVEL ENTITY
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'business',
   'Business',
@@ -84,12 +94,17 @@ VALUES (
   'Building2',
   'business',
   'd',
-  '["project", "expense", "revenue"]'::jsonb,
+  '[
+    {"entity": "project", "ui_label": "Projects", "ui_icon": "FolderOpen", "order": 1, "ownership_flag": true},
+    {"entity": "expense", "ui_label": "Expenses", "ui_icon": "Receipt", "order": 2, "ownership_flag": true},
+    {"entity": "revenue", "ui_label": "Revenue", "ui_icon": "TrendingUp", "order": 3, "ownership_flag": true}
+  ]'::jsonb,
+  true,
   20
 );
 
--- Project entity type (has 8 child types)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+-- Project entity type (has 8 child types) - ROOT LEVEL ENTITY
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'project',
   'Project',
@@ -97,13 +112,23 @@ VALUES (
   'FolderOpen',
   'project',
   'f',
-  '["task", "artifact", "wiki", "form", "customer", "event", "revenue", "expense"]'::jsonb,
+  '[
+    {"entity": "task", "ui_label": "Tasks", "ui_icon": "CheckSquare", "order": 1, "ownership_flag": true},
+    {"entity": "artifact", "ui_label": "Artifacts", "ui_icon": "FileText", "order": 2, "ownership_flag": true},
+    {"entity": "wiki", "ui_label": "Wiki Pages", "ui_icon": "BookOpen", "order": 3, "ownership_flag": true},
+    {"entity": "form", "ui_label": "Forms", "ui_icon": "FileText", "order": 4, "ownership_flag": true},
+    {"entity": "customer", "ui_label": "Customers", "ui_icon": "Users", "order": 5, "ownership_flag": false},
+    {"entity": "event", "ui_label": "Events", "ui_icon": "Calendar", "order": 6, "ownership_flag": true},
+    {"entity": "revenue", "ui_label": "Revenue", "ui_icon": "TrendingUp", "order": 7, "ownership_flag": true},
+    {"entity": "expense", "ui_label": "Expenses", "ui_icon": "Receipt", "order": 8, "ownership_flag": true}
+  ]'::jsonb,
+  true,
   30
 );
 
 -- Task entity type (has 7 child types)
 -- NOTE: task_data is NOT a child entity - it's rendered via custom TaskDataContainer component (activity feed)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'task',
   'Task',
@@ -111,12 +136,21 @@ VALUES (
   'CheckSquare',
   'task',
   'f',
-  '["customer", "quote", "order", "event", "shipment", "revenue", "expense"]'::jsonb,
+  '[
+    {"entity": "customer", "ui_label": "Customers", "ui_icon": "Users", "order": 1, "ownership_flag": false},
+    {"entity": "quote", "ui_label": "Quotes", "ui_icon": "FileText", "order": 2, "ownership_flag": true},
+    {"entity": "order", "ui_label": "Orders", "ui_icon": "ShoppingCart", "order": 3, "ownership_flag": true},
+    {"entity": "event", "ui_label": "Events", "ui_icon": "Calendar", "order": 4, "ownership_flag": true},
+    {"entity": "shipment", "ui_label": "Shipments", "ui_icon": "Truck", "order": 5, "ownership_flag": true},
+    {"entity": "revenue", "ui_label": "Revenue", "ui_icon": "TrendingUp", "order": 6, "ownership_flag": true},
+    {"entity": "expense", "ui_label": "Expenses", "ui_icon": "Receipt", "order": 7, "ownership_flag": true}
+  ]'::jsonb,
+  false,
   40
 );
 
--- Customer entity type (has 5 child types)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+-- Customer entity type (has 5 child types) - ROOT LEVEL ENTITY
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'customer',
   'Customer',
@@ -124,12 +158,19 @@ VALUES (
   'Users',
   'customer',
   'd',
-  '["project", "artifact", "form", "expense", "revenue"]'::jsonb,
+  '[
+    {"entity": "project", "ui_label": "Projects", "ui_icon": "FolderOpen", "order": 1, "ownership_flag": false},
+    {"entity": "artifact", "ui_label": "Artifacts", "ui_icon": "FileText", "order": 2, "ownership_flag": true},
+    {"entity": "form", "ui_label": "Forms", "ui_icon": "FileText", "order": 3, "ownership_flag": true},
+    {"entity": "expense", "ui_label": "Expenses", "ui_icon": "Receipt", "order": 4, "ownership_flag": true},
+    {"entity": "revenue", "ui_label": "Revenue", "ui_icon": "TrendingUp", "order": 5, "ownership_flag": true}
+  ]'::jsonb,
+  true,
   50
 );
 
 -- Role entity type (has 1 child type - person for role membership per RBAC v2.0.0)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'role',
   'Role',
@@ -137,12 +178,15 @@ VALUES (
   'UserCheck',
   'role',
   'd',
-  '["person"]'::jsonb,
+  '[
+    {"entity": "person", "ui_label": "People", "ui_icon": "User", "order": 1, "ownership_flag": true}
+  ]'::jsonb,
+  false,
   60
 );
 
 -- Form entity type (has 2 child types) - Fact Head
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'form',
   'Form',
@@ -150,12 +194,16 @@ VALUES (
   'FileText',
   'form',
   'fh',
-  '["form_data", "artifact"]'::jsonb,
+  '[
+    {"entity": "form_data", "ui_label": "Form Submissions", "ui_icon": "FileInput", "order": 1, "ownership_flag": true},
+    {"entity": "artifact", "ui_label": "Artifacts", "ui_icon": "FileText", "order": 2, "ownership_flag": true}
+  ]'::jsonb,
+  false,
   70
 );
 
 -- Employee entity type (has 1 child type)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'employee',
   'Employee',
@@ -163,12 +211,15 @@ VALUES (
   'Users',
   'employee',
   'd',
-  '["rbac"]'::jsonb,
+  '[
+    {"entity": "rbac", "ui_label": "Permissions", "ui_icon": "Shield", "order": 1, "ownership_flag": true}
+  ]'::jsonb,
+  false,
   80
 );
 
 -- RBAC entity type (permissions - child of role and employee)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'rbac',
   'Permission',
@@ -177,6 +228,7 @@ VALUES (
   'entity_rbac',
   'f',
   '[]'::jsonb,
+  false,
   85
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
@@ -185,11 +237,12 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Wiki entity type (has 1 child type for content blocks)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'wiki',
   'Wiki',
@@ -197,12 +250,15 @@ VALUES (
   'BookOpen',
   'wiki',
   'fh',
-  '["wiki_data"]'::jsonb,
+  '[
+    {"entity": "wiki_data", "ui_label": "Wiki Blocks", "ui_icon": "FileCode", "order": 1, "ownership_flag": true}
+  ]'::jsonb,
+  false,
   90
 );
 
 -- Person entity type (base entity for all people)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'person',
   'Person',
@@ -211,6 +267,7 @@ VALUES (
   'person',
   'd',
   '[]'::jsonb,
+  false,
   95
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
@@ -219,11 +276,12 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Artifact entity type (leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'artifact',
   'Artifact',
@@ -232,11 +290,12 @@ VALUES (
   'artifact',
   'f',
   '[]'::jsonb,
+  false,
   100
 );
 
 -- Attachment entity type (file attachments - referenced by artifact, invoice)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'attachment',
   'Attachment',
@@ -245,6 +304,7 @@ VALUES (
   'attachment',
   'd',
   '[]'::jsonb,
+  false,
   101
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
@@ -253,11 +313,12 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Worksite entity type (leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'worksite',
   'Worksite',
@@ -266,11 +327,12 @@ VALUES (
   'worksite',
   'd',
   '[]'::jsonb,
+  false,
   110
 );
 
 -- Chat entity type (AI chat sessions - leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'chat',
   'Chat',
@@ -279,6 +341,7 @@ VALUES (
   'interaction',
   'f',
   '[]'::jsonb,
+  false,
   35
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
@@ -287,11 +350,12 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Calendar entity type (person availability/booking - leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'person-calendar',
   'Calendar',
@@ -300,6 +364,7 @@ VALUES (
   'person_calendar',
   'd',
   '[]'::jsonb,
+  false,
   45
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
@@ -308,11 +373,12 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Service entity type (leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'service',
   'Service',
@@ -321,11 +387,12 @@ VALUES (
   'service',
   'd',
   '[]'::jsonb,
+  false,
   135
 );
 
 -- Product entity type (leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'product',
   'Product',
@@ -334,11 +401,12 @@ VALUES (
   'product',
   'd',
   '[]'::jsonb,
+  false,
   140
 );
 
 -- Supplier entity type (vendors/suppliers for procurement)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'supplier',
   'Supplier',
@@ -347,6 +415,7 @@ VALUES (
   'supplier',
   'd',
   '[]'::jsonb,
+  false,
   141
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
@@ -355,11 +424,12 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Quote entity type (has 1 child type: work_order)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'quote',
   'Quote',
@@ -367,12 +437,15 @@ VALUES (
   'FileText',
   'quote',
   'f',
-  '["work_order"]'::jsonb,
+  '[
+    {"entity": "work_order", "ui_label": "Work Orders", "ui_icon": "ClipboardCheck", "order": 1, "ownership_flag": true}
+  ]'::jsonb,
+  false,
   145
 );
 
 -- Work Order entity type (leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'work_order',
   'Work Order',
@@ -381,11 +454,12 @@ VALUES (
   'work_order',
   'f',
   '[]'::jsonb,
+  false,
   155
 );
 
 -- Inventory entity type (leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'inventory',
   'Inventory',
@@ -394,11 +468,12 @@ VALUES (
   'inventory',
   'f',
   '[]'::jsonb,
+  false,
   150
 );
 
 -- Order entity type (has 2 child types)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'order',
   'Order',
@@ -406,12 +481,16 @@ VALUES (
   'ShoppingCart',
   'order',
   'f',
-  '["invoice", "shipment"]'::jsonb,
+  '[
+    {"entity": "invoice", "ui_label": "Invoices", "ui_icon": "Receipt", "order": 1, "ownership_flag": true},
+    {"entity": "shipment", "ui_label": "Shipments", "ui_icon": "Truck", "order": 2, "ownership_flag": true}
+  ]'::jsonb,
+  false,
   160
 );
 
 -- Invoice entity type (has 1 child type for line items)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'invoice',
   'Invoice',
@@ -419,12 +498,15 @@ VALUES (
   'Receipt',
   'invoice',
   'fh',
-  '["invoice_data"]'::jsonb,
+  '[
+    {"entity": "invoice_data", "ui_label": "Invoice Line Items", "ui_icon": "ListOrdered", "order": 1, "ownership_flag": true}
+  ]'::jsonb,
+  false,
   170
 );
 
 -- Shipment entity type (leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'shipment',
   'Shipment',
@@ -433,11 +515,12 @@ VALUES (
   'shipment',
   'f',
   '[]'::jsonb,
+  false,
   180
 );
 
 -- Expense entity type (leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'expense',
   'Expense',
@@ -446,11 +529,12 @@ VALUES (
   'expense',
   'f',
   '[]'::jsonb,
+  false,
   190
 );
 
 -- Revenue entity type (leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'revenue',
   'Revenue',
@@ -459,11 +543,12 @@ VALUES (
   'revenue',
   'f',
   '[]'::jsonb,
+  false,
   200
 );
 
 -- Workflow entity type (workflow templates - has workflow_data as child)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'workflow',
   'Workflow',
@@ -471,12 +556,15 @@ VALUES (
   'GitBranch',
   'workflow',
   'fh',
-  '["workflow_data"]'::jsonb,
+  '[
+    {"entity": "workflow_data", "ui_label": "Workflow Instances", "ui_icon": "GitCommit", "order": 1, "ownership_flag": true}
+  ]'::jsonb,
+  false,
   205
 );
 
--- Event entity type (Universal parent - can have many child entities)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+-- Event entity type (Universal parent - can have many child entities, all are LOOKUP)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'event',
   'Event',
@@ -484,7 +572,16 @@ VALUES (
   'Calendar',
   'event',
   'f',
-  '["event-person-calendar", "task", "project", "service", "customer", "employee", "business"]'::jsonb,
+  '[
+    {"entity": "event-person-calendar", "ui_label": "Booking", "ui_icon": "CalendarCheck", "order": 1, "ownership_flag": true},
+    {"entity": "task", "ui_label": "Tasks", "ui_icon": "CheckSquare", "order": 2, "ownership_flag": false},
+    {"entity": "project", "ui_label": "Projects", "ui_icon": "FolderOpen", "order": 3, "ownership_flag": false},
+    {"entity": "service", "ui_label": "Services", "ui_icon": "Wrench", "order": 4, "ownership_flag": false},
+    {"entity": "customer", "ui_label": "Customers", "ui_icon": "Users", "order": 5, "ownership_flag": false},
+    {"entity": "employee", "ui_label": "Employees", "ui_icon": "Users", "order": 6, "ownership_flag": false},
+    {"entity": "business", "ui_label": "Businesses", "ui_icon": "Building2", "order": 7, "ownership_flag": false}
+  ]'::jsonb,
+  false,
   215
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
@@ -493,11 +590,12 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Office Hierarchy entity type (Organizational structure hierarchy - separate from operational office)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'office_hierarchy',
   'Office Hierarchy',
@@ -506,6 +604,7 @@ VALUES (
   'office_hierarchy',
   'dh',
   '[]'::jsonb,
+  false,
   220
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
@@ -514,11 +613,12 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Business Hierarchy entity type (Organizational structure hierarchy - separate from operational business)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'business_hierarchy',
   'Business Hierarchy',
@@ -527,6 +627,7 @@ VALUES (
   'business_hierarchy',
   'dh',
   '[]'::jsonb,
+  false,
   225
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
@@ -535,11 +636,12 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Product Hierarchy entity type (Product categorization hierarchy - separate from SKU-level products)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'product_hierarchy',
   'Product Hierarchy',
@@ -548,6 +650,7 @@ VALUES (
   'product_hierarchy',
   'dh',
   '[]'::jsonb,
+  false,
   230
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
@@ -556,11 +659,12 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Message Schema entity type (Email/SMS/Push templates)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'message_schema',
   'Message Schema',
@@ -569,6 +673,7 @@ VALUES (
   'message_schema',
   'd',
   '[]'::jsonb,
+  false,
   240
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
@@ -577,11 +682,12 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Message entity type (Sent/scheduled messages)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'message',
   'Message',
@@ -590,6 +696,7 @@ VALUES (
   'message_data',
   'f',
   '[]'::jsonb,
+  false,
   250
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
@@ -598,11 +705,12 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Interaction entity type (Customer Interactions)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'interaction',
   'Interaction',
@@ -611,6 +719,7 @@ VALUES (
   'interaction',
   'f',
   '[]'::jsonb,
+  false,
   270
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
@@ -619,11 +728,12 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Workflow Automation entity type
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'workflow_automation',
   'Workflow Automation',
@@ -632,6 +742,7 @@ VALUES (
   'workflow_automation',
   'd',
   '[]'::jsonb,
+  false,
   280
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
@@ -640,6 +751,7 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
@@ -650,7 +762,7 @@ VALUES (
 -- Pattern: {parent}_data contains child records linked via {parent}_id or {parent}_number
 
 -- Form Data entity type (form submissions - child of form)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'form_data',
   'Form Data',
@@ -659,6 +771,7 @@ VALUES (
   'form_data',
   'fd',
   '[]'::jsonb,
+  false,
   71
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
@@ -667,11 +780,12 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Task Data entity type (task checklist items - child of task)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'task_data',
   'Task Data',
@@ -680,6 +794,7 @@ VALUES (
   'task_data',
   'fd',
   '[]'::jsonb,
+  false,
   41
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
@@ -688,11 +803,12 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Wiki Data entity type (wiki content blocks - child of wiki)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'wiki_data',
   'Wiki Data',
@@ -701,6 +817,7 @@ VALUES (
   'wiki_data',
   'fd',
   '[]'::jsonb,
+  false,
   91
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
@@ -709,11 +826,12 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Invoice Data entity type (invoice line items - child of invoice)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'invoice_data',
   'Invoice Data',
@@ -722,6 +840,7 @@ VALUES (
   'invoice_data',
   'fd',
   '[]'::jsonb,
+  false,
   171
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
@@ -730,6 +849,7 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
@@ -738,7 +858,7 @@ VALUES (
 -- =====================================================
 
 -- Booking entity type (event RSVP/booking records)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'event-person-calendar',
   'Booking',
@@ -747,6 +867,7 @@ VALUES (
   'entity_event_person_calendar',
   'f',
   '[]'::jsonb,
+  false,
   216
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
@@ -755,6 +876,7 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
@@ -763,7 +885,7 @@ VALUES (
 -- =====================================================
 
 -- Workflow Data entity type (workflow instances - child of workflow)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'workflow_data',
   'Workflow Data',
@@ -772,6 +894,7 @@ VALUES (
   'workflow_data',
   'fd',
   '[]'::jsonb,
+  false,
   206
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
@@ -780,11 +903,12 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Workflow Events entity type (workflow event triggers)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order)
 VALUES (
   'workflow_events',
   'Workflow Events',
@@ -793,6 +917,7 @@ VALUES (
   'industry_workflow_events',
   'f',
   '[]'::jsonb,
+  false,
   207
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
@@ -801,6 +926,7 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
@@ -809,7 +935,7 @@ VALUES (
 -- =====================================================
 
 -- Domain entity type (domain definitions for entity grouping) - DEACTIVATED (meta-entity)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order, active_flag)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order, active_flag)
 VALUES (
   'domain',
   'Domain',
@@ -818,6 +944,7 @@ VALUES (
   'd_domain',
   'd',
   '[]'::jsonb,
+  false,
   895,
   false
 ) ON CONFLICT (code) DO UPDATE SET
@@ -827,12 +954,13 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   active_flag = EXCLUDED.active_flag,
   updated_ts = now();
 
 -- Datalabel entity type (settings/lookup labels) - DEACTIVATED (meta-entity)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order, active_flag)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order, active_flag)
 VALUES (
   'datalabel',
   'Data Label',
@@ -841,6 +969,7 @@ VALUES (
   'datalabel',
   'd',
   '[]'::jsonb,
+  false,
   896,
   false
 ) ON CONFLICT (code) DO UPDATE SET
@@ -850,6 +979,7 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   active_flag = EXCLUDED.active_flag,
   updated_ts = now();
@@ -861,7 +991,7 @@ VALUES (
 -- Creates self-describing entity system where d_entity describes itself
 
 -- Entity meta-entity (represents the concept of 'entity' itself) - DEACTIVATED (meta-entity)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order, active_flag)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order, active_flag)
 VALUES (
   'entity',
   'Entity',
@@ -870,6 +1000,7 @@ VALUES (
   'entity',
   'd',
   '[]'::jsonb,
+  false,
   900,
   false
 ) ON CONFLICT (code) DO UPDATE SET
@@ -879,12 +1010,13 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   active_flag = EXCLUDED.active_flag,
   updated_ts = now();
 
 -- Entity Instance meta-entity (renamed from entity_instance_registry) - DEACTIVATED (meta-entity)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order, active_flag)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order, active_flag)
 VALUES (
   'entity_instance',
   'Entity Instance',
@@ -893,6 +1025,7 @@ VALUES (
   'entity_instance',
   'f',
   '[]'::jsonb,
+  false,
   910,
   false
 ) ON CONFLICT (code) DO UPDATE SET
@@ -902,12 +1035,13 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   active_flag = EXCLUDED.active_flag,
   updated_ts = now();
 
 -- Entity Instance Link meta-entity - DEACTIVATED (meta-entity)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order, active_flag)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order, active_flag)
 VALUES (
   'entity_instance_link',
   'Entity Instance Link',
@@ -916,6 +1050,7 @@ VALUES (
   'entity_instance_link',
   'f',
   '[]'::jsonb,
+  false,
   920,
   false
 ) ON CONFLICT (code) DO UPDATE SET
@@ -925,12 +1060,13 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   active_flag = EXCLUDED.active_flag,
   updated_ts = now();
 
 -- Entity RBAC meta-entity - DEACTIVATED (meta-entity)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order, active_flag)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, root_level_entity_flag, display_order, active_flag)
 VALUES (
   'entity_rbac',
   'Entity RBAC',
@@ -939,6 +1075,7 @@ VALUES (
   'entity_rbac',
   'f',
   '[]'::jsonb,
+  false,
   930,
   false
 ) ON CONFLICT (code) DO UPDATE SET
@@ -948,6 +1085,7 @@ VALUES (
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
   child_entity_codes = EXCLUDED.child_entity_codes,
+  root_level_entity_flag = EXCLUDED.root_level_entity_flag,
   display_order = EXCLUDED.display_order,
   active_flag = EXCLUDED.active_flag,
   updated_ts = now();
