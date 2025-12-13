@@ -45,6 +45,7 @@ CREATE TABLE app.entity_instance_link (
     child_entity_code varchar(50), -- References entity.code (child entity type: task, artifact, wiki, etc.)
     child_entity_instance_id uuid, -- UUID of the child entity instance
     relationship_type varchar(50) DEFAULT 'contains',
+    ownership_flag boolean DEFAULT true, -- TRUE=owned (permissions cascade), FALSE=lookup (COMMENT only, traversal stops)
     created_ts timestamptz DEFAULT now(),
     updated_ts timestamptz DEFAULT now()
 );
@@ -54,6 +55,7 @@ COMMENT ON COLUMN app.entity_instance_link.entity_code IS 'Entity type code of t
 COMMENT ON COLUMN app.entity_instance_link.entity_instance_id IS 'UUID of the parent entity instance';
 COMMENT ON COLUMN app.entity_instance_link.child_entity_code IS 'Entity type code of the child (references entity.code)';
 COMMENT ON COLUMN app.entity_instance_link.child_entity_instance_id IS 'UUID of the child entity instance';
+COMMENT ON COLUMN app.entity_instance_link.ownership_flag IS 'Permission traversal: TRUE=owned (child inherits parent permission and cascades further), FALSE=lookup (child gets COMMENT only, traversal STOPS here). Denormalized from parent entity.child_entity_codes at link creation time.';
 
 -- =====================================================
 -- DATA CURATION: Port Existing Relationships

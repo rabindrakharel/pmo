@@ -2,9 +2,9 @@
 
 > Complete reference for transactional CRUD, RBAC enforcement, entity reference resolution, and infrastructure table management. Central service for all entity operations.
 
-**Version**: 6.0.0
+**Version**: 7.2.0
 **Location**: `apps/api/src/services/entity-infrastructure.service.ts`
-**Last Updated**: 2025-12-03
+**Last Updated**: 2025-12-13
 **Status**: Production Ready
 
 ---
@@ -262,19 +262,20 @@
 │                                                                              │
 │  entity (type metadata)                                                      │
 │  ──────────────────────                                                      │
-│  ┌─────────────────────┬─────────────┬────────────────────────────────────┐ │
-│  │ Column              │ Type        │ Description                        │ │
-│  ├─────────────────────┼─────────────┼────────────────────────────────────┤ │
-│  │ code                │ VARCHAR(50) │ Primary key - entity type code     │ │
-│  │ name                │ VARCHAR(255)│ Entity name                        │ │
-│  │ ui_label            │ VARCHAR(255)│ Display label                      │ │
-│  │ ui_icon             │ VARCHAR(50) │ Lucide icon name                   │ │
-│  │ child_entity_codes  │ JSONB       │ Array of child types (string/obj)  │ │
-│  │ display_order       │ INT         │ Navigation order                   │ │
-│  │ active_flag         │ BOOLEAN     │ Soft delete flag                   │ │
-│  │ created_ts          │ TIMESTAMP   │ Created timestamp                  │ │
-│  │ updated_ts          │ TIMESTAMP   │ Updated timestamp                  │ │
-│  └─────────────────────┴─────────────┴────────────────────────────────────┘ │
+│  ┌─────────────────────────┬─────────────┬────────────────────────────────┐ │
+│  │ Column                  │ Type        │ Description                    │ │
+│  ├─────────────────────────┼─────────────┼────────────────────────────────┤ │
+│  │ code                    │ VARCHAR(50) │ Primary key - entity type code │ │
+│  │ name                    │ VARCHAR(255)│ Entity name                    │ │
+│  │ ui_label                │ VARCHAR(255)│ Display label                  │ │
+│  │ ui_icon                 │ VARCHAR(50) │ Lucide icon name               │ │
+│  │ child_entity_codes      │ JSONB       │ Child types with ownership_flag│ │
+│  │ root_level_entity_flag  │ BOOLEAN     │ Traversal root (v2.2.0)        │ │
+│  │ display_order           │ INT         │ Navigation order               │ │
+│  │ active_flag             │ BOOLEAN     │ Soft delete flag               │ │
+│  │ created_ts              │ TIMESTAMP   │ Created timestamp              │ │
+│  │ updated_ts              │ TIMESTAMP   │ Updated timestamp              │ │
+│  └─────────────────────────┴─────────────┴────────────────────────────────┘ │
 │                                                                              │
 │  entity_instance (registry)                           NO active_flag!       │
 │  ──────────────────────────                                                  │
@@ -301,6 +302,7 @@
 │  │ child_entity_code           │ VARCHAR    │ Child entity type          │  │
 │  │ child_entity_instance_id    │ UUID       │ Child entity UUID          │  │
 │  │ relationship_type           │ VARCHAR    │ 'contains', 'references'   │  │
+│  │ ownership_flag              │ BOOLEAN    │ true=owned, false=lookup   │  │
 │  │ created_ts                  │ TIMESTAMP  │ Created timestamp          │  │
 │  │ updated_ts                  │ TIMESTAMP  │ Updated timestamp          │  │
 │  └─────────────────────────────┴────────────┴────────────────────────────┘  │
@@ -891,13 +893,24 @@ const exists = await entityInfra.validate_entity_instance_registry('project', pr
 // LINKAGE OPERATIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Create parent-child link
+// Create parent-child link (ownership_flag auto-detected from parent entity config)
 await entityInfra.set_entity_instance_link({
   parent_entity_code: 'project',
   parent_entity_id: projectId,
   child_entity_code: 'task',
   child_entity_id: taskId,
-  relationship_type: 'contains'
+  relationship_type: 'contains',
+  // ownership_flag: true  // Optional - auto-detected from parent's child_entity_codes
+});
+
+// Create lookup link (explicit ownership_flag = false)
+await entityInfra.set_entity_instance_link({
+  parent_entity_code: 'task',
+  parent_entity_id: taskId,
+  child_entity_code: 'customer',
+  child_entity_id: customerId,
+  relationship_type: 'references',
+  ownership_flag: false  // Lookup - max COMMENT permission, traversal stops
 });
 
 // Get child entity IDs
@@ -1094,8 +1107,8 @@ try {
 
 ---
 
-**Document Version**: 7.1.0
-**Last Updated**: 2025-12-09
+**Document Version**: 7.2.0
+**Last Updated**: 2025-12-13
 **Status**: Production Ready
 
 ### Version History
@@ -1112,3 +1125,4 @@ try {
 | 6.0.0 | 2025-12-03 | **v6.0.0**: Aligned with source of truth - added Redis caching section (5-min TTL, invalidation methods), Entity metadata methods (`get_entity()`, `get_all_entity()`, `get_parent_entity_codes()`), Entity instance lookup methods (`getEntityInstanceNames()`, `getAllEntityInstanceNames()`, `getEntityInstances()`), updated import paths to `entity-component-metadata.service.js`, added `qualifyTable()` usage in route patterns |
 | 7.0.0 | 2025-12-09 | **RBAC v2.0.0**: Updated to Role-Only model - removed direct employee permissions, added inheritance modes (none/cascade/mapped), explicit deny support |
 | 7.1.0 | 2025-12-09 | Updated `entity_rbac` table schema (`role_id` FK, `inheritance_mode`, `child_permissions`, `is_deny`, `granted_by_person_id`, `granted_ts`), updated permission grant API examples, updated doc reference to `access_control.md` |
+| 7.2.0 | 2025-12-13 | **RBAC v2.2.0 Ownership Model**: Added `root_level_entity_flag` to entity table, `ownership_flag` to entity_instance_link table, updated `set_entity_instance_link` to auto-populate ownership_flag from parent config, cascade inheritance now respects ownership (lookup children capped at COMMENT) |

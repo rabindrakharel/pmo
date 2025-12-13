@@ -13,6 +13,7 @@ interface ChildEntityConfig {
   ui_label: string;
   ui_icon?: string;
   order?: number;
+  ownership_flag: boolean; // true=owned (cascade), false=lookup (COMMENT max)
 }
 
 interface HierarchicalPermission {
@@ -32,6 +33,7 @@ interface HierarchicalEntity {
   entity_code: string;
   entity_label: string;
   entity_icon?: string;
+  root_level_entity_flag: boolean; // true=traversal root (business, project, customer)
   child_entity_codes: ChildEntityConfig[];
   permissions: HierarchicalPermission[];
 }
@@ -425,6 +427,7 @@ export function HierarchicalRbacMatrix({
             entityCode={entity.entity_code}
             entityLabel={entity.entity_label}
             entityIcon={entity.entity_icon}
+            rootLevelEntityFlag={entity.root_level_entity_flag}
             childEntityCodes={entity.child_entity_codes}
             permissions={entity.permissions}
             roleId={roleId}

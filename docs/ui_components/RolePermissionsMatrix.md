@@ -1,8 +1,8 @@
 # RBAC Permission Management Components
 
-> Unified Permission Matrix with entity sections, instance picker, and inline editing (v2.3.6)
+> Unified Permission Matrix with entity sections, instance picker, ownership model, and inline editing (v2.4.0)
 
-**Version**: 2.3.6 | **Updated**: 2025-12-10 | **Status**: Production
+**Version**: 2.4.0 | **Updated**: 2025-12-13 | **Status**: Production
 
 ---
 
@@ -92,7 +92,7 @@ import { HierarchicalRbacMatrix } from '@/components/rbac';
 ```typescript
 GET /api/v1/entity_rbac/role/:roleId/hierarchical-permissions
 
-// Response
+// Response (v2.4.0 - includes ownership model)
 {
   role_id: string;
   role_name: string;
@@ -101,11 +101,13 @@ GET /api/v1/entity_rbac/role/:roleId/hierarchical-permissions
     entity_code: string;
     entity_label: string;
     entity_icon?: string;
+    root_level_entity_flag: boolean;   // v2.4.0: Is this a traversal root? (business, project, customer)
     child_entity_codes: [{
       entity: string;
       ui_label: string;
       ui_icon?: string;
       order?: number;
+      ownership_flag: boolean;         // v2.4.0: true=owned (cascade), false=lookup (COMMENT max)
     }];
     permissions: [{
       id: string;
@@ -125,21 +127,24 @@ GET /api/v1/entity_rbac/role/:roleId/hierarchical-permissions
 
 ---
 
-## 3. EntityPermissionSection Component (v2.3.2)
+## 3. EntityPermissionSection Component (v2.4.0)
 
 **File**: `EntityPermissionSection.tsx`
 
-Individual entity type section with two-step grant flow and unified permissions table.
+Individual entity type section with two-step grant flow, unified permissions table, and ownership model indicators.
 
 ### Features
 
 | Feature | Description |
 |---------|-------------|
 | **Collapsible Section** | Expand/collapse per entity type |
+| **ROOT Badge** | Shows emerald badge with anchor icon for root-level entities (v2.4.0) |
 | **Unified Permissions Table** | Existing + pending grants in one view |
 | **Instance Picker** | Search and select instances to grant permissions |
 | **"All [Entity]s" Option** | Type-level permission merged into instance picker |
 | **Inline Inheritance Config** | Settings icon expands inheritance panel |
+| **Owned vs Lookup Display** | Cascade summary shows owned (violet) vs lookup (amber) children (v2.4.0) |
+| **Lookup Child Capping** | Lookup children capped at COMMENT permission (v2.4.0) |
 | **Per-Section Save** | Save button for pending grants |
 
 ### Visual Layout
@@ -187,14 +192,24 @@ Individual entity type section with two-step grant flow and unified permissions 
 - Click Settings icon for inheritance config
 - Click Save to persist all pending grants
 
-### Props
+### Props (v2.4.0)
 
 ```typescript
+// Child entity config with ownership flag
+interface ChildEntityConfig {
+  entity: string;
+  ui_label: string;
+  ui_icon?: string;
+  order?: number;
+  ownership_flag: boolean;  // v2.4.0: true=owned (cascade), false=lookup (COMMENT max)
+}
+
 interface EntityPermissionSectionProps {
   entityCode: string;
   entityLabel: string;
   entityIcon?: string;
-  childEntityCodes: ChildEntityConfig[];
+  rootLevelEntityFlag?: boolean;        // v2.4.0: Shows ROOT badge when true
+  childEntityCodes: ChildEntityConfig[];  // v2.4.0: Includes ownership_flag
   permissions: HierarchicalPermission[];
   roleId: string;
   pendingPermissions: Record<string, number>;
@@ -209,6 +224,35 @@ interface EntityPermissionSectionProps {
   disabled?: boolean;
 }
 ```
+
+### Ownership Model Visual Elements (v2.4.0)
+
+#### ROOT Badge
+
+Root-level entities display an emerald badge with anchor icon:
+
+```tsx
+{rootLevelEntityFlag && (
+  <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 rounded-full flex items-center gap-1">
+    <Anchor className="h-3 w-3" />
+    ROOT
+  </span>
+)}
+```
+
+#### Cascade Summary with Ownership
+
+When inheritance mode is `cascade`, the UI shows owned vs lookup children:
+
+- **Owned children** (`ownership_flag: true`): Violet badges, show full permission cascade
+- **Lookup children** (`ownership_flag: false`): Amber badges with link icon, show "→ Comment" (max)
+
+#### Mapped Mode Lookup Capping
+
+In mapped mode, lookup children:
+- Display "(lookup)" suffix in label
+- Have permission icons beyond COMMENT (1) disabled
+- `_maxLevel` property enforces cap in logic
 
 ---
 
@@ -448,6 +492,7 @@ queryClient.invalidateQueries({
 
 | Version | Date | Changes |
 |---------|------|---------|
+| v2.4.0 | 2025-12-13 | **Ownership Model UI** - Added `root_level_entity_flag` and `ownership_flag` to API response; ROOT badge for root entities; owned vs lookup child display in cascade summary; lookup children capped at COMMENT |
 | v2.3.7 | 2025-12-10 | **Removed AccessControlPage** - Settings Access Control page removed; all RBAC management via Role detail page's "Access Controls" tab |
 | v2.3.6 | 2025-12-10 | **Consistent icon colors** - Icons always keep their permission color (slate, sky, cyan, etc.); only opacity changes for dim/highlight states |
 | v2.3.5 | 2025-12-10 | **Icon refinement** - Increased inactive icon visibility (`opacity-50`), reduced icon size by 15% (h-4 w-4 normal, h-3.5 w-3.5 compact) |

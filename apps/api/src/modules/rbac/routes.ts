@@ -988,11 +988,13 @@ export async function rbacRoutes(fastify: FastifyInstance) {
             entity_code: Type.String(),
             entity_label: Type.String(),
             entity_icon: Type.Optional(Type.String()),
+            root_level_entity_flag: Type.Boolean(), // Traversal root (business, project, customer)
             child_entity_codes: Type.Array(Type.Object({
               entity: Type.String(),
               ui_label: Type.String(),
               ui_icon: Type.Optional(Type.String()),
               order: Type.Optional(Type.Number()),
+              ownership_flag: Type.Boolean(), // true=owned (cascade), false=lookup (COMMENT max)
             })),
             permissions: Type.Array(Type.Object({
               id: Type.String(),
@@ -1031,14 +1033,15 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       }
       const role = roleResult[0] as any;
 
-      // Get all entity types with their child_entity_codes
+      // Get all entity types with their child_entity_codes and root_level_entity_flag
       const entityTypesResult = await db.execute(sql`
         SELECT
           code,
           name,
           ui_label,
           ui_icon,
-          child_entity_codes
+          child_entity_codes,
+          root_level_entity_flag
         FROM app.entity
         WHERE active_flag = true
         ORDER BY display_order, name
@@ -1066,7 +1069,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         ORDER BY er.entity_code, er.permission DESC
       `);
 
-      // Build entity lookup for child entity details
+      // Build entity lookup for child entity details (fallback for legacy string format)
       const entityLookup = new Map<string, { ui_label: string; ui_icon: string | null }>();
       for (const et of entityTypesResult) {
         const entityType = et as any;
@@ -1076,26 +1079,44 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Build entity type map with transformed child_entity_codes
+      // Build entity type map with child_entity_codes (handles both old string[] and new object[] format)
       const entityTypeMap = new Map<string, any>();
       for (const et of entityTypesResult) {
         const entityType = et as any;
-        // Transform child_entity_codes from strings to objects
-        const childCodes: string[] = entityType.child_entity_codes || [];
-        const transformedChildCodes = childCodes.map((code: string, index: number) => {
-          const childDetails = entityLookup.get(code);
-          return {
-            entity: code,
-            ui_label: childDetails?.ui_label || code,
-            ui_icon: childDetails?.ui_icon || null,
-            order: index,
-          };
+        // child_entity_codes may be:
+        // - string[] (legacy): ["task", "artifact"]
+        // - object[] (new): [{entity: "task", ownership_flag: true, ...}]
+        const childCodes: Array<string | { entity: string; ui_label?: string; ui_icon?: string; order?: number; ownership_flag?: boolean }> = entityType.child_entity_codes || [];
+
+        const transformedChildCodes = childCodes.map((item: string | { entity: string; ui_label?: string; ui_icon?: string; order?: number; ownership_flag?: boolean }, index: number) => {
+          if (typeof item === 'string') {
+            // Legacy string format - treat as owned (default)
+            const childDetails = entityLookup.get(item);
+            return {
+              entity: item,
+              ui_label: childDetails?.ui_label || item,
+              ui_icon: childDetails?.ui_icon || null,
+              order: index,
+              ownership_flag: true, // Default to owned for legacy format
+            };
+          } else {
+            // New object format with ownership_flag
+            const childDetails = entityLookup.get(item.entity);
+            return {
+              entity: item.entity,
+              ui_label: item.ui_label || childDetails?.ui_label || item.entity,
+              ui_icon: item.ui_icon || childDetails?.ui_icon || null,
+              order: item.order ?? index,
+              ownership_flag: item.ownership_flag !== false, // Default true if not explicitly false
+            };
+          }
         });
 
         entityTypeMap.set(entityType.code, {
           entity_code: entityType.code,
           entity_label: entityType.ui_label || entityType.name,
           entity_icon: entityType.ui_icon,
+          root_level_entity_flag: entityType.root_level_entity_flag || false,
           child_entity_codes: transformedChildCodes,
           permissions: [],
         });
@@ -1127,6 +1148,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
             entity_code: p.entity_code,
             entity_label: p.entity_code,
             entity_icon: null,
+            root_level_entity_flag: false,
             child_entity_codes: [],
             permissions: [{
               id: p.id,
