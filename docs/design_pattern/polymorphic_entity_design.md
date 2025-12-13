@@ -754,3 +754,7 @@ await entityInfra.delete_entity_instance_link({
 | - | - | Renamed `owned` → `ownership_flag` for clarity |
 | - | - | Added instance-level role naming convention |
 | - | - | Added role tiers: external/crew/lead/owner |
+| 2.2.0 | 2025-12-13 | **Implementation complete** - All API routes and UI components updated |
+| - | - | API: `hierarchical-permissions` returns `ownership_flag` and `root_level_entity_flag` |
+| - | - | UI: ROOT badge, owned vs lookup cascade summary, lookup children capped at COMMENT |
+| - | - | Backend: `set_entity_instance_link` auto-populates `ownership_flag` from parent config |

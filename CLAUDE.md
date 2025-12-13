@@ -11,7 +11,7 @@
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4
 - **State Management**: TanStack Query + Dexie (offline-first IndexedDB) - server state + persistence
 - **Infrastructure**: AWS EC2/S3/Lambda, Terraform, Docker
-- **Version**: 10.1.0 (Role-Only RBAC v2.1.0 + Permission Matrix + DB-Driven List Config + Dexie v4 Schema)
+- **Version**: 10.2.0 (Role-Only RBAC v2.2.0 + Ownership Model + Permission Matrix + DB-Driven List Config + Dexie v4 Schema)
 
 ## Critical Operations
 
@@ -36,14 +36,19 @@
 ### 4 Infrastructure Tables
 
 ```sql
-entity                   -- Entity type metadata (icons, labels, child_entity_codes, config_datatable) - HAS active_flag
+entity                   -- Entity type metadata (icons, labels, child_entity_codes, config_datatable, root_level_entity_flag) - HAS active_flag
 entity_instance          -- Instance registry (entity_instance_name, code cache) - HARD DELETE, NO active_flag
-entity_instance_link     -- Parent-child relationships - HARD DELETE, NO active_flag
+entity_instance_link     -- Parent-child relationships (ownership_flag) - HARD DELETE, NO active_flag
 entity_rbac              -- Permissions (0-7: VIEW, COMMENT, CONTRIBUTE, EDIT, SHARE, DELETE, CREATE, OWNER) - HARD DELETE, NO active_flag
 ```
 
-**Entity Table Key Columns (v10.1.0)**:
+**Entity Table Key Columns (v10.2.0)**:
 - `config_datatable` JSONB: List view settings `{defaultSort, defaultSortOrder, itemsPerPage}` - DB-driven, cached in-memory
+- `root_level_entity_flag` BOOLEAN: Marks traversal boundaries (business, project, customer) - permission inheritance stops here
+- `child_entity_codes` JSONB: Child types with ownership metadata `[{entity, ui_label, ui_icon, order, ownership_flag}]`
+
+**Entity Instance Link Key Columns (v10.2.0)**:
+- `ownership_flag` BOOLEAN: `true`=owned (full cascade), `false`=lookup (max COMMENT, traversal stops)
 
 **Delete Semantics**:
 - `entity` (type metadata): Soft delete with `active_flag`
@@ -893,9 +898,17 @@ Comprehensive page and component architecture documentation. Used by LLMs when i
 
 ---
 
-**Version**: 10.1.0 | **Updated**: 2025-12-11 | **Pattern**: TanStack Query + Dexie v4 (Offline-First) + Redis Field Cache + Role-Only RBAC v2.1.0
+**Version**: 10.2.0 | **Updated**: 2025-12-13 | **Pattern**: TanStack Query + Dexie v4 (Offline-First) + Redis Field Cache + Role-Only RBAC v2.2.0 (Ownership Model)
 
 **Recent Updates**:
+- v10.2.0 (2025-12-13): **RBAC v2.2.0 Ownership Model**
+  - Added `root_level_entity_flag` to `app.entity` - marks traversal boundaries (business, project, customer)
+  - Added `ownership_flag` to `app.entity_instance_link` - distinguishes owned vs lookup relationships
+  - `child_entity_codes` now JSONB objects with `ownership_flag` (backwards compatible with string arrays)
+  - Cascade inheritance respects ownership: owned children get full cascade, lookup children capped at COMMENT (1)
+  - `set_entity_instance_link()` auto-populates `ownership_flag` from parent entity config
+  - UI: ROOT badge for root entities, owned/lookup indicators in cascade summary
+  - See: `docs/design_pattern/polymorphic_entity_design.md`, `docs/rbac/RBAC_BACKEND_DESIGN.md`
 - v10.1.0 (2025-12-11): **DB-Driven List View Configuration**
   - Added `config_datatable` JSONB column to `app.entity` table
   - Stores `{defaultSort, defaultSortOrder, itemsPerPage}` per entity type

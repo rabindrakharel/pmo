@@ -1,8 +1,8 @@
 # RBAC Backend Design
 
-> Role-Based Access Control - Backend Architecture, Permission Resolution, and Caching Strategy
+> Role-Based Access Control - Backend Architecture, Permission Resolution, Ownership Model, and Caching Strategy
 
-**Version**: 1.0.0 | **Updated**: 2025-12-10 | **Status**: Production
+**Version**: 2.2.0 | **Updated**: 2025-12-13 | **Status**: Production
 
 ---
 
@@ -10,10 +10,12 @@
 
 1. [Architecture Overview](#1-architecture-overview)
 2. [Database Schema](#2-database-schema)
-3. [Permission Resolution Flow](#3-permission-resolution-flow)
-4. [API Routes](#4-api-routes)
-5. [Caching Strategy](#5-caching-strategy)
-6. [Performance Analysis](#6-performance-analysis)
+3. [Ownership Model (v2.2.0)](#3-ownership-model-v220)
+4. [Permission Resolution Flow](#4-permission-resolution-flow)
+5. [API Routes](#5-api-routes)
+6. [Caching Strategy](#6-caching-strategy)
+7. [Performance Analysis](#7-performance-analysis)
+8. [Data Gating Query Optimization](#8-data-gating-query-optimization-v210)
 
 ---
 
@@ -168,9 +170,209 @@ All permissions are granted to **roles**, never directly to people. People recei
 
 ---
 
-## 3. Permission Resolution Flow
+## 3. Ownership Model (v2.2.0)
 
-### 3.1 Flow Diagram
+### 3.1 Overview
+
+The ownership model introduces **traversal control** for permission inheritance through entity relationships. Two new flags control how permissions flow through the entity hierarchy:
+
+| Flag | Location | Purpose |
+|------|----------|---------|
+| `root_level_entity_flag` | `app.entity` | Marks traversal boundaries (business, project, customer) |
+| `ownership_flag` | `app.entity_instance_link` | Distinguishes owned vs lookup relationships |
+
+### 3.2 Root Level Entity Flag
+
+Entities marked with `root_level_entity_flag = true` are **traversal roots** - they define boundaries where permission inheritance behavior changes.
+
+**Root Entities:**
+- `business` - Organization boundary
+- `project` - Project boundary
+- `customer` - Customer boundary
+
+**Behavior:**
+- Permissions granted at a root entity don't automatically traverse UP to parent hierarchies
+- Permissions traverse DOWN from root entities based on `ownership_flag`
+
+```sql
+-- app.entity table includes:
+ALTER TABLE app.entity ADD COLUMN root_level_entity_flag BOOLEAN DEFAULT false;
+
+-- Example root entities
+UPDATE app.entity SET root_level_entity_flag = true WHERE code IN ('business', 'project', 'customer');
+```
+
+### 3.3 Ownership Flag
+
+The `ownership_flag` on `entity_instance_link` determines how permissions cascade to child entities:
+
+| Flag Value | Name | Permission Behavior | Use Case |
+|------------|------|---------------------|----------|
+| `true` | **Owned** | Full cascade - child inherits parent's permission level | Project owns its tasks |
+| `false` | **Lookup** | Max COMMENT (level 1) - traversal stops | Person linked to project for reference |
+
+```sql
+-- app.entity_instance_link table includes:
+ALTER TABLE app.entity_instance_link ADD COLUMN ownership_flag BOOLEAN DEFAULT true;
+```
+
+### 3.4 Child Entity Configuration
+
+The `app.entity.child_entity_codes` JSONB column now stores objects with ownership metadata:
+
+**New Format (v2.2.0):**
+```json
+{
+  "child_entity_codes": [
+    { "entity": "task", "ui_label": "Tasks", "ui_icon": "CheckSquare", "ownership_flag": true },
+    { "entity": "artifact", "ui_label": "Artifacts", "ui_icon": "File", "ownership_flag": true },
+    { "entity": "person", "ui_label": "Team", "ui_icon": "Users", "ownership_flag": false }
+  ]
+}
+```
+
+**Legacy Format (backward compatible):**
+```json
+{
+  "child_entity_codes": ["task", "artifact", "person"]
+}
+```
+
+When legacy string format is encountered, the system defaults `ownership_flag = true`.
+
+### 3.5 Ownership Inheritance Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     OWNERSHIP-BASED PERMISSION INHERITANCE                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Example: Role has EDIT (3) on Project-ABC                                  │
+│                                                                              │
+│                         ┌─────────────────────┐                              │
+│                         │   Project-ABC       │                              │
+│                         │   EDIT permission   │                              │
+│                         │   (root entity)     │                              │
+│                         └─────────┬───────────┘                              │
+│                                   │                                          │
+│              ┌────────────────────┼────────────────────┐                     │
+│              │                    │                    │                     │
+│         ownership_flag=true   ownership_flag=true  ownership_flag=false     │
+│              │                    │                    │                     │
+│              ▼                    ▼                    ▼                     │
+│     ┌────────────────┐  ┌────────────────┐  ┌────────────────┐              │
+│     │   Task-001     │  │  Artifact-001  │  │   Person-JM    │              │
+│     │   → EDIT (3)   │  │   → EDIT (3)   │  │   → COMMENT(1) │◄── MAX!     │
+│     │   (inherited)  │  │   (inherited)  │  │   (capped)     │              │
+│     └────────────────┘  └────────────────┘  └────────────────┘              │
+│                                                                              │
+│  RULE: Lookup children (ownership_flag=false) get MAX COMMENT permission    │
+│        regardless of parent's higher permission level.                       │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 3.6 Cascade Mode with Ownership
+
+When `inheritance_mode = 'cascade'`, the ownership model modifies behavior:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    CASCADE + OWNERSHIP INTERACTION                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  entity_rbac record:                                                         │
+│  {                                                                           │
+│    role_id: 'role-admin',                                                    │
+│    entity_code: 'project',                                                   │
+│    entity_instance_id: 'project-abc',                                        │
+│    permission: 5,              // DELETE                                     │
+│    inheritance_mode: 'cascade' // Full cascade                               │
+│  }                                                                           │
+│                                                                              │
+│  Resolution for child entities:                                              │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│                                                                              │
+│  Child: task (ownership_flag=true)                                           │
+│    → getMaxPermissionLevel() returns 5 (DELETE)                              │
+│    → Full cascade, no cap                                                    │
+│                                                                              │
+│  Child: artifact (ownership_flag=true)                                       │
+│    → getMaxPermissionLevel() returns 5 (DELETE)                              │
+│    → Full cascade, no cap                                                    │
+│                                                                              │
+│  Child: person (ownership_flag=false)                                        │
+│    → getMaxPermissionLevel() returns 1 (COMMENT) ◄── CAPPED                 │
+│    → Lookup relationship, max COMMENT                                        │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 3.7 API Response Format
+
+The hierarchical permissions API returns ownership metadata:
+
+```typescript
+GET /api/v1/entity_rbac/role/:roleId/hierarchical-permissions
+
+{
+  "role_id": "uuid",
+  "role_name": "Project Manager",
+  "entities": [
+    {
+      "entity_code": "project",
+      "entity_label": "Projects",
+      "entity_icon": "Folder",
+      "root_level_entity_flag": true,  // ← Traversal root
+      "child_entity_codes": [
+        {
+          "entity": "task",
+          "ui_label": "Tasks",
+          "ui_icon": "CheckSquare",
+          "order": 0,
+          "ownership_flag": true       // ← Owned child
+        },
+        {
+          "entity": "person",
+          "ui_label": "Team",
+          "ui_icon": "Users",
+          "order": 1,
+          "ownership_flag": false      // ← Lookup child
+        }
+      ],
+      "permissions": [...]
+    }
+  ]
+}
+```
+
+### 3.8 Service Method Updates
+
+The `set_entity_instance_link` method auto-populates `ownership_flag`:
+
+```typescript
+// entity-infrastructure.service.ts
+async set_entity_instance_link(params: {
+  parent_entity_code: string;
+  parent_entity_id: string;
+  child_entity_code: string;
+  child_entity_id: string;
+  relationship_type?: string;
+  ownership_flag?: boolean;  // Optional - auto-detected if not provided
+}): Promise<EntityLink>
+
+// Auto-detection logic:
+// 1. If ownership_flag provided → use it
+// 2. Else → look up parent entity's child_entity_codes config
+// 3. Find child_entity_code in config → use its ownership_flag
+// 4. Default → true (owned)
+```
+
+---
+
+## 4. Permission Resolution Flow
+
+### 4.1 Flow Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -245,7 +447,7 @@ All permissions are granted to **roles**, never directly to people. People recei
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 3.2 Priority Order
+### 4.2 Priority Order
 
 | Priority | Check | Effect |
 |----------|-------|--------|
@@ -254,7 +456,7 @@ All permissions are granted to **roles**, never directly to people. People recei
 | 3rd | Type-Level Permission | "Can access ALL entities of this type" |
 | 4th | Inherited from Parent | Flows down based on inheritance mode |
 
-### 3.3 SQL Implementation (Single Recursive CTE)
+### 4.3 SQL Implementation (Single Recursive CTE)
 
 The permission check executes as a **single SQL query** using PostgreSQL's recursive CTE:
 
@@ -347,13 +549,13 @@ FROM all_perms;
 
 ---
 
-## 4. API Routes
+## 5. API Routes
 
-### 4.1 Route File Location
+### 5.1 Route File Location
 
 **File**: `apps/api/src/modules/rbac/routes.ts`
 
-### 4.2 Permission Management Routes
+### 5.2 Permission Management Routes
 
 | Method | Route | Purpose |
 |--------|-------|---------|
@@ -363,7 +565,7 @@ FROM all_perms;
 | PATCH | `/api/v1/entity_rbac/permission/:id/child-permissions` | Update child permission mapping |
 | DELETE | `/api/v1/entity_rbac/permission/:id` | Hard delete permission |
 
-### 4.3 Request/Response Examples
+### 5.3 Request/Response Examples
 
 **Grant Permission**:
 ```typescript
@@ -394,7 +596,7 @@ PUT /api/v1/entity_rbac/permission/:permissionId
 }
 ```
 
-### 4.4 Role Membership Routes
+### 5.4 Role Membership Routes
 
 Role membership uses universal entity APIs:
 
@@ -406,9 +608,9 @@ Role membership uses universal entity APIs:
 
 ---
 
-## 5. Caching Strategy
+## 6. Caching Strategy
 
-### 5.1 Design Principle: Cache at Role Level
+### 6.1 Design Principle: Cache at Role Level
 
 Since permissions are granted to **roles** (not persons), caching at the role level is more efficient:
 
@@ -417,7 +619,7 @@ Since permissions are granted to **roles** (not persons), caching at the role le
 | Person-level | 100 persons × 50 entities = 5000 keys | Permission change → invalidate 100 keys |
 | **Role-level** | 10 roles × 50 entities = 500 keys | Permission change → invalidate 1 key |
 
-### 5.2 Cache Key Structure
+### 6.2 Cache Key Structure
 
 ```
 rbac:person:{personId}:roles                     → SET of role_ids (only person-level key)
@@ -427,7 +629,7 @@ rbac:role:{roleId}:{entityCode}:type             → STRING permission level (0-
 rbac:role:{roleId}:perm:{entityCode}:{entityId}  → STRING permission level (0-7 or -1)
 ```
 
-### 5.3 Cached Permission Check Flow
+### 6.3 Cached Permission Check Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -481,7 +683,7 @@ rbac:role:{roleId}:perm:{entityCode}:{entityId}  → STRING permission level (0-
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 5.4 Cache Invalidation
+### 6.4 Cache Invalidation
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -510,7 +712,7 @@ rbac:role:{roleId}:perm:{entityCode}:{entityId}  → STRING permission level (0-
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 5.5 Cache Implementation
+### 6.5 Cache Implementation
 
 ```typescript
 // apps/api/src/services/rbac-cache.service.ts
@@ -544,7 +746,7 @@ async invalidateRole(roleId: string): Promise<void> {
 }
 ```
 
-### 5.6 Redis Commands Used
+### 6.6 Redis Commands Used
 
 | Operation | Redis Command | Purpose |
 |-----------|---------------|---------|
@@ -556,9 +758,9 @@ async invalidateRole(roleId: string): Promise<void> {
 
 ---
 
-## 6. Performance Analysis
+## 7. Performance Analysis
 
-### 6.1 Query Costs (Without Cache)
+### 7.1 Query Costs (Without Cache)
 
 | Step | Query Type | Cost |
 |------|------------|------|
@@ -570,7 +772,7 @@ async invalidateRole(roleId: string): Promise<void> {
 
 **Key Insight**: The recursive CTE runs as a **single query**, not N sequential queries.
 
-### 6.2 Query Costs (With Cache)
+### 7.2 Query Costs (With Cache)
 
 | Step | Cache Hit | Cache Miss |
 |------|-----------|------------|
@@ -582,7 +784,7 @@ async invalidateRole(roleId: string): Promise<void> {
 **Best case**: 3 Redis round-trips, 0 DB queries
 **Worst case**: 3 Redis round-trips + 3 DB queries (first access)
 
-### 6.3 Potential Bottlenecks
+### 7.3 Potential Bottlenecks
 
 | Bottleneck | Cause | Mitigation |
 |------------|-------|------------|
@@ -591,7 +793,7 @@ async invalidateRole(roleId: string): Promise<void> {
 | Large deny sets | Many denied entities | Rare use case |
 | Cache stampede | Many misses at once | TTL jitter, warm-up |
 
-### 6.4 Indexing Requirements
+### 7.4 Indexing Requirements
 
 ```sql
 -- entity_instance_link: Role membership lookup
@@ -609,9 +811,9 @@ ON app.entity_rbac(role_id, is_deny) WHERE is_deny = true;
 
 ---
 
-## 7. Data Gating Query Optimization (v2.1.0)
+## 8. Data Gating Query Optimization (v2.1.0)
 
-### 7.1 The Problem: Large `IN` Clauses
+### 8.1 The Problem: Large `IN` Clauses
 
 The `get_entity_rbac_where_condition()` method returns accessible entity IDs for filtering LIST queries. With large permission sets, this can generate slow queries:
 
@@ -629,7 +831,7 @@ WHERE e.id IN ('uuid1', 'uuid2', ..., 'uuid100000')  -- 100K literals!
 | Poor plan quality | Optimizer gives up with too many OR conditions |
 | Network overhead | Huge SQL strings sent to database |
 
-### 7.2 Solution: `ANY(ARRAY[...])` Pattern (Implemented)
+### 8.2 Solution: `ANY(ARRAY[...])` Pattern (Implemented)
 
 PostgreSQL handles arrays much more efficiently than IN lists:
 
@@ -656,7 +858,7 @@ return sql.raw(`${table_alias}.id = ANY(${uuidArrayLiteral})`);
 | Planner memory | High | Low | Significant |
 | Plan quality | Degrades | Stable | Better execution |
 
-### 7.3 Additional Strategies for Extreme Cases
+### 8.3 Additional Strategies for Extreme Cases
 
 For even larger ID sets (>100K), consider:
 
@@ -689,4 +891,12 @@ See `docs/caching-backend/BACKEND_CACHE_SERVICE.md` Section 10 for detailed impl
 
 ---
 
-**Version**: 1.1.0 | **Updated**: 2025-12-10
+**Version**: 2.2.0 | **Updated**: 2025-12-13
+
+### Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.0.0 | 2025-12-09 | Initial Role-Only RBAC model |
+| 1.1.0 | 2025-12-10 | Data gating query optimization |
+| 2.2.0 | 2025-12-13 | **Ownership Model**: Added `root_level_entity_flag` and `ownership_flag` for traversal control, lookup children capped at COMMENT permission |

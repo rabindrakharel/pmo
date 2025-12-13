@@ -1,8 +1,8 @@
 # RBAC UI/UX Design Reference
 
-> Page architecture, component hierarchy, user interactions, wireframes, and navigation flows
+> Page architecture, component hierarchy, user interactions, wireframes, ownership model UI, and navigation flows
 
-**Version**: 1.0.0 | **Updated**: 2025-12-10 | **Status**: Production
+**Version**: 2.2.0 | **Updated**: 2025-12-13 | **Status**: Production
 
 ---
 
@@ -13,8 +13,9 @@
 3. [Component Hierarchy](#3-component-hierarchy)
 4. [User Interaction Flows](#4-user-interaction-flows)
 5. [Wireframes](#5-wireframes)
-6. [Component Specifications](#6-component-specifications)
-7. [Visual Design System](#7-visual-design-system)
+6. [Ownership Model UI (v2.2.0)](#6-ownership-model-ui-v220)
+7. [Component Specifications](#7-component-specifications)
+8. [Visual Design System](#8-visual-design-system)
 
 ---
 
@@ -398,9 +399,129 @@ State Legend:
 
 ---
 
-## 6. Component Specifications
+## 6. Ownership Model UI (v2.2.0)
 
-### 6.1 PermissionMatrixTable Props
+### 6.1 Overview
+
+The ownership model introduces visual indicators for permission inheritance control:
+
+| UI Element | Purpose | Component |
+|------------|---------|-----------|
+| ROOT badge | Marks traversal boundary entities | EntityPermissionSection header |
+| Owned child indicator | Full cascade permission | Cascade summary |
+| Lookup child indicator | Capped at COMMENT (1) | Cascade summary + child rows |
+
+### 6.2 ROOT Badge
+
+Root-level entities (business, project, customer) display a ROOT badge in the section header:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ▼ 📁 PROJECT ACCESS                              [+ Grant Permission]       │
+│    ┌────────┐                                                               │
+│    │⚓ ROOT │  ← Emerald badge with anchor icon                             │
+│    └────────┘                                                               │
+│   3 permissions                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Styling:**
+```typescript
+// ROOT badge - appears when rootLevelEntityFlag=true
+<span className="px-1.5 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 rounded-full flex items-center gap-1">
+  <LucideIcons.Anchor className="h-3 w-3" />
+  ROOT
+</span>
+```
+
+**Tooltip:** "Root entity - traversal boundary for permission inheritance"
+
+### 6.3 Cascade Summary (Owned vs Lookup)
+
+When inheritance mode is `cascade`, the UI shows which child types are owned vs lookup:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Child types inherit based on ownership:                                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│ Owned:   ┌────────────────┐  ┌────────────────┐                             │
+│          │ 📋 Task → EDIT │  │ 📄 Artifact → EDIT │                         │
+│          └────────────────┘  └────────────────┘                             │
+│          (violet badges - full cascade)                                      │
+│                                                                              │
+│ Lookup:  ┌─────────────────────────┐                                        │
+│          │ 👤 Person → Comment 🔗 │                                         │
+│          └─────────────────────────┘                                        │
+│          (amber badges - capped, link icon)                                  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Badge Colors:**
+- **Owned children:** `bg-violet-100 text-violet-600` - full cascade
+- **Lookup children:** `bg-amber-100 text-amber-600` - capped at COMMENT, with Link2 icon
+
+### 6.4 Mapped Mode Child Rows
+
+In mapped mode, lookup children display "(lookup)" suffix and are capped:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ⑂ Child Entity Permissions:                                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Child Type            Vi Co Cn Ed Sh De Cr Ow                               │
+│──────────────────────────────────────────────────────────────────────────── │
+│ 📋 Task               ●  ●  ●  ●  ○  ○  ○  ○      ← Can select up to parent │
+│ 📄 Artifact           ●  ●  ●  ●  ○  ○  ○  ○                                │
+│ 👤 Person (lookup)    ●  ●  ╳  ╳  ╳  ╳  ╳  ╳      ← Max COMMENT, others disabled │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Lookup Child Behavior:**
+- Label shows "(lookup)" suffix
+- Permission icons beyond COMMENT (1) are disabled/crossed out
+- `_maxLevel` property enforces cap in logic
+
+### 6.5 API Response Integration
+
+The UI consumes ownership data from the hierarchical-permissions API:
+
+```typescript
+// EntityPermissionSection props
+interface EntityPermissionSectionProps {
+  entityCode: string;
+  entityLabel: string;
+  entityIcon?: string;
+  rootLevelEntityFlag?: boolean;      // ← Shows ROOT badge
+  childEntityCodes: ChildEntityConfig[];  // ← Includes ownership_flag
+  permissions: PermissionData[];
+  roleId: string;
+  // ... other props
+}
+
+interface ChildEntityConfig {
+  entity: string;
+  ui_label: string;
+  ui_icon?: string;
+  order?: number;
+  ownership_flag: boolean;  // true=owned (cascade), false=lookup (COMMENT max)
+}
+```
+
+### 6.6 User Interaction: Ownership Awareness
+
+| User Action | Owned Child | Lookup Child |
+|-------------|-------------|--------------|
+| Select CASCADE mode | Full permission cascade | Capped at COMMENT |
+| Configure MAPPED mode | Can set any level up to parent | Can only set VIEW or COMMENT |
+| View cascade summary | Violet badge, arrow to permission | Amber badge, arrow to Comment, link icon |
+
+---
+
+## 7. Component Specifications
+
+### 7.1 PermissionMatrixTable Props
 
 ```typescript
 interface PermissionMatrixTableProps {
@@ -426,21 +547,31 @@ interface MatrixRow {
 }
 ```
 
-### 6.2 EntityPermissionSection Props
+### 7.2 EntityPermissionSection Props
 
 ```typescript
 interface EntityPermissionSectionProps {
   entityCode: string;
   entityLabel: string;
   entityIcon?: string;
+  rootLevelEntityFlag?: boolean;        // v2.2.0: Shows ROOT badge
+  childEntityCodes: ChildEntityConfig[];  // v2.2.0: Includes ownership_flag
   permissions: HierarchicalPermission[];
   roleId: string;
   onPermissionsGranted?: () => void;
   disabled?: boolean;
 }
+
+interface ChildEntityConfig {  // v2.2.0
+  entity: string;
+  ui_label: string;
+  ui_icon?: string;
+  order?: number;
+  ownership_flag: boolean;  // true=owned (cascade), false=lookup (COMMENT max)
+}
 ```
 
-### 6.3 HierarchicalRbacMatrix Props
+### 7.3 HierarchicalRbacMatrix Props
 
 ```typescript
 interface HierarchicalRbacMatrixProps {
@@ -452,9 +583,9 @@ interface HierarchicalRbacMatrixProps {
 
 ---
 
-## 7. Visual Design System
+## 8. Visual Design System
 
-### 7.1 Permission Icon Colors
+### 8.1 Permission Icon Colors
 
 | Level | Permission | Icon | Color Class | Hex |
 |-------|------------|------|-------------|-----|
@@ -467,7 +598,7 @@ interface HierarchicalRbacMatrixProps {
 | 6 | CREATE | Plus | `text-emerald-600` | #059669 |
 | 7 | OWNER | Crown | `text-red-600` | #dc2626 |
 
-### 7.2 Icon States
+### 8.2 Icon States
 
 | State | Styling | Description |
 |-------|---------|-------------|
@@ -477,7 +608,7 @@ interface HierarchicalRbacMatrixProps {
 | Modified | `{color} drop-shadow-[0_0_6px_rgba(245,158,11,0.7)]` | Amber glow |
 | Deny | `text-red-400` + Ban icon | All columns show Ban |
 
-### 7.3 Row States
+### 8.3 Row States
 
 | State | Background | Badge | When |
 |-------|------------|-------|------|
@@ -487,14 +618,14 @@ interface HierarchicalRbacMatrixProps {
 | Expanded | `bg-slate-100` + ring | None | Inheritance panel open |
 | Deny | `bg-red-50` | "DENY" (red) | Explicit deny |
 
-### 7.4 Icon Sizes
+### 8.4 Icon Sizes
 
 | Mode | Size | Tailwind Class |
 |------|------|----------------|
 | Normal | 16px | `h-4 w-4` |
 | Compact | 14px | `h-3.5 w-3.5` |
 
-### 7.5 Spacing
+### 8.5 Spacing
 
 | Element | Padding/Margin |
 |---------|----------------|
@@ -516,4 +647,11 @@ interface HierarchicalRbacMatrixProps {
 
 ---
 
-**Version**: 1.0.0 | **Updated**: 2025-12-10
+**Version**: 2.2.0 | **Updated**: 2025-12-13
+
+### Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.0.0 | 2025-12-10 | Initial UI/UX design reference |
+| 2.2.0 | 2025-12-13 | **Ownership Model UI**: Added ROOT badge, owned/lookup child indicators, cascade summary with ownership awareness |
