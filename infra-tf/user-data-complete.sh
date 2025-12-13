@@ -352,6 +352,38 @@ chown -R ubuntu:ubuntu /var/log/${project_name}
 
 echo "🌐 Configuring Nginx..."
 cat > /etc/nginx/sites-available/${project_name} <<'NGINXEOF'
+# =============================================================================
+# Default server block - reject requests to root domain and unknown hosts
+# =============================================================================
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name ${domain_name} www.${domain_name};
+
+    # Return 444 (connection closed without response) for root domain
+    # This effectively disables the website on cohuron.com
+    return 444;
+}
+
+# =============================================================================
+# HTTPS default server block - reject root domain on port 443
+# =============================================================================
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    server_name ${domain_name} www.${domain_name};
+
+    # Use the same SSL cert (if exists) or a self-signed placeholder
+    ssl_certificate /etc/letsencrypt/live/${app_subdomain}.${domain_name}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${app_subdomain}.${domain_name}/privkey.pem;
+
+    # Return 444 (connection closed without response) for root domain
+    return 444;
+}
+
+# =============================================================================
+# App subdomain server block - the actual application
+# =============================================================================
 server {
     listen 80;
     listen [::]:80;

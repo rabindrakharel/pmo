@@ -240,6 +240,195 @@ else
 fi
 
 # ============================================
+# Step 3.5: Update Nginx Configuration
+# ============================================
+echo ""
+echo "============================================"
+echo "STEP 3.5: Updating Nginx Configuration"
+echo "============================================"
+
+# Check if SSL certs exist and create appropriate config
+if [ -f /etc/letsencrypt/live/app.cohuron.com/fullchain.pem ]; then
+    echo "SSL certificates found, creating HTTPS config..."
+    sudo tee /etc/nginx/sites-available/cohuron > /dev/null <<'NGINXCONF'
+# =============================================================================
+# Default server block - reject requests to root domain (HTTP)
+# =============================================================================
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name cohuron.com www.cohuron.com;
+    return 444;
+}
+
+# =============================================================================
+# Default server block - reject requests to root domain (HTTPS)
+# =============================================================================
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    server_name cohuron.com www.cohuron.com;
+    ssl_certificate /etc/letsencrypt/live/app.cohuron.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/app.cohuron.com/privkey.pem;
+    return 444;
+}
+
+# =============================================================================
+# App subdomain - HTTP to HTTPS redirect
+# =============================================================================
+server {
+    listen 80;
+    listen [::]:80;
+    server_name app.cohuron.com;
+    return 301 https://$host$request_uri;
+}
+
+# =============================================================================
+# App subdomain - HTTPS (main application)
+# =============================================================================
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name app.cohuron.com;
+
+    ssl_certificate /etc/letsencrypt/live/app.cohuron.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/app.cohuron.com/privkey.pem;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:50m;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    client_max_body_size 100M;
+
+    location /api/ {
+        proxy_pass http://localhost:4000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 300s;
+    }
+
+    location /ws {
+        proxy_pass http://localhost:4001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 86400;
+    }
+
+    location / {
+        proxy_pass http://localhost:5173;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+}
+NGINXCONF
+else
+    echo "No SSL certificates found, creating HTTP-only config..."
+    sudo tee /etc/nginx/sites-available/cohuron > /dev/null <<'NGINXCONF'
+# =============================================================================
+# Default server block - reject requests to root domain
+# =============================================================================
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name cohuron.com www.cohuron.com _;
+    return 444;
+}
+
+# =============================================================================
+# App subdomain - HTTP (main application - no SSL yet)
+# =============================================================================
+server {
+    listen 80;
+    listen [::]:80;
+    server_name app.cohuron.com;
+
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+
+    client_max_body_size 100M;
+
+    location /api/ {
+        proxy_pass http://localhost:4000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 300s;
+    }
+
+    location /ws {
+        proxy_pass http://localhost:4001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 86400;
+    }
+
+    location / {
+        proxy_pass http://localhost:5173;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+}
+NGINXCONF
+fi
+
+# Enable site and remove default and old configs
+sudo ln -sf /etc/nginx/sites-available/cohuron /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo rm -f /etc/nginx/sites-enabled/pmo
+sudo rm -f /etc/nginx/sites-available/pmo
+
+# Test and reload Nginx
+if sudo nginx -t; then
+    sudo systemctl reload nginx
+    echo "✓ Nginx configuration updated and reloaded"
+else
+    echo "ERROR: Nginx configuration test failed!"
+    sudo nginx -t
+fi
+
+# ============================================
 # Step 4: Start Application Services (PM2)
 # ============================================
 echo ""
@@ -308,9 +497,14 @@ echo "Deployment Summary:"
 echo "  ✓ Code deployed to {DEPLOY_PATH}"
 echo "  ✓ Dependencies installed"
 echo "  ✓ Database schema imported (44 DDL files)"
+echo "  ✓ Nginx updated (cohuron.com disabled, app.cohuron.com enabled)"
 echo "  ✓ All services started"
 echo ""
-echo "Services running at:"
+echo "Public access:"
+echo "  🌐 App:  https://app.cohuron.com (ENABLED)"
+echo "  🚫 Root: https://cohuron.com (DISABLED - returns 444)"
+echo ""
+echo "Local services:"
 echo "  🌐 Web:  http://localhost:5173"
 echo "  🔧 API:  http://localhost:4000"
 echo "  📊 Docs: http://localhost:4000/docs"

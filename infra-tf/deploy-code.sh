@@ -97,7 +97,7 @@ echo ""
 echo -e "${YELLOW}Uploading to S3...${NC}"
 echo "  Destination: s3://$S3_BUCKET/$BUNDLE_NAME"
 
-aws --profile cohuron s3 cp "$TEMP_DIR/$BUNDLE_NAME" "s3://$S3_BUCKET/$BUNDLE_NAME" \
+aws s3 cp "$TEMP_DIR/$BUNDLE_NAME" "s3://$S3_BUCKET/$BUNDLE_NAME" \
     --metadata "branch=$CURRENT_BRANCH,commit=$COMMIT_HASH,timestamp=$TIMESTAMP"
 
 if [ $? -eq 0 ]; then
