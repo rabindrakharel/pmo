@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { getFieldIcon, SignatureCanvas, AddressInput, GeoLocationInput, ModernDateTimePicker, StepProgressIndicator, DataTableInput, SearchableSelect, SearchableMultiSelect, CurrencyInput, DateOnlyInput, TimeOnlyInput, ToggleInput, RatingInput, DurationInput, PercentageInput, CalculationField } from './FormBuilder';
 import { BuilderField, FormStep } from './FormBuilder';
-import { BookOpen, Upload, Layers, Send, CheckCircle, AlertCircle, ChevronDown, ExternalLink } from 'lucide-react';
+import { BookOpen, Upload, Layers, Send, CheckCircle, AlertCircle, ChevronDown, ExternalLink, Loader2 } from 'lucide-react';
 import { ModularEditor } from '../../shared/editor/ModularEditor';
 import { useS3Upload } from '../../../lib/hooks/useS3Upload';
+import { SmartStepIndicator, SuccessState, FormFieldWrapper } from './FormUIComponents';
+import { cx } from '../../../lib/designSystem';
 
 interface InteractiveFormProps {
   formId: string;
@@ -1114,102 +1116,155 @@ export function InteractiveForm({
   };
 
   return (
-    <div className="space-y-4">
-
+    <div className="space-y-6 animate-fade-in">
+      {/* Smart Step Indicator - Modern design */}
       {steps.length > 1 && (
-        <StepProgressIndicator
-          steps={steps}
-          currentStepIndex={currentStepIndex}
-          onStepClick={(index) => {
-            // Only allow clicking on completed steps or the next step
-            if (index <= currentStepIndex + 1) {
-              setCurrentStepIndex(index);
-            }
-          }}
+        <div className="bg-dark-surface border border-dark-border-default rounded-xl p-5 shadow-sm">
+          <SmartStepIndicator
+            steps={steps.map(s => ({
+              id: s.id,
+              title: s.title,
+              description: s.description || `${fields.filter(f => f.stepId === s.id).length} fields`
+            }))}
+            currentStepIndex={currentStepIndex}
+            onStepClick={(index) => {
+              // Only allow clicking on completed steps or the next step
+              if (index <= currentStepIndex + 1) {
+                setCurrentStepIndex(index);
+              }
+            }}
+            allowNavigation={true}
+          />
+        </div>
+      )}
+
+      {/* Success State - Modern with particles */}
+      {submitStatus === 'success' && (
+        <SuccessState
+          message={submitMessage}
+          description={isEditMode ? 'Your changes have been saved.' : 'We\'ve received your submission.'}
         />
       )}
 
-      {submitStatus === 'success' && (
-        <div className="bg-green-50 border border-green-200 rounded-md p-4 flex items-center space-x-3">
-          <CheckCircle className="h-5 w-5 text-green-600" />
-          <p className="text-green-800 font-medium">{submitMessage}</p>
-        </div>
-      )}
-
+      {/* Error State - Modern styling */}
       {submitStatus === 'error' && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-4 flex items-center space-x-3">
-          <AlertCircle className="h-5 w-5 text-red-600" />
-          <p className="text-red-800 font-medium">{submitMessage}</p>
+        <div className="relative overflow-hidden rounded-xl bg-red-50/50 border border-red-200/50 p-5 animate-shake">
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0 h-10 w-10 bg-red-100 rounded-full flex items-center justify-center">
+              <AlertCircle className="h-5 w-5 text-red-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-red-800">Submission Failed</h3>
+              <p className="text-sm text-red-600 mt-1">{submitMessage}</p>
+            </div>
+          </div>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4 bg-dark-100 rounded-md border border-dark-300 p-6">
-        {displayFields.length === 0 && (
-          <div className="text-dark-700 text-center py-8">
-            <Layers className="h-6 w-6 mx-auto mb-2 text-dark-600" />
-            <p className="text-sm">No fields in this step.</p>
+      {/* Form Container - Modern elevated card */}
+      <form
+        onSubmit={handleSubmit}
+        className={cx(
+          'bg-dark-surface border border-dark-border-default rounded-xl shadow-sm',
+          'overflow-hidden transition-shadow hover:shadow-md'
+        )}
+      >
+        {/* Form Header with current step info */}
+        {steps.length > 1 && currentStep && (
+          <div className="px-6 py-4 border-b border-dark-border-subtle bg-gradient-to-b from-dark-subtle/50 to-transparent">
+            <h3 className="text-base font-semibold text-dark-text-primary">{currentStep.title}</h3>
+            {currentStep.description && (
+              <p className="text-sm text-dark-text-tertiary mt-1">{currentStep.description}</p>
+            )}
           </div>
         )}
 
-        {displayFields.map((field) => {
-          const label = field.label || field.name;
-          return (
-            <div key={field.id} className="flex flex-col space-y-1">
-              <div className="flex items-center space-x-2">
-                <div className="flex-shrink-0 text-dark-700">
-                  {getFieldIcon(field.type)}
-                </div>
-                <label className="text-sm font-medium text-dark-600">
-                  {label}
-                  {field.required && <span className="text-red-500 ml-1">*</span>}
-                </label>
+        {/* Form Fields */}
+        <div className="p-6 space-y-1">
+          {displayFields.length === 0 && (
+            <div className="text-center py-12">
+              <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-dark-subtle mb-4">
+                <Layers className="h-6 w-6 text-dark-text-tertiary" />
               </div>
-
-              {renderField(field)}
+              <p className="text-sm font-medium text-dark-text-secondary">No fields in this step</p>
+              <p className="text-xs text-dark-text-tertiary mt-1">Add fields in the form designer</p>
             </div>
-          );
-        })}
+          )}
 
-        {/* Navigation Buttons */}
-        <div className="flex items-center justify-between pt-6 border-t border-dark-300">
-          <div>
-            {steps.length > 1 && currentStepIndex > 0 && (
-              <button
-                type="button"
-                onClick={handlePrevious}
-                className="px-4 py-2 border border-dark-200 rounded-md text-sm font-medium text-dark-700 bg-white hover:bg-dark-50 hover:border-dark-300 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors"
-              >
-                Previous
-              </button>
-            )}
+          {/* Fields with focus mode support */}
+          <div className="space-y-1 [&:has(:focus-within)>*:not(:focus-within)]:opacity-60 [&:has(:focus-within)>*:not(:focus-within)]:scale-[0.995] transition-all">
+            {displayFields.map((field) => {
+              const label = field.label || field.name;
+              return (
+                <FormFieldWrapper
+                  key={field.id}
+                  label={label}
+                  required={field.required}
+                  error={errors[field.name]}
+                  icon={getFieldIcon(field.type)}
+                >
+                  {renderField(field)}
+                </FormFieldWrapper>
+              );
+            })}
           </div>
+        </div>
 
-          <div className="flex items-center space-x-3">
-            {steps.length > 1 && (
-              <span className="text-sm text-dark-700">
-                Step {currentStepIndex + 1} of {steps.length}
-              </span>
-            )}
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="inline-flex items-center px-6 py-2.5 border border-transparent rounded-md text-sm font-medium text-white bg-slate-600 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {isSubmitting ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                  {isEditMode ? 'Saving...' : 'Submitting...'}
-                </>
-              ) : steps.length > 0 && currentStepIndex < steps.length - 1 ? (
-                'Next'
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  {isEditMode ? 'Save Changes' : 'Submit'}
-                </>
+        {/* Navigation Footer - Modern sticky design */}
+        <div className="sticky bottom-0 px-6 py-4 border-t border-dark-border-default bg-dark-subtle/80 backdrop-blur-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              {steps.length > 1 && currentStepIndex > 0 && (
+                <button
+                  type="button"
+                  onClick={handlePrevious}
+                  className={cx(
+                    'px-4 py-2 text-sm font-medium rounded-lg',
+                    'border border-dark-border-default bg-dark-surface text-dark-text-primary',
+                    'hover:bg-dark-hover hover:border-dark-border-medium',
+                    'focus-visible:ring-2 focus-visible:ring-dark-accent-ring focus-visible:outline-none',
+                    'transition-all duration-200'
+                  )}
+                >
+                  Previous
+                </button>
               )}
-            </button>
+            </div>
+
+            <div className="flex items-center gap-4">
+              {steps.length > 1 && (
+                <span className="text-xs text-dark-text-tertiary">
+                  Step {currentStepIndex + 1} of {steps.length}
+                </span>
+              )}
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className={cx(
+                  'inline-flex items-center gap-2 px-6 py-2.5 text-sm font-medium rounded-lg',
+                  'bg-dark-accent text-white shadow-sm',
+                  'hover:bg-dark-accent-hover',
+                  'focus-visible:ring-2 focus-visible:ring-dark-accent-ring focus-visible:outline-none',
+                  'disabled:opacity-50 disabled:cursor-not-allowed',
+                  'transition-all duration-200'
+                )}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {isEditMode ? 'Saving...' : 'Submitting...'}
+                  </>
+                ) : steps.length > 0 && currentStepIndex < steps.length - 1 ? (
+                  'Next Step'
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" />
+                    {isEditMode ? 'Save Changes' : 'Submit Form'}
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </form>

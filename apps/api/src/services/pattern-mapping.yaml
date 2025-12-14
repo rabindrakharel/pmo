@@ -123,6 +123,7 @@
 patterns:
   - { pattern: "id", exact: true, fieldBusinessType: uuid }
   - { pattern: "code", exact: true, fieldBusinessType: code }
+  - { pattern: "*_code", exact: false, fieldBusinessType: code }
   - { pattern: "name", exact: true, fieldBusinessType: name }
   - { pattern: "descr", exact: true, fieldBusinessType: description }
   - { pattern: "description", exact: true, fieldBusinessType: description }
@@ -432,6 +433,20 @@ patterns:
   - { pattern: "*_type", exact: false, fieldBusinessType: type }
   - { pattern: "category", exact: true, fieldBusinessType: category }
   - { pattern: "*_category", exact: false, fieldBusinessType: category }
+
+# ============================================================================
+# SCOPE & LEVEL FIELDS
+# ============================================================================
+  - { pattern: "*_scope", exact: false, fieldBusinessType: scope }
+  - { pattern: "*_level", exact: false, fieldBusinessType: level }
+  - { pattern: "*_requirements", exact: false, fieldBusinessType: text_medium }
+
+# ============================================================================
+# ARRAY/LIST FIELDS (required_*, etc.)
+# ============================================================================
+  - { pattern: "required_*", exact: false, fieldBusinessType: tags }
+  - { pattern: "*_skills", exact: false, fieldBusinessType: tags }
+  - { pattern: "*_certifications", exact: false, fieldBusinessType: tags }
 
 # ============================================================================
 # IDENTIFICATION NUMBERS

@@ -298,11 +298,11 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
       );
     }
 
-    // Design mode
+    // Design mode - Minimal
     return (
-      <div className="max-w-5xl mx-auto bg-dark-100 rounded-md shadow-sm overflow-hidden">
-        {/* Simple Title Section */}
-        <div className="px-16 pt-12 pb-6 border-b border-dark-300">
+      <div className="max-w-3xl mx-auto bg-white rounded-lg border border-dark-200 overflow-hidden">
+        {/* Minimal Title Section */}
+        <div className="px-8 pt-8 pb-4">
           <input
             type="text"
             value={title}
@@ -310,25 +310,24 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
               setTitle(e.target.value);
               setUpdatedDate(new Date().toISOString());
             }}
-            placeholder="Untitled Page"
-            className="w-full text-4xl font-bold text-dark-600 bg-transparent border-none outline-none placeholder-dark-300"
+            placeholder="Untitled"
+            className="w-full text-2xl font-semibold text-dark-800 bg-transparent border-none outline-none placeholder-dark-300"
           />
-          <div className="flex items-center gap-4 mt-4 text-sm text-dark-700">
-            <span>Author: {author}</span>
-            <span>•</span>
-            <span>Updated {new Date(updatedDate).toLocaleDateString()}</span>
+          <div className="flex items-center gap-2 mt-2 text-xs text-dark-400">
+            <span>{author}</span>
+            <span>·</span>
+            <span>{new Date(updatedDate).toLocaleDateString()}</span>
           </div>
         </div>
 
         {/* Content Blocks Section */}
-        <div className="px-16 py-8 min-h-[400px]">
+        <div className="px-8 pb-8 min-h-[300px]">
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
               {blocks.length === 0 ? (
-                <div className="text-center py-20 text-dark-600">
-                  <BookOpen className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg font-medium">Start building your wiki page</p>
-                  <p className="text-sm mt-2">Add blocks from the left sidebar</p>
+                <div className="text-center py-12 text-dark-400">
+                  <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-xs">Add blocks from the sidebar</p>
                 </div>
               ) : (
                 blocks.map((block) => (
@@ -341,7 +340,6 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
                       onDelete={() => handleDeleteBlock(block.id)}
                       onDuplicate={() => handleDuplicateBlock(block.id)}
                     />
-                    {/* Show collaborative cursors */}
                     {page.id && (
                       <CollaborativeCursor users={collab.users} blockId={block.id} />
                     )}

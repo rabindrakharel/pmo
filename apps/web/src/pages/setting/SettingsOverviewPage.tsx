@@ -1,13 +1,11 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/shared';
 import { useSettings } from '../../contexts/SettingsContext';
 import { AddDatalabelModal } from '../../components/shared/modals/AddDatalabelModal';
 import { EntityConfigurationModal } from '../../components/settings/EntityConfigurationModal';
-import { API_CONFIG } from '../../lib/config/api';
 import * as LucideIcons from 'lucide-react';
 import { getIconComponent } from '../../lib/iconMapping';
-import { InlineSpinner } from '../../components/shared/ui/EllipsisBounce';
 
 // Available icons for picker (must match iconMapping.ts)
 const AVAILABLE_ICON_NAMES = [
@@ -51,12 +49,25 @@ interface EntityRow {
   display_order: number;
   active_flag: boolean;
   dl_entity_domain?: string;
+  // New columns from entity table v10.2.0
+  db_table?: string;
+  db_model_type?: 'd' | 'dh' | 'f' | 'fh' | 'fd' | string; // d=dimension, dh=dim hierarchy, f=fact, fh=fact head, fd=fact data
+  config_datatable?: {
+    defaultSort?: string;
+    defaultSortOrder?: 'asc' | 'desc';
+    itemsPerPage?: number;
+  };
+  root_level_entity_flag?: boolean;
+  domain_id?: number;
+  domain_code?: string;
+  domain_name?: string;
   child_entity_codes?: string[]; // Simple array of entity codes
   child_entities?: Array<{
     entity: string;
     ui_icon: string;
     ui_label: string;
     order: number;
+    ownership_flag?: boolean;
   }>; // Enriched child metadata (from API)
 }
 
@@ -104,6 +115,13 @@ export function SettingsOverviewPage() {
   // Icon picker for new entity row
   const [showNewEntityIconPicker, setShowNewEntityIconPicker] = useState(false);
   const [newIconSearchQuery, setNewIconSearchQuery] = useState('');
+
+  // Role statistics for display
+  const [roleStats, setRoleStats] = useState<{ total: number; active: number; loading: boolean }>({
+    total: 0,
+    active: 0,
+    loading: true
+  });
 
   // Static configuration settings
   const configurationSettings: SettingCard[] = [
@@ -407,8 +425,12 @@ export function SettingsOverviewPage() {
     setChildEntitiesModalOpen(true);
   };
 
-  // Handle updating child entities
-  const handleUpdateChildEntities = async (code: string, childEntityCodes: string[], mode: 'append' | 'replace' = 'append') => {
+  // Handle updating child entities (accepts both string[] and object[] with ownership_flag)
+  const handleUpdateChildEntities = async (
+    code: string,
+    childEntityCodes: Array<string | { entity: string; ownership_flag?: boolean; ui_label?: string; ui_icon?: string; order?: number }>,
+    mode: 'append' | 'replace' = 'append'
+  ) => {
     try {
       const token = localStorage.getItem('auth_token');
       const response = await fetch(`http://localhost:4000/api/v1/entity/${code}/children`, {
@@ -437,13 +459,46 @@ export function SettingsOverviewPage() {
     const parent = entities.find(e => e.code === parentCode);
     if (!parent) return;
 
-    const updatedChildren = (parent.child_entity_codes || []).filter(c => c !== childEntity);
+    // Build updated children list preserving object format
+    const currentChildEntities = parent.child_entities || [];
+    const updatedChildEntities = currentChildEntities.filter(c => c.entity !== childEntity);
+
     // Use 'replace' mode to set the exact list (with item removed)
-    await handleUpdateChildEntities(parentCode, updatedChildren, 'replace');
+    await handleUpdateChildEntities(parentCode, updatedChildEntities, 'replace');
 
     // Update selected entity for modal
     if (selectedEntityForChildren && selectedEntityForChildren.code === parentCode) {
-      setSelectedEntityForChildren({ ...parent, child_entity_codes: updatedChildren });
+      setSelectedEntityForChildren({
+        ...parent,
+        child_entity_codes: updatedChildEntities.map(c => c.entity),
+        child_entities: updatedChildEntities
+      });
+    }
+  };
+
+  // Handle toggling ownership_flag for a child entity
+  const handleToggleOwnership = async (parentCode: string, childEntity: string) => {
+    const parent = entities.find(e => e.code === parentCode);
+    if (!parent) return;
+
+    // Build updated children list with toggled ownership_flag
+    const currentChildEntities = parent.child_entities || [];
+    const updatedChildEntities = currentChildEntities.map(c => {
+      if (c.entity === childEntity) {
+        return { ...c, ownership_flag: !c.ownership_flag };
+      }
+      return c;
+    });
+
+    // Use 'replace' mode to update the entire list
+    await handleUpdateChildEntities(parentCode, updatedChildEntities, 'replace');
+
+    // Update selected entity for modal
+    if (selectedEntityForChildren && selectedEntityForChildren.code === parentCode) {
+      setSelectedEntityForChildren({
+        ...parent,
+        child_entities: updatedChildEntities
+      });
     }
   };
 
@@ -701,134 +756,117 @@ export function SettingsOverviewPage() {
           </div>
         )}
 
-        {/* Entities Tab */}
+        {/* Entities Tab - Modern Card-Based Design */}
         {activeMainTab === 'entities' && (
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-dark-800 tracking-tight">Entities ({entities.length})</h2>
-            <div className="relative w-64">
-              <LucideIcons.Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-dark-400" />
-              <input
-                type="text"
-                placeholder="Search entities..."
-                value={entitiesSearchQuery}
-                onChange={(e) => setEntitiesSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm border border-dark-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400 transition-all placeholder:text-dark-400"
-              />
+          {/* Header with Search and Filters */}
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-3">
+              <h2 className="text-base font-semibold text-dark-800 tracking-tight">Entities</h2>
+              <span className="px-2 py-0.5 text-xs font-medium bg-dark-100 text-dark-600 rounded-full">
+                {entities.length}
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              {/* Search */}
+              <div className="relative w-72">
+                <LucideIcons.Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-dark-400" />
+                <input
+                  type="text"
+                  placeholder="Search by code, name, or domain..."
+                  value={entitiesSearchQuery}
+                  onChange={(e) => setEntitiesSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-dark-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400 transition-all placeholder:text-dark-400"
+                />
+              </div>
+              {/* Add Entity Button */}
+              <button
+                onClick={() => setIsAddingEntity(true)}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors shadow-sm"
+              >
+                <LucideIcons.Plus className="h-4 w-4" />
+                Add Entity
+              </button>
             </div>
           </div>
 
           {entitiesLoading ? (
-            <div className="flex flex-col items-center justify-center py-16 bg-white rounded-lg border border-dark-200 shadow-sm">
+            <div className="flex flex-col items-center justify-center py-16 bg-white rounded-xl border border-dark-200 shadow-sm">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-dark-200 border-t-slate-600"></div>
               <p className="text-sm font-medium text-dark-600 mt-4">Loading entities...</p>
             </div>
           ) : filteredEntities.length === 0 && !isAddingEntity ? (
-            <div className="flex flex-col items-center justify-center py-12 bg-white rounded-lg border border-dark-200 shadow-sm">
-              <LucideIcons.Tag className="h-10 w-10 text-dark-400 mb-3" />
+            <div className="flex flex-col items-center justify-center py-12 bg-white rounded-xl border border-dark-200 shadow-sm">
+              <LucideIcons.Database className="h-10 w-10 text-dark-300 mb-3" />
               <p className="text-sm font-medium text-dark-700">No entities found</p>
-              <p className="text-xs text-dark-500 mt-1">Try adjusting your search</p>
+              <p className="text-xs text-dark-500 mt-1">Try adjusting your search or add a new entity</p>
             </div>
           ) : (
-            <div className="bg-white border border-dark-200 rounded-lg overflow-hidden shadow-sm">
-              <table className="min-w-full divide-y divide-dark-200">
-                <thead className="bg-dark-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">Code</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">Name</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">UI Label</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">Domain</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">Icon</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-dark-600 uppercase tracking-wider">Order</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-dark-600 uppercase tracking-wider">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">Children</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-dark-600 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-dark-100">
+            <div className="bg-white border border-dark-200 rounded-xl overflow-hidden shadow-sm">
+              {/* Modern Compact Table with Horizontal Scroll */}
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-dark-200">
+                  <thead className="bg-dark-50/80">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-2xs font-semibold text-dark-500 uppercase tracking-wider w-10"></th>
+                      <th className="px-4 py-3 text-left text-2xs font-semibold text-dark-500 uppercase tracking-wider">Entity</th>
+                      <th className="px-4 py-3 text-left text-2xs font-semibold text-dark-500 uppercase tracking-wider">DB Table</th>
+                      <th className="px-4 py-3 text-center text-2xs font-semibold text-dark-500 uppercase tracking-wider">Model</th>
+                      <th className="px-4 py-3 text-left text-2xs font-semibold text-dark-500 uppercase tracking-wider">Domain</th>
+                      <th className="px-4 py-3 text-center text-2xs font-semibold text-dark-500 uppercase tracking-wider">List Config</th>
+                      <th className="px-4 py-3 text-center text-2xs font-semibold text-dark-500 uppercase tracking-wider">Flags</th>
+                      <th className="px-4 py-3 text-center text-2xs font-semibold text-dark-500 uppercase tracking-wider">Children</th>
+                      <th className="px-4 py-3 text-center text-2xs font-semibold text-dark-500 uppercase tracking-wider">Status</th>
+                      <th className="px-4 py-3 text-center text-2xs font-semibold text-dark-500 uppercase tracking-wider w-24">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-dark-100">
                   {filteredEntities.map((entity) => {
                     const isEditing = editingEntityCode === entity.code;
+                    const EntityIcon = getIconComponent(entity.ui_icon);
+
+                    // Model type badge colors
+                    const modelTypeBadge: Record<string, { bg: string; text: string; label: string }> = {
+                      'd': { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Dim' },
+                      'dh': { bg: 'bg-indigo-100', text: 'text-indigo-700', label: 'Dim-H' },
+                      'f': { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Fact' },
+                      'fh': { bg: 'bg-violet-100', text: 'text-violet-700', label: 'Fact-H' },
+                      'fd': { bg: 'bg-fuchsia-100', text: 'text-fuchsia-700', label: 'Fact-D' },
+                    };
+                    const modelInfo = modelTypeBadge[entity.db_model_type || ''] || { bg: 'bg-dark-100', text: 'text-dark-500', label: entity.db_model_type || '—' };
+
                     return (
                       <tr
                         key={entity.code}
                         onClick={() => !isEditing && handleConfigureEntity(entity)}
-                        className={isEditing ? 'bg-slate-50 ring-1 ring-inset ring-slate-200' : 'hover:bg-dark-50 cursor-pointer transition-colors'}
+                        className={isEditing ? 'bg-slate-50 ring-1 ring-inset ring-slate-200' : 'hover:bg-dark-50/50 cursor-pointer transition-colors group'}
                         title={!isEditing ? `Click to configure ${entity.name}` : ''}
                       >
-                        <td className="px-4 py-3">
-                          <span className="text-sm text-dark-700">{entity.code}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          {isEditing ? (
-                            <input
-                              type="text"
-                              value={editingEntityData.name ?? entity.name}
-                              onChange={(e) => setEditingEntityData({ ...editingEntityData, name: e.target.value })}
-                              className="w-full px-2 py-1.5 text-sm border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400"
-                            />
-                          ) : (
-                            <span className="text-sm text-dark-700">{entity.name}</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          {isEditing ? (
-                            <input
-                              type="text"
-                              value={editingEntityData.ui_label ?? entity.ui_label}
-                              onChange={(e) => setEditingEntityData({ ...editingEntityData, ui_label: e.target.value })}
-                              className="w-full px-2 py-1.5 text-sm border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400"
-                            />
-                          ) : (
-                            <span className="text-sm text-dark-700">{entity.ui_label}</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          {isEditing ? (
-                            <select
-                              value={editingEntityData.dl_entity_domain ?? entity.dl_entity_domain ?? ''}
-                              onChange={(e) => setEditingEntityData({ ...editingEntityData, dl_entity_domain: e.target.value || undefined })}
-                              className="w-full px-2 py-1.5 text-sm border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400"
-                            >
-                              <option value="">-- None --</option>
-                              <option value="Core Management">Core Management</option>
-                              <option value="Organization">Organization</option>
-                              <option value="Business">Business</option>
-                              <option value="Operations">Operations</option>
-                              <option value="Customers">Customers</option>
-                              <option value="Retail">Retail</option>
-                              <option value="Sales & Finance">Sales & Finance</option>
-                              <option value="Content & Docs">Content & Docs</option>
-                              <option value="Advanced">Advanced</option>
-                            </select>
-                          ) : (
-                            entity.dl_entity_domain ? (
-                              <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
-                                {entity.dl_entity_domain}
-                              </span>
-                            ) : (
-                              <span className="text-sm text-dark-400">—</span>
-                            )
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
+                        {/* Icon Column - Editable */}
+                        <td className="px-4 py-2.5">
                           {isEditing ? (
                             <div className="relative">
                               <button
-                                onClick={() => setShowEntityIconPicker(!showEntityIconPicker)}
-                                className="flex items-center gap-2 px-2.5 py-1.5 text-sm border border-dark-200 rounded-md bg-white hover:bg-dark-50 hover:border-dark-300 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowEntityIconPicker(!showEntityIconPicker);
+                                }}
+                                className="flex items-center justify-center w-8 h-8 rounded-lg bg-white border border-dark-200 hover:bg-dark-50 hover:border-slate-400 transition-colors ring-2 ring-slate-200"
                                 type="button"
+                                title="Change icon"
                               >
-                                {(() => {
-                                  const EditIcon = getIconComponent(editingEntityData.ui_icon ?? entity.ui_icon);
-                                  return <EditIcon className="h-4 w-4 text-dark-600" />;
-                                })()}
-                                <span className="text-sm text-dark-700">{(editingEntityData.ui_icon ?? entity.ui_icon) || 'Select'}</span>
-                                <LucideIcons.ChevronDown className="h-3.5 w-3.5 text-dark-400" />
+                                {editingEntityData.ui_icon ? (
+                                  (() => {
+                                    const EditIcon = getIconComponent(editingEntityData.ui_icon);
+                                    return <EditIcon className="h-4 w-4 text-dark-600" />;
+                                  })()
+                                ) : (
+                                  <EntityIcon className="h-4 w-4 text-dark-600" />
+                                )}
                               </button>
-
                               {/* Icon Picker Dropdown */}
                               {showEntityIconPicker && (
-                                <div className="absolute left-0 top-full mt-1 z-50 bg-white rounded-lg shadow-lg border border-dark-200 p-3 w-96">
+                                <div className="absolute left-0 top-full mt-1 z-50 bg-white rounded-lg shadow-lg border border-dark-200 p-3 w-80">
                                   <div className="mb-2">
                                     <div className="relative">
                                       <LucideIcons.Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-dark-400" />
@@ -839,10 +877,11 @@ export function SettingsOverviewPage() {
                                         placeholder="Search icons..."
                                         className="w-full pl-8 pr-3 py-1.5 text-sm border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400"
                                         autoFocus
+                                        onClick={(e) => e.stopPropagation()}
                                       />
                                     </div>
                                   </div>
-                                  <div className="grid grid-cols-8 gap-1 max-h-64 overflow-y-auto">
+                                  <div className="grid grid-cols-6 gap-1 max-h-48 overflow-y-auto">
                                     {AVAILABLE_ICON_NAMES
                                       .filter(iconName =>
                                         iconSearchQuery === '' ||
@@ -850,11 +889,12 @@ export function SettingsOverviewPage() {
                                       )
                                       .map((iconName) => {
                                         const IconComponent = getIconComponent(iconName);
-                                        const isSelected = (editingEntityData.ui_icon ?? entity.ui_icon) === iconName;
+                                        const isSelected = (editingEntityData.ui_icon || entity.ui_icon) === iconName;
                                         return (
                                           <button
                                             key={iconName}
-                                            onClick={() => {
+                                            onClick={(e) => {
+                                              e.stopPropagation();
                                               setEditingEntityData({ ...editingEntityData, ui_icon: iconName });
                                               setShowEntityIconPicker(false);
                                               setIconSearchQuery('');
@@ -868,18 +908,10 @@ export function SettingsOverviewPage() {
                                         );
                                       })}
                                   </div>
-                                  <div className="mt-2 flex items-center justify-between border-t border-dark-200 pt-2">
-                                    <span className="text-xs text-dark-500">
-                                      {AVAILABLE_ICON_NAMES.filter(name =>
-                                        iconSearchQuery === '' || name.toLowerCase().includes(iconSearchQuery.toLowerCase())
-                                      ).length} icons
-                                    </span>
+                                  <div className="mt-2 flex justify-end border-t border-dark-200 pt-2">
                                     <button
-                                      onClick={() => {
-                                        setShowEntityIconPicker(false);
-                                        setIconSearchQuery('');
-                                      }}
-                                      className="px-2.5 py-1 text-sm text-dark-600 hover:bg-dark-100 rounded-md transition-colors"
+                                      onClick={(e) => { e.stopPropagation(); setShowEntityIconPicker(false); setIconSearchQuery(''); }}
+                                      className="px-2 py-1 text-xs text-dark-600 hover:bg-dark-100 rounded transition-colors"
                                       type="button"
                                     >
                                       Close
@@ -889,60 +921,145 @@ export function SettingsOverviewPage() {
                               )}
                             </div>
                           ) : (
-                            <div className="flex items-center gap-1.5">
-                              {React.createElement(getIconComponent(entity.ui_icon), {
-                                className: "h-4 w-4 text-dark-600"
-                              })}
+                            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-dark-50 group-hover:bg-dark-100 transition-colors">
+                              <EntityIcon className="h-4 w-4 text-dark-500" />
                             </div>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-center">
+
+                        {/* Entity Info (Code + Name + UI Label) - Editable */}
+                        <td className="px-4 py-2.5">
                           {isEditing ? (
-                            <input
-                              type="number"
-                              value={editingEntityData.display_order ?? entity.display_order}
-                              onChange={(e) => setEditingEntityData({ ...editingEntityData, display_order: parseInt(e.target.value) })}
-                              className="w-16 px-2 py-1.5 text-sm border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400 text-center"
-                            />
+                            <div className="min-w-[200px] space-y-1.5" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={editingEntityData.ui_label ?? entity.ui_label}
+                                  onChange={(e) => setEditingEntityData({ ...editingEntityData, ui_label: e.target.value })}
+                                  placeholder="UI Label"
+                                  className="flex-1 px-2 py-1 text-sm font-medium border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400"
+                                />
+                                <span className="text-2xs font-mono px-1.5 py-0.5 bg-dark-100 text-dark-500 rounded">{entity.code}</span>
+                              </div>
+                              <input
+                                type="text"
+                                value={editingEntityData.name ?? entity.name}
+                                onChange={(e) => setEditingEntityData({ ...editingEntityData, name: e.target.value })}
+                                placeholder="Internal Name"
+                                className="w-full px-2 py-1 text-xs border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400"
+                              />
+                            </div>
                           ) : (
-                            <span className="text-sm text-dark-700">{entity.display_order}</span>
+                            <div className="min-w-[180px]">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-dark-800">{entity.ui_label}</span>
+                                <span className="text-2xs font-mono px-1.5 py-0.5 bg-dark-100 text-dark-500 rounded">{entity.code}</span>
+                              </div>
+                              <div className="text-xs text-dark-500 mt-0.5">{entity.name}</div>
+                            </div>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-center">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleToggleEntityActive(entity.code, entity.active_flag);
-                            }}
-                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:ring-offset-2 ${
-                              entity.active_flag ? 'bg-emerald-500' : 'bg-dark-300'
-                            }`}
-                            title={entity.active_flag ? 'Enabled - Click to disable' : 'Disabled - Click to enable'}
-                          >
-                            <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
-                                entity.active_flag ? 'translate-x-5' : 'translate-x-0.5'
-                              }`}
-                            />
-                          </button>
+
+                        {/* DB Table */}
+                        <td className="px-4 py-2.5">
+                          {entity.db_table ? (
+                            <span className="text-xs font-mono text-dark-600 bg-dark-50 px-2 py-1 rounded">
+                              {entity.db_table}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-dark-400">—</span>
+                          )}
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="group relative">
+
+                        {/* Model Type */}
+                        <td className="px-4 py-2.5 text-center">
+                          <span className={`inline-flex px-2 py-0.5 text-2xs font-medium rounded-full ${modelInfo.bg} ${modelInfo.text}`}>
+                            {modelInfo.label}
+                          </span>
+                        </td>
+
+                        {/* Domain */}
+                        <td className="px-4 py-2.5">
+                          {entity.dl_entity_domain || entity.domain_name ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-sky-50 text-sky-700 rounded-full">
+                              <LucideIcons.Layers className="h-3 w-3" />
+                              {entity.dl_entity_domain || entity.domain_name}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-dark-400">—</span>
+                          )}
+                        </td>
+
+                        {/* List Config (config_datatable) */}
+                        <td className="px-4 py-2.5 text-center">
+                          {entity.config_datatable ? (
+                            <div className="group/config relative inline-flex">
+                              <button
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex items-center gap-1 px-2 py-1 text-xs bg-dark-50 hover:bg-dark-100 rounded-md transition-colors"
+                                title="List view configuration"
+                              >
+                                <LucideIcons.TableProperties className="h-3 w-3 text-dark-500" />
+                                <span className="text-dark-600">{entity.config_datatable.itemsPerPage || 25}/pg</span>
+                              </button>
+                              {/* Tooltip with full config */}
+                              <div className="invisible group-hover/config:visible absolute left-1/2 -translate-x-1/2 top-full mt-1.5 z-20 bg-dark-800 text-white text-xs rounded-lg py-2 px-3 shadow-lg whitespace-nowrap">
+                                <div className="space-y-1">
+                                  <div className="flex items-center justify-between gap-4">
+                                    <span className="text-dark-400">Sort:</span>
+                                    <span className="font-mono">{entity.config_datatable.defaultSort || 'updated_ts'}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-4">
+                                    <span className="text-dark-400">Order:</span>
+                                    <span>{entity.config_datatable.defaultSortOrder || 'desc'}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-4">
+                                    <span className="text-dark-400">Per Page:</span>
+                                    <span>{entity.config_datatable.itemsPerPage || 25}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-dark-400">Default</span>
+                          )}
+                        </td>
+
+                        {/* Flags (root_level_entity_flag) */}
+                        <td className="px-4 py-2.5 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            {entity.root_level_entity_flag && (
+                              <span
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 text-2xs font-medium bg-amber-100 text-amber-700 rounded"
+                                title="Root Level Entity - Permission inheritance boundary"
+                              >
+                                <LucideIcons.Crown className="h-3 w-3" />
+                                ROOT
+                              </span>
+                            )}
+                            {!entity.root_level_entity_flag && (
+                              <span className="text-xs text-dark-400">—</span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Children */}
+                        <td className="px-4 py-2.5 text-center">
+                          <div className="group/children relative inline-flex">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleManageChildren(entity);
                               }}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-dark-600 hover:bg-dark-100 hover:text-dark-800 rounded-md border border-dark-200 transition-colors font-medium"
+                              className="flex items-center gap-1 px-2 py-1 text-xs bg-dark-50 hover:bg-dark-100 rounded-md transition-colors"
                               title="Manage child entities"
                             >
-                              <LucideIcons.GitBranch className="h-3.5 w-3.5" />
-                              <span>{(entity.child_entity_codes || []).length}</span>
+                              <LucideIcons.GitBranch className="h-3 w-3 text-dark-500" />
+                              <span className="text-dark-600 font-medium">{(entity.child_entity_codes || []).length}</span>
                             </button>
-
-                            {/* Tooltip showing enriched child entities with icons & labels */}
+                            {/* Tooltip showing child entities */}
                             {(entity.child_entities || []).length > 0 && (
-                              <div className="invisible group-hover:visible absolute left-0 top-8 z-10 bg-dark-800 text-white text-xs rounded-md py-2 px-3 shadow-lg whitespace-nowrap">
+                              <div className="invisible group-hover/children:visible absolute left-1/2 -translate-x-1/2 top-full mt-1.5 z-20 bg-dark-800 text-white text-xs rounded-lg py-2 px-3 shadow-lg whitespace-nowrap">
                                 <div className="space-y-1.5">
                                   {(entity.child_entities || []).slice(0, 5).map((child) => {
                                     const ChildIcon = getIconComponent(child.ui_icon || 'Tag');
@@ -950,6 +1067,9 @@ export function SettingsOverviewPage() {
                                       <div key={child.entity} className="flex items-center gap-2">
                                         <ChildIcon className="h-3 w-3" />
                                         <span>{child.ui_label}</span>
+                                        {child.ownership_flag && (
+                                          <span className="text-2xs px-1 py-0.5 bg-emerald-500/20 text-emerald-300 rounded">owned</span>
+                                        )}
                                       </div>
                                     );
                                   })}
@@ -963,107 +1083,104 @@ export function SettingsOverviewPage() {
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-center gap-1">
-                            {isEditing ? (
-                              <>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleUpdateEntity(entity.code);
-                                  }}
-                                  className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:outline-none transition-colors"
-                                  title="Save"
-                                >
-                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                  </svg>
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingEntityCode(null);
-                                    setEditingEntityData({});
-                                  }}
-                                  className="p-1.5 text-dark-500 hover:text-dark-700 hover:bg-dark-100 rounded-md focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors"
-                                  title="Cancel"
-                                >
-                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingEntityCode(entity.code);
-                                    setEditingEntityData(entity);
-                                  }}
-                                  className="p-1.5 text-dark-500 hover:text-dark-700 hover:bg-dark-100 rounded-md focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors"
-                                  title="Edit"
-                                >
-                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                  </svg>
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteEntity(entity.code, entity.name);
-                                  }}
-                                  className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md focus-visible:ring-2 focus-visible:ring-red-500/30 focus-visible:outline-none transition-colors"
-                                  title="Delete"
-                                >
-                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                </button>
-                              </>
-                            )}
-                          </div>
+
+                        {/* Status Toggle */}
+                        <td className="px-4 py-2.5 text-center">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleEntityActive(entity.code, entity.active_flag);
+                            }}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:ring-offset-1 ${
+                              entity.active_flag ? 'bg-emerald-500' : 'bg-dark-300'
+                            }`}
+                            title={entity.active_flag ? 'Active - Click to disable' : 'Inactive - Click to enable'}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                                entity.active_flag ? 'translate-x-4' : 'translate-x-0.5'
+                              }`}
+                            />
+                          </button>
+                        </td>
+
+                        {/* Actions */}
+                        <td className="px-4 py-2.5">
+                          {isEditing ? (
+                            <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={() => handleUpdateEntity(entity.code)}
+                                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium bg-emerald-500 text-white rounded-md hover:bg-emerald-600 transition-colors shadow-sm"
+                                title="Save changes"
+                              >
+                                <LucideIcons.Check className="h-3.5 w-3.5" />
+                                Save
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingEntityCode(null);
+                                  setEditingEntityData({});
+                                  setShowEntityIconPicker(false);
+                                  setIconSearchQuery('');
+                                }}
+                                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium bg-dark-100 text-dark-600 rounded-md hover:bg-dark-200 transition-colors"
+                                title="Cancel"
+                              >
+                                <LucideIcons.X className="h-3.5 w-3.5" />
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleConfigureEntity(entity);
+                                }}
+                                className="p-1.5 text-dark-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
+                                title="Configure"
+                              >
+                                <LucideIcons.Settings2 className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingEntityCode(entity.code);
+                                  setEditingEntityData({ ...entity });
+                                }}
+                                className="p-1.5 text-dark-400 hover:text-dark-600 hover:bg-dark-100 rounded-md transition-colors"
+                                title="Quick Edit"
+                              >
+                                <LucideIcons.Pencil className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteEntity(entity.code, entity.name);
+                                }}
+                                className="p-1.5 text-dark-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                                title="Delete"
+                              >
+                                <LucideIcons.Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );
                   })}
 
-                  {/* Add new entity row */}
+                  {/* Add new entity row - matches 10-column structure */}
                   {isAddingEntity && (
-                    <tr className="bg-slate-50">
-                      <td className="px-4 py-3">
-                        <input
-                          type="text"
-                          value={newEntityData.code}
-                          onChange={(e) => setNewEntityData({ ...newEntityData, code: e.target.value.toLowerCase() })}
-                          placeholder="code"
-                          className="w-full px-2 py-1.5 text-sm border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400"
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <input
-                          type="text"
-                          value={newEntityData.name}
-                          onChange={(e) => setNewEntityData({ ...newEntityData, name: e.target.value })}
-                          placeholder="Name"
-                          className="w-full px-2 py-1.5 text-sm border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400"
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <input
-                          type="text"
-                          value={newEntityData.ui_label}
-                          onChange={(e) => setNewEntityData({ ...newEntityData, ui_label: e.target.value })}
-                          placeholder="UI Label"
-                          className="w-full px-2 py-1.5 text-sm border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400"
-                        />
-                      </td>
-                      <td className="px-4 py-3">
+                    <tr className="bg-slate-50 ring-1 ring-inset ring-slate-200">
+                      {/* Icon Column */}
+                      <td className="px-4 py-2.5">
                         <div className="relative">
                           <button
                             onClick={() => setShowNewEntityIconPicker(!showNewEntityIconPicker)}
-                            className="flex items-center gap-2 px-2.5 py-1.5 text-sm border border-dark-200 rounded-md bg-white hover:bg-dark-50 hover:border-dark-300 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors"
+                            className="flex items-center justify-center w-8 h-8 rounded-lg bg-white border border-dark-200 hover:bg-dark-50 hover:border-dark-300 transition-colors"
                             type="button"
+                            title="Select icon"
                           >
                             {newEntityData.ui_icon ? (
                               (() => {
@@ -1071,15 +1188,12 @@ export function SettingsOverviewPage() {
                                 return <NewIcon className="h-4 w-4 text-dark-600" />;
                               })()
                             ) : (
-                              <LucideIcons.Tag className="h-4 w-4 text-dark-400" />
+                              <LucideIcons.ImagePlus className="h-4 w-4 text-dark-400" />
                             )}
-                            <span className="text-sm text-dark-700">{newEntityData.ui_icon || 'Select'}</span>
-                            <LucideIcons.ChevronDown className="h-3.5 w-3.5 text-dark-400" />
                           </button>
-
                           {/* Icon Picker Dropdown */}
                           {showNewEntityIconPicker && (
-                            <div className="absolute left-0 top-full mt-1 z-50 bg-white rounded-lg shadow-lg border border-dark-200 p-3 w-96">
+                            <div className="absolute left-0 top-full mt-1 z-50 bg-white rounded-lg shadow-lg border border-dark-200 p-3 w-80">
                               <div className="mb-2">
                                 <div className="relative">
                                   <LucideIcons.Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-dark-400" />
@@ -1093,7 +1207,7 @@ export function SettingsOverviewPage() {
                                   />
                                 </div>
                               </div>
-                              <div className="grid grid-cols-8 gap-1 max-h-64 overflow-y-auto">
+                              <div className="grid grid-cols-6 gap-1 max-h-48 overflow-y-auto">
                                 {AVAILABLE_ICON_NAMES
                                   .filter(iconName =>
                                     newIconSearchQuery === '' ||
@@ -1119,18 +1233,10 @@ export function SettingsOverviewPage() {
                                     );
                                   })}
                               </div>
-                              <div className="mt-2 flex items-center justify-between border-t border-dark-200 pt-2">
-                                <span className="text-xs text-dark-500">
-                                  {AVAILABLE_ICON_NAMES.filter(name =>
-                                    newIconSearchQuery === '' || name.toLowerCase().includes(newIconSearchQuery.toLowerCase())
-                                  ).length} icons
-                                </span>
+                              <div className="mt-2 flex justify-end border-t border-dark-200 pt-2">
                                 <button
-                                  onClick={() => {
-                                    setShowNewEntityIconPicker(false);
-                                    setNewIconSearchQuery('');
-                                  }}
-                                  className="px-2.5 py-1 text-sm text-dark-600 hover:bg-dark-100 rounded-md transition-colors"
+                                  onClick={() => { setShowNewEntityIconPicker(false); setNewIconSearchQuery(''); }}
+                                  className="px-2 py-1 text-xs text-dark-600 hover:bg-dark-100 rounded transition-colors"
                                   type="button"
                                 >
                                   Close
@@ -1140,43 +1246,92 @@ export function SettingsOverviewPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <input
-                          type="number"
-                          value={newEntityData.display_order || ''}
-                          onChange={(e) => setNewEntityData({ ...newEntityData, display_order: parseInt(e.target.value) || undefined })}
-                          placeholder="Auto"
-                          className="w-16 px-2 py-1.5 text-sm border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400 text-center"
-                        />
+
+                      {/* Entity Info */}
+                      <td className="px-4 py-2.5">
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={newEntityData.ui_label}
+                              onChange={(e) => setNewEntityData({ ...newEntityData, ui_label: e.target.value })}
+                              placeholder="UI Label"
+                              className="flex-1 px-2 py-1 text-sm border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400"
+                            />
+                            <input
+                              type="text"
+                              value={newEntityData.code}
+                              onChange={(e) => setNewEntityData({ ...newEntityData, code: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '') })}
+                              placeholder="code"
+                              className="w-24 px-2 py-1 text-2xs font-mono border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400 bg-dark-50"
+                            />
+                          </div>
+                          <input
+                            type="text"
+                            value={newEntityData.name}
+                            onChange={(e) => setNewEntityData({ ...newEntityData, name: e.target.value })}
+                            placeholder="Display Name"
+                            className="w-full px-2 py-1 text-xs border border-dark-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-400"
+                          />
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="text-xs text-emerald-600 font-medium">Enabled</span>
+
+                      {/* DB Table - Auto generated */}
+                      <td className="px-4 py-2.5">
+                        <span className="text-xs text-dark-400 italic">Auto</span>
                       </td>
-                      <td className="px-4 py-3 text-center">
+
+                      {/* Model Type */}
+                      <td className="px-4 py-2.5 text-center">
+                        <span className="inline-flex px-2 py-0.5 text-2xs font-medium rounded-full bg-blue-100 text-blue-700">Dim</span>
+                      </td>
+
+                      {/* Domain - will be set later */}
+                      <td className="px-4 py-2.5">
                         <span className="text-xs text-dark-400">—</span>
                       </td>
-                      <td className="px-4 py-3">
+
+                      {/* List Config */}
+                      <td className="px-4 py-2.5 text-center">
+                        <span className="text-xs text-dark-400">Default</span>
+                      </td>
+
+                      {/* Flags */}
+                      <td className="px-4 py-2.5 text-center">
+                        <span className="text-xs text-dark-400">—</span>
+                      </td>
+
+                      {/* Children */}
+                      <td className="px-4 py-2.5 text-center">
+                        <span className="text-xs text-dark-400">0</span>
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-4 py-2.5 text-center">
+                        <span className="inline-flex h-5 w-9 items-center rounded-full bg-emerald-500">
+                          <span className="inline-block h-4 w-4 translate-x-4 transform rounded-full bg-white shadow-sm" />
+                        </span>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-4 py-2.5">
                         <div className="flex items-center justify-center gap-1">
                           <button
                             onClick={handleAddEntity}
-                            className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:outline-none transition-colors"
+                            className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
                             title="Save"
                           >
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
+                            <LucideIcons.Check className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => {
                               setIsAddingEntity(false);
                               setNewEntityData({ code: '', name: '', ui_label: '', ui_icon: '' });
                             }}
-                            className="p-1.5 text-dark-500 hover:text-dark-700 hover:bg-dark-100 rounded-md focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors"
+                            className="p-1.5 text-dark-500 hover:text-dark-700 hover:bg-dark-100 rounded-md transition-colors"
                             title="Cancel"
                           >
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
+                            <LucideIcons.X className="h-4 w-4" />
                           </button>
                         </div>
                       </td>
@@ -1184,6 +1339,7 @@ export function SettingsOverviewPage() {
                   )}
                 </tbody>
               </table>
+              </div>
 
               {/* Add Entity Button */}
               {!isAddingEntity && (
@@ -1255,17 +1411,19 @@ export function SettingsOverviewPage() {
               {/* Current Children */}
               <div className="mb-5">
                 <h3 className="text-sm font-semibold text-dark-700 mb-2">Current Child Entities</h3>
-                {(selectedEntityForChildren.child_entity_codes || []).length === 0 ? (
+                {(selectedEntityForChildren.child_entities || []).length === 0 ? (
                   <p className="text-sm text-dark-500 italic">No child entities configured</p>
                 ) : (
                   <div className="space-y-1.5">
-                    {(selectedEntityForChildren.child_entity_codes || []).map((childCode) => {
-                      const childMetadata = getEntityMetadata(childCode);
+                    {(selectedEntityForChildren.child_entities || []).map((childEntity) => {
+                      const childMetadata = getEntityMetadata(childEntity.entity);
                       if (!childMetadata) return null; // Skip if entity not found
+
+                      const isOwned = childEntity.ownership_flag !== false;
 
                       return (
                         <div
-                          key={childCode}
+                          key={childEntity.entity}
                           className="flex items-center justify-between px-3 py-2 bg-dark-50 rounded-md border border-dark-200"
                         >
                           <div className="flex items-center gap-2">
@@ -1274,17 +1432,42 @@ export function SettingsOverviewPage() {
                               return <ChildIcon className="h-4 w-4 text-dark-600" />;
                             })()}
                             <span className="text-sm font-medium text-dark-700">{childMetadata.ui_label}</span>
-                            <span className="text-sm text-dark-500">({childCode})</span>
+                            <span className="text-sm text-dark-500">({childEntity.entity})</span>
                           </div>
-                          <button
-                            onClick={() => handleRemoveChild(selectedEntityForChildren.code, childCode)}
-                            className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md focus-visible:ring-2 focus-visible:ring-red-500/30 focus-visible:outline-none transition-colors"
-                            title="Remove"
-                          >
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
+                          <div className="flex items-center gap-2">
+                            {/* Ownership Toggle */}
+                            <button
+                              onClick={() => handleToggleOwnership(selectedEntityForChildren.code, childEntity.entity)}
+                              className={`px-2 py-1 text-2xs font-medium rounded-md border transition-colors ${
+                                isOwned
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                  : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                              }`}
+                              title={isOwned ? 'Owned: Full cascade delete. Click to change to Lookup.' : 'Lookup: Reference only. Click to change to Owned.'}
+                            >
+                              {isOwned ? (
+                                <span className="flex items-center gap-1">
+                                  <LucideIcons.Link className="h-3 w-3" />
+                                  Owned
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-1">
+                                  <LucideIcons.ExternalLink className="h-3 w-3" />
+                                  Lookup
+                                </span>
+                              )}
+                            </button>
+                            {/* Remove Button */}
+                            <button
+                              onClick={() => handleRemoveChild(selectedEntityForChildren.code, childEntity.entity)}
+                              className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md focus-visible:ring-2 focus-visible:ring-red-500/30 focus-visible:outline-none transition-colors"
+                              title="Remove"
+                            >
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                       );
                     })}

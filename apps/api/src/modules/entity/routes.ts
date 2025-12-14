@@ -39,10 +39,23 @@ const EntityTypeMetadataSchema = Type.Object({
     entity: Type.String(),
     ui_icon: Type.String(),
     ui_label: Type.String(),
-    order: Type.Number()
-  }))), // Enriched child entity metadata
+    order: Type.Number(),
+    ownership_flag: Type.Optional(Type.Union([Type.Boolean(), Type.Null()]))
+  }))), // Enriched child entity metadata with ownership_flag
   display_order: Type.Number(),
-  active_flag: Type.Boolean()
+  active_flag: Type.Boolean(),
+  // New columns v10.2.0
+  db_table: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  db_model_type: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  config_datatable: Type.Optional(Type.Union([Type.Object({
+    defaultSort: Type.Optional(Type.String()),
+    defaultSortOrder: Type.Optional(Type.Union([Type.Literal('asc'), Type.Literal('desc')])),
+    itemsPerPage: Type.Optional(Type.Number())
+  }), Type.Null()])),
+  root_level_entity_flag: Type.Optional(Type.Union([Type.Boolean(), Type.Null()])),
+  domain_id: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
+  domain_code: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  domain_name: Type.Optional(Type.Union([Type.String(), Type.Null()]))
 });
 
 const ChildEntityCountSchema = Type.Object({
@@ -393,30 +406,64 @@ export async function entityRoutes(fastify: FastifyInstance) {
 
     // ═══════════════════════════════════════════════════════════════
     // CASE 1: No entity_code → Return ALL entities (Settings page)
+    // Includes new columns: db_table, db_model_type, config_datatable, root_level_entity_flag, domain_*
     // ═══════════════════════════════════════════════════════════════
     if (!entity_code) {
       try {
-        const entities = await entityInfra.get_all_entity(include_inactive);
+        // Fetch all entities with new columns directly from DB
+        const entities = await db.execute(sql`
+          SELECT
+            code, name, ui_label, ui_icon, display_order, active_flag,
+            db_table, db_model_type, config_datatable, root_level_entity_flag,
+            domain_id, domain_code, domain_name,
+            child_entity_codes
+          FROM app.entity
+          ${include_inactive ? sql`` : sql`WHERE active_flag = true`}
+          ORDER BY display_order ASC, name ASC
+        `);
+
         const allActiveEntities = await entityInfra.get_all_entity(false);
         const activeEntityCodes = new Set(allActiveEntities.map(e => e.code));
 
-        const result = entities.map(entity => {
-          const filteredChildCodes = (entity.child_entity_codes || []).filter(c =>
+        const result = entities.map((entity: any) => {
+          // Parse child_entity_codes JSONB
+          let childCodes = entity.child_entity_codes || [];
+          if (typeof childCodes === 'string') {
+            childCodes = JSON.parse(childCodes);
+          }
+          // Extract entity codes from both formats (string or object with ownership_flag)
+          const rawChildCodes = childCodes.map((c: any) =>
+            typeof c === 'string' ? c : c.entity
+          );
+          const filteredChildCodes = rawChildCodes.filter((c: string) =>
             activeEntityCodes.has(c)
           );
 
+          // Enrich child entities with metadata (including ownership_flag)
           const enrichedChildEntities = filteredChildCodes
             .map((code: string, index: number) => {
               const childMeta = allActiveEntities.find(e => e.code === code);
+              // Get original child object to extract ownership_flag
+              const originalChild = childCodes.find((c: any) =>
+                (typeof c === 'string' ? c : c.entity) === code
+              );
+              const ownershipFlag = typeof originalChild === 'object' ? originalChild.ownership_flag : undefined;
               if (!childMeta) return null;
               return {
                 entity: code,
                 ui_icon: childMeta.ui_icon,
                 ui_label: childMeta.ui_label,
-                order: index
+                order: index,
+                ownership_flag: ownershipFlag
               };
             })
             .filter((item: any) => item !== null);
+
+          // Parse config_datatable JSONB
+          let configDatatable = entity.config_datatable;
+          if (typeof configDatatable === 'string') {
+            configDatatable = JSON.parse(configDatatable);
+          }
 
           return {
             code: entity.code,
@@ -425,6 +472,14 @@ export async function entityRoutes(fastify: FastifyInstance) {
             ui_icon: entity.ui_icon,
             display_order: entity.display_order,
             active_flag: entity.active_flag,
+            // New columns v10.2.0
+            db_table: entity.db_table,
+            db_model_type: entity.db_model_type,
+            config_datatable: configDatatable,
+            root_level_entity_flag: entity.root_level_entity_flag,
+            domain_id: entity.domain_id,
+            domain_code: entity.domain_code,
+            domain_name: entity.domain_name,
             child_entity_codes: filteredChildCodes,
             child_entities: enrichedChildEntities
           };
@@ -503,11 +558,14 @@ export async function entityRoutes(fastify: FastifyInstance) {
    * PUT /api/v1/entity/:code/children
    * Update child entities for an entity type
    * Modifies the child_entity_codes JSONB array in entity table
-   * Expects simple string array: ["task", "artifact", "wiki"]
+   *
+   * Accepts both formats:
+   * - Simple string array: ["task", "artifact", "wiki"]
+   * - Full object array: [{"entity": "task", "ui_label": "Tasks", "ownership_flag": true}]
    *
    * Modes:
    * - append (default): Merge new children with existing (for adding)
-   * - replace: Replace entire array with provided list (for removing)
+   * - replace: Replace entire array with provided list (for removing/reordering)
    */
   fastify.put('/api/v1/entity/:code/children', {
     preHandler: [fastify.authenticate],
@@ -516,7 +574,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
         code: Type.String()
       }),
       body: Type.Object({
-        child_entity_codes: Type.Optional(Type.Array(Type.String())),
+        child_entity_codes: Type.Optional(Type.Array(Type.Any())), // Accept string or object
         mode: Type.Optional(Type.Union([Type.Literal('append'), Type.Literal('replace')]))
       }),
       response: {
@@ -549,39 +607,89 @@ export async function entityRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Get current children
+      // Get current children as objects
       let currentChildren = existingEntity[0].child_entity_codes || [];
       if (typeof currentChildren === 'string') {
         currentChildren = JSON.parse(currentChildren);
       }
 
-      // Extract entity codes from both formats (string or object)
-      const currentCodes = currentChildren.map((c: any) =>
-        typeof c === 'string' ? c : c.entity
-      );
-      const newCodes = child_entity_codes.map((c: any) =>
-        typeof c === 'string' ? c : c.entity
-      );
-
-      // Determine update mode (append or replace)
-      const updateMode = request.body.mode || 'append';
-
-      let finalCodes: string[];
-      if (updateMode === 'replace') {
-        // Replace mode: Use provided list as-is (for removals)
-        finalCodes = newCodes;
-      } else {
-        // Append mode: Merge and deduplicate (for additions)
-        finalCodes = [...new Set([...currentCodes, ...newCodes])];
+      // Build a map of current children by entity code for merging
+      const currentChildMap = new Map<string, any>();
+      for (const child of currentChildren) {
+        const entityCode = typeof child === 'string' ? child : child.entity;
+        currentChildMap.set(entityCode, typeof child === 'string' ? { entity: child } : child);
       }
 
-      // Update the child_entity_codes JSONB field
-      // Use string interpolation for JSONB to ensure proper array storage (not string-in-JSONB)
-      const jsonbArray = JSON.stringify(finalCodes);
+      // Determine update mode (append or replace)
+      const updateMode = (request.body as any).mode || 'append';
+
+      let finalChildren: any[];
+
+      if (updateMode === 'replace') {
+        // Replace mode: Use provided list as-is
+        // Convert strings to objects if needed, preserving existing metadata
+        finalChildren = child_entity_codes.map((child: any, index: number) => {
+          const entityCode = typeof child === 'string' ? child : child.entity;
+          const existing = currentChildMap.get(entityCode);
+
+          if (typeof child === 'string') {
+            // String input - create object with defaults or existing metadata
+            return existing || {
+              entity: child,
+              ui_label: child.charAt(0).toUpperCase() + child.slice(1).replace(/_/g, ' '),
+              ui_icon: 'Tag',
+              order: index + 1,
+              ownership_flag: true // Default to owned
+            };
+          } else {
+            // Object input - merge with existing, preserving new values
+            return {
+              entity: entityCode,
+              ui_label: child.ui_label || existing?.ui_label || entityCode,
+              ui_icon: child.ui_icon || existing?.ui_icon || 'Tag',
+              order: child.order ?? existing?.order ?? index + 1,
+              ownership_flag: child.ownership_flag ?? existing?.ownership_flag ?? true
+            };
+          }
+        });
+      } else {
+        // Append mode: Merge new children with existing
+        const newChildCodes = child_entity_codes.map((c: any) =>
+          typeof c === 'string' ? c : c.entity
+        );
+
+        // Add new children that don't exist
+        for (const child of child_entity_codes) {
+          const entityCode = typeof child === 'string' ? child : child.entity;
+          if (!currentChildMap.has(entityCode)) {
+            const newChild = typeof child === 'string' ? {
+              entity: child,
+              ui_label: child.charAt(0).toUpperCase() + child.slice(1).replace(/_/g, ' '),
+              ui_icon: 'Tag',
+              order: currentChildMap.size + 1,
+              ownership_flag: true // Default to owned for new children
+            } : {
+              entity: entityCode,
+              ui_label: child.ui_label || entityCode,
+              ui_icon: child.ui_icon || 'Tag',
+              order: child.order ?? currentChildMap.size + 1,
+              ownership_flag: child.ownership_flag ?? true
+            };
+            currentChildMap.set(entityCode, newChild);
+          }
+        }
+        finalChildren = Array.from(currentChildMap.values());
+      }
+
+      // Sort by order
+      finalChildren.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+      // Update the child_entity_codes JSONB field with full object format
+      const jsonbArray = JSON.stringify(finalChildren);
       const result = await client.unsafe(`
         UPDATE app.entity
         SET
-          child_entity_codes = '${jsonbArray}'::jsonb,
+          child_entity_codes = '${jsonbArray.replace(/'/g, "''")}'::jsonb,
           updated_ts = NOW()
         WHERE code = $1
         RETURNING
@@ -591,7 +699,14 @@ export async function entityRoutes(fastify: FastifyInstance) {
           ui_icon,
           child_entity_codes,
           display_order,
-          active_flag
+          active_flag,
+          db_table,
+          db_model_type,
+          config_datatable,
+          root_level_entity_flag,
+          domain_id,
+          domain_code,
+          domain_name
       `, [normalizedCode]);
 
       if (result.length === 0) {
@@ -607,10 +722,15 @@ export async function entityRoutes(fastify: FastifyInstance) {
         updatedEntity.child_entity_codes = JSON.parse(updatedEntity.child_entity_codes);
       }
 
-      // Ensure child_entity_codes is always an array
+      // Ensure child_entity_codes is always an array of strings for response schema
       if (!Array.isArray(updatedEntity.child_entity_codes)) {
         updatedEntity.child_entity_codes = [];
       }
+
+      // Extract just entity codes for the response (schema expects string array)
+      updatedEntity.child_entity_codes = updatedEntity.child_entity_codes.map((c: any) =>
+        typeof c === 'string' ? c : c.entity
+      );
 
       // IMPORTANT: Invalidate entity cache to ensure GET endpoint returns fresh data
       // Now async with Redis - ensures all API instances get fresh data

@@ -2,9 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { Layout } from '../../components/shared';
 import { useParams, useNavigate } from 'react-router-dom';
 import { formApi } from '../../lib/api';
-import { ArrowLeft, Eye, Edit3, ChevronLeft, ChevronRight, Layers } from 'lucide-react';
+import { ArrowLeft, Eye, Edit3, Calendar, Hash, FileText, Layers, Clock, RefreshCw } from 'lucide-react';
 import { FormPreview } from '../../components/entity/form/FormPreview';
 import { BuilderField, FormStep } from '../../components/entity/form/FormBuilder';
+import {
+  SmartStepIndicator,
+  MetadataGrid,
+  FormSkeleton,
+  ModernFormContainer
+} from '../../components/entity/form/FormUIComponents';
+import { cx } from '../../lib/designSystem';
 
 interface FormHead {
   id: string;
@@ -107,150 +114,212 @@ export function FormViewPage() {
   const currentStep = steps[currentStepIndex];
   const currentStepFields = fields.filter(f => f.stepId === currentStep?.id);
 
+  // Format relative time
+  const formatRelativeTime = (dateStr?: string) => {
+    if (!dateStr) return '—';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString('en-CA');
+  };
+
   return (
     <Layout>
-      <div className="h-full flex flex-col space-y-4 max-w-5xl mx-auto">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={() => navigate('/form')}
-              className="h-10 w-10 bg-dark-100 border border-dark-300 rounded-md flex items-center justify-center hover:bg-dark-100"
-              title="Back"
-            >
-              <ArrowLeft className="h-5 w-5 text-dark-600 stroke-[1.5]" />
-            </button>
-            <div>
-              <h1 className="text-sm font-normal text-dark-700">
-                {form?.name || 'Form'}
-                <span className="text-xs font-light text-dark-700 ml-3">
-                  Form · {id}
-                </span>
-              </h1>
-              <p className="mt-1 text-sm text-dark-700">
-                {form?.descr || 'Form design preview'}
-                {steps.length > 1 && (
-                  <span className="text-sm text-dark-700">
-                    {' '}• Multi-step form ({steps.length} steps)
-                  </span>
+      <div className="h-full flex flex-col space-y-6 max-w-5xl mx-auto animate-fade-in">
+        {/* Modern Header with gradient background */}
+        <div className="bg-gradient-to-b from-dark-surface to-dark-subtle border border-dark-border-default rounded-xl p-6 shadow-sm">
+          <div className="flex items-start justify-between">
+            <div className="flex items-start gap-4">
+              {/* Back button with hover effect */}
+              <button
+                onClick={() => navigate('/form')}
+                className={cx(
+                  'h-10 w-10 bg-dark-surface border border-dark-border-default rounded-lg',
+                  'flex items-center justify-center',
+                  'hover:bg-dark-hover hover:border-dark-border-medium',
+                  'transition-all duration-200 group'
                 )}
-              </p>
+                title="Back to Forms"
+              >
+                <ArrowLeft className="h-5 w-5 text-dark-text-secondary group-hover:text-dark-text-primary transition-colors" />
+              </button>
+
+              {/* Title section */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <h1 className="text-xl font-semibold text-dark-text-primary">
+                    {form?.name || 'Untitled Form'}
+                  </h1>
+                  {steps.length > 1 && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-dark-accent/10 text-dark-accent">
+                      <Layers className="h-3 w-3 mr-1" />
+                      {steps.length} Steps
+                    </span>
+                  )}
+                </div>
+                {form?.descr && (
+                  <p className="text-sm text-dark-text-tertiary max-w-xl">
+                    {form.descr}
+                  </p>
+                )}
+                {/* Quick metadata pills */}
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-dark-subtle text-xs text-dark-text-secondary font-mono">
+                    <Hash className="h-3 w-3" />
+                    {id?.substring(0, 8)}...
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-dark-subtle text-xs text-dark-text-secondary">
+                    <Clock className="h-3 w-3" />
+                    Updated {formatRelativeTime(form?.updatedTs)}
+                  </span>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center space-x-3">
+
+            {/* Action button */}
             <button
               onClick={() => navigate(`/form/${id}/edit`)}
-              className="inline-flex items-center px-4 py-2 bg-slate-600 text-white text-sm font-medium rounded-md hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-slate-500/50 focus-visible:outline-none shadow-sm transition-colors"
-              title="Edit form"
+              className={cx(
+                'inline-flex items-center gap-2 px-4 py-2.5',
+                'bg-dark-accent text-white text-sm font-medium rounded-lg',
+                'hover:bg-dark-accent-hover shadow-sm',
+                'focus-visible:ring-2 focus-visible:ring-dark-accent-ring focus-visible:outline-none',
+                'transition-all duration-200'
+              )}
             >
-              <Edit3 className="h-4 w-4 mr-2 stroke-[1.5]" />
-              Edit
+              <Edit3 className="h-4 w-4" />
+              Edit Form
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-dark-100 rounded-xl shadow-sm border border-dark-300 p-4">
-            <div className="text-xs font-normal text-dark-700 uppercase tracking-wide">Created</div>
-            <div className="mt-1 text-sm text-dark-600">{form?.createdTs ? new Date(form.createdTs).toLocaleString('en-CA') : '—'}</div>
-          </div>
-          <div className="bg-dark-100 rounded-xl shadow-sm border border-dark-300 p-4">
-            <div className="text-xs font-normal text-dark-700 uppercase tracking-wide">Updated</div>
-            <div className="mt-1 text-sm text-dark-600">{form?.updatedTs ? new Date(form.updatedTs).toLocaleString('en-CA') : '—'}</div>
-          </div>
-          <div className="bg-dark-100 rounded-xl shadow-sm border border-dark-300 p-4">
-            <div className="text-xs font-normal text-dark-700 uppercase tracking-wide">Version</div>
-            <div className="mt-1 text-sm text-dark-600">{form?.version || '—'}</div>
-          </div>
-          <div className="bg-dark-100 rounded-xl shadow-sm border border-dark-300 p-4">
-            <div className="text-xs font-normal text-dark-700 uppercase tracking-wide">Total Fields</div>
-            <div className="mt-1 text-sm text-dark-600">{fields.length} field{fields.length !== 1 ? 's' : ''}</div>
-          </div>
-        </div>
+        {/* Metadata Grid - Modern cards with icons */}
+        <MetadataGrid
+          columns={4}
+          items={[
+            {
+              icon: <Calendar className="h-4 w-4" />,
+              label: 'Created',
+              value: form?.createdTs ? new Date(form.createdTs).toLocaleDateString('en-CA', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+              }) : '—'
+            },
+            {
+              icon: <RefreshCw className="h-4 w-4" />,
+              label: 'Last Updated',
+              value: formatRelativeTime(form?.updatedTs)
+            },
+            {
+              icon: <Hash className="h-4 w-4" />,
+              label: 'Version',
+              value: <span className="font-mono">v{form?.version || 1}</span>
+            },
+            {
+              icon: <FileText className="h-4 w-4" />,
+              label: 'Total Fields',
+              value: (
+                <span className="font-medium">
+                  {fields.length} <span className="font-normal text-dark-text-tertiary">field{fields.length !== 1 ? 's' : ''}</span>
+                </span>
+              )
+            }
+          ]}
+        />
 
-        {/* Step Navigation */}
+        {/* Smart Step Navigation */}
         {steps.length > 1 && (
-          <div className="bg-dark-100 rounded-xl shadow-sm border border-dark-300 p-4">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-2">
-                <Layers className="h-5 w-5 text-dark-700 stroke-[1.5]" />
-                <h3 className="text-sm font-normal text-dark-600">Form Steps</h3>
-                <span className="text-xs text-dark-700">Navigate through the form</span>
-              </div>
-              <div className="text-xs text-dark-700">
-                Step {currentStepIndex + 1} of {steps.length}
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-2 overflow-x-auto pb-2">
-              <button
-                onClick={() => navigateToStep(currentStepIndex - 1)}
-                disabled={currentStepIndex === 0}
-                className="p-1.5 rounded-md border border-dark-300 hover:bg-dark-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Previous step"
-              >
-                <ChevronLeft className="h-4 w-4 stroke-[1.5]" />
-              </button>
-
-              <div className="flex space-x-1 min-w-0 flex-1">
-                {steps.map((step, index) => (
-                  <button
-                    key={step.id}
-                    onClick={() => navigateToStep(index)}
-                    className={`px-3 py-2 rounded-md text-sm font-normal transition-colors min-w-0 flex items-center space-x-2 ${
-                      index === currentStepIndex
-                        ? 'bg-dark-100 text-dark-700 border border-dark-400'
-                        : 'bg-dark-100 text-dark-700 hover:bg-dark-100 border border-dark-300'
-                    }`}
-                  >
-                    <span className="truncate">{step.title}</span>
-                    <span className="text-xs bg-dark-100 bg-opacity-70 px-1.5 py-0.5 rounded">
-                      {fields.filter(f => f.stepId === step.id).length}
-                    </span>
-                  </button>
-                ))}
-              </div>
-
-              <button
-                onClick={() => navigateToStep(currentStepIndex + 1)}
-                disabled={currentStepIndex === steps.length - 1}
-                className="p-1.5 rounded-md border border-dark-300 hover:bg-dark-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Next step"
-              >
-                <ChevronRight className="h-4 w-4 stroke-[1.5]" />
-              </button>
-            </div>
-          </div>
+          <ModernFormContainer
+            title="Form Navigation"
+            description={`Step ${currentStepIndex + 1} of ${steps.length}: ${currentStep?.title}`}
+          >
+            <SmartStepIndicator
+              steps={steps.map(s => ({
+                id: s.id,
+                title: s.title,
+                description: `${fields.filter(f => f.stepId === s.id).length} fields`
+              }))}
+              currentStepIndex={currentStepIndex}
+              onStepClick={navigateToStep}
+              allowNavigation={true}
+            />
+          </ModernFormContainer>
         )}
 
-        <div className="bg-dark-100 rounded-xl shadow-sm border border-dark-300 overflow-hidden">
-          <div className="flex items-center justify-between px-6 py-3 border-b border-dark-300 bg-gradient-to-r from-dark-100 to-dark-100/70">
-            <div className="flex items-center text-sm text-dark-600 font-normal">
-              <Eye className="h-5 w-5 text-dark-700 stroke-[1.5] mr-3" />
-              Form Preview
-              {steps.length > 1 && currentStep && (
-                <span className="ml-2 text-xs text-dark-700">
-                  • {currentStep.title} ({currentStepIndex + 1}/{steps.length})
-                </span>
-              )}
+        {/* Form Preview Section */}
+        <ModernFormContainer>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-dark-subtle">
+                <Eye className="h-5 w-5 text-dark-text-secondary" />
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-dark-text-primary">Form Preview</h3>
+                <p className="text-xs text-dark-text-tertiary">
+                  {steps.length > 1 && currentStep
+                    ? `${currentStep.title} • ${currentStepFields.length} field${currentStepFields.length !== 1 ? 's' : ''}`
+                    : `${fields.length} field${fields.length !== 1 ? 's' : ''}`
+                  }
+                </p>
+              </div>
             </div>
-            <div className="text-xs text-dark-700">
-              {currentStepFields.length} field{currentStepFields.length !== 1 ? 's' : ''} in this step
-            </div>
+
+            {/* Step navigation buttons for multi-step */}
+            {steps.length > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => navigateToStep(currentStepIndex - 1)}
+                  disabled={currentStepIndex === 0}
+                  className={cx(
+                    'px-3 py-1.5 text-sm font-medium rounded-md',
+                    'border border-dark-border-default bg-dark-surface',
+                    'hover:bg-dark-hover hover:border-dark-border-medium',
+                    'disabled:opacity-40 disabled:cursor-not-allowed',
+                    'transition-all duration-200'
+                  )}
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => navigateToStep(currentStepIndex + 1)}
+                  disabled={currentStepIndex === steps.length - 1}
+                  className={cx(
+                    'px-3 py-1.5 text-sm font-medium rounded-md',
+                    'bg-dark-accent text-white',
+                    'hover:bg-dark-accent-hover',
+                    'disabled:opacity-40 disabled:cursor-not-allowed',
+                    'transition-all duration-200'
+                  )}
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
+
           {loading ? (
-            <div className="p-6 text-dark-700">Loading…</div>
+            <FormSkeleton />
           ) : (
-            <div className="p-6">
-              <FormPreview 
+            <div className="animate-fade-in">
+              <FormPreview
                 fields={currentStepFields}
                 steps={steps}
                 currentStepIndex={currentStepIndex}
-                showStepProgress={steps.length > 1}
+                showStepProgress={false}
                 onStepClick={navigateToStep}
               />
             </div>
           )}
-        </div>
+        </ModernFormContainer>
       </div>
     </Layout>
   );

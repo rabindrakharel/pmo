@@ -1206,6 +1206,26 @@ fieldBusinessTypes:
     inherit: type
 
   # --------------------------------------------------------------------------
+  # SCOPE & LEVEL FIELDS
+  # --------------------------------------------------------------------------
+  scope:
+    dtype: str
+    entityListOfInstancesTable:
+      inputType: text
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+    entityInstanceFormContainer:
+      inputType: text
+      behavior: { editable: true }
+
+  level:
+    dtype: str
+    inherit: scope
+
+  text_medium:
+    dtype: str
+    inherit: scope
+
+  # --------------------------------------------------------------------------
   # IDENTIFICATION NUMBERS
   # --------------------------------------------------------------------------
   sensitive_id:

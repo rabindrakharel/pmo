@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent, DragStartEvent, DragOverlay, useDroppable } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Save, FileText, Plus, LogOut, Layers, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Save, FileText, Plus, LogOut, Layers, ChevronLeft, ChevronRight, X, Eye, Check } from 'lucide-react';
 import { produce } from 'immer';
 import { UniversalDesigner, DesignerAction } from '../../shared/designer';
 import { FormFieldTypesToolbar } from './designer/FormFieldTypesToolbar';
@@ -9,6 +9,8 @@ import { FormPropertiesPanel } from './designer/FormPropertiesPanel';
 import { FormPreview } from './FormPreview';
 import { BuilderField, FormStep, FieldType } from './FormBuilder';
 import { SortableFieldCard } from './FormBuilder';
+import { SmartStepIndicator, ModernFormContainer } from './FormUIComponents';
+import { cx } from '../../../lib/designSystem';
 
 // Droppable form canvas component
 function DroppableFormCanvas({ children }: { children: React.ReactNode }) {
@@ -305,58 +307,67 @@ export function FormDesigner({ formData, onSave, onSaveDraft, onExit, actions = 
   const renderCanvas = () => {
     if (viewMode === 'preview') {
       return (
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-dark-100 rounded-xl shadow-sm p-12">
-            <h1 className="text-3xl font-bold text-dark-600 mb-3">{name || 'Untitled Form'}</h1>
-            {descr && <p className="text-base text-dark-700 mb-8">{descr}</p>}
-
-            {/* Step Progress Indicator */}
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-2">
-                  <Layers className="h-5 w-5 text-dark-700" />
-                  <span className="text-sm font-medium text-dark-600">
-                    {steps.length > 1 ? `Step ${currentStepIndex + 1} of ${steps.length}` : 'Single Step Form'}
+        <div className="max-w-4xl mx-auto animate-fade-in">
+          {/* Modern Form Header */}
+          <div className="bg-gradient-to-b from-dark-surface to-dark-subtle border border-dark-border-default rounded-xl p-8 mb-6 shadow-sm">
+            <div className="flex items-start gap-4">
+              <div className="p-3 rounded-xl bg-dark-subtle">
+                <FileText className="h-6 w-6 text-dark-text-secondary" />
+              </div>
+              <div className="flex-1">
+                <h1 className="text-2xl font-semibold text-dark-text-primary">{name || 'Untitled Form'}</h1>
+                {descr && <p className="text-sm text-dark-text-tertiary mt-2 max-w-xl">{descr}</p>}
+                <div className="flex items-center gap-3 mt-3">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-dark-accent/10 text-dark-accent">
+                    <Eye className="h-3 w-3 mr-1" />
+                    Preview Mode
+                  </span>
+                  {steps.length > 1 && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-dark-subtle text-dark-text-secondary">
+                      <Layers className="h-3 w-3 mr-1" />
+                      {steps.length} Steps
+                    </span>
+                  )}
+                  <span className="text-xs text-dark-text-placeholder">
+                    {fields.length} field{fields.length !== 1 ? 's' : ''} total
                   </span>
                 </div>
               </div>
-
-              {steps.length > 1 && (
-                <>
-                  {/* Step Pills */}
-                  <div className="flex items-center space-x-2 mb-4">
-                    {steps.map((step, index) => (
-                      <button
-                        key={step.id}
-                        onClick={() => setCurrentStepIndex(index)}
-                        className={`flex-1 px-4 py-3 rounded-md text-sm font-medium transition-all ${
-                          index === currentStepIndex
-                            ? 'bg-slate-600 text-white shadow-sm'
-                            : index < currentStepIndex
-                            ? 'bg-green-100 text-green-700 border border-green-200'
-                            : 'bg-white text-dark-700 border border-dark-300'
-                        }`}
-                      >
-                        <div className="flex items-center justify-center space-x-2">
-                          <span className="text-xs font-bold">
-                            {index + 1}
-                          </span>
-                          <span className="text-sm">{step.title}</span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Progress Bar */}
-                  <div className="relative h-2 bg-dark-200 rounded-full overflow-hidden mb-4">
-                    <div
-                      className="absolute top-0 left-0 h-full bg-slate-600 transition-all duration-300"
-                      style={{ width: `${((currentStepIndex + 1) / steps.length) * 100}%` }}
-                    />
-                  </div>
-                </>
-              )}
             </div>
+          </div>
+
+          {/* Smart Step Indicator */}
+          {steps.length > 1 && (
+            <div className="bg-dark-surface border border-dark-border-default rounded-xl p-5 mb-6 shadow-sm">
+              <SmartStepIndicator
+                steps={steps.map((s, index) => ({
+                  id: s.id,
+                  title: s.title,
+                  description: `${fields.filter(f => f.stepId === s.id).length} fields`
+                }))}
+                currentStepIndex={currentStepIndex}
+                onStepClick={setCurrentStepIndex}
+                allowNavigation={true}
+              />
+            </div>
+          )}
+
+          {/* Form Preview Container */}
+          <ModernFormContainer>
+            {/* Current step header */}
+            {steps.length > 1 && currentStep && (
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-dark-border-subtle">
+                <div>
+                  <h2 className="text-base font-semibold text-dark-text-primary">{currentStep.title}</h2>
+                  {currentStep.description && (
+                    <p className="text-sm text-dark-text-tertiary mt-1">{currentStep.description}</p>
+                  )}
+                </div>
+                <span className="text-xs text-dark-text-placeholder">
+                  {currentStepFields.length} field{currentStepFields.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+            )}
 
             <FormPreview
               fields={currentStepFields}
@@ -365,25 +376,56 @@ export function FormDesigner({ formData, onSave, onSaveDraft, onExit, actions = 
               showStepProgress={false}
             />
 
+            {/* Navigation Footer */}
             {steps.length > 1 && (
-              <div className="mt-8 flex justify-between">
+              <div className="mt-8 pt-6 border-t border-dark-border-subtle flex items-center justify-between">
                 <button
                   disabled={currentStepIndex === 0}
                   onClick={() => setCurrentStepIndex((i) => i - 1)}
-                  className="px-4 py-2 bg-dark-200 text-dark-600 text-sm font-medium rounded-md hover:bg-dark-300 disabled:opacity-50 transition-colors"
+                  className={cx(
+                    'px-4 py-2 text-sm font-medium rounded-lg',
+                    'border border-dark-border-default bg-dark-surface text-dark-text-primary',
+                    'hover:bg-dark-hover hover:border-dark-border-medium',
+                    'disabled:opacity-40 disabled:cursor-not-allowed',
+                    'transition-all duration-200'
+                  )}
                 >
                   Previous
                 </button>
+
+                <div className="flex items-center gap-2">
+                  {steps.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentStepIndex(index)}
+                      className={cx(
+                        'h-2 rounded-full transition-all duration-200',
+                        index === currentStepIndex
+                          ? 'w-6 bg-dark-accent'
+                          : index < currentStepIndex
+                            ? 'w-2 bg-dark-accent/50'
+                            : 'w-2 bg-dark-border-medium'
+                      )}
+                    />
+                  ))}
+                </div>
+
                 <button
                   disabled={currentStepIndex === steps.length - 1}
                   onClick={() => setCurrentStepIndex((i) => i + 1)}
-                  className="px-3 py-2 bg-slate-600 text-white text-sm font-medium rounded-md hover:bg-slate-700 disabled:opacity-50 transition-colors"
+                  className={cx(
+                    'px-4 py-2 text-sm font-medium rounded-lg',
+                    'bg-dark-accent text-white shadow-sm',
+                    'hover:bg-dark-accent-hover',
+                    'disabled:opacity-40 disabled:cursor-not-allowed',
+                    'transition-all duration-200'
+                  )}
                 >
-                  Next
+                  Next Step
                 </button>
               </div>
             )}
-          </div>
+          </ModernFormContainer>
         </div>
       );
     }

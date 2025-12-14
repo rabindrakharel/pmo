@@ -126,14 +126,14 @@ export function UniversalDesigner({
   };
 
   return (
-    <div className={`flex flex-col h-screen bg-dark-100 ${className}`}>
-      {/* Top Header Bar */}
-      <div className="bg-dark-100 border-b border-dark-300 px-6 py-3 flex items-center justify-between flex-shrink-0">
+    <div className={`flex flex-col h-screen bg-dark-50 ${className}`}>
+      {/* Minimal Top Header Bar */}
+      <div className="bg-white border-b border-dark-200 px-4 py-2 flex items-center justify-between flex-shrink-0">
         {/* Left: Title & View Modes */}
-        <div className="flex items-center space-x-4 flex-1">
-          {/* Icon & Title */}
-          <div className="flex items-center space-x-3">
-            {icon && <div className="text-dark-700">{icon}</div>}
+        <div className="flex items-center gap-4 flex-1">
+          {/* Icon & Title - Compact */}
+          <div className="flex items-center gap-2">
+            {icon && <div className="text-dark-500">{icon}</div>}
             <div>
               {titleEditable && isEditingTitle ? (
                 <input
@@ -149,12 +149,12 @@ export function UniversalDesigner({
                     }
                   }}
                   autoFocus
-                  className="text-lg font-semibold text-dark-600 border-b-2 border-dark-3000 outline-none bg-transparent"
+                  className="text-sm font-medium text-dark-800 border-b border-dark-300 outline-none bg-transparent"
                 />
               ) : (
                 <h1
-                  className={`text-lg font-semibold text-dark-600 ${
-                    titleEditable ? 'cursor-pointer hover:text-dark-700' : ''
+                  className={`text-sm font-medium text-dark-800 ${
+                    titleEditable ? 'cursor-pointer hover:text-dark-600' : ''
                   }`}
                   onClick={() => titleEditable && setIsEditingTitle(true)}
                 >
@@ -163,25 +163,25 @@ export function UniversalDesigner({
               )}
               {subtitle && (
                 typeof subtitle === 'string' ? (
-                  <p className="text-sm text-dark-700">{subtitle}</p>
+                  <p className="text-xs text-dark-500">{subtitle}</p>
                 ) : (
-                  <div className="text-sm text-dark-700">{subtitle}</div>
+                  <div className="text-xs text-dark-500">{subtitle}</div>
                 )
               )}
             </div>
           </div>
 
-          {/* View Mode Switcher */}
+          {/* View Mode Switcher - Compact Segmented */}
           {viewModes.length > 1 && (
-            <div className="flex items-center space-x-1 bg-white rounded-md p-1">
+            <div className="flex items-center gap-0.5 p-0.5 bg-dark-100 rounded-lg">
               {viewModes.map((mode) => (
                 <button
                   key={mode.id}
                   onClick={() => onViewModeChange?.(mode.id)}
-                  className={`px-3 py-1.5 rounded text-sm font-medium transition-colors flex items-center space-x-1 ${
+                  className={`px-2.5 py-1 rounded text-xs font-medium transition-all flex items-center gap-1 ${
                     currentViewMode === mode.id
-                      ? 'bg-slate-100 text-dark-600 shadow-sm'
-                      : 'text-dark-700 hover:text-dark-600'
+                      ? 'bg-white text-dark-800 shadow-sm'
+                      : 'text-dark-500 hover:text-dark-700'
                   }`}
                 >
                   {mode.icon}
@@ -192,23 +192,23 @@ export function UniversalDesigner({
           )}
         </div>
 
-        {/* Right: Actions */}
-        <div className="flex items-center space-x-2">
+        {/* Right: Actions - Compact */}
+        <div className="flex items-center gap-1.5">
           {actions.map((action) => (
             <button
               key={action.id}
               onClick={action.onClick}
               disabled={action.disabled || action.loading}
-              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
+              className={`px-2.5 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1.5 ${
                 action.variant === 'primary'
-                  ? 'bg-slate-600 text-white hover:bg-slate-700 disabled:opacity-50'
+                  ? 'bg-dark-800 text-white hover:bg-dark-700 disabled:opacity-50'
                   : action.variant === 'danger'
-                  ? 'bg-red-600 text-white hover:bg-red-700 disabled:opacity-50'
+                  ? 'text-red-600 hover:bg-red-50 disabled:opacity-50'
                   : 'text-dark-600 hover:bg-dark-100 disabled:opacity-50'
               }`}
             >
               {action.loading ? (
-                <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
               ) : (
                 action.icon
               )}
@@ -220,10 +220,10 @@ export function UniversalDesigner({
             <button
               onClick={primaryAction.onClick}
               disabled={primaryAction.disabled || primaryAction.loading}
-              className="px-3 py-2 bg-slate-600 text-white rounded-md text-sm font-medium hover:bg-slate-700 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 bg-dark-800 text-white rounded text-xs font-medium hover:bg-dark-700 transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {primaryAction.loading ? (
-                <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 primaryAction.icon
               )}
@@ -236,16 +236,16 @@ export function UniversalDesigner({
               key={action.id}
               onClick={action.onClick}
               disabled={action.disabled || action.loading}
-              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
+              className={`px-2.5 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1.5 ${
                 action.variant === 'primary'
-                  ? 'bg-slate-600 text-white hover:bg-slate-700 disabled:opacity-50'
+                  ? 'bg-dark-800 text-white hover:bg-dark-700 disabled:opacity-50'
                   : action.variant === 'danger'
-                  ? 'bg-red-600 text-white hover:bg-red-700 disabled:opacity-50'
-                  : 'text-dark-600 hover:bg-dark-100 disabled:opacity-50'
+                  ? 'text-red-600 hover:bg-red-50 disabled:opacity-50'
+                  : 'text-dark-500 hover:bg-dark-100 disabled:opacity-50'
               }`}
             >
               {action.loading ? (
-                <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="h-3 w-3 border-current border-t-transparent rounded-full animate-spin" />
               ) : (
                 action.icon
               )}
@@ -256,10 +256,10 @@ export function UniversalDesigner({
           {onCancel && (
             <button
               onClick={onCancel}
-              className="p-2 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded-md transition-colors"
+              className="p-1.5 text-dark-400 hover:text-dark-600 hover:bg-dark-100 rounded transition-colors"
               title="Cancel"
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" />
             </button>
           )}
         </div>
@@ -270,86 +270,76 @@ export function UniversalDesigner({
         {/* Left Panel - Toolbar */}
         {toolbar && (
           <div
-            className={`bg-dark-100 border-r border-dark-300 overflow-y-auto transition-all duration-300 ${
-              toolbarCollapsed ? 'w-12' : 'w-80'
+            className={`bg-white border-r border-dark-200 overflow-y-auto transition-all duration-200 ${
+              toolbarCollapsed ? 'w-10' : 'w-64'
             }`}
           >
-            {/* Toolbar Header */}
-            <div className="sticky top-0 bg-dark-100 border-b border-dark-300 px-4 py-3 flex items-center justify-between z-10">
+            {/* Toolbar Header - Minimal */}
+            <div className="sticky top-0 bg-white border-b border-dark-100 px-3 py-2 flex items-center justify-between z-10">
               {!toolbarCollapsed && (
-                <div className="flex items-center space-x-2">
-                  <Layers className="h-4 w-4 text-dark-700" />
-                  <h3 className="text-sm font-semibold text-dark-600">
-                    {toolbarTitle}
-                  </h3>
-                </div>
+                <span className="text-xs font-medium text-dark-500">{toolbarTitle}</span>
               )}
               {toolbarCollapsible && (
                 <button
                   onClick={() => setToolbarCollapsed(!toolbarCollapsed)}
-                  className="p-1 hover:bg-dark-100 rounded text-dark-700 transition-colors"
+                  className="p-1 hover:bg-dark-100 rounded text-dark-400 transition-colors"
                   title={toolbarCollapsed ? 'Expand' : 'Collapse'}
                 >
                   {toolbarCollapsed ? (
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-3.5 w-3.5" />
                   ) : (
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className="h-3.5 w-3.5" />
                   )}
                 </button>
               )}
             </div>
 
             {/* Toolbar Content */}
-            {!toolbarCollapsed && <div className="p-4">{toolbar}</div>}
+            {!toolbarCollapsed && <div className="p-3">{toolbar}</div>}
           </div>
         )}
 
         {/* Center Panel - Canvas */}
-        <div className={`flex-1 overflow-y-auto ${canvasBackground} p-6`}>
+        <div className={`flex-1 overflow-y-auto ${canvasBackground} p-4`}>
           <div className={`${canvasMaxWidth} mx-auto`}>{canvas}</div>
         </div>
 
         {/* Right Panel - Properties */}
         {properties && (
           <div
-            className={`bg-dark-100 border-l border-dark-300 overflow-y-auto transition-all duration-300 ${
-              propertiesCollapsed ? 'w-12' : 'w-80'
+            className={`bg-white border-l border-dark-200 overflow-y-auto transition-all duration-200 ${
+              propertiesCollapsed ? 'w-10' : 'w-64'
             }`}
           >
-            {/* Properties Header */}
-            <div className="sticky top-0 bg-dark-100 border-b border-dark-300 px-4 py-3 flex items-center justify-between z-10">
+            {/* Properties Header - Minimal */}
+            <div className="sticky top-0 bg-white border-b border-dark-100 px-3 py-2 flex items-center justify-between z-10">
               {propertiesCollapsible && (
                 <button
                   onClick={() => setPropertiesCollapsed(!propertiesCollapsed)}
-                  className="p-1 hover:bg-dark-100 rounded text-dark-700 transition-colors"
+                  className="p-1 hover:bg-dark-100 rounded text-dark-400 transition-colors"
                   title={propertiesCollapsed ? 'Expand' : 'Collapse'}
                 >
                   {propertiesCollapsed ? (
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className="h-3.5 w-3.5" />
                   ) : (
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-3.5 w-3.5" />
                   )}
                 </button>
               )}
               {!propertiesCollapsed && (
-                <div className="flex items-center space-x-2">
-                  <Settings className="h-4 w-4 text-dark-700" />
-                  <h3 className="text-sm font-semibold text-dark-600">
-                    {propertiesTitle}
-                  </h3>
-                </div>
+                <span className="text-xs font-medium text-dark-500">{propertiesTitle}</span>
               )}
             </div>
 
             {/* Properties Content */}
-            {!propertiesCollapsed && <div className="p-4">{properties}</div>}
+            {!propertiesCollapsed && <div className="p-3">{properties}</div>}
           </div>
         )}
       </div>
 
-      {/* Footer */}
+      {/* Footer - Minimal */}
       {footer && (
-        <div className="border-t border-dark-300 bg-dark-100 px-6 py-3 flex-shrink-0">
+        <div className="border-t border-dark-200 bg-white px-4 py-2 flex-shrink-0">
           {footer}
         </div>
       )}

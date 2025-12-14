@@ -1,10 +1,9 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import * as LucideIcons from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { API_CONFIG } from '../../lib/config/api';
 import { PermissionMatrixTable } from './PermissionMatrixTable';
-import { InheritanceMode } from './InheritanceModeSelector';
-import { getPermissionLabel, PERMISSION_LEVELS } from './PermissionLevelSelector';
+import type { InheritanceMode } from './InheritanceModeSelector';
 
 const ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -56,7 +55,7 @@ interface EntityPermissionSectionProps {
   onModeChange: (permissionId: string, mode: InheritanceMode) => void;
   onChildPermissionChange: (permissionId: string, childCode: string, level: number) => void;
   onRevoke: (permissionId: string) => void;
-  onGrantPermission: (entityCode: string, scope: 'all' | 'specific') => void;
+  onGrantPermission?: (entityCode: string, scope: 'all' | 'specific') => void;
   onPermissionsGranted?: () => void;
   disabled?: boolean;
   defaultExpanded?: boolean;
@@ -101,14 +100,12 @@ export function EntityPermissionSection({
   onModeChange,
   onChildPermissionChange,
   onRevoke,
-  onGrantPermission,
   onPermissionsGranted,
   disabled = false,
-  defaultExpanded = true
+  defaultExpanded = false
 }: EntityPermissionSectionProps) {
   const queryClient = useQueryClient();
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-  const [specificExpanded, setSpecificExpanded] = useState(true);
 
   // Instance picker state
   const [showInstancePicker, setShowInstancePicker] = useState(false);
@@ -121,8 +118,6 @@ export function EntityPermissionSection({
   const [expandedInstanceConfig, setExpandedInstanceConfig] = useState<string | null>(null);
   // Track which existing permission's inheritance config is expanded
   const [expandedExistingConfig, setExpandedExistingConfig] = useState<string | null>(null);
-  // Track if we're in "configure" mode (after Select button clicked)
-  const [isConfiguringPermissions, setIsConfiguringPermissions] = useState(false);
 
   // Fetch instances for this entity type
   const { data: instancesData, isLoading: instancesLoading } = useQuery({
@@ -181,7 +176,6 @@ export function EntityPermissionSection({
       setSelectedInstanceConfigs({});
       setCheckedInstanceIds(new Set());
       setExpandedInstanceConfig(null);
-      setIsConfiguringPermissions(false);
       setShowInstancePicker(false);
       setInstanceSearch('');
       onPermissionsGranted?.();
@@ -457,40 +451,6 @@ export function EntityPermissionSection({
     }
   }, [expandedInstanceConfig]);
 
-  // Toggle inheritance config expansion for an instance
-  const handleConfigureInheritance = useCallback((rowId: string) => {
-    const instanceId = rowId.replace('pending:', '');
-    setExpandedInstanceConfig(prev => prev === instanceId ? null : instanceId);
-  }, []);
-
-  // Select/deselect all visible instances (Step 1 - checkboxes) - includes "All [Entity]s"
-  const toggleAllVisibleCheckboxes = useCallback(() => {
-    // Build list of all visible IDs (including ALL_ENTITIES_ID if shown)
-    const visibleIds: string[] = [];
-    if (!hasAllEntitiesPermission && allEntitiesMatchesSearch) {
-      visibleIds.push(ALL_ENTITIES_ID);
-    }
-    filteredInstances.forEach((i: EntityInstance) => visibleIds.push(i.id));
-
-    const allChecked = visibleIds.length > 0 && visibleIds.every((id: string) => checkedInstanceIds.has(id));
-
-    if (allChecked) {
-      // Deselect all visible
-      setCheckedInstanceIds(prev => {
-        const updated = new Set(prev);
-        visibleIds.forEach((id: string) => updated.delete(id));
-        return updated;
-      });
-    } else {
-      // Select all visible
-      setCheckedInstanceIds(prev => {
-        const updated = new Set(prev);
-        visibleIds.forEach((id: string) => updated.add(id));
-        return updated;
-      });
-    }
-  }, [filteredInstances, checkedInstanceIds, hasAllEntitiesPermission, allEntitiesMatchesSearch]);
-
   // Handle grant permissions
   const handleGrantPermissions = useCallback(() => {
     if (Object.keys(selectedInstanceConfigs).length === 0) return;
@@ -530,110 +490,88 @@ export function EntityPermissionSection({
   }, [childEntityCodes]);
 
   return (
-    <div className="border border-dark-200 rounded-xl overflow-hidden bg-white">
-      {/* Entity Header */}
+    <div className="bg-white rounded-lg border border-dark-200 overflow-hidden">
+      {/* Entity Header - Minimal */}
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-slate-100 to-white hover:from-slate-200 hover:to-slate-50 transition-all"
+        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-dark-50/50 transition-colors"
       >
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg transition-colors ${isExpanded ? 'bg-slate-300' : 'bg-slate-200'}`}>
-            {getIcon(entityIcon, 'h-5 w-5 text-slate-700')}
+          <div className="text-dark-500">
+            {getIcon(entityIcon, 'h-4 w-4')}
           </div>
-          <div className="text-left">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-slate-800 uppercase tracking-wide">
-                {entityLabel} Access
-              </span>
-              {rootLevelEntityFlag && (
-                <span
-                  className="px-1.5 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 rounded-full flex items-center gap-1"
-                  title="Root entity - traversal boundary for permission inheritance"
-                >
-                  <LucideIcons.Anchor className="h-3 w-3" />
-                  ROOT
-                </span>
-              )}
-            </div>
-            <div className="text-xs text-dark-500">
-              {totalPermissions} permission{totalPermissions !== 1 ? 's' : ''}
-              {hasChanges && (
-                <span className="ml-2 text-amber-600">• unsaved changes</span>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {isExpanded ? (
-            <LucideIcons.ChevronUp className="h-5 w-5 text-dark-400" />
-          ) : (
-            <LucideIcons.ChevronDown className="h-5 w-5 text-dark-400" />
+          <span className="text-sm font-medium text-dark-800">
+            {entityLabel}
+          </span>
+          {rootLevelEntityFlag && (
+            <span
+              className="px-1.5 py-0.5 text-[10px] font-medium bg-dark-100 text-dark-600 rounded"
+              title="Root entity - traversal boundary for permission inheritance"
+            >
+              ROOT
+            </span>
+          )}
+          <span className="text-xs text-dark-400">
+            {totalPermissions}
+          </span>
+          {hasChanges && (
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" title="Unsaved changes" />
           )}
         </div>
+        <LucideIcons.ChevronRight className={`h-4 w-4 text-dark-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
       </button>
 
       {/* Expanded Content */}
       {isExpanded && (
-        <div className="p-4 space-y-4 bg-dark-50/30">
+        <div className="px-4 pb-4 pt-2 space-y-3 border-t border-dark-100">
           {/* UNIFIED PERMISSIONS VIEW - Existing grants + Pending grants in one table */}
           {(permissions.length > 0 || selectedCount > 0) && (
-            <div className="bg-white rounded-lg border border-dark-200 overflow-hidden">
-              <div className="px-4 py-2 bg-slate-50 border-b border-dark-100">
-                <div className="flex items-center justify-between">
+            <div className="rounded-lg border border-dark-200 overflow-hidden">
+              {/* Minimal header - only show when pending */}
+              {selectedCount > 0 && (
+                <div className="px-3 py-2 bg-dark-50 border-b border-dark-100 flex items-center justify-between">
+                  <span className="text-xs text-dark-500">
+                    {selectedCount} pending
+                  </span>
                   <div className="flex items-center gap-2">
-                    <LucideIcons.Shield className="h-4 w-4 text-slate-600" />
-                    <span className="text-sm font-semibold text-slate-700">Permissions</span>
-                    <span className="text-xs text-dark-400">
-                      ({permissions.length} granted{selectedCount > 0 ? `, ${selectedCount} pending` : ''})
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedInstanceConfigs({});
+                        setExpandedInstanceConfig(null);
+                      }}
+                      className="text-xs text-dark-500 hover:text-dark-700"
+                    >
+                      Clear
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleGrantPermissions}
+                      disabled={grantPermissionsMutation.isPending}
+                      className="px-2.5 py-1 text-xs font-medium bg-slate-600 text-white rounded hover:bg-slate-700 transition-colors disabled:opacity-50 flex items-center gap-1"
+                    >
+                      {grantPermissionsMutation.isPending ? (
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" />
+                      ) : (
+                        <LucideIcons.Check className="h-3 w-3" />
+                      )}
+                      Save
+                    </button>
                   </div>
-                  {selectedCount > 0 && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedInstanceConfigs({});
-                          setExpandedInstanceConfig(null);
-                          setIsConfiguringPermissions(false);
-                        }}
-                        className="px-2 py-1 text-xs text-dark-500 hover:text-dark-700 hover:bg-dark-100 rounded transition-colors"
-                      >
-                        Clear Pending
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleGrantPermissions}
-                        disabled={grantPermissionsMutation.isPending}
-                        className="px-3 py-1 text-xs font-medium bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center gap-1"
-                      >
-                        {grantPermissionsMutation.isPending ? (
-                          <>
-                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" />
-                            Saving...
-                          </>
-                        ) : (
-                          <>
-                            <LucideIcons.Save className="h-3 w-3" />
-                            Save ({selectedCount})
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  )}
                 </div>
-              </div>
+              )}
 
               {/* Error Message */}
               {grantPermissionsMutation.isError && (
-                <div className="px-4 py-2 bg-red-50 border-b border-red-200 text-sm text-red-700 flex items-center gap-2">
-                  <LucideIcons.AlertCircle className="h-4 w-4" />
+                <div className="px-3 py-2 bg-red-50 border-b border-red-100 text-xs text-red-600 flex items-center gap-2">
+                  <LucideIcons.AlertCircle className="h-3.5 w-3.5" />
                   {(grantPermissionsMutation.error as Error).message}
                 </div>
               )}
 
               {/* Unified matrix table - existing + pending rows together */}
-              <div className="p-3">
+              <div className="p-2">
                 <PermissionMatrixTable
                   rows={[
                     // Existing type-level permissions first
@@ -676,49 +614,31 @@ export function EntityPermissionSection({
                 />
               </div>
 
-              {/* Inline Inheritance Config for EXISTING expanded permission */}
+              {/* Inline Inheritance Config for EXISTING expanded permission - Compact */}
               {expandedExistingConfig && childEntityCodes.length > 0 && (() => {
                 const perm = getPermissionById(expandedExistingConfig);
                 if (!perm) return null;
                 const effectiveMode = getEffectiveMode(perm.id, perm.inheritance_mode);
                 const isModified = pendingModes[perm.id] !== undefined;
-                const isTypeLevel = perm.entity_instance_id === ALL_ENTITIES_ID;
-                const permLabel = isTypeLevel ? `All ${entityLabel}s` : (perm.entity_instance_name || perm.entity_instance_id.slice(0, 8));
 
                 return (
-                  <div className="mx-3 mb-3 bg-dark-50 border border-dark-200 rounded-lg overflow-hidden">
-                    <div className="px-4 py-2 bg-dark-100 border-b border-dark-200 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <LucideIcons.Settings className="h-4 w-4 text-dark-600" />
-                        <span className="text-sm font-semibold text-dark-700">
-                          Inheritance: {permLabel}
-                        </span>
-                      </div>
+                  <div className="mx-2 mb-2 border border-dark-200 rounded-lg overflow-hidden bg-white">
+                    <div className="px-3 py-2 border-b border-dark-100 flex items-center justify-between bg-dark-50/50">
+                      <span className="text-xs font-medium text-dark-600">Inheritance Mode</span>
                       <button
                         type="button"
                         onClick={() => setExpandedExistingConfig(null)}
-                        className="p-1 text-dark-400 hover:text-dark-600 rounded"
+                        className="p-0.5 text-dark-400 hover:text-dark-600 rounded"
                       >
-                        <LucideIcons.X className="h-4 w-4" />
+                        <LucideIcons.X className="h-3.5 w-3.5" />
                       </button>
                     </div>
 
-                    <div className="p-3">
-                      <div className="text-xs font-medium text-dark-600 mb-2">
-                        Inheritance to Child Entities:
-                      </div>
-                      <div className="flex gap-2">
+                    <div className="p-2">
+                      {/* Compact mode selector */}
+                      <div className="flex gap-1 p-0.5 bg-dark-100 rounded-lg">
                         {(['none', 'cascade', 'mapped'] as InheritanceMode[]).map((mode) => {
                           const isSelected = effectiveMode === mode;
-
-                          const modeConfig = {
-                            none: { icon: LucideIcons.Circle, label: 'None' },
-                            cascade: { icon: LucideIcons.ArrowDownCircle, label: 'Cascade' },
-                            mapped: { icon: LucideIcons.GitBranch, label: 'Mapped' }
-                          }[mode];
-
-                          const Icon = modeConfig.icon;
-
                           return (
                             <button
                               key={mode}
@@ -726,102 +646,43 @@ export function EntityPermissionSection({
                               onClick={() => onModeChange(perm.id, mode)}
                               disabled={disabled || perm.is_deny}
                               className={`
-                                flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border-2 transition-all text-sm
+                                flex-1 px-2 py-1.5 rounded text-xs font-medium transition-all
                                 ${isSelected
-                                  ? mode === 'none'
-                                    ? 'border-dark-400 bg-dark-100 text-dark-700'
-                                    : mode === 'cascade'
-                                      ? 'border-violet-400 bg-violet-50 text-violet-700'
-                                      : 'border-cyan-400 bg-cyan-50 text-cyan-700'
-                                  : 'border-dark-200 hover:border-dark-300 text-dark-500 hover:text-dark-700'
+                                  ? 'bg-white text-dark-800 shadow-sm'
+                                  : 'text-dark-500 hover:text-dark-700'
                                 }
-                                ${(disabled || perm.is_deny) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                                ${isSelected && isModified ? 'ring-2 ring-amber-300' : ''}
+                                ${isModified && isSelected ? 'ring-1 ring-amber-400' : ''}
                               `}
                             >
-                              <Icon className="h-4 w-4" />
-                              <span className="font-medium">{modeConfig.label}</span>
+                              {mode.charAt(0).toUpperCase() + mode.slice(1)}
                             </button>
                           );
                         })}
                       </div>
 
-                      {/* Cascade Summary */}
+                      {/* Cascade Summary - Compact */}
                       {effectiveMode === 'cascade' && (
-                        <div className="mt-3 p-3 bg-violet-50 border border-violet-200 rounded-lg">
-                          <div className="flex items-center gap-2 text-sm text-violet-700">
-                            <LucideIcons.ArrowDownCircle className="h-4 w-4" />
-                            <span>
-                              Child types inherit based on ownership
-                            </span>
-                          </div>
-                          <div className="mt-2 space-y-1.5">
-                            {/* Owned children (full cascade) */}
-                            {childEntityCodes.filter(c => c.ownership_flag !== false).length > 0 && (
-                              <div className="flex flex-wrap gap-1.5 items-center">
-                                <span className="text-xs text-violet-600 font-medium w-16">Owned:</span>
-                                {childEntityCodes.filter(c => c.ownership_flag !== false).map(child => (
-                                  <span
-                                    key={child.entity}
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-100 text-violet-600 text-xs rounded"
-                                    title={`Inherits full ${getPermissionLabel(pendingPermissions[perm.id] ?? perm.permission)} permission`}
-                                  >
-                                    {getIcon(child.ui_icon, 'h-3 w-3')}
-                                    {child.ui_label}
-                                    <span className="text-violet-400">→ {getPermissionLabel(pendingPermissions[perm.id] ?? perm.permission)}</span>
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                            {/* Lookup children (COMMENT max) */}
-                            {childEntityCodes.filter(c => c.ownership_flag === false).length > 0 && (
-                              <div className="flex flex-wrap gap-1.5 items-center">
-                                <span className="text-xs text-amber-600 font-medium w-16">Lookup:</span>
-                                {childEntityCodes.filter(c => c.ownership_flag === false).map(child => (
-                                  <span
-                                    key={child.entity}
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-600 text-xs rounded"
-                                    title="Lookup relationship - max COMMENT permission (traversal stops)"
-                                  >
-                                    {getIcon(child.ui_icon, 'h-3 w-3')}
-                                    {child.ui_label}
-                                    <span className="text-amber-400">→ Comment</span>
-                                    <LucideIcons.Link2 className="h-3 w-3 text-amber-400" />
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
+                        <div className="mt-2 px-2 py-1.5 bg-dark-50 rounded text-xs text-dark-600">
+                          <span className="font-medium">Owned</span> children inherit full permission, <span className="font-medium">Lookup</span> children max COMMENT
                         </div>
                       )}
 
-                      {/* Mapped Child Permissions Table */}
+                      {/* Mapped Child Permissions - Compact */}
                       {effectiveMode === 'mapped' && (
-                        <div className="mt-3 bg-cyan-50 border border-cyan-200 rounded-lg overflow-hidden">
-                          <div className="px-3 py-2 border-b border-cyan-200 bg-cyan-100/50">
-                            <div className="flex items-center gap-2 text-sm font-medium text-cyan-700">
-                              <LucideIcons.GitBranch className="h-4 w-4" />
-                              <span>Child Entity Permissions</span>
-                              <span className="text-xs text-cyan-500 font-normal">
-                                ({childEntityCodes.length} types)
-                              </span>
-                            </div>
-                          </div>
-                          <div className="p-2">
-                            <PermissionMatrixTable
-                              rows={buildChildRowsForPermission(perm.id)}
-                              pendingChanges={getChildPendingChanges(perm.id)}
-                              onPermissionChange={handleChildPermissionChange}
-                              onUndo={(rowId) => {
-                                const parts = rowId.split(':child:');
-                                if (parts.length === 2) {
-                                  onChildPermissionChange(parts[0], parts[1], -1);
-                                }
-                              }}
-                              disabled={disabled}
-                              compact
-                            />
-                          </div>
+                        <div className="mt-2">
+                          <PermissionMatrixTable
+                            rows={buildChildRowsForPermission(perm.id)}
+                            pendingChanges={getChildPendingChanges(perm.id)}
+                            onPermissionChange={handleChildPermissionChange}
+                            onUndo={(rowId) => {
+                              const parts = rowId.split(':child:');
+                              if (parts.length === 2) {
+                                onChildPermissionChange(parts[0], parts[1], -1);
+                              }
+                            }}
+                            disabled={disabled}
+                            compact
+                          />
                         </div>
                       )}
                     </div>
@@ -829,45 +690,31 @@ export function EntityPermissionSection({
                 );
               })()}
 
-              {/* Inline Inheritance Config for PENDING expanded instance */}
+              {/* Inline Inheritance Config for PENDING expanded instance - Compact */}
               {expandedInstanceConfig && selectedInstanceConfigs[expandedInstanceConfig] && childEntityCodes.length > 0 && (
-                <div className="mx-3 mb-3 bg-emerald-50 border border-emerald-200 rounded-lg overflow-hidden">
-                  <div className="px-4 py-2 bg-emerald-100 border-b border-emerald-200 flex items-center justify-between">
+                <div className="mx-2 mb-2 border border-dark-200 rounded-lg overflow-hidden bg-white">
+                  <div className="px-3 py-2 border-b border-dark-100 flex items-center justify-between bg-dark-50/50">
                     <div className="flex items-center gap-2">
-                      <LucideIcons.Settings className="h-4 w-4 text-emerald-600" />
-                      <span className="text-sm font-semibold text-emerald-700">
-                        Inheritance: {instancesMap.get(expandedInstanceConfig)?.name || expandedInstanceConfig}
-                      </span>
-                      <span className="px-1.5 py-0.5 text-[10px] font-medium bg-emerald-200 text-emerald-700 rounded">
+                      <span className="text-xs font-medium text-dark-600">Inheritance Mode</span>
+                      <span className="px-1 py-0.5 text-[9px] font-medium bg-emerald-100 text-emerald-600 rounded">
                         pending
                       </span>
                     </div>
                     <button
                       type="button"
                       onClick={() => setExpandedInstanceConfig(null)}
-                      className="p-1 text-emerald-500 hover:text-emerald-700 rounded"
+                      className="p-0.5 text-dark-400 hover:text-dark-600 rounded"
                     >
-                      <LucideIcons.X className="h-4 w-4" />
+                      <LucideIcons.X className="h-3.5 w-3.5" />
                     </button>
                   </div>
 
-                  <div className="p-3">
-                    <div className="text-xs font-medium text-emerald-700 mb-2">
-                      Inheritance to Child Entities:
-                    </div>
-                    <div className="flex gap-2">
+                  <div className="p-2">
+                    {/* Compact mode selector */}
+                    <div className="flex gap-1 p-0.5 bg-dark-100 rounded-lg">
                       {(['none', 'cascade', 'mapped'] as InheritanceMode[]).map((mode) => {
                         const config = selectedInstanceConfigs[expandedInstanceConfig];
                         const isSelected = config?.inheritanceMode === mode;
-
-                        const modeConfig = {
-                          none: { icon: LucideIcons.Circle, label: 'None' },
-                          cascade: { icon: LucideIcons.ArrowDownCircle, label: 'Cascade' },
-                          mapped: { icon: LucideIcons.GitBranch, label: 'Mapped' }
-                        }[mode];
-
-                        const Icon = modeConfig.icon;
-
                         return (
                           <button
                             key={mode}
@@ -875,97 +722,41 @@ export function EntityPermissionSection({
                             onClick={() => handlePendingInstanceModeChange(expandedInstanceConfig, mode)}
                             disabled={grantPermissionsMutation.isPending}
                             className={`
-                              flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border-2 transition-all text-sm
+                              flex-1 px-2 py-1.5 rounded text-xs font-medium transition-all
                               ${isSelected
-                                ? mode === 'none'
-                                  ? 'border-dark-400 bg-dark-100 text-dark-700'
-                                  : mode === 'cascade'
-                                    ? 'border-violet-400 bg-violet-50 text-violet-700'
-                                    : 'border-cyan-400 bg-cyan-50 text-cyan-700'
-                                : 'border-dark-200 hover:border-dark-300 text-dark-500 hover:text-dark-700'
+                                ? 'bg-white text-dark-800 shadow-sm'
+                                : 'text-dark-500 hover:text-dark-700'
                               }
                             `}
                           >
-                            <Icon className="h-4 w-4" />
-                            <span className="font-medium">{modeConfig.label}</span>
+                            {mode.charAt(0).toUpperCase() + mode.slice(1)}
                           </button>
                         );
                       })}
                     </div>
 
-                    {/* Cascade Summary for pending instance */}
+                    {/* Cascade Summary - Compact */}
                     {selectedInstanceConfigs[expandedInstanceConfig]?.inheritanceMode === 'cascade' && (
-                      <div className="mt-3 p-3 bg-violet-50 border border-violet-200 rounded-lg">
-                        <div className="flex items-center gap-2 text-sm text-violet-700">
-                          <LucideIcons.ArrowDownCircle className="h-4 w-4" />
-                          <span>
-                            Child types inherit based on ownership
-                          </span>
-                        </div>
-                        <div className="mt-2 space-y-1.5">
-                          {/* Owned children (full cascade) */}
-                          {childEntityCodes.filter(c => c.ownership_flag !== false).length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 items-center">
-                              <span className="text-xs text-violet-600 font-medium w-16">Owned:</span>
-                              {childEntityCodes.filter(c => c.ownership_flag !== false).map(child => (
-                                <span
-                                  key={child.entity}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-100 text-violet-600 text-xs rounded"
-                                  title={`Inherits full ${getPermissionLabel(selectedInstanceConfigs[expandedInstanceConfig]?.permission || 0)} permission`}
-                                >
-                                  {getIcon(child.ui_icon, 'h-3 w-3')}
-                                  {child.ui_label}
-                                  <span className="text-violet-400">→ {getPermissionLabel(selectedInstanceConfigs[expandedInstanceConfig]?.permission || 0)}</span>
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                          {/* Lookup children (COMMENT max) */}
-                          {childEntityCodes.filter(c => c.ownership_flag === false).length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 items-center">
-                              <span className="text-xs text-amber-600 font-medium w-16">Lookup:</span>
-                              {childEntityCodes.filter(c => c.ownership_flag === false).map(child => (
-                                <span
-                                  key={child.entity}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-600 text-xs rounded"
-                                  title="Lookup relationship - max COMMENT permission (traversal stops)"
-                                >
-                                  {getIcon(child.ui_icon, 'h-3 w-3')}
-                                  {child.ui_label}
-                                  <span className="text-amber-400">→ Comment</span>
-                                  <LucideIcons.Link2 className="h-3 w-3 text-amber-400" />
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
+                      <div className="mt-2 px-2 py-1.5 bg-dark-50 rounded text-xs text-dark-600">
+                        <span className="font-medium">Owned</span> children inherit full permission, <span className="font-medium">Lookup</span> children max COMMENT
                       </div>
                     )}
 
-                    {/* Mapped Child Permissions for pending instance */}
+                    {/* Mapped Child Permissions - Compact */}
                     {selectedInstanceConfigs[expandedInstanceConfig]?.inheritanceMode === 'mapped' && (
-                      <div className="mt-3 bg-cyan-50 border border-cyan-200 rounded-lg overflow-hidden">
-                        <div className="px-3 py-2 border-b border-cyan-200 bg-cyan-100/50">
-                          <div className="flex items-center gap-2 text-sm font-medium text-cyan-700">
-                            <LucideIcons.GitBranch className="h-4 w-4" />
-                            <span>Child Entity Permissions</span>
-                          </div>
-                        </div>
-                        <div className="p-2">
-                          <PermissionMatrixTable
-                            rows={buildPendingChildRows(expandedInstanceConfig, selectedInstanceConfigs[expandedInstanceConfig])}
-                            pendingChanges={{}}
-                            onPermissionChange={(rowId, level) => {
-                              // rowId format: "pending:{instanceId}:child:{childCode}"
-                              const match = rowId.match(/^pending:([^:]+):child:(.+)$/);
-                              if (match) {
-                                handlePendingInstanceChildPermissionChange(match[1], match[2], level);
-                              }
-                            }}
-                            disabled={grantPermissionsMutation.isPending}
-                            compact
-                          />
-                        </div>
+                      <div className="mt-2">
+                        <PermissionMatrixTable
+                          rows={buildPendingChildRows(expandedInstanceConfig, selectedInstanceConfigs[expandedInstanceConfig])}
+                          pendingChanges={{}}
+                          onPermissionChange={(rowId, level) => {
+                            const match = rowId.match(/^pending:([^:]+):child:(.+)$/);
+                            if (match) {
+                              handlePendingInstanceChildPermissionChange(match[1], match[2], level);
+                            }
+                          }}
+                          disabled={grantPermissionsMutation.isPending}
+                          compact
+                        />
                       </div>
                     )}
                   </div>
@@ -974,192 +765,113 @@ export function EntityPermissionSection({
             </div>
           )}
 
-          {/* GRANT PERMISSION FLOW - Instance Selection Only (Step 1) */}
+          {/* GRANT PERMISSION - Compact Instance Picker */}
           {showInstancePicker ? (
-            <div className="bg-white rounded-lg border border-blue-300 overflow-hidden shadow-sm">
-              {/* STEP 1: Instance Selection (when NOT configuring) */}
-              {!isConfiguringPermissions ? (
-                <>
-                  {/* Picker Header */}
-                  <div className="px-4 py-3 bg-blue-50 border-b border-blue-200 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <LucideIcons.ListChecks className="h-4 w-4 text-blue-600" />
-                      <span className="text-sm font-semibold text-blue-700">
-                        Step 1: Select {entityLabel}s
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowInstancePicker(false);
-                        setCheckedInstanceIds(new Set());
-                        setInstanceSearch('');
-                      }}
-                      className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-100 rounded-lg transition-colors"
-                    >
-                      <LucideIcons.X className="h-4 w-4" />
-                    </button>
+            <div className="rounded-lg border border-dark-200 overflow-hidden">
+              {/* Compact Header with Search */}
+              <div className="px-3 py-2 bg-dark-50 border-b border-dark-100 flex items-center gap-2">
+                <LucideIcons.Search className="h-3.5 w-3.5 text-dark-400 flex-shrink-0" />
+                <input
+                  type="text"
+                  placeholder={`Search ${entityLabel.toLowerCase()}s...`}
+                  value={instanceSearch}
+                  onChange={(e) => setInstanceSearch(e.target.value)}
+                  className="flex-1 bg-transparent text-sm border-none focus:outline-none placeholder:text-dark-400"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowInstancePicker(false);
+                    setCheckedInstanceIds(new Set());
+                    setInstanceSearch('');
+                  }}
+                  className="p-1 text-dark-400 hover:text-dark-600 rounded"
+                >
+                  <LucideIcons.X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              {/* Instance List - Compact */}
+              <div className="max-h-48 overflow-y-auto">
+                {instancesLoading ? (
+                  <div className="p-4 text-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-dark-400 mx-auto" />
                   </div>
-
-                  {/* Search */}
-                  <div className="p-3 border-b border-dark-100">
-                    <div className="relative">
-                      <LucideIcons.Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-dark-400" />
-                      <input
-                        type="text"
-                        placeholder={`Search ${entityLabel.toLowerCase()}s...`}
-                        value={instanceSearch}
-                        onChange={(e) => setInstanceSearch(e.target.value)}
-                        className="w-full pl-9 pr-3 py-2 text-sm border border-dark-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
-                        autoFocus
-                      />
-                    </div>
+                ) : availableItemsCount === 0 ? (
+                  <div className="p-4 text-center text-xs text-dark-400">
+                    {instanceSearch ? 'No matches' : 'No items available'}
                   </div>
-
-                  {/* Instance List with Checkboxes */}
-                  <div className="max-h-64 overflow-y-auto">
-                    {instancesLoading ? (
-                      <div className="p-8 text-center">
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto" />
-                        <p className="text-sm text-dark-500 mt-2">Loading {entityLabel.toLowerCase()}s...</p>
-                      </div>
-                    ) : availableItemsCount === 0 ? (
-                      <div className="p-6 text-center text-dark-500">
-                        <LucideIcons.SearchX className="h-6 w-6 mx-auto text-dark-300 mb-2" />
-                        <p className="text-sm">
-                          {instanceSearch ? `No ${entityLabel.toLowerCase()}s match your search` : `No ${entityLabel.toLowerCase()}s available`}
-                        </p>
-                      </div>
-                    ) : (
-                      <>
-                        {/* Select All Header */}
-                        <div className="px-4 py-2 bg-dark-50 border-b border-dark-100 sticky top-0">
-                          <label className="flex items-center gap-3 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={availableItemsCount > 0 && (() => {
-                                const allIds: string[] = [];
-                                if (!hasAllEntitiesPermission && allEntitiesMatchesSearch) allIds.push(ALL_ENTITIES_ID);
-                                filteredInstances.forEach((i: EntityInstance) => allIds.push(i.id));
-                                return allIds.every(id => checkedInstanceIds.has(id));
-                              })()}
-                              onChange={toggleAllVisibleCheckboxes}
-                              className="w-4 h-4 text-blue-600 rounded border-dark-300 focus:ring-blue-500"
-                            />
-                            <span className="text-xs font-medium text-dark-600">
-                              Select all ({availableItemsCount})
-                            </span>
-                          </label>
-                        </div>
-
-                        {/* Instance Items - "All [Entity]s" first, then specific instances */}
-                        <div className="divide-y divide-dark-100">
-                          {/* "All [Entity]s" option - shown first if no permission exists */}
-                          {!hasAllEntitiesPermission && allEntitiesMatchesSearch && (
-                            <label
-                              className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${
-                                checkedInstanceIds.has(ALL_ENTITIES_ID) ? 'bg-emerald-50' : 'hover:bg-dark-50'
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={checkedInstanceIds.has(ALL_ENTITIES_ID)}
-                                onChange={() => toggleInstanceCheckbox(ALL_ENTITIES_ID)}
-                                className="w-4 h-4 text-emerald-600 rounded border-dark-300 focus:ring-emerald-500"
-                              />
-                              <div className="p-1.5 bg-emerald-100 rounded">
-                                <LucideIcons.Globe className="h-4 w-4 text-emerald-600" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-sm font-semibold text-emerald-700">
-                                  All {entityLabel}s
-                                </div>
-                                <div className="text-xs text-emerald-500">
-                                  Type-level permission
-                                </div>
-                              </div>
-                            </label>
-                          )}
-
-                          {/* Specific instance items */}
-                          {filteredInstances.map((instance: EntityInstance) => (
-                            <label
-                              key={instance.id}
-                              className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${
-                                checkedInstanceIds.has(instance.id) ? 'bg-blue-50' : 'hover:bg-dark-50'
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={checkedInstanceIds.has(instance.id)}
-                                onChange={() => toggleInstanceCheckbox(instance.id)}
-                                className="w-4 h-4 text-blue-600 rounded border-dark-300 focus:ring-blue-500"
-                              />
-                              <div className="flex-1 min-w-0">
-                                <div className="text-sm font-medium text-dark-800 truncate">
-                                  {instance.name}
-                                </div>
-                                {instance.code && (
-                                  <div className="text-xs text-dark-500 truncate">
-                                    {instance.code}
-                                  </div>
-                                )}
-                              </div>
-                            </label>
-                          ))}
-                        </div>
-                      </>
+                ) : (
+                  <div className="divide-y divide-dark-100">
+                    {/* "All [Entity]s" option */}
+                    {!hasAllEntitiesPermission && allEntitiesMatchesSearch && (
+                      <label className={`flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors ${
+                        checkedInstanceIds.has(ALL_ENTITIES_ID) ? 'bg-slate-100' : 'hover:bg-dark-50'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={checkedInstanceIds.has(ALL_ENTITIES_ID)}
+                          onChange={() => toggleInstanceCheckbox(ALL_ENTITIES_ID)}
+                          className="w-3.5 h-3.5 text-slate-600 rounded border-dark-300"
+                        />
+                        <LucideIcons.Globe className="h-3.5 w-3.5 text-dark-500" />
+                        <span className="text-xs font-medium text-dark-700">All {entityLabel}s</span>
+                        <span className="text-[10px] text-dark-400 ml-auto">type-level</span>
+                      </label>
                     )}
-                  </div>
 
-                  {/* Footer with Add Button - adds to unified table above */}
-                  <div className="px-4 py-3 bg-dark-50 border-t border-dark-100 flex items-center justify-between">
-                    <span className="text-xs text-dark-500">
-                      {checkedCount > 0
-                        ? `${checkedCount} item${checkedCount !== 1 ? 's' : ''} selected`
-                        : 'Select items to add to permissions'
-                      }
-                    </span>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowInstancePicker(false);
-                          setCheckedInstanceIds(new Set());
-                          setInstanceSearch('');
-                        }}
-                        className="px-3 py-1.5 text-sm font-medium text-dark-600 hover:text-dark-800 hover:bg-dark-100 rounded-lg transition-colors"
+                    {/* Specific instances */}
+                    {filteredInstances.map((instance: EntityInstance) => (
+                      <label
+                        key={instance.id}
+                        className={`flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors ${
+                          checkedInstanceIds.has(instance.id) ? 'bg-slate-100' : 'hover:bg-dark-50'
+                        }`}
                       >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          // Add checked items to pending configs and close picker
-                          handleConfirmSelection();
-                          setShowInstancePicker(false);
-                          setInstanceSearch('');
-                        }}
-                        disabled={checkedCount === 0}
-                        className="px-4 py-1.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                      >
-                        <LucideIcons.Plus className="h-4 w-4" />
-                        Add ({checkedCount})
-                      </button>
-                    </div>
+                        <input
+                          type="checkbox"
+                          checked={checkedInstanceIds.has(instance.id)}
+                          onChange={() => toggleInstanceCheckbox(instance.id)}
+                          className="w-3.5 h-3.5 text-slate-600 rounded border-dark-300"
+                        />
+                        <span className="text-xs text-dark-700 truncate flex-1">{instance.name}</span>
+                        {instance.code && (
+                          <span className="text-[10px] text-dark-400 font-mono">{instance.code}</span>
+                        )}
+                      </label>
+                    ))}
                   </div>
-                </>
-              ) : null}
+                )}
+              </div>
+
+              {/* Compact Footer */}
+              {checkedCount > 0 && (
+                <div className="px-3 py-2 bg-dark-50 border-t border-dark-100 flex items-center justify-between">
+                  <span className="text-xs text-dark-500">{checkedCount} selected</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleConfirmSelection();
+                      setShowInstancePicker(false);
+                      setInstanceSearch('');
+                    }}
+                    className="px-2.5 py-1 text-xs font-medium bg-slate-600 text-white rounded hover:bg-slate-700 transition-colors"
+                  >
+                    Add
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
-            /* Grant Permission Button */
+            /* Grant Permission Button - Minimal */
             <button
               type="button"
               onClick={() => setShowInstancePicker(true)}
-              className="w-full px-4 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-800 bg-white hover:bg-slate-50 border border-dashed border-slate-300 hover:border-slate-400 rounded-lg transition-all flex items-center justify-center gap-2"
+              className="w-full px-3 py-2 text-xs font-medium text-dark-500 hover:text-dark-700 hover:bg-dark-50 border border-dashed border-dark-200 hover:border-dark-300 rounded-lg transition-all flex items-center justify-center gap-1.5"
             >
-              <LucideIcons.Plus className="h-4 w-4" />
-              Grant Permission to {entityLabel}
+              <LucideIcons.Plus className="h-3.5 w-3.5" />
+              Add Permission
             </button>
           )}
         </div>

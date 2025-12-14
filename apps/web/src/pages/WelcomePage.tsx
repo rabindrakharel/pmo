@@ -1,4 +1,4 @@
-import React from 'react';
+import type { ComponentType } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Activity,
@@ -130,7 +130,7 @@ type DomainModule = {
   title: string;
   summary: string;
   focus: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string }>;
   entities: string[];
 };
 
@@ -329,14 +329,14 @@ export function WelcomePage() {
     const entity = entityMap[code];
     if (!entity) return null;
 
-    const baseClasses = 'inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border transition-all';
+    const baseClasses = 'inline-flex items-center px-2 py-1 rounded text-xs font-medium transition-all';
 
     if (entity.path) {
       return (
         <Link
           key={code}
           to={entity.path}
-          className={`${baseClasses} border-dark-200 bg-dark-subtle text-dark-700 hover:border-dark-400 hover:bg-dark-100 hover:shadow-sm`}
+          className={`${baseClasses} bg-dark-100 text-dark-700 hover:bg-dark-200 hover:text-dark-800`}
         >
           {entity.uiLabel}
         </Link>
@@ -346,7 +346,7 @@ export function WelcomePage() {
     return (
       <span
         key={code}
-        className={`${baseClasses} border-dark-200 bg-dark-subtle text-dark-500 cursor-default`}
+        className={`${baseClasses} bg-dark-50 text-dark-400`}
       >
         {entity.uiLabel}
       </span>
@@ -355,397 +355,271 @@ export function WelcomePage() {
 
   return (
     <Layout>
-      <div className="w-full bg-dark-canvas">
-        <div className="w-[97%] max-w-[1536px] mx-auto space-y-8 pb-4">
-          {/* Hero Section - Elegant & Modern */}
-          <div className="relative overflow-hidden bg-gradient-to-br from-dark-accent via-dark-accent-hover to-dark-800 rounded-xl shadow-lg border border-dark-accent/30">
-            {/* Subtle gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-dark-accent/10"></div>
-
-            <div className="relative px-8 md:px-10 py-8 md:py-10">
-              <div className="grid lg:grid-cols-2 gap-8 items-center">
-                {/* Left Column */}
-                <div>
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm mb-4">
-                    <Sparkles className="h-3.5 w-3.5 text-white/80" />
-                    <span className="text-xs font-medium text-white/90 uppercase tracking-wider">
-                      AI-First Enterprise Orchestrator
-                    </span>
-                  </div>
-
-                  <h1 className="text-3xl md:text-4xl font-bold text-white mb-4 leading-tight tracking-tight">
-                    Welcome back{user?.name ? `, ${user.name}` : ''}.
-                    <span className="block text-white/70 mt-1.5 text-2xl md:text-3xl">Let AI adapt to you.</span>
-                  </h1>
-
-                  <p className="text-base text-white/85 mb-5 leading-relaxed">
-                    Operate with <strong className="text-white">dramatically reduced friction</strong> by replacing
-                    complex processes with natural AI interactions.
-                  </p>
-
-                  <div className="flex flex-wrap gap-1.5 mb-6">
-                    {industriesServed.map(industry => (
-                      <span key={industry} className="px-2.5 py-1 rounded-full text-xs font-medium bg-white/10 border border-white/15 text-white/85">
-                        {industry}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="flex flex-wrap gap-2.5">
-                    <Link
-                      to="/chat"
-                      className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium bg-white text-dark-accent shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
-                    >
-                      <Bot className="h-4 w-4" />
-                      Ask the AI Agent
-                      <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
-                    </Link>
-                    <Link
-                      to="/entity-designer"
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium bg-white/10 text-white border border-white/25 hover:bg-white/15 backdrop-blur-sm transition-all duration-200"
-                    >
-                      <Layers className="h-4 w-4" />
-                      Semantic Model
-                    </Link>
-                  </div>
-                </div>
-
-                {/* Right Column - Stats */}
-                <div className="space-y-3">
-                  {heroHighlights.map(highlight => (
-                    <div key={highlight.label} className="group bg-white/8 backdrop-blur-sm rounded-lg p-4 border border-white/15 hover:bg-white/12 transition-all duration-200">
-                      <div className="flex items-start gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-white/15 flex items-center justify-center group-hover:scale-105 transition-transform">
-                          <highlight.icon className="h-5 w-5 text-white" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-xs font-medium text-white/60 uppercase tracking-wider mb-0.5">
-                            {highlight.label}
-                          </p>
-                          <p className="text-xl font-bold text-white mb-0.5">{highlight.value}</p>
-                          <p className="text-xs text-white/70">{highlight.description}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  <div className="bg-white/8 backdrop-blur-sm rounded-lg p-4 border border-white/15">
-                    <p className="font-medium text-white mb-1.5 flex items-center gap-2 text-sm">
-                      <Bot className="h-4 w-4 text-white/70" />
-                      AI handles execution. You focus on outcomes.
-                    </p>
-                    <p className="text-xs text-white/70 leading-relaxed">
-                      Conversations → semantics → workflows. The future where people drive strategy and AI runs operations.
-                    </p>
-                  </div>
-                </div>
+      <div className="w-full">
+        <div className="w-[97%] max-w-[1536px] mx-auto space-y-6 py-6">
+          {/* Hero Section - Minimal & Elegant */}
+          <div className="flex flex-col lg:flex-row lg:items-start gap-6">
+            {/* Left - Welcome & Actions */}
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles className="h-4 w-4 text-dark-500" />
+                <span className="text-xs font-medium text-dark-500 uppercase tracking-wider">
+                  AI-First Platform
+                </span>
               </div>
+
+              <h1 className="text-2xl font-semibold text-dark-800 mb-2">
+                Welcome back{user?.name ? `, ${user.name}` : ''}
+              </h1>
+              <p className="text-sm text-dark-600 mb-4 max-w-lg">
+                Replace complex processes with natural AI interactions. Let the system adapt to you.
+              </p>
+
+              <div className="flex flex-wrap gap-2 mb-4">
+                <Link
+                  to="/chat"
+                  className="group inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-dark-800 text-white hover:bg-dark-700 transition-colors"
+                >
+                  <Bot className="h-4 w-4" />
+                  Ask AI Agent
+                  <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
+                </Link>
+                <Link
+                  to="/entity-designer"
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-dark-700 bg-white border border-dark-200 hover:border-dark-300 hover:bg-dark-50 transition-colors"
+                >
+                  <Layers className="h-4 w-4" />
+                  Entity Model
+                </Link>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                {industriesServed.map(industry => (
+                  <span key={industry} className="px-2 py-0.5 rounded text-[11px] font-medium text-dark-500 bg-dark-100">
+                    {industry}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Right - Compact Stats */}
+            <div className="lg:w-80 space-y-2">
+              {heroHighlights.map(highlight => (
+                <div key={highlight.label} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white border border-dark-200 hover:border-dark-300 transition-colors">
+                  <div className="h-8 w-8 rounded-lg bg-dark-100 flex items-center justify-center flex-shrink-0">
+                    <highlight.icon className="h-4 w-4 text-dark-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-dark-500">{highlight.label}</p>
+                    <p className="text-sm font-semibold text-dark-800 truncate">{highlight.value}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Value Proposition */}
-          <div className="grid gap-5 md:grid-cols-2">
+          {/* Value Proposition - Compact */}
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
             {valueProps.map((prop) => (
-              <div key={prop.title} className="group bg-white border border-dark-200 rounded-lg p-6 hover:border-dark-400 hover:shadow-md transition-all duration-200">
-                <div className="flex items-start gap-4 mb-3">
-                  <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-dark-accent to-dark-accent-hover flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
-                    <prop.icon className="h-6 w-6 text-white" />
+              <div key={prop.title} className="group bg-white border border-dark-200 rounded-lg p-4 hover:border-dark-300 transition-colors">
+                <div className="flex items-center gap-2.5 mb-2">
+                  <div className="h-8 w-8 rounded-lg bg-dark-100 flex items-center justify-center group-hover:bg-dark-200 transition-colors">
+                    <prop.icon className="h-4 w-4 text-dark-600" />
                   </div>
-                  <div className="flex-1">
-                    <h3 className="text-xl font-bold text-dark-800 mb-2">{prop.title}</h3>
-                    <p className="text-sm text-dark-600 leading-relaxed">{prop.description}</p>
-                  </div>
+                  <h3 className="text-sm font-medium text-dark-800">{prop.title}</h3>
                 </div>
+                <p className="text-xs text-dark-600 leading-relaxed">{prop.description}</p>
               </div>
             ))}
           </div>
 
-          {/* Core Problem & AI-First Solution */}
-          <div className="bg-white rounded-lg shadow-sm border border-dark-200 overflow-hidden">
-            <div className="p-8">
-              <div className="grid md:grid-cols-2 gap-8">
-                <div>
-                  <div className="flex items-center gap-3 mb-5">
-                    <div className="h-10 w-10 rounded-xl bg-dark-warning flex items-center justify-center">
-                      <TrendingDown className="h-5 w-5 text-white" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-dark-800">The Core Problem</h2>
-                  </div>
-                  <div className="space-y-3 text-sm text-dark-700">
-                    <p className="flex items-start gap-3">
-                      <span className="text-dark-warning font-bold text-lg mt-0.5">•</span>
-                      <span>People still <strong className="text-dark-900">fill out forms</strong> and navigate complex interfaces</span>
-                    </p>
-                    <p className="flex items-start gap-3">
-                      <span className="text-dark-warning font-bold text-lg mt-0.5">•</span>
-                      <span>Teams <strong className="text-dark-900">learn systems</strong> instead of focusing on outcomes</span>
-                    </p>
-                    <p className="flex items-start gap-3">
-                      <span className="text-dark-warning font-bold text-lg mt-0.5">•</span>
-                      <span>Employees <strong className="text-dark-900">manually coordinate</strong> tasks across tools</span>
-                    </p>
-                    <p className="flex items-start gap-3">
-                      <span className="text-dark-warning font-bold text-lg mt-0.5">•</span>
-                      <span>Communication is <strong className="text-dark-900">fragmented</strong> across teams</span>
-                    </p>
-                    <div className="mt-5 p-4 bg-dark-warning-bg border-l-4 border-dark-warning rounded-r-lg">
-                      <p className="italic text-dark-700 font-medium">
-                        All of this creates <strong className="text-dark-warning">operational drag</strong>, high costs, and slow execution.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <div className="flex items-center gap-3 mb-5">
-                    <div className="h-10 w-10 rounded-xl bg-dark-success flex items-center justify-center">
-                      <Bot className="h-5 w-5 text-white" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-dark-800">AI-First Approach</h2>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="bg-dark-success-bg border border-dark-success/20 rounded-xl p-4">
-                      <p className="text-sm font-bold text-dark-800 mb-1">Instead of adapting to systems...</p>
-                      <p className="text-base font-semibold text-dark-success">Systems adapt to you.</p>
-                    </div>
-                    <div className="space-y-3 text-sm text-dark-700">
-                      <p className="flex items-start gap-3">
-                        <MessageSquare className="h-5 w-5 text-dark-success mt-0.5 flex-shrink-0" />
-                        <span>Users <strong className="text-dark-900">talk or chat</strong> naturally with AI</span>
-                      </p>
-                      <p className="flex items-start gap-3">
-                        <Network className="h-5 w-5 text-dark-success mt-0.5 flex-shrink-0" />
-                        <span>AI is your <strong className="text-dark-900">central orchestrator</strong></span>
-                      </p>
-                      <p className="flex items-start gap-3">
-                        <Workflow className="h-5 w-5 text-dark-success mt-0.5 flex-shrink-0" />
-                        <span>Workflows run <strong className="text-dark-900">automatically</strong></span>
-                      </p>
-                    </div>
-                    <div className="bg-dark-success-bg border border-dark-success/30 rounded-xl p-4 mt-4">
-                      <p className="text-sm font-bold text-dark-800 space-y-1">
-                        <span className="block">✓ Frictionless operations</span>
-                        <span className="block">✓ Centralized data</span>
-                        <span className="block">✓ Unified communication</span>
-                        <span className="block">✓ Better engagement</span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
+          {/* Core Problem vs AI-First - Compact Two Column */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="bg-white rounded-lg border border-dark-200 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <TrendingDown className="h-4 w-4 text-orange-500" />
+                <h2 className="text-sm font-medium text-dark-800">The Problem</h2>
               </div>
-              <div className="mt-8 bg-dark-subtle rounded-xl p-6 border border-dark-200">
-                <div className="flex items-start gap-4">
-                  <Users className="h-6 w-6 text-dark-700 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <h3 className="text-lg font-bold text-dark-800 mb-3">Why Small & Medium Businesses First</h3>
-                    <div className="grid md:grid-cols-4 gap-4 text-sm text-dark-700">
-                      <div className="flex items-start gap-2">
-                        <Zap className="h-4 w-4 text-dark-accent mt-0.5 flex-shrink-0" />
-                        <span><strong>Easy onboarding</strong> with minimal friction</span>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <Layers className="h-4 w-4 text-dark-accent mt-0.5 flex-shrink-0" />
-                        <span><strong>No rigid legacy</strong> systems</span>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <TrendingUp className="h-4 w-4 text-dark-accent mt-0.5 flex-shrink-0" />
-                        <span><strong>Feel the pain</strong> and seek fast ROI</span>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <Activity className="h-4 w-4 text-dark-accent mt-0.5 flex-shrink-0" />
-                        <span><strong>Quick adoption</strong> cycles</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              <ul className="space-y-1.5 text-xs text-dark-600">
+                <li className="flex items-start gap-2">
+                  <span className="text-orange-500 mt-0.5">•</span>
+                  <span>People fill out forms and navigate complex interfaces</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-orange-500 mt-0.5">•</span>
+                  <span>Teams learn systems instead of focusing on outcomes</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-orange-500 mt-0.5">•</span>
+                  <span>Employees manually coordinate tasks across tools</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-orange-500 mt-0.5">•</span>
+                  <span>Communication fragmented across teams</span>
+                </li>
+              </ul>
+            </div>
+            <div className="bg-white rounded-lg border border-dark-200 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Bot className="h-4 w-4 text-green-600" />
+                <h2 className="text-sm font-medium text-dark-800">AI-First Approach</h2>
               </div>
+              <ul className="space-y-1.5 text-xs text-dark-600">
+                <li className="flex items-start gap-2">
+                  <span className="text-green-600 mt-0.5">✓</span>
+                  <span>Users talk or chat naturally with AI</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-green-600 mt-0.5">✓</span>
+                  <span>AI is your central orchestrator</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-green-600 mt-0.5">✓</span>
+                  <span>Workflows run automatically</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-green-600 mt-0.5">✓</span>
+                  <span>Systems adapt to you, not the other way around</span>
+                </li>
+              </ul>
             </div>
           </div>
 
-          {/* Semantic Highlights */}
-          <div className="bg-white border border-dark-200 rounded-lg shadow-sm overflow-hidden">
-            <div className="bg-dark-subtle px-6 py-5 border-b border-dark-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold text-dark-accent uppercase tracking-wider mb-1">Semantic Modularity</p>
-                  <h2 className="text-xl font-bold text-dark-800">Inspired by nature, powered by agents</h2>
-                </div>
-                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white rounded-full border border-dark-200">
-                  <Activity className="h-3.5 w-3.5 text-dark-accent" />
-                  <span className="text-xs font-medium text-dark-700">Always-on semantic capture</span>
-                </div>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="grid gap-4 md:grid-cols-3">
-                {semanticHighlights.map(highlight => (
-                  <div key={highlight.title} className="group bg-dark-subtle rounded-lg border border-dark-200 p-5 hover:border-dark-400 hover:shadow-sm transition-all duration-200">
-                    <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-dark-accent to-dark-accent-hover flex items-center justify-center mb-3 group-hover:scale-105 transition-transform shadow-sm">
-                      <highlight.icon className="h-5 w-5 text-white" />
-                    </div>
-                    <h3 className="text-base font-bold text-dark-800 mb-2">{highlight.title}</h3>
-                    <p className="text-sm text-dark-600 mb-2 leading-relaxed">{highlight.description}</p>
-                    <p className="text-xs font-semibold text-dark-accent uppercase tracking-wider">{highlight.detail}</p>
+          {/* Semantic Highlights - Compact Grid */}
+          <div className="grid gap-3 md:grid-cols-3">
+            {semanticHighlights.map(highlight => (
+              <div key={highlight.title} className="group bg-white rounded-lg border border-dark-200 p-4 hover:border-dark-300 transition-colors">
+                <div className="flex items-center gap-2.5 mb-2">
+                  <div className="h-8 w-8 rounded-lg bg-dark-100 flex items-center justify-center group-hover:bg-dark-200 transition-colors">
+                    <highlight.icon className="h-4 w-4 text-dark-600" />
                   </div>
-                ))}
+                  <h3 className="text-sm font-medium text-dark-800">{highlight.title}</h3>
+                </div>
+                <p className="text-xs text-dark-600 leading-relaxed mb-1.5">{highlight.description}</p>
+                <p className="text-[10px] font-medium text-dark-500 uppercase tracking-wider">{highlight.detail}</p>
               </div>
-            </div>
+            ))}
           </div>
 
-          {/* Integration Pain Section */}
-          <div className="bg-white border border-dark-200 rounded-lg shadow-sm overflow-hidden">
-            <div className="bg-dark-subtle px-6 py-5 border-b border-dark-200">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-dark-accent flex items-center justify-center">
-                  <PlugZap className="h-4 w-4 text-white" />
-                </div>
-                <h2 className="text-xl font-bold text-dark-800">Goodbye brittle integrations</h2>
-              </div>
+          {/* Integration Pain Section - Compact */}
+          <div className="bg-white border border-dark-200 rounded-lg overflow-hidden">
+            <div className="px-4 py-3 border-b border-dark-100 flex items-center gap-2">
+              <PlugZap className="h-4 w-4 text-dark-500" />
+              <h2 className="text-sm font-medium text-dark-800">Integration Challenges & Solutions</h2>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="divide-y divide-dark-100">
               {integrationPainPoints.map(point => (
-                <div key={point.title} className="bg-dark-subtle border border-dark-200 rounded-lg p-5 hover:border-dark-400 hover:shadow-sm transition-all duration-200">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-dark-accent to-dark-accent-hover flex items-center justify-center shadow-sm">
-                      <point.icon className="h-5 w-5 text-white" />
-                    </div>
-                    <h3 className="text-base font-bold text-dark-800">{point.title}</h3>
+                <div key={point.title} className="px-4 py-3 hover:bg-dark-50/50 transition-colors">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <point.icon className="h-3.5 w-3.5 text-dark-500" />
+                    <h3 className="text-xs font-medium text-dark-800">{point.title}</h3>
                   </div>
-                  <div className="space-y-1.5 pl-13">
-                    <p className="text-sm text-dark-600">
-                      <span className="font-bold text-dark-error">Pain:</span> {point.pain}
-                    </p>
-                    <p className="text-sm text-dark-600">
-                      <span className="font-bold text-dark-success">Solution:</span> {point.solution}
-                    </p>
+                  <div className="grid md:grid-cols-2 gap-2 text-xs text-dark-600">
+                    <p><span className="text-orange-500 font-medium">Pain:</span> {point.pain}</p>
+                    <p><span className="text-green-600 font-medium">Solution:</span> {point.solution}</p>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Domain Modules */}
-          <div className="space-y-5">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold text-dark-accent uppercase tracking-wider mb-1.5">Domain-Entity Architecture</p>
-                <h2 className="text-xl font-bold text-dark-800 mb-1.5">8 semantic domains powering every industry</h2>
-                <p className="text-sm text-dark-600">Modular ontology where entities self-organize and AI orchestrates workflows automatically</p>
+          {/* Domain Modules - Compact */}
+          <div className="bg-white border border-dark-200 rounded-lg overflow-hidden">
+            <div className="px-4 py-3 border-b border-dark-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Database className="h-4 w-4 text-dark-500" />
+                <h2 className="text-sm font-medium text-dark-800">Domain Architecture</h2>
+                <span className="text-xs text-dark-400">8 domains</span>
               </div>
               <Link
                 to="/entity-designer"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-md font-medium bg-dark-accent text-white shadow-sm hover:bg-dark-accent-hover transition-all duration-200 whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium text-dark-600 hover:bg-dark-100 transition-colors"
               >
-                <Layers className="h-4 w-4" />
-                View Entity Designer
+                <Layers className="h-3.5 w-3.5" />
+                Entity Designer
               </Link>
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-dark-100">
               {domainModules.map(module => (
-                <div key={module.id} className="group bg-white border border-dark-200 rounded-lg overflow-hidden hover:border-dark-400 hover:shadow-md transition-all duration-200">
-                  <div className="bg-dark-subtle px-5 py-4 border-b border-dark-200">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-dark-accent to-dark-accent-hover flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
-                          <module.icon className="h-5 w-5 text-white" />
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-semibold text-dark-800">{module.title}</h3>
-                          <p className="text-xs text-dark-600">{module.summary}</p>
-                        </div>
-                      </div>
-                      <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-dark-100 border border-dark-200 text-dark-accent">
-                        {module.focus}
-                      </span>
+                <div key={module.id} className="px-4 py-3 hover:bg-dark-50/50 transition-colors">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="h-6 w-6 rounded bg-dark-100 flex items-center justify-center">
+                      <module.icon className="h-3.5 w-3.5 text-dark-600" />
                     </div>
+                    <h3 className="text-xs font-medium text-dark-800">{module.title}</h3>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-dark-100 text-dark-500">
+                      {module.focus}
+                    </span>
                   </div>
-                  <div className="p-5">
-                    <div className="flex flex-wrap gap-1.5">
-                      {module.entities.map(renderEntityChip)}
-                    </div>
+                  <div className="flex flex-wrap gap-1">
+                    {module.entities.map(renderEntityChip)}
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Quick Actions */}
-          <div className="bg-white border border-dark-200 rounded-lg shadow-sm overflow-hidden">
-            <div className="bg-dark-subtle px-6 py-5 border-b border-dark-200">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-dark-accent flex items-center justify-center">
-                  <MessageSquare className="h-4 w-4 text-white" />
+          {/* Quick Actions - Compact Horizontal */}
+          <div className="grid gap-3 md:grid-cols-4">
+            {quickActions.map(action => (
+              <Link
+                key={action.label}
+                to={action.path}
+                className="group flex items-center gap-3 px-4 py-3 rounded-lg bg-white border border-dark-200 hover:border-dark-300 transition-colors"
+              >
+                <div className="h-8 w-8 rounded-lg bg-dark-100 flex items-center justify-center group-hover:bg-dark-200 transition-colors flex-shrink-0">
+                  <action.icon className="h-4 w-4 text-dark-600" />
                 </div>
-                <h2 className="text-xl font-bold text-dark-800">Choose your next move</h2>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {quickActions.map(action => (
-                  <Link
-                    key={action.label}
-                    to={action.path}
-                    className="group bg-dark-subtle border border-dark-200 rounded-lg p-4 hover:border-dark-400 hover:shadow-md transition-all duration-200 flex flex-col gap-3"
-                  >
-                    <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-dark-accent to-dark-accent-hover flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
-                      <action.icon className="h-5 w-5 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-sm font-semibold text-dark-800 mb-1.5">{action.label}</h3>
-                      <p className="text-xs text-dark-600 leading-relaxed">{action.description}</p>
-                    </div>
-                    <div className="inline-flex items-center gap-1.5 text-xs font-medium text-dark-accent group-hover:gap-2.5 transition-all">
-                      Go
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-xs font-medium text-dark-800 mb-0.5">{action.label}</h3>
+                  <p className="text-[10px] text-dark-500 truncate">{action.description}</p>
+                </div>
+                <ArrowRight className="h-3.5 w-3.5 text-dark-400 group-hover:text-dark-600 group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+              </Link>
+            ))}
           </div>
 
-          {/* Entity Catalog */}
-          <div className="bg-white border border-dark-200 rounded-lg shadow-sm overflow-hidden">
-            <div className="bg-gradient-to-r from-dark-accent via-dark-accent-hover to-dark-800 px-6 py-5 border-b border-dark-accent/30">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold text-white/70 uppercase tracking-wider mb-1">Entity Catalog</p>
-                  <h2 className="text-xl font-bold text-white">Every domain, every entity, one semantic table</h2>
-                </div>
-                <Link
-                  to="/linkage"
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-md font-medium bg-white text-dark-accent shadow-sm hover:bg-dark-subtle transition-all duration-200 whitespace-nowrap"
-                >
-                  <Network className="h-4 w-4" />
-                  View Linkage Graph
-                </Link>
+          {/* Entity Catalog - Compact Table */}
+          <div className="bg-white border border-dark-200 rounded-lg overflow-hidden">
+            <div className="px-4 py-3 border-b border-dark-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Network className="h-4 w-4 text-dark-500" />
+                <h2 className="text-sm font-medium text-dark-800">Entity Catalog</h2>
+                <span className="text-xs text-dark-400">{entityCatalog.length} entities</span>
               </div>
+              <Link
+                to="/linkage"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium text-dark-600 hover:bg-dark-100 transition-colors"
+              >
+                <Network className="h-3.5 w-3.5" />
+                Linkage Graph
+              </Link>
             </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-dark-200">
-                <thead className="bg-dark-subtle">
+            <div className="overflow-x-auto max-h-80">
+              <table className="min-w-full">
+                <thead className="bg-dark-50 sticky top-0">
                   <tr>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">Code</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">Entity</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">Domain</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">Description</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">Navigate</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-medium text-dark-500 uppercase tracking-wider">Code</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-medium text-dark-500 uppercase tracking-wider">Entity</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-medium text-dark-500 uppercase tracking-wider">Domain</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-medium text-dark-500 uppercase tracking-wider hidden lg:table-cell">Description</th>
+                    <th className="px-3 py-2 w-16"></th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-dark-100">
+                <tbody className="divide-y divide-dark-50">
                   {entityCatalog.map(entity => (
-                    <tr key={entity.code} className="hover:bg-dark-hover transition-colors">
-                      <td className="px-5 py-3 text-xs text-dark-700 font-mono font-medium">{entity.code}</td>
-                      <td className="px-5 py-3 text-xs text-dark-800 font-semibold">{entity.uiLabel}</td>
-                      <td className="px-5 py-3 text-xs text-dark-600">{domainNameMap[entity.domainId]}</td>
-                      <td className="px-5 py-3 text-xs text-dark-600">{entity.description}</td>
-                      <td className="px-5 py-3 text-xs">
+                    <tr key={entity.code} className="hover:bg-dark-50/50 transition-colors">
+                      <td className="px-3 py-2 text-xs text-dark-600 font-mono">{entity.code}</td>
+                      <td className="px-3 py-2 text-xs text-dark-800 font-medium">{entity.uiLabel}</td>
+                      <td className="px-3 py-2 text-xs text-dark-500">{domainNameMap[entity.domainId]}</td>
+                      <td className="px-3 py-2 text-xs text-dark-500 hidden lg:table-cell truncate max-w-xs">{entity.description}</td>
+                      <td className="px-3 py-2 text-xs">
                         {entity.path ? (
-                          <Link to={entity.path} className="group inline-flex items-center gap-1.5 text-dark-accent font-medium hover:text-dark-accent-hover transition-all">
-                            Open
-                            <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
+                          <Link to={entity.path} className="text-dark-600 hover:text-dark-800 transition-colors">
+                            <ArrowRight className="h-3.5 w-3.5" />
                           </Link>
                         ) : (
-                          <span className="text-dark-400 italic">Managed by AI</span>
+                          <span className="text-dark-300">—</span>
                         )}
                       </td>
                     </tr>

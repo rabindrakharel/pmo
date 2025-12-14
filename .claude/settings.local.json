@@ -58,7 +58,8 @@
       "Bash(aws lambda invoke:*)",
       "Bash(/tmp/lambda-response.json)",
       "Bash(aws ssm get-command-invocation:*)",
-      "Bash(aws ssm send-command:*)"
+      "Bash(aws ssm send-command:*)",
+      "Bash(python3:*)"
     ],
     "deny": [],
     "ask": [],

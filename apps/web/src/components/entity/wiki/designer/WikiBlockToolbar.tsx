@@ -23,68 +23,63 @@ interface WikiBlockToolbarProps {
 export function WikiBlockToolbar({ onAddBlock }: WikiBlockToolbarProps) {
   const blockTypes = [
     {
-      category: 'Basic Blocks',
+      category: 'Basic',
       items: [
-        { type: 'heading' as const, level: 1, icon: Heading1, label: 'Heading 1', description: 'Large section heading' },
-        { type: 'heading' as const, level: 2, icon: Heading2, label: 'Heading 2', description: 'Medium section heading' },
-        { type: 'heading' as const, level: 3, icon: Heading3, label: 'Heading 3', description: 'Small section heading' },
-        { type: 'paragraph' as const, icon: Type, label: 'Paragraph', description: 'Just start writing plain text' },
+        { type: 'heading' as const, level: 1, icon: Heading1, label: 'H1' },
+        { type: 'heading' as const, level: 2, icon: Heading2, label: 'H2' },
+        { type: 'heading' as const, level: 3, icon: Heading3, label: 'H3' },
+        { type: 'paragraph' as const, icon: Type, label: 'Text' },
       ],
     },
     {
       category: 'Lists',
       items: [
-        { type: 'list' as const, level: 1, icon: List, label: 'Bulleted List', description: 'Create a simple bulleted list' },
-        { type: 'list' as const, level: 2, icon: ListOrdered, label: 'Numbered List', description: 'Create a list with numbering' },
+        { type: 'list' as const, level: 1, icon: List, label: 'Bullets' },
+        { type: 'list' as const, level: 2, icon: ListOrdered, label: 'Numbers' },
       ],
     },
     {
       category: 'Content',
       items: [
-        { type: 'quote' as const, icon: Quote, label: 'Quote', description: 'Capture a quote' },
-        { type: 'code' as const, icon: Code, label: 'Code', description: 'Capture a code snippet' },
-        { type: 'callout' as const, icon: AlertCircle, label: 'Callout', description: 'Make text stand out' },
+        { type: 'quote' as const, icon: Quote, label: 'Quote' },
+        { type: 'code' as const, icon: Code, label: 'Code' },
+        { type: 'callout' as const, icon: AlertCircle, label: 'Callout' },
       ],
     },
     {
       category: 'Media',
       items: [
-        { type: 'image' as const, icon: Image, label: 'Image', description: 'Upload or embed image' },
-        { type: 'video' as const, icon: Video, label: 'Video', description: 'Embed YouTube or Vimeo' },
+        { type: 'image' as const, icon: Image, label: 'Image' },
+        { type: 'video' as const, icon: Video, label: 'Video' },
       ],
     },
     {
-      category: 'Advanced',
+      category: 'Other',
       items: [
-        { type: 'table' as const, icon: Table, label: 'Table', description: 'Add a simple table' },
-        { type: 'divider' as const, icon: Minus, label: 'Divider', description: 'Visually divide blocks' },
+        { type: 'table' as const, icon: Table, label: 'Table' },
+        { type: 'divider' as const, icon: Minus, label: 'Divider' },
       ],
     },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {blockTypes.map((category) => (
         <div key={category.category}>
-          <h4 className="text-xs font-semibold text-dark-700 uppercase tracking-wider mb-3">
+          <div className="text-[10px] font-medium text-dark-400 uppercase tracking-wider mb-1.5 px-1">
             {category.category}
-          </h4>
-          <div className="space-y-1">
+          </div>
+          <div className="grid grid-cols-2 gap-1">
             {category.items.map((item) => {
               const Icon = item.icon;
               return (
                 <button
                   key={`${item.type}-${item.level || 0}`}
                   onClick={() => onAddBlock(item.type, item.level)}
-                  className="w-full flex items-start space-x-3 p-3 rounded-md hover:bg-dark-100 transition-colors text-left group"
+                  className="flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-dark-100 transition-colors text-left group"
                 >
-                  <div className="flex-shrink-0 p-2 bg-dark-100 border border-dark-300 rounded-md group-hover:border-dark-500 group-hover:bg-dark-100 transition-colors">
-                    <Icon className="h-4 w-4 text-dark-700 group-hover:text-dark-700" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-dark-600">{item.label}</div>
-                    <div className="text-xs text-dark-700 mt-0.5">{item.description}</div>
-                  </div>
+                  <Icon className="h-3.5 w-3.5 text-dark-400 group-hover:text-dark-600" />
+                  <span className="text-xs text-dark-600">{item.label}</span>
                 </button>
               );
             })}

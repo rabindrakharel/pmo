@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Layout } from '../../components/shared';
 import { useNavigate, useParams } from 'react-router-dom';
 import { wikiApi } from '../../lib/api';
-import { EllipsisBounce } from '../../components/shared/ui/EllipsisBounce';
+import { ArrowLeft, Pencil } from 'lucide-react';
 
 export function WikiViewPage() {
   const navigate = useNavigate();
@@ -28,7 +28,7 @@ export function WikiViewPage() {
     return (
       <Layout>
         <div className="p-8 flex items-center justify-center">
-          <EllipsisBounce size="md" text="Processing" />
+          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-dark-400" />
         </div>
       </Layout>
     );
@@ -37,37 +37,49 @@ export function WikiViewPage() {
   if (!page) {
     return (
       <Layout>
-        <div className="p-8">Page not found</div>
+        <div className="p-8 text-center text-dark-400 text-sm">Page not found</div>
       </Layout>
     );
   }
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto space-y-4">
-        {/* Cover */}
-        <div className={`h-40 rounded-xl ${
-          page.attr?.cover === 'gradient-purple' ? 'bg-gradient-to-r from-purple-600 to-pink-600' :
-          page.attr?.cover === 'emerald' ? 'bg-gradient-to-r from-emerald-600 to-teal-600' :
-          page.attr?.cover === 'gray' ? 'bg-dark-200' : 'bg-gradient-to-r from-dark-700 to-indigo-600'
-        }`} />
-
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 text-3xl flex items-center justify-center bg-dark-100 rounded-md border">{page.attr?.icon || '📄'}</div>
-              <h1 className="text-sm font-normal text-dark-600">{page.name}</h1>
-            </div>
-            <p className="text-dark-700 text-sm">Updated {new Date(page.updatedTs || page.updated_ts).toLocaleString()}</p>
-          </div>
-          <div className="space-x-2">
-            <button onClick={() => navigate(`/wiki/${id}/edit`)} className="inline-flex items-center px-4 py-2 bg-slate-600 text-white text-sm font-medium rounded-md hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-slate-500/50 focus-visible:outline-none shadow-sm transition-colors">Edit</button>
-            <button onClick={() => navigate('/wiki')} className="inline-flex items-center px-4 py-2 border border-dark-200 text-sm font-medium rounded-md text-dark-700 bg-white hover:bg-dark-50 hover:border-dark-300 focus-visible:ring-2 focus-visible:ring-slate-500/30 focus-visible:outline-none transition-colors">Back</button>
-          </div>
+      <div className="max-w-3xl mx-auto py-6 px-4">
+        {/* Minimal Header */}
+        <div className="flex items-center justify-between mb-6">
+          <button
+            onClick={() => navigate('/wiki')}
+            className="flex items-center gap-1.5 text-xs text-dark-500 hover:text-dark-700 transition-colors"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back
+          </button>
+          <button
+            onClick={() => navigate(`/wiki/${id}/edit`)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-dark-600 hover:bg-dark-100 rounded transition-colors"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Edit
+          </button>
         </div>
 
-        <article className="bg-dark-100 border rounded-md p-6 prose max-w-none">
-          <div dangerouslySetInnerHTML={{ __html: page.content_html || page.contentHtml || '' }} />
+        {/* Page Content */}
+        <article className="bg-white rounded-lg border border-dark-200 overflow-hidden">
+          {/* Title Section */}
+          <div className="px-8 pt-8 pb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-2xl">{page.attr?.icon || '📄'}</span>
+              <h1 className="text-xl font-semibold text-dark-800">{page.name}</h1>
+            </div>
+            <p className="text-xs text-dark-400">
+              Updated {new Date(page.updatedTs || page.updated_ts).toLocaleDateString()}
+            </p>
+          </div>
+
+          {/* Content */}
+          <div className="px-8 pb-8 prose prose-sm max-w-none prose-headings:text-dark-800 prose-p:text-dark-600 prose-a:text-slate-600">
+            <div dangerouslySetInnerHTML={{ __html: page.content_html || page.contentHtml || '' }} />
+          </div>
         </article>
       </div>
     </Layout>

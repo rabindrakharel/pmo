@@ -8,11 +8,11 @@
  * This module intentionally uses custom routes instead of createUniversalEntityRoutes
  * factory for the following reasons:
  *
- * 1. NESTED DATA TABLE (wiki_data): Wikis have a child content table (d_wiki_data)
+ * 1. NESTED DATA TABLE (wiki_data): Wikis have a child content table (wiki_data)
  *    that stores content_markdown, content_html with revision history. The GET
  *    endpoint performs a LEFT JOIN LATERAL to get the latest saved version.
  *
- * 2. CONTENT VERSIONING: Updates may insert new rows into d_wiki_data instead of
+ * 2. CONTENT VERSIONING: Updates may insert new rows into wiki_data instead of
  *    updating in place, creating a version history for content changes.
  *
  * 3. HIERARCHICAL STRUCTURE: Wikis support parent-child relationships via
@@ -459,10 +459,10 @@ export async function wikiRoutes(fastify: FastifyInstance) {
         instance_code: wiki.code
       });
 
-      // Insert into d_wiki_data (content table) if content provided
+      // Insert into wiki_data (content table) if content provided
       if (data.content_markdown || data.content_html) {
         await db.execute(sql`
-          INSERT INTO app.d_wiki_data (
+          INSERT INTO app.wiki_data (
             wiki_id, content_markdown, content_html, stage, updated_by__employee_id, update_type
           ) VALUES (
             ${wiki.id},
@@ -624,10 +624,10 @@ export async function wikiRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Update or insert content in d_wiki_data if provided
+      // Update or insert content in wiki_data if provided
       if (data.content_markdown !== undefined || data.content_html !== undefined) {
         await db.execute(sql`
-          INSERT INTO app.d_wiki_data (
+          INSERT INTO app.wiki_data (
             wiki_id, content_markdown, content_html, stage, updated_by__employee_id, update_type
           ) VALUES (
             ${id},

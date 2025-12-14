@@ -1553,6 +1553,45 @@ fieldBusinessTypes:
     inherit: type
 
   # --------------------------------------------------------------------------
+  # SCOPE & LEVEL FIELDS
+  # --------------------------------------------------------------------------
+  scope:
+    dtype: str
+    entityListOfInstancesTable:
+      <<: *table_default
+      renderType: text
+      style: { width: *width_lg }
+    entityInstanceFormContainer:
+      <<: *form_default
+      renderType: text
+    kanbanView: *hidden
+    gridView: *hidden
+
+  level:
+    dtype: str
+    entityListOfInstancesTable:
+      <<: *table_default
+      renderType: text
+      style: { width: *width_md, align: center }
+    entityInstanceFormContainer:
+      <<: *form_default
+      renderType: text
+    kanbanView: *hidden
+    gridView: *hidden
+
+  text_medium:
+    dtype: str
+    entityListOfInstancesTable:
+      <<: *table_default
+      renderType: text
+      style: { width: *width_wide }
+    entityInstanceFormContainer:
+      <<: *form_default
+      renderType: text
+    kanbanView: *hidden
+    gridView: *hidden
+
+  # --------------------------------------------------------------------------
   # IDENTIFICATION NUMBERS
   # --------------------------------------------------------------------------
   sensitive_id:
